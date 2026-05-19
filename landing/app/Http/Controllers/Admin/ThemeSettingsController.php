@@ -94,6 +94,11 @@ class ThemeSettingsController extends Controller
         $grid = $this->normalizeNeonRows($request->input('theme_neon_grid', []), 6);
         LandingSiteSetting::put('landing.theme_neon_grid', json_encode($grid, JSON_UNESCAPED_UNICODE));
 
+        if ($request->input('return_to') === 'appearance') {
+            return redirect()->route('admin.appearance.index', ['tab' => $request->input('tab', 'theme')])
+                ->with('status', 'Tema ve görünüm ayarları kaydedildi.');
+        }
+
         return back()->with('status', 'Tema ve görünüm ayarları kaydedildi.');
     }
 

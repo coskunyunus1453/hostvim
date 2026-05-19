@@ -15,7 +15,7 @@ if [[ ! -f "$PANEL_ROOT/.env" ]]; then
   exit 1
 fi
 
-if command -v git >/dev/null 2>&1; then
+if [[ "${HOSTVIM_SKIP_GIT_PULL:-0}" != "1" ]] && command -v git >/dev/null 2>&1; then
   if [[ -d "$REPO_ROOT/.git" ]]; then
     echo "==> git pull ($REPO_ROOT)"
     git -C "$REPO_ROOT" pull --ff-only
@@ -35,6 +35,10 @@ if [[ -f "$REPO_ROOT/deploy/host/hostvim-nginx-vhost" ]]; then
   echo "==> /usr/local/sbin/hostvim-nginx-vhost (repo ile güncelle)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/hostvim-nginx-vhost" /usr/local/sbin/hostvim-nginx-vhost
   sudo ln -sfn /usr/local/sbin/hostvim-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
+fi
+if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
+  echo "==> /usr/local/sbin/hostvim-panel-update (repo ile güncelle)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
 fi
 
 cd "$PANEL_ROOT"

@@ -8,6 +8,12 @@ return [
     'license_api_secret' => env('HOSTVIM_LICENSE_API_SECRET', ''),
 
     /**
+     * Panel güncelleme hub API (GET /api/v1/panel-updates/check).
+     * Dolu ise Authorization: Bearer zorunlu.
+     */
+    'panel_updates_api_secret' => env('HOSTVIM_PANEL_UPDATES_API_SECRET', env('HOSTVIM_LICENSE_API_SECRET', '')),
+
+    /**
      * Ödeme: Türkiye → PayTR, diğer → Stripe (locale veya zorlama ile).
      */
     'billing' => [

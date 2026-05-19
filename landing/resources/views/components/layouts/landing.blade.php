@@ -214,5 +214,6 @@
         </div>
     </footer>
     @endif
+    <x-landing.body-extras />
 </body>
 </html>

@@ -17,40 +17,77 @@ class ContentSeeder extends Seeder
             ['locale' => 'tr', 'slug' => 'setup'],
             [
                 'title' => 'Kurulum rehberi',
-                'meta_description' => 'Hostvim panelini sunucunuza kurmak için adım adım rehber.',
+                'meta_description' => 'Hostvim Engine ve panel kurulumu: ön koşullar, güvenlik, ortam değişkenleri ve doğrulama adımları.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
-## Genel bakış
+## Bu rehberde neler var?
 
-Hostvim, Linux sunucunuzda **Nginx**, **PHP-FPM** ve veritabanlarını tek panelden yönetmenizi sağlar. Kurulum iki ana bileşenden oluşur:
+Hostvim yığını **iki ana parçadan** oluşur ve üretimde birlikte çalışması gerekir:
 
-1. **Hostvim Engine** — sunucu tarafı servisler ve yapılandırma
-2. **Panel** — web arayüzü ve API
+| Bileşen | Rol |
+| --- | --- |
+| **Hostvim Engine** | Sunucuda Nginx, PHP-FPM, sertifika ve site düzeyi işlemleri yürüten servis (genelde `127.0.0.1:9090` gibi bir adresten API dinler). |
+| **Panel (Laravel)** | Tarayıcıdan yönetim, kullanıcı/rol, lisans ve Engine’e giden API çağrıları. |
+
+Bu sayfa **genel kurulum akışını** özetler; mimari ve ürün özellikleri için [dokümantasyon](/docs) altındaki [Mimari](/docs/architecture) ve [Hostvim yetenekleri](/docs/platform-features) sayfalarına bakın.
+
+---
 
 ## Ön koşullar
 
-- Temiz bir **Ubuntu 22.04 LTS** veya üretim ekibinizin desteklediği bir dağıtım
-- **root** veya `sudo` yetkisi
-- Alan adınızın DNS kayıtlarının sunucuya işaret etmesi (SSL için)
+### Sunucu ve sistem
 
-## Tek satır kurulum (örnek)
+- **İşletim sistemi:** Temiz veya bakımlı bir **Ubuntu 22.04 LTS** önerilir; ekibiniz başka bir LTS dağıtımı onayladıysa ona uygun paket adlarını kullanın.
+- **Donanım (kılavuz):** Küçük ekipler için **2 vCPU / 4 GB RAM** genelde yeterli başlangıç değeridir; çok sayıda site veya yoğun PHP iş yükünde kaynakları artırın.
+- **Erişim:** `root` veya güvenilir **sudo** yetkisi; uzak SSH için parola yerine **anahtar tabanlı giriş** tercih edin.
+- **Saat ve DNS:** Sunucu saatinin doğru olması (NTP); üretim alan adlarınızın **A/AAAA** kayıtları sunucunuzu göstermeli (Let’s Encrypt ve canlı trafik için).
 
-Sunucuda aşağıdaki komut, bootstrap betiğini indirip çalıştırır:
+### Güvenlik (kurulum öncesi)
+
+- Sunucuda yalnızca ihtiyaç duyulan portları açın (başlangıçta genelde **22**, **80**, **443**; paneli ayrı bir porttan yayınlıyorsanız onu da tanımlayın).
+- Mümkünse paneli yalnızca **VPN**, sabit IP veya **geçici SSH tüneli** üzerinden erişilebilir yapın; en azından yönetim hesaplarında **2FA** ve güçlü oturum politikası kullanın.
+- Kurulumdan önce bir **snapshot / yedek** alın; üzerinde önemli veri olan mevcut sunucuları “üstüne yazmadan” önce yedek bulundurun.
+
+---
+
+## Hızlı kurulum (örnek bootstrap)
+
+Resmi bootstrap betiği indirilip çalıştırılabilir:
 
 ```bash
 curl -fsSL https://get.hostvim.sh | bash
 ```
 
-> Üretim ortamında betiği çalıştırmadan önce resmi dokümantasyondaki checksum ve imza doğrulamasını uygulayın.
+> **Üretim:** Betiği çalıştırmadan önce imza / checksum doğrulaması ve betik içeriğinin incelemesi şart sayılmalıdır. Test ortamında önce deneyin.
 
-## Kurulum sonrası
+Betiğin yüklediği paketler ve servis adları sürüme göre değişebilir; güncel adımlar için konsol çıktısını ve [Sunucu kurulumu](/docs/server-setup) dokümanını takip edin.
 
-- Panel URL’nizi tarayıcıda açın ve ilk yönetici hesabını oluşturun.
-- Engine ile panel arasındaki API anahtarlarını `.env` üzerinden eşleştirin.
-- İlk site oluşturma sihirbazı ile bir **test domain** üzerinde doğrulama yapın.
+---
 
-Sorularınız için [dokümantasyon](/docs) ve [blog](/blog) sayfalarına göz atın.
+## Panel ortam değişkenleri (Engine bağlantısı)
+
+Panel deposundaki `.env` dosyasında Engine ile güvenli iletişim için tipik olarak şu alanlar kullanılır:
+
+- `ENGINE_API_URL` — Engine API taban adresi (örn. `http://127.0.0.1:9090`).
+- `ENGINE_INTERNAL_KEY` — Engine ile panel arasında paylaşılan dahili anahtar.
+- `ENGINE_API_SECRET` — İmzalı istekler ve web terminal JWT gibi akışlar için Engine `security` yapılandırmasıyla eşleşmelidir.
+
+Bu değerler, aynı sunucudaki **Engine yapılandırması** ile birebir uyumlu olmalı; aksi halde site oluşturma, SSL veya terminal işlemleri başarısız olur.
+
+Lisanslama için `LICENSE_SERVER_URL`, `LICENSE_KEY` vb. alanlar kullanılabilir; birçok kurulumda anahtar **panel içindeki lisans ekranından** girilir.
+
+---
+
+## Kurulum sonrası kontrol listesi
+
+1. Panel ön yüzüne gidin ve ilk **yönetici** hesabını oluşturun (veya dağıtımınızdaki ilk oturum adımını tamamlayın).
+2. HTTP(S) sonlandırıcıyı doğrulayın; üretimde **HTTPS zorunlu** olmalı.
+3. Engine–panel bağlantısını test edin (ör. staging alan adıyla site açma veya panel üzerinden `GET /api/health` — yanıtta `status: ok` içeren bir JSON beklenir).
+4. İlk üretim trafiğini açmadan önce **test subdomain** veya düşük riskli alan adıyla DNS, sertifika ve PHP sürümünü doğrulayın.
+5. Yedekleme hedeflerini ve güncelleme planını (Engine + panel) netleştirin.
+
+Sorun giderme: firewall, yanlış `ENGINE_*` değerleri, DNS yayılımı ve saat kayması en sık kök nedenlerdir. [Blog](/blog) ve ana sayfadaki [SSS](/#faq) bölümüne de göz atın.
 MD
             ]
         );
@@ -59,40 +96,77 @@ MD
             ['locale' => 'en', 'slug' => 'setup'],
             [
                 'title' => 'Installation guide',
-                'meta_description' => 'Step-by-step guide to installing the Hostvim panel on your server.',
+                'meta_description' => 'Install Hostvim Engine and panel: prerequisites, hardening, environment variables, and post-install verification.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
-## Overview
+## What this guide covers
 
-Hostvim lets you manage **Nginx**, **PHP-FPM**, and databases from one panel on your Linux server. Installation has two main parts:
+The Hostvim stack has **two cooperating parts** that must be installed and configured together:
 
-1. **Hostvim Engine** — server-side services and configuration
-2. **Panel** — web UI and API
+| Component | Role |
+| --- | --- |
+| **Hostvim Engine** | Runs on the server and executes changes for Nginx, PHP-FPM, certificates, and per-site operations (typically exposes an HTTP API, e.g. on `127.0.0.1:9090`). |
+| **Panel (Laravel)** | Browser UI, user/role management, licensing, and authenticated calls into the Engine. |
+
+This page walks through the **end-to-end install flow**. For deeper architecture and product depth, read [Architecture](/docs/architecture) and [Platform capabilities](/docs/platform-features) under [Documentation](/docs).
+
+---
 
 ## Prerequisites
 
-- A clean **Ubuntu 22.04 LTS** or a distribution your operations team supports
-- **root** or `sudo`
-- DNS pointing your domain at the server (for SSL)
+### Server baseline
 
-## One-line install (example)
+- **OS:** A clean, patched **Ubuntu 22.04 LTS** is recommended; other LTS distros are fine if your team already standardised on them (adjust package names and service units accordingly).
+- **Sizing (rule of thumb):** **2 vCPU / 4 GB RAM** is a reasonable starting point for small fleets; increase CPU/RAM for heavy PHP workloads or very large numbers of sites.
+- **Access:** `root` or passwordless **sudo**; prefer **SSH keys** over passwords for remote administration.
+- **Time & DNS:** Accurate system time (NTP); production hostnames must resolve to this server (**A/AAAA**) before you rely on Let’s Encrypt and live traffic.
 
-On the server, the following downloads and runs the bootstrap script:
+### Security before you install
+
+- Open only required ports at the edge (typically **22**, **80**, **443**, plus whatever port serves the panel if not behind 443).
+- Where practical, restrict the panel to a **VPN**, allow-listed IPs, or short-lived **SSH tunnels**; enforce **2FA** and strong session policy on admin-class accounts.
+- Take a **snapshot or offline backup** before bootstrap scripts alter system packages or services.
+
+---
+
+## Quick install (bootstrap example)
+
+The official bootstrap script can be fetched and executed:
 
 ```bash
 curl -fsSL https://get.hostvim.sh | bash
 ```
 
-> In production, verify checksums and signatures from the official documentation before running the script.
+> **Production:** Treat every `curl | bash` as privileged code execution — verify checksums / signatures and review the script before it touches production. Always pilot in staging.
 
-## After install
+Installed packages, unit names, and directories may vary by release; follow the console output from the installer and the [Server setup](/docs/server-setup) doc for the exact sequence.
 
-- Open the panel URL and create the first admin account.
-- Match API keys between Engine and panel in `.env`.
-- Use the site wizard on a **test domain** to validate the stack.
+---
 
-See [documentation](/docs) and the [blog](/blog) for more.
+## Panel environment (Engine linkage)
+
+In the panel’s `.env`, the following variables commonly bind the UI to the Engine (names are illustrative but match the project’s layout):
+
+- `ENGINE_API_URL` — Base URL for Engine API calls (e.g. `http://127.0.0.1:9090`).
+- `ENGINE_INTERNAL_KEY` — Shared internal key negotiated between Engine and panel.
+- `ENGINE_API_SECRET` — Must align with Engine `security` settings for signed flows (e.g. web terminal JWT).
+
+If any of these diverge from the **live Engine configuration**, provisioning, TLS, or terminal sessions will fail mysteriously.
+
+Licensing may involve `LICENSE_SERVER_URL`, `LICENSE_KEY`, etc.; many deployments paste the key in the **in-panel license** screen instead of keeping keys only in `.env`.
+
+---
+
+## Post-install checklist
+
+1. Open the panel, complete bootstrap, and create (or import) the first **administrator** account.
+2. Terminate TLS correctly at Nginx/Apache; production user traffic should be **HTTPS-only**.
+3. Prove Engine connectivity with a harmless action — e.g. create a **staging site**, issue a certificate, or call `GET /api/health` on the panel (`status` should be `ok` in JSON).
+4. Before production cutover, validate DNS, TLS, and PHP versions on a **throwaway subdomain**.
+5. Configure backup targets/schedules and document how you will **roll Engine and panel updates**.
+
+Troubleshooting tips: firewall rules, typoed `ENGINE_*` values, DNS/TTL drift, and clock skew are the usual culprits. See the [blog](/blog), the landing [FAQ](/#faq), and nested docs for next steps.
 MD
             ]
         );
@@ -101,17 +175,24 @@ MD
             ['locale' => 'tr', 'slug' => 'pricing'],
             [
                 'title' => 'Fiyatlandırma özeti',
-                'meta_description' => 'Hostvim freemium ve lisanslı planlar hakkında kısa özet.',
+                'meta_description' => 'Freemium, Pro ve Vendor katmanları; limitler, lisans ve ödeme akışı özeti.',
                 'is_published' => true,
                 'sort_order' => 20,
                 'content' => <<<'MD'
-Bu sayfa, **fiyatlandırma** ekranındaki giriş metnini besler. Plan kartları veritabanındaki kayıtlardan otomatik oluşturulur.
+Bu metin, **fiyatlandırma** sayfasındaki giriş bölümünü besler. Aşağıdaki plan kartları ise yönetim panelinde tanımlı kayıtlardan **otomatik üretilir**; buradaki kopya ürün yönünü özetler.
 
-- **Freemium**: tek sunucu ve temel özelliklerle başlayın.
-- **Pro**: ajans ve yüksek trafik senaryoları için genişletilmiş limitler.
-- **Vendor**: white-label ve kurumsal SLA için bizimle iletişime geçin.
+## Planların anlamı
 
-Detaylı limit tabloları panel içi lisans ekranında güncellenir.
+- **Freemium** — Tek sunucu, temel site/domain/SSL/terminal akışları ve makul kota ile pilot veya küçük iş yükleri için. Ücret alınmadan başlarsınız; yükseltme aynı panel üzerinden yapılır.
+- **Pro lisans** — Ajanslar, yüksek trafik veya sıkı SLA beklentisi olan müşteriler için genişletilmiş limitler, gelişmiş izleme ve öncelikli destek sütunları (kart üzerindeki maddeler veritabanından gelir).
+- **Vendor / White-label** — Kendi markanızla hizmet vermek, özel fiyat, hukuki çerçeve ve yol haritası ortaklığı için satış ekibiyle **kurumsal teklif** üzerinden ilerlenir.
+
+## Lisans ve ödeme
+
+- Çevrimiçi ödeme **Stripe** ile yapılabilir; başarılı işlemden sonra lisans anahtarı e-posta ile iletilir.
+- Anahtar çoğu zaman **panel → lisans** ekranına yapıştırılır; merkezi doğrulama için `LICENSE_SERVER_URL` yapılandırması kullanılabilir.
+
+**Kesin sayısal limitler** (site adedi, yedek saklama, API hızı vb.) paneldeki **plan / lisans** kayıtlarında tutulur; bu sayfadaki rakamlar yalnızca özet niteliğindedir.
 MD
             ]
         );
@@ -120,17 +201,24 @@ MD
             ['locale' => 'en', 'slug' => 'pricing'],
             [
                 'title' => 'Pricing overview',
-                'meta_description' => 'Short overview of Hostvim freemium and licensed plans.',
+                'meta_description' => 'Freemium, Pro, and Vendor tiers; how cards, licensing, and Stripe checkout fit together.',
                 'is_published' => true,
                 'sort_order' => 20,
                 'content' => <<<'MD'
-This page feeds the intro text on the **pricing** screen. Plan cards are built from database records.
+This copy powers the introductory blurb on the public **pricing** page. Feature bullets on each card are generated from the database rows managed in the landing admin—what you see here is narrative context.
 
-- **Freemium**: start with one server and core features.
-- **Pro**: higher limits for agencies and busy workloads.
-- **Vendor**: white-label and enterprise SLA — contact us.
+## How the tiers differ
 
-Detailed limits are maintained in the in-panel licensing screen.
+- **Freemium** — One server, core hosting workflows (sites, TLS, databases, limited observability) with conservative quotas. Zero licence fee to start; upgrades keep the same panel tenant.
+- **Pro licence** — Higher ceilings for agencies and demanding workloads: richer monitoring, security profiles, and support tiers (exact bullets pull from the `plans` table).
+- **Vendor / white-label** — Brand packaging, custom commercials, and roadmap partnership. Reach sales for an enterprise quote when you resell Hostvim to your own customers.
+
+## Licensing & payments
+
+- Card checkout can run through **Stripe**; successful orders trigger transactional email with licence material.
+- Keys are usually pasted into the in-panel **License** screen. Large deployments can pin a central hub via `LICENSE_SERVER_URL`.
+
+Authoritative numeric limits (sites, backup retention, API throttles) always live beside the licensing module—treat marketing tables as summaries, not contracts.
 MD
             ]
         );
@@ -145,9 +233,18 @@ MD
                 'content' => <<<'MD'
 # Hostvim dokümantasyonu
 
-Bu bölümde kurulum, mimari ve tipik kullanım senaryolarına dair rehberler bulunur.
+Hostvim; Linux üzerinde **Engine + Panel** bileşenlerinden oluşan bir hosting kontrol paneli yığınıdır. Bu sitedeki dokümanlar; kurulum, mimari, yetenekler ve güvenli operasyon için yol gösterir.
 
-Sol menüden alt başlıklara geçebilir veya doğrudan ilgili sayfaların bağlantılarını kullanabilirsiniz.
+## Nereden başlamalıyım?
+
+| Konu | Sayfa |
+| --- | --- |
+| Kurulum ve ortam değişkenleri | [Kurulum rehberi](/setup) |
+| Paket ve firewall sırası | [Sunucu kurulumu](/docs/server-setup) |
+| Bileşenler ve veri akışı | [Mimari](/docs/architecture) |
+| Panelde neler yapılabilir? | [Hostvim yetenekleri](/docs/platform-features) |
+
+**Başlangıç** altında yer alan sayfalar, üretim öncesi kontrol listesi ve sunucu hazırlığını adım adım anlatır. Sol taraftaki hiyerarşi veya doğrudan bağlantılarla ilerleyebilirsiniz.
 MD
             ]
         );
@@ -162,9 +259,18 @@ MD
                 'content' => <<<'MD'
 # Hostvim documentation
 
-Here you will find guides for installation, architecture, and common workflows.
+Hostvim is a Linux hosting control stack composed of **Engine + Panel**. These guides explain installation, architecture, platform capabilities, and safe day-2 operations.
 
-Use the sidebar for nested pages or follow direct links from the docs home.
+## Where should I start?
+
+| Topic | Page |
+| --- | --- |
+| Install flow & environment wiring | [Installation guide](/setup) |
+| OS prep, firewall, ordering | [Server setup](/docs/server-setup) |
+| Components & trust boundaries | [Architecture](/docs/architecture) |
+| What the product can do | [Platform capabilities](/docs/platform-features) |
+
+Pages nested under **Getting started** focus on pre-flight checks and server hardening. Use the sidebar tree or jump directly via the links above.
 MD
             ]
         );
@@ -174,19 +280,77 @@ MD
             [
                 'parent_id' => $rootTr->id,
                 'title' => 'Sunucu kurulumu',
+                'meta_description' => 'Ubuntu sunucu hazırlığı, firewall, saat senkronizasyonu ve Hostvim bootstrap sonrası doğrulama.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
-## Adımlar
+## Amaç
 
-1. Sunucuda güncellemeleri alın: `apt update && apt upgrade -y`
-2. Hostvim bootstrap betiğini çalıştırın (resmi komut dokümantasyonda).
-3. Firewall’da **80**, **443** ve panel için kullanılan portu açın.
-4. İlk girişte yönetici e-postası ve güçlü bir şifre belirleyin.
+Bu sayfa, Hostvim bootstrap betiğini çalıştırmadan önceki **sunucu hazırlığını** ve betik sonrası **doğrulama** adımlarını toplar. Yönergeler Ubuntu tabanlı dağıtımlar içindir; başka bir aile kullanıyorsanız paket ve servis adlarını eşdeğerleriyle değiştirin.
 
-## Engine ve panel
+---
 
-Engine sistem servislerini yönetir; panel Laravel tabanlı arayüzdür. İkisi arasında TLS ve API anahtarları ile güvenli iletişim kurulur.
+## 1. Sistem güncellemesi ve temel paketler
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+Uzak erişim için **OpenSSH sunucusunun** çalıştığından ve yalnızca güvendiğiniz IP’lerden (veya VPN üzerinden) erişilebildiğinizden emin olun.
+
+---
+
+## 2. Saat ve zaman dilimi
+
+TLS ve Let’s Encrypt doğrulamaları doğru sistem saatine bağlıdır:
+
+```bash
+timedatectl status
+```
+
+Gerekirse doğru zaman dilimini ayarlayın ve **NTP** senkronunun *active* olduğunu doğrulayın.
+
+---
+
+## 3. Firewall (örnek: UFW)
+
+HTTP(S) ve SSH dışında gelen trafiği kapatın. Tipik başlangıç:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+# Paneli ayrı bir TCP portunda dinletiyorsanız o portu da ekleyin
+sudo ufw enable
+sudo ufw status verbose
+```
+
+> Üretimde paneli yalnızca iç ağ veya VPN’den erişilebilir yapmak sık tercih edilen bir sertleştirmedir.
+
+---
+
+## 4. Hostvim bootstrap
+
+Güncel ve imzası doğrulanmış betiği çalıştırın ([Kurulum rehberi](/setup) içindeki örnek komut). Betik tamamlandıktan sonra:
+
+- Engine servisinin **aktif** ve hatasız olduğunu kontrol edin (`systemctl status …` çıktısı dağıtıma göre değişir).
+- Panel dosyalarının beklenen dizinde olduğunu ve web sunucusu sanal hostunun **doğru `root` ve PHP** ile eşlendiğini doğrulayın.
+
+---
+
+## 5. Panel `.env` ve Engine eşlemesi
+
+`ENGINE_API_URL`, `ENGINE_INTERNAL_KEY` ve `ENGINE_API_SECRET` değerleri Engine tarafındaki yapılandırma ile **aynı** olmalıdır. Yerel geliştirmede `ENGINE_API_URL` sıklıkla `http://127.0.0.1:9090` biçimindedir; üretimde TLS terminasyonu ve geri plandaki gRPC/HTTP adresleri farklı olabilir.
+
+---
+
+## 6. İlk oturum ve sağlık kontrolleri
+
+1. Tarayıcıdan panele gidin; ilk yöneticiyi oluşturun ve **parola + 2FA** politikanızı uygulayın.
+2. İsteğe bağlı: `GET /api/health` uç noktası (panel API önekleri dağıtıma göre `/api/health`) JSON içinde `status: ok` döndürmelidir.
+3. Staging alan adıyla bir site oluşturup sertifika çıkışını ve PHP sürümünü test edin.
+
+Sorun çıkarsa günlükleri (panel `storage/logs`, Engine unit journal) ve firewall kurallarını birlikte kontrol edin.
 MD
             ]
         );
@@ -196,19 +360,187 @@ MD
             [
                 'parent_id' => $rootEn->id,
                 'title' => 'Server setup',
+                'meta_description' => 'Prepare Ubuntu (or your distro), harden SSH and firewall, run bootstrap, wire Engine env vars, verify health.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
-## Steps
+## Scope
 
-1. Update the server: `apt update && apt upgrade -y`
-2. Run the Hostvim bootstrap script (official command is in the docs).
-3. Open **80**, **443**, and the panel port in your firewall.
-4. On first login, set admin email and a strong password.
+Use this checklist before and after the Hostvim bootstrap installer. Commands assume a **Debian/Ubuntu**-style host—swap in the equivalent packages/services for RHEL-derived distros if that is your standard.
 
-## Engine and panel
+---
 
-The Engine manages system services; the panel is a Laravel-based UI. They communicate over TLS using API keys.
+## 1. Patch baseline & SSH hygiene
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+Ensure **OpenSSH** is available only to trusted networks (bastion, VPN, or IP allow-lists). Prefer keys instead of static passwords.
+
+---
+
+## 2. Clock sync
+
+TLS issuance and OCSP rely on accurate time:
+
+```bash
+timedatectl status
+```
+
+Fix the timezone if needed and confirm NTP synchronization is active.
+
+---
+
+## 3. Firewall sketch (UFW example)
+
+Allow only what must be public. A common template:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+# If the panel listens on a dedicated TCP port, allow that too
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Many teams keep the panel off the public Internet entirely (VPN-only). That is stronger than opening another arbitrary port to the world.
+
+---
+
+## 4. Bootstrap Hostvim
+
+Run the signed bootstrap flow referenced from the [Installation guide](/setup). When it finishes:
+
+- Confirm the Engine daemon is **running** (`systemctl status …` names differ per release).
+- Verify the panel’s web root, PHP-FPM pool, and reverse proxy mapping line up with your SSL terminator.
+
+---
+
+## 5. Wire `.env` to the Engine
+
+`ENGINE_API_URL`, `ENGINE_INTERNAL_KEY`, and `ENGINE_API_SECRET` must match the Engine configuration on **that same node**. Local stacks often use `http://127.0.0.1:9090` for `ENGINE_API_URL`, but production may terminate TLS elsewhere—mirror whatever your operators documented.
+
+---
+
+## 6. First login & validation
+
+1. Hit the panel URL, finish onboarding, and enforce MFA/password policy for admins.
+2. Hit `GET /api/health` (prefixed according to your deployment—commonly `/api/health`) and expect JSON with `status: ok`.
+3. Create a throwaway site on a staging hostname to validate DNS + ACME + PHP selection.
+
+If anything fails, inspect the panel log under `storage/logs`, the Engine journal via `journalctl`, and re-check firewall rules—those three catch the majority of incidents.
+MD
+            ]
+        );
+
+        DocPage::query()->updateOrCreate(
+            ['locale' => 'tr', 'slug' => 'platform-features'],
+            [
+                'parent_id' => $rootTr->id,
+                'title' => 'Hostvim yetenekleri',
+                'meta_description' => 'Site, domain, SSL, veritabanı, yedek, e-posta, cron, izleme ve lisans — panel özellikleri özeti.',
+                'is_published' => true,
+                'sort_order' => 20,
+                'content' => <<<'MD'
+## Genel bakış
+
+Hostvim **müşteri paneli**, alan adı ve site yaşam döngüsünü tek yerden yönetmek için tasarlanmıştır. Arayüz, arka planda **Engine** ile konuşan bir Laravel uygulamasıdır; Engine gerçek sunucu değişikliklerini (Nginx, PHP-FPM, sertifikalar vb.) uygular.
+
+Yetenekler, **rol ve izin modeline** göre kısıtlanır (ör. site oluşturma, veritabanı yazma, yedek alma). Aşağıdaki liste ürün yönünü özetler; tam API yüzeyi sürüme göre genişleyebilir.
+
+---
+
+## Çekirdek hosting
+
+- **Siteler ve alan adları:** Çoklu site; ek subdomain ve alias yönetimi; durum ve sunucu eşleştirme.
+- **Web yığını:** PHP sürüm seçimi, document root, Nginx/Apache sanal host içerikleri (gelişmiş modlarda düzenleme ve geri alma).
+- **SSL / TLS:** Let’s Encrypt ile sertifika çıkarma, yenileme, iptal; gerektiğinde manuel sertifika yolları.
+
+## Veri ve dosyalar
+
+- **Veritabanları:** MySQL/MariaDB ve PostgreSQL için kullanıcı oluşturma, yetki, içe/dışa aktarma ve parola rotasyonu (sunucu tarafı `MYSQL_*` / `POSTGRES_*` provizyon bayraklarına bağlı).
+- **Dosya yöneticisi:** Gezinme, düzenleme, yükleme, sıkıştırma ve çöp kutusu ile geri yükleme (domain bazlı kota politikalarına tabi).
+- **Yedekleme:** Anlık ve zamanlanmış yedekler; hedefler ve politikalar; gerektiğinde geri yükleme akışları.
+
+## İletişim ve güvenlik
+
+- **E-posta ve yönlendirme:** Alan adına bağlı posta kutuları ve forwarder’lar.
+- **FTP:** İsteğe bağlı klasik FTP hesapları (domain kapsamında).
+- **DNS kayıtları:** Basit bölge düzenleme (yetki verildiğinde).
+- **Cron:** Kullanıcı düzeyinde zamanlanmış görevler ve çalıştırma geçmişi.
+- **İzleme:** Özet sağlık bilgisi, site bazlı durum ve sunucu düzeyinde metrikler (okuma yetkisine bağlı).
+- **Kimlik doğrulama:** Oturum açma, parola sıfırlama, isteğe bağlı **2FA** (yönetici politikalarında `ENFORCE_ADMIN_2FA` gibi bayraklarla sıkılaştırılabilir).
+
+## Operasyon ve entegrasyon
+
+- **Dağıtım / webhooks:** Siteler için CI/CD tarzı tetikleyiciler (yetkiye bağlı).
+- **Lisanslama:** Merkezi lisans sunucusu URL’si ve anahtar; Stripe faturalandırma ile entegre edilebilir dağıtımlar için hazırlıklar.
+- **WHMCS / bayi:** İsteğe bağlı modül ve çok kiracılı senaryolar (kurulumunuza göre açılır).
+
+---
+
+## Freemium ve Pro’dan ne beklenir?
+
+Özet seviyede **Freemium** tek sunucu ve temel limitlerle başlamanıza izin verir; **Pro** daha geniş site/izleme/destek ihtiyaçları içindir. Kesin sayısal limitler paneldeki **lisans / plan** ekranında güncellenir — bu dokümandaki metinler pazarlama özetidir.
+
+Daha teknik ayrıntı için [Mimari](/docs/architecture) sayfasına bakın.
+MD
+            ]
+        );
+
+        DocPage::query()->updateOrCreate(
+            ['locale' => 'en', 'slug' => 'platform-features'],
+            [
+                'parent_id' => $rootEn->id,
+                'title' => 'Platform capabilities',
+                'meta_description' => 'Sites, SSL, databases, backups, email, cron, monitoring, licensing—what Hostvim exposes end-to-end.',
+                'is_published' => true,
+                'sort_order' => 20,
+                'content' => <<<'MD'
+## Overview
+
+The Hostvim **customer panel** is a Laravel application that orchestrates day-to-day hosting operations. Persistent changes land on the host through the **Engine**, which applies Nginx/PHP-FPM/Let’s Encrypt mutations and enforces quotas.
+
+Authorisation is **ability-based**—features below map to coarse capability groups (sites, databases, backups, etc.). The public API surface evolves per release; treat this page as the product map, not an endpoint manifest.
+
+---
+
+## Core hosting
+
+- **Sites & domains:** Multi-site accounts, subdomains, aliases, suspend/resume flows, and server placement where multi-node setups exist.
+- **Web stack controls:** PHP version selection, document roots, and editable vhost text for Nginx/Apache with guardrails and revert paths.
+- **TLS lifecycle:** Issue, renew, revoke, or attach manual certificates—typically backed by Let’s Encrypt with admin-provided contact email defaults.
+
+## Data plane & files
+
+- **Databases:** MySQL/MariaDB and PostgreSQL flows for create/drop users, granular privileges, imports/exports, and credential rotation (subject to `MYSQL_*` / `POSTGRES_*` provisioning toggles on the Engine).
+- **File manager:** Browse, edit, upload, archive/unarchive, trash/restore with throttles to protect IO.
+- **Backups:** On-demand snapshots, scheduled policies, remote destinations, and selective restores.
+
+## Messaging & edge security
+
+- **Mailbox + forwarding:** Per-domain mail users and forwarders where the mail stack is enabled.
+- **FTP accounts:** Classic FTP where policy allows it (scoped to a domain path).
+- **DNS records:** Lightweight record editing for zones delegated to the integration.
+- **Cron:** User-defined jobs with safety rails and execution history.
+- **Observability:** Per-user summaries, per-site health, and deeper server metrics for operators with monitoring permissions.
+- **Identity security:** Password policies, Sanctum tokens for API access, optional **TOTP 2FA**, and stricter admin enforcement via settings such as `ENFORCE_ADMIN_2FA`.
+
+## Day-2 automation & GTM
+
+- **Deploy hooks:** Webhook-driven pipelines for modern application releases when enabled for a site.
+- **Licensing & billing:** Configurable license hub URL, Stripe keys for checkout, and email flows that deliver keys post-payment.
+- **WHMCS / reseller:** Optional provisioning modules and multi-tenant knobs for larger hosters.
+
+---
+
+## Freemium vs licensed tiers
+
+**Freemium** is meant for single-box pilots with conservative limits. **Pro** unlocks higher ceilings for agencies and busy workloads. Authoritative numbers always live in the in-panel **plan / license** module—marketing blurbs on the landing site are summaries only.
+
+For trust-boundary detail, continue with [Architecture](/docs/architecture).
 MD
             ]
         );
@@ -218,16 +550,45 @@ MD
             [
                 'parent_id' => null,
                 'title' => 'Mimari genel bakış',
+                'meta_description' => 'Engine, panel ve müşteri veritabanları; kimlik doğrulama, lisans ve güven sınırları.',
                 'is_published' => true,
                 'sort_order' => 5,
                 'content' => <<<'MD'
-## Bileşenler
+## Üst düzey bileşenler
 
-- **Engine (Go)**: konteyner veya sistem servisi olarak çalışır; Nginx sanal host, PHP-FPM havuzu ve sertifika işlemlerini uygular.
-- **Panel (Laravel)**: kullanıcı, site ve lisans yönetimi; Engine ile REST/WebSocket üzerinden konuşur.
-- **Veritabanları**: MySQL/MariaDB veya PostgreSQL; panel üzerinden kullanıcı bazlı yetkilendirme.
+| Katman | Sorumluluk |
+| --- | --- |
+| **Hostvim Engine** | Sunucu üzerinde Nginx/Apache sanal hostları, PHP-FPM havuzlarını, dosya yollarını ve Let’s Encrypt yaşam döngüsünü uygular; kota ve politika uygular. |
+| **Panel (Laravel + Horizon/queue)** | Web ve API katmanı: kimlik (`sanctum`), rol/ability modeli, faturalama (Stripe), lisans doğrulama, müşteri arayüzü. |
+| **Panel veritabanı** | Kiracı, site, domain, kullanıcı ve operasyonel meta veriler — **müşteri sitelerinin kendi MySQL/Postgres veritabanlarından ayrıdır**. |
+| **Müşteri veritabanları** | Engine aracılığıyla oluşturulan MySQL/MariaDB veya PostgreSQL örnekleri; yedekleme ve içe/dışa aktarma panel üzerinden tetiklenir. |
 
-Bu yapı sayesinde paneli güncellerken engine sürümünü bağımsız tutabilirsiniz.
+Bu ayrım sayesinde **panel güncellemeleri** ile **Engine sürümü** farklı ritimde ilerleyebilir; müşteri trafiği çoğunlukla Engine’in yönettiği web sunucusundan çıkar.
+
+---
+
+## İstek ve güven sınırları
+
+1. Son kullanıcı tarayıcıdan panele gider (HTTPS). Oturum çerezleri ve 2FA politikaları Laravel tarafında uygulanır.
+2. Paneldeki bir eylem (ör. “sertifika yenile”) API çağrısına dönüşür; Engine’e giderken **dahili anahtarlar ve imzalar** (`ENGINE_INTERNAL_KEY`, `ENGINE_API_SECRET` vb.) ile korunur.
+3. Engine, root ayrıcalıklı işlemleri yerel olarak yapar ve sonucu panele iletir; ayrıntılı audit için hem panel günlükleri hem de `journalctl` kullanılır.
+
+Uzaktan SSH ile doğrudan sunucuya bağlanma ihtiyacı azalır; yine de kilitlenme durumları için **break-glass SSH** prosedürü tanımlayın.
+
+---
+
+## Lisans ve faturalama
+
+- Panel, merkezi **lisans hub** ile konuşabilir (`LICENSE_SERVER_URL`). Checkout **Stripe** üzerinden yapılabilir; başarılı ödeme sonrası anahtar e-posta ile iletilir (landing projesindeki şablonlar ve API uçları bu akışa göre kurgulanmıştır).
+- **Freemium / Pro** sınırları plan kayıtlarında tutulur; Engine bu limitleri uygulamak için panelden gelen yetkili isteklere güvenir.
+
+---
+
+## Çoklu sunucu ve yol haritası
+
+Bugünün tipik kurulumu **tek düğüm** (Engine + panel aynı makinede) şeklindedir. Trafik büyüdükçe veritabanını ayırmak, CDN eklemek veya Engine örneklerini yük dengeleyici arkasına almak mümkündür; Hostvim ürünü bu evrimleri destekleyecek biçimde genişler — ayrıntılar blog ve sürüm notlarında duyurulur.
+
+Takip edilecek sayfa: [Hostvim yetenekleri](/docs/platform-features).
 MD
             ]
         );
@@ -237,16 +598,47 @@ MD
             [
                 'parent_id' => null,
                 'title' => 'Architecture overview',
+                'meta_description' => 'Engine vs panel vs tenant DBs; trust boundaries, licensing hub, Stripe, and scale-out notes.',
                 'is_published' => true,
                 'sort_order' => 5,
                 'content' => <<<'MD'
-## Components
+## High-level components
 
-- **Engine (Go)**: runs as a container or system service; applies Nginx vhosts, PHP-FPM pools, and certificates.
-- **Panel (Laravel)**: users, sites, and licensing; talks to the Engine over REST/WebSocket.
-- **Databases**: MySQL/MariaDB or PostgreSQL with per-user authorization from the panel.
+| Layer | Responsibility |
+| --- | --- |
+| **Hostvim Engine** | Applies Nginx/Apache vhosts, PHP-FPM pools, filesystem paths, TLS automation, and host-level quotas. |
+| **Panel (Laravel)** | HTTP UI + JSON API: Sanctum auth, ability-based RBAC, Stripe checkout, license verification hooks, queues. |
+| **Panel database** | Stores tenants, sites, service metadata — **not** the same thing as customer MySQL/Postgres databases that belong to hosted sites. |
+| **Customer DBs** | MySQL/MariaDB or PostgreSQL instances created via Engine provisioning APIs; backups/imports initiated from the panel. |
 
-You can upgrade the panel and Engine on independent cadences.
+Because these layers are separate you can ship **panel releases** and **Engine builds** on different schedules; customer HTTP traffic largely terminates on the Engine-managed web stack.
+
+---
+
+## Request path & trust boundaries
+
+1. Operators hit the panel over HTTPS; cookies/MFA enforced in Laravel.
+2. Stateful mutations become Engine RPC/HTTP calls protected by **shared secrets** such as `ENGINE_INTERNAL_KEY` / `ENGINE_API_SECRET`.
+3. The Engine performs privileged host mutations and returns structured results; troubleshooting pairs `storage/logs` on the panel with `journalctl` on the node.
+
+Day-to-day break-glass SSH should be rare—document it for disaster recovery.
+
+---
+
+## Licensing & billing
+
+- The panel can call a remote **license hub** (`LICENSE_SERVER_URL`) and/or accept keys pasted by admins.
+- Checkout may run through **Stripe**; successful orders trigger transactional mail with license material (see landing email templates + billing controllers).
+
+Authoritative **plan limits** live beside the licensing module—marketing copy is illustrative only.
+
+---
+
+## Multi-node roadmap
+
+Most deployments today co-locate Engine + panel on one Linux host. As you grow, split the DB tier, add CDNs, or fan out Engine instances behind load balancers. Hostvim’s roadmap targets multi-host orchestration—watch release notes and the blog for timelines.
+
+For capability depth, jump to [Platform capabilities](/docs/platform-features).
 MD
             ]
         );

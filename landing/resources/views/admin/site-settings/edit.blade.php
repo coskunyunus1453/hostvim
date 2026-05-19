@@ -1,13 +1,22 @@
+@php($embedded = $embedded ?? false)
+@if (! $embedded)
 <x-admin.layout title="Site ayarları">
+@endif
     <div class="mx-auto max-w-3xl space-y-8">
-        <div>
-            <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Site ayarları</h1>
-            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Logo ve favicon doğrudan yüklenir; site adı çevirilerden önce bu alandaki değeri kullanır (özel metin &gt; çeviri anahtarı).</p>
-        </div>
+        @if (! $embedded)
+            <div>
+                <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Site ayarları</h1>
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Logo ve favicon doğrudan yüklenir; site adı çevirilerden önce bu alandaki değeri kullanır (özel metin &gt; çeviri anahtarı).</p>
+            </div>
+        @endif
 
         <form method="POST" action="{{ route('admin.site-settings.update') }}" enctype="multipart/form-data" class="space-y-8">
             @csrf
             @method('PUT')
+            @if ($embedded)
+                <input type="hidden" name="return_to" value="appearance">
+                <input type="hidden" name="tab" value="site">
+            @endif
 
             <div class="admin-form-panel space-y-5 !shadow-none">
                 <p class="admin-label-block">Kimlik</p>
@@ -161,6 +170,24 @@
                     </div>
 
                     <div>
+                        <label for="analytics_head_code" class="admin-label">İzleme kodu (HEAD)</label>
+                        <textarea id="analytics_head_code" name="analytics_head_code" rows="5" class="admin-field mt-1 font-mono text-xs" placeholder="<script>…</script>">{{ old('analytics_head_code', $analyticsHeadCode) }}</textarea>
+                        <p class="mt-1 text-[11px] text-slate-500">Google Analytics, Google Tag Manager, Meta Pixel gibi kodları &lt;head&gt; içine eklemek için kullanın.</p>
+                        @error('analytics_head_code')
+                            <p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="analytics_body_code" class="admin-label">İzleme kodu (BODY sonu)</label>
+                        <textarea id="analytics_body_code" name="analytics_body_code" rows="5" class="admin-field mt-1 font-mono text-xs" placeholder="<!-- noscript / ek takip kodları -->">{{ old('analytics_body_code', $analyticsBodyCode) }}</textarea>
+                        <p class="mt-1 text-[11px] text-slate-500">Body kapanışından hemen önce çalışması gereken script veya noscript etiketlerini buraya yazın.</p>
+                        @error('analytics_body_code')
+                            <p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
                         <label for="footer_extra_note" class="admin-label">Altbilgi ek notu</label>
                         <textarea id="footer_extra_note" name="footer_extra_note" rows="2" class="admin-field mt-1" placeholder="Tescilli marka uyarısı, KVKK kısa metni vb.">{{ old('footer_extra_note', $footerExtraNote) }}</textarea>
                         @error('footer_extra_note')
@@ -177,4 +204,6 @@
             </div>
         </form>
     </div>
+@if (! $embedded)
 </x-admin.layout>
+@endif

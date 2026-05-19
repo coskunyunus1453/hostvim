@@ -62,15 +62,18 @@ class NotificationController extends Controller
             ];
         }
 
-        foreach (SystemAlert::query()->latest('id')->limit(20)->get() as $a) {
-            $items[] = [
-                'id' => 'sysalert-'.$a->id,
-                'level' => $a->level ?: 'info',
-                'title' => $a->title,
-                'message' => $a->message,
-                'path' => $a->path ?: '/system',
-                'created_at' => optional($a->created_at)->toIso8601String(),
-            ];
+        $user = $request->user();
+        if ($user->isAdmin() || $user->isVendorOperator()) {
+            foreach (SystemAlert::query()->latest('id')->limit(20)->get() as $a) {
+                $items[] = [
+                    'id' => 'sysalert-'.$a->id,
+                    'level' => $a->level ?: 'info',
+                    'title' => $a->title,
+                    'message' => $a->message,
+                    'path' => $a->path ?: '/system',
+                    'created_at' => optional($a->created_at)->toIso8601String(),
+                ];
+            }
         }
 
         usort($items, fn ($a, $b) => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));

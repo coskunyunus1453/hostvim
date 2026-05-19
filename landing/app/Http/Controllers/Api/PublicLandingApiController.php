@@ -18,14 +18,14 @@ class PublicLandingApiController extends Controller
      */
     public function settings(SalesCurrencyService $salesCurrency): JsonResponse
     {
-        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]');
-        $enabled = json_decode((string) $enabledJson, true) ?: ['tr', 'en'];
+        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]');
+        $enabled = json_decode((string) $enabledJson, true) ?: ['en', 'tr'];
         $enabled = array_values(array_intersect($enabled, array_keys(config('landing.locales', []))));
         if ($enabled === []) {
-            $enabled = ['tr'];
+            $enabled = ['en'];
         }
 
-        $default = LandingSiteSetting::getValue('landing.default_locale', Config::get('app.locale', 'tr')) ?? 'tr';
+        $default = LandingSiteSetting::getValue('landing.default_locale', Config::get('app.locale', 'en')) ?? 'en';
         if (! in_array($default, $enabled, true)) {
             $default = $enabled[0];
         }
@@ -85,14 +85,14 @@ class PublicLandingApiController extends Controller
 
     public function i18nConfig(): JsonResponse
     {
-        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]');
-        $enabled = json_decode((string) $enabledJson, true) ?: ['tr', 'en'];
+        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]');
+        $enabled = json_decode((string) $enabledJson, true) ?: ['en', 'tr'];
         $enabled = array_values(array_intersect($enabled, array_keys(config('landing.locales', []))));
         if ($enabled === []) {
-            $enabled = ['tr'];
+            $enabled = ['en'];
         }
 
-        $default = LandingSiteSetting::getValue('landing.default_locale', Config::get('app.locale', 'tr')) ?? 'tr';
+        $default = LandingSiteSetting::getValue('landing.default_locale', Config::get('app.locale', 'en')) ?? 'en';
         if (! in_array($default, $enabled, true)) {
             $default = $enabled[0];
         }
@@ -115,11 +115,11 @@ class PublicLandingApiController extends Controller
 
         $locale = $validated['locale'];
 
-        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]');
-        $enabled = json_decode((string) $enabledJson, true) ?: ['tr', 'en'];
+        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]');
+        $enabled = json_decode((string) $enabledJson, true) ?: ['en', 'tr'];
         $enabled = array_values(array_intersect($enabled, array_keys(config('landing.locales', []))));
         if ($enabled === []) {
-            $enabled = ['tr'];
+            $enabled = ['en'];
         }
 
         if (! in_array($locale, $enabled, true)) {

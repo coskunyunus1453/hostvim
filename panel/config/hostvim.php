@@ -3,7 +3,18 @@
 $panelRoot = dirname(__DIR__);
 
 return [
-    'version' => '0.1.0',
+    'version' => env('HOSTVIM_PANEL_VERSION', '0.1.0'),
+
+    /** Panel self-update hub (hostvim.com landing API) */
+    'updates' => [
+        'hub_url' => rtrim(trim((string) env(
+            'HOSTVIM_UPDATE_HUB_URL',
+            env('LICENSE_SERVER_URL', env('HOSTVIM_LICENSE_HUB_URL', 'https://hostvim.com'))
+        )), '/'),
+        'api_secret' => trim((string) env('HOSTVIM_PANEL_UPDATES_API_SECRET', env('HOSTVIM_LICENSE_API_SECRET', ''))),
+        'channel' => env('HOSTVIM_UPDATE_CHANNEL', 'stable'),
+        'check_cache_seconds' => (int) env('HOSTVIM_UPDATE_CHECK_CACHE', 300),
+    ],
     'profile' => env('APP_PROFILE', 'customer'),
     'customer_profile' => env('APP_PROFILE', 'customer') === 'customer',
     'vendor_profile' => env('APP_PROFILE', 'customer') === 'vendor',

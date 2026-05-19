@@ -256,5 +256,6 @@
         </div>
     </aside>
     @endif
+    <x-landing.body-extras />
 </body>
 </html>

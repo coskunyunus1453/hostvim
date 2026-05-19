@@ -9,8 +9,8 @@ class LandingSettingsSeeder extends Seeder
 {
     public function run(): void
     {
-        LandingSiteSetting::put('landing.default_locale', 'tr');
-        LandingSiteSetting::put('landing.enabled_locales', json_encode(['tr', 'en']));
+        LandingSiteSetting::put('landing.default_locale', 'en');
+        LandingSiteSetting::put('landing.enabled_locales', json_encode(['en', 'tr']));
 
         LandingSiteSetting::put('landing.site_name', '');
         LandingSiteSetting::put('landing.site_tagline', '');
@@ -25,6 +25,8 @@ class LandingSettingsSeeder extends Seeder
         LandingSiteSetting::put('landing.social_github_url', '');
         LandingSiteSetting::put('landing.social_linkedin_url', '');
         LandingSiteSetting::put('landing.analytics_ga4_id', '');
+        LandingSiteSetting::put('landing.analytics_head_code', '');
+        LandingSiteSetting::put('landing.analytics_body_code', '');
         LandingSiteSetting::put('landing.footer_extra_note', '');
 
         LandingSiteSetting::put('landing.active_theme', 'orange');

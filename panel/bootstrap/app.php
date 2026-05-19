@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('sanctum:prune-expired --hours=24')->daily();
         $schedule->command('backups:run-due')->everyMinute();
         $schedule->command('hostvim:self-heal')->everyMinute()->withoutOverlapping();
+        $schedule->command('hostvim:check-panel-update')->everySixHours()->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware) {
         // Nginx / TLS sonlandırma arkasında doğru şema (wss, secure() vb.)

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
+import PanelUpdateCard from '../components/panel/PanelUpdateCard'
 
 type SystemStats = {
   cpu_usage?: number
@@ -164,6 +165,7 @@ export default function AdminSystemPage() {
 
   return (
     <div className="space-y-8">
+      <PanelUpdateCard />
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-lg shadow-primary-500/25">

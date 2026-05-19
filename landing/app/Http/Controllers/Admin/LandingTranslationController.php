@@ -17,7 +17,7 @@ class LandingTranslationController extends Controller
     public function index(Request $request): View
     {
         $locale = (string) $request->query('locale', 'tr');
-        $enabled = json_decode(LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]'), true) ?: ['tr', 'en'];
+        $enabled = json_decode(LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]'), true) ?: ['en', 'tr'];
         if (! in_array($locale, $enabled, true)) {
             $locale = $enabled[0];
         }
@@ -75,7 +75,7 @@ class LandingTranslationController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $enabled = json_decode(LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]'), true) ?: ['tr', 'en'];
+        $enabled = json_decode(LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]'), true) ?: ['en', 'tr'];
 
         $base = $request->validate([
             'key' => ['required', 'string', 'max:190', 'regex:/^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*$/'],

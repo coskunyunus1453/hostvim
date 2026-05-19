@@ -2,6 +2,7 @@
     $hvFavicon = \App\Services\LandingAppearance::faviconUrl();
     $hvFaviconType = \App\Services\LandingAppearance::faviconMimeType();
     $hvGa = \App\Services\LandingAppearance::analyticsMeasurementId();
+    $hvAnalyticsHeadCode = \App\Services\LandingAppearance::analyticsHeadCode();
 @endphp
 @if ($hvFavicon && $hvFaviconType)
     <link rel="icon" href="{{ $hvFavicon }}" type="{{ $hvFaviconType }}">
@@ -14,4 +15,7 @@
         gtag('js', new Date());
         gtag('config', @json($hvGa));
     </script>
+@endif
+@if ($hvAnalyticsHeadCode)
+    {!! $hvAnalyticsHeadCode !!}
 @endif

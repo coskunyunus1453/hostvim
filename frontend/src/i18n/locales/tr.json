@@ -357,6 +357,21 @@
     "repair_partial": "Panel kontrol edildi; bazı adımlar manuel müdahale gerektiriyor.",
     "check_failed": "Panel doğrulaması başarısız oldu."
   },
+  "panel_update": {
+    "title": "Panel güncellemesi",
+    "current": "Kurulu sürüm",
+    "check": "Kontrol et",
+    "check_done": "Güncelleme kontrolü tamamlandı",
+    "check_failed": "Güncelleme sunucusuna ulaşılamadı",
+    "view_changelog": "Yenilikler",
+    "apply": "Güncelle",
+    "confirm": "Panel {{version}} sürümüne güncellensin mi? Müşteri siteleri ve ayarlarınız korunur; işlem birkaç dakika sürebilir.",
+    "apply_started": "Güncelleme arka planda başlatıldı",
+    "apply_success": "Panel başarıyla güncellendi",
+    "apply_failed": "Güncelleme başarısız",
+    "in_progress": "Güncelleme sürüyor…",
+    "dismiss": "Sonra hatırlat"
+  },
   "domains": {
     "title": "Alan Adı Yönetimi",
     "add": "Alan Adı Ekle",

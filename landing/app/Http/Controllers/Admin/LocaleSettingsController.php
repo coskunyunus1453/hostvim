@@ -12,8 +12,8 @@ class LocaleSettingsController extends Controller
 {
     public function edit(): View
     {
-        $default = LandingSiteSetting::getValue('landing.default_locale', 'tr');
-        $enabled = json_decode(LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]'), true) ?: ['tr', 'en'];
+        $default = LandingSiteSetting::getValue('landing.default_locale', 'en');
+        $enabled = json_decode(LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]'), true) ?: ['en', 'tr'];
         $locales = config('landing.locales', []);
 
         return view('admin.locale-settings.edit', compact('default', 'enabled', 'locales'));

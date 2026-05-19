@@ -28,7 +28,9 @@ class PublicHomeContentController extends Controller
             $cards = [];
         }
         if ($cards === []) {
-            $cards = LandingAppearance::DEFAULT_FEATURE_CARDS;
+            $cards = app()->getLocale() === 'tr'
+                ? LandingAppearance::DEFAULT_FEATURE_CARDS_TR
+                : LandingAppearance::DEFAULT_FEATURE_CARDS_EN;
         }
 
         return view('admin.public-home-content.edit', [
@@ -127,6 +129,11 @@ class PublicHomeContentController extends Controller
                 $path = $file->storeAs('landing', 'hero-'.time().'.'.$ext, 'landing_assets');
                 LandingSiteSetting::put('landing.hero_image_path', $path);
             }
+        }
+
+        if ($request->input('return_to') === 'appearance') {
+            return redirect()->route('admin.appearance.index', ['tab' => $request->input('tab', 'home')])
+                ->with('status', 'Ön yüz içeriği güncellendi.');
         }
 
         return back()->with('status', 'Ön yüz içeriği güncellendi.');

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 final class LandingAppearance
 {
-    public const DEFAULT_FEATURE_CARDS = [
+    public const DEFAULT_FEATURE_CARDS_TR = [
         ['title' => 'Site & domain yönetimi', 'body' => 'Nginx sanal host, SSL, yönlendirmeler ve PHP versiyonlarını tek ekrandan kontrol edin.', 'icon' => 'globe'],
         ['title' => 'Veritabanı & kullanıcılar', 'body' => 'MySQL / Postgres veritabanlarını, kullanıcı ve izinleri panelden yönetin.', 'icon' => 'database'],
         ['title' => 'Güvenlik & SSL', 'body' => 'Otomatik Let’s Encrypt, güvenlik profilleri ve temel hardening ayarları.', 'icon' => 'shield'],
@@ -16,8 +16,17 @@ final class LandingAppearance
         ['title' => 'Hazır stack profilleri', 'body' => 'WordPress, Laravel ve klasik PHP projeleri için ön tanımlı stack profilleri.', 'icon' => 'layers'],
     ];
 
+    public const DEFAULT_FEATURE_CARDS_EN = [
+        ['title' => 'Site & domain operations', 'body' => 'Manage Nginx virtual hosts, SSL, redirects and PHP versions from a single panel.', 'icon' => 'globe'],
+        ['title' => 'Databases & users', 'body' => 'Control MySQL/PostgreSQL databases, users and permissions without leaving the panel.', 'icon' => 'database'],
+        ['title' => 'Security & certificates', 'body' => 'Use automatic Let\'s Encrypt provisioning, security profiles and baseline hardening.', 'icon' => 'shield'],
+        ['title' => 'Terminal & logs', 'body' => 'Troubleshoot faster with a secure web terminal and real-time log streaming.', 'icon' => 'terminal'],
+        ['title' => 'Roles & access model', 'body' => 'Separate admin, reseller and customer permissions with a safer delegation flow.', 'icon' => 'users'],
+        ['title' => 'Ready stack profiles', 'body' => 'Start faster with predefined profiles for WordPress, Laravel and classic PHP apps.', 'icon' => 'layers'],
+    ];
+
     /** @var array<string, string> */
-    public const NEON_DEFAULT_TOP = [
+    public const NEON_DEFAULT_TOP_TR = [
         'badge' => 'Neon · Material',
         'title' => 'Altyapınızı tek panelden yönetin',
         'lead' => 'Sade arayüz, güçlü otomasyon. Gece modu ile göz yormayan neon vurgular.',
@@ -25,14 +34,27 @@ final class LandingAppearance
         'cta_secondary' => 'Kurulum rehberi',
     ];
 
+    public const NEON_DEFAULT_TOP_EN = [
+        'badge' => 'Neon · Material',
+        'title' => 'Run your infrastructure from one panel',
+        'lead' => 'A cleaner interface with practical automation and calm neon accents for dark mode.',
+        'cta_primary' => 'Open panel',
+        'cta_secondary' => 'Setup guide',
+    ];
+
     /** @var array{title: string, lead: string} */
-    public const NEON_DEFAULT_STACK_SECTION = [
+    public const NEON_DEFAULT_STACK_SECTION_TR = [
         'title' => 'Öne çıkan özellikler',
         'lead' => 'Operasyon ve geliştirme ekipleri için beş temel yetenek.',
     ];
 
+    public const NEON_DEFAULT_STACK_SECTION_EN = [
+        'title' => 'Core capabilities',
+        'lead' => 'Five practical capabilities for daily operations and engineering workflows.',
+    ];
+
     /** @var list<array{title: string, body: string, icon: string}> */
-    public const NEON_DEFAULT_STACK_ITEMS = [
+    public const NEON_DEFAULT_STACK_ITEMS_TR = [
         ['title' => 'Çoklu site & domain', 'body' => 'Nginx sanal host, SSL ve yönlendirmeleri merkezi yönetin.', 'icon' => 'globe'],
         ['title' => 'Veritabanları', 'body' => 'MySQL ve Postgres için kullanıcı, yetki ve yedek akışları.', 'icon' => 'database'],
         ['title' => 'Güvenlik katmanı', 'body' => 'Profiller, sertifikalar ve temel sertleştirme seçenekleri.', 'icon' => 'shield'],
@@ -40,20 +62,42 @@ final class LandingAppearance
         ['title' => 'Roller & bayi modeli', 'body' => 'Admin, bayi ve son kullanıcı için ayrıştırılmış yetkiler.', 'icon' => 'users'],
     ];
 
+    public const NEON_DEFAULT_STACK_ITEMS_EN = [
+        ['title' => 'Multi-site & domains', 'body' => 'Centralize Nginx vhosts, SSL lifecycle and redirect rules.', 'icon' => 'globe'],
+        ['title' => 'Database workflows', 'body' => 'Handle users, privileges and backups for MySQL and PostgreSQL.', 'icon' => 'database'],
+        ['title' => 'Security layer', 'body' => 'Apply profile-based controls, certificates and baseline hardening.', 'icon' => 'shield'],
+        ['title' => 'Terminal & observability', 'body' => 'React faster with browser terminal access and live log tracking.', 'icon' => 'terminal'],
+        ['title' => 'Roles & reseller model', 'body' => 'Keep access boundaries clean across admin, reseller and customer roles.', 'icon' => 'users'],
+    ];
+
     /** @var array{title: string, lead: string} */
-    public const NEON_DEFAULT_GRID_SECTION = [
+    public const NEON_DEFAULT_GRID_SECTION_TR = [
         'title' => 'Daha fazla yetenek',
         'lead' => 'Genişletilebilir mimari ile büyüyen ihtiyaçlara altı ek başlık.',
     ];
 
+    public const NEON_DEFAULT_GRID_SECTION_EN = [
+        'title' => 'Additional modules',
+        'lead' => 'Six expandable modules to support larger deployments as you grow.',
+    ];
+
     /** @var list<array{title: string, body: string, icon: string}> */
-    public const NEON_DEFAULT_GRID_ITEMS = [
+    public const NEON_DEFAULT_GRID_ITEMS_TR = [
         ['title' => 'Stack profilleri', 'body' => 'WordPress, Laravel ve statik siteler için hazır profiller.', 'icon' => 'layers'],
         ['title' => 'Performans', 'body' => 'PHP-FPM ve önbellek ayarlarıyla optimize edilmiş istek yolu.', 'icon' => 'cpu'],
         ['title' => 'Hızlı lansman', 'body' => 'Sihirbazlar ve şablonlarla dakikalar içinde yayına çıkın.', 'icon' => 'rocket'],
         ['title' => 'API & otomasyon', 'body' => 'Engine ile panel arasında güvenli API sözleşmesi.', 'icon' => 'terminal'],
         ['title' => 'Yedekleme', 'body' => 'Zamanlanmış yedekler ve dışa aktarma seçenekleri.', 'icon' => 'database'],
         ['title' => 'Çoklu sunucu', 'body' => 'Tek panelden birden fazla host hedefi (roadmap uyumlu).', 'icon' => 'globe'],
+    ];
+
+    public const NEON_DEFAULT_GRID_ITEMS_EN = [
+        ['title' => 'Stack profiles', 'body' => 'Use ready templates for WordPress, Laravel and static PHP deployments.', 'icon' => 'layers'],
+        ['title' => 'Performance tuning', 'body' => 'Tune request paths with PHP-FPM and cache-related controls.', 'icon' => 'cpu'],
+        ['title' => 'Faster launches', 'body' => 'Bring projects online quickly with guided flows and reusable presets.', 'icon' => 'rocket'],
+        ['title' => 'API & automation', 'body' => 'Integrate safely with engine-driven flows over a consistent API contract.', 'icon' => 'terminal'],
+        ['title' => 'Backups', 'body' => 'Plan scheduled backups and export options for safer recovery paths.', 'icon' => 'database'],
+        ['title' => 'Multi-host roadmap', 'body' => 'Prepare one panel for multi-host operations as product scope expands.', 'icon' => 'globe'],
     ];
 
     public static function activeTheme(): string
@@ -101,8 +145,9 @@ final class LandingAppearance
     public static function neonTop(): array
     {
         $raw = json_decode((string) LandingSiteSetting::getValue('landing.theme_neon_top', '{}'), true);
+        $defaults = app()->getLocale() === 'tr' ? self::NEON_DEFAULT_TOP_TR : self::NEON_DEFAULT_TOP_EN;
 
-        return self::mergeNeonAssoc(self::NEON_DEFAULT_TOP, is_array($raw) ? $raw : []);
+        return self::mergeNeonAssoc($defaults, is_array($raw) ? $raw : []);
     }
 
     /**
@@ -111,15 +156,18 @@ final class LandingAppearance
     public static function neonStackSection(): array
     {
         $raw = json_decode((string) LandingSiteSetting::getValue('landing.theme_neon_stack_section', '{}'), true);
+        $defaults = app()->getLocale() === 'tr' ? self::NEON_DEFAULT_STACK_SECTION_TR : self::NEON_DEFAULT_STACK_SECTION_EN;
 
-        return self::mergeNeonAssoc(self::NEON_DEFAULT_STACK_SECTION, is_array($raw) ? $raw : []);
+        return self::mergeNeonAssoc($defaults, is_array($raw) ? $raw : []);
     }
 
     /** @return list<array{title: string, body: string, icon: string}> */
     public static function neonStackItems(): array
     {
+        $defaults = app()->getLocale() === 'tr' ? self::NEON_DEFAULT_STACK_ITEMS_TR : self::NEON_DEFAULT_STACK_ITEMS_EN;
+
         return self::mergeNeonItemList(
-            self::NEON_DEFAULT_STACK_ITEMS,
+            $defaults,
             json_decode((string) LandingSiteSetting::getValue('landing.theme_neon_stack', '[]'), true),
             5
         );
@@ -131,15 +179,18 @@ final class LandingAppearance
     public static function neonGridSection(): array
     {
         $raw = json_decode((string) LandingSiteSetting::getValue('landing.theme_neon_grid_section', '{}'), true);
+        $defaults = app()->getLocale() === 'tr' ? self::NEON_DEFAULT_GRID_SECTION_TR : self::NEON_DEFAULT_GRID_SECTION_EN;
 
-        return self::mergeNeonAssoc(self::NEON_DEFAULT_GRID_SECTION, is_array($raw) ? $raw : []);
+        return self::mergeNeonAssoc($defaults, is_array($raw) ? $raw : []);
     }
 
     /** @return list<array{title: string, body: string, icon: string}> */
     public static function neonGridItems(): array
     {
+        $defaults = app()->getLocale() === 'tr' ? self::NEON_DEFAULT_GRID_ITEMS_TR : self::NEON_DEFAULT_GRID_ITEMS_EN;
+
         return self::mergeNeonItemList(
-            self::NEON_DEFAULT_GRID_ITEMS,
+            $defaults,
             json_decode((string) LandingSiteSetting::getValue('landing.theme_neon_grid', '[]'), true),
             6
         );
@@ -232,10 +283,11 @@ final class LandingAppearance
     /** @return list<array{title: string, body: string, icon: string}> */
     public static function featureCards(): array
     {
+        $defaultCards = app()->getLocale() === 'tr' ? self::DEFAULT_FEATURE_CARDS_TR : self::DEFAULT_FEATURE_CARDS_EN;
         $raw = LandingSiteSetting::getValue('landing.home_feature_cards', '[]');
         $data = json_decode((string) $raw, true);
         if (! is_array($data) || $data === []) {
-            return self::DEFAULT_FEATURE_CARDS;
+            return $defaultCards;
         }
         $allowedIcons = array_keys(config('landing_theme.feature_icons', []));
         $out = [];
@@ -255,7 +307,7 @@ final class LandingAppearance
             $out[] = ['title' => $title, 'body' => $body, 'icon' => $icon];
         }
 
-        return $out !== [] ? $out : self::DEFAULT_FEATURE_CARDS;
+        return $out !== [] ? $out : $defaultCards;
     }
 
     public static function siteLogoUrl(): ?string
@@ -420,6 +472,20 @@ final class LandingAppearance
         $t = trim((string) (LandingSiteSetting::getValue('landing.footer_extra_note', '') ?? ''));
 
         return $t !== '' ? $t : null;
+    }
+
+    public static function analyticsHeadCode(): ?string
+    {
+        $code = trim((string) (LandingSiteSetting::getValue('landing.analytics_head_code', '') ?? ''));
+
+        return $code !== '' ? $code : null;
+    }
+
+    public static function analyticsBodyCode(): ?string
+    {
+        $code = trim((string) (LandingSiteSetting::getValue('landing.analytics_body_code', '') ?? ''));
+
+        return $code !== '' ? $code : null;
     }
 
     private static function trimmedUrlSetting(string $key): ?string

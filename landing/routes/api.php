@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\LicenseValidateController;
+use App\Http\Controllers\Api\PanelUpdateCheckController;
 use App\Http\Controllers\Api\LicensingCheckoutController;
 use App\Http\Controllers\Api\PaytrLicensingCallbackController;
 use App\Http\Controllers\Api\PublicLandingApiController;
@@ -15,6 +16,7 @@ Route::prefix('v1/public')->group(function (): void {
 
 Route::prefix('v1')->middleware('throttle:license-validate')->group(function (): void {
     Route::post('license/validate', LicenseValidateController::class);
+    Route::get('panel-updates/check', PanelUpdateCheckController::class);
 });
 
 Route::prefix('v1/licensing')->group(function (): void {

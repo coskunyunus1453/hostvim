@@ -76,9 +76,9 @@
                             <div class="mb-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                                 <span class="flex items-center gap-1">
                                     <span class="hv-accent-dot h-2 w-2 rounded-full"></span>
-                                    hostvim engine
+                                    {{ landing_p('home.mock_engine_label') }}
                                 </span>
-                                <span>Realtime health</span>
+                                <span>{{ landing_p('home.mock_health_label') }}</span>
                             </div>
                             <div class="space-y-3">
                                 <div class="grid grid-cols-3 gap-3 text-xs">
@@ -105,11 +105,11 @@
 
                                 <div class="flex items-center justify-between rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 to-white px-3 py-3 dark:border-slate-800 dark:from-slate-900/90 dark:to-slate-950/90">
                                     <div>
-                                        <div class="text-xs text-slate-500 dark:text-slate-400">Aktif siteler</div>
-                                        <div class="text-base font-semibold text-slate-900 dark:text-slate-100">12 domain</div>
+                                        <div class="text-xs text-slate-500 dark:text-slate-400">{{ landing_p('home.mock_active_sites') }}</div>
+                                        <div class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('home.mock_active_example') }}</div>
                                     </div>
                                     <span class="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold hv-border-brand hv-bg-brand-soft text-[rgb(var(--hv-brand-800)/1)] dark:text-[rgb(var(--hv-brand-200)/1)]">
-                                        %99.97 uptime
+                                        {{ landing_p('home.mock_uptime') }}
                                     </span>
                                 </div>
                             </div>
@@ -166,50 +166,50 @@
 
             <div class="grid gap-5 text-base sm:grid-cols-2 lg:grid-cols-3">
                 <div class="flex flex-col rounded-2xl border border-slate-200/90 bg-white/90 p-6 dark:border-slate-800 dark:bg-slate-900/60">
-                    <h3 class="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">Freemium</h3>
-                    <p class="mb-4 text-base text-slate-600 dark:text-slate-400">Tek sunucu için sınırlı ama yeterli özellikler.</p>
+                    <h3 class="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('home.pricing_freemium_title') }}</h3>
+                    <p class="mb-4 text-base text-slate-600 dark:text-slate-400">{{ landing_p('home.pricing_freemium_desc') }}</p>
                     <div class="mb-4 flex items-baseline gap-1 text-slate-900 dark:text-slate-100">
-                        <span class="text-3xl font-semibold">₺0</span>
-                        <span class="text-sm text-slate-500">/ay</span>
+                        <span class="text-3xl font-semibold">{{ landing_p('home.pricing_freemium_amount') }}</span>
+                        <span class="text-sm text-slate-500">{{ landing_p('home.pricing_freemium_period') }}</span>
                     </div>
                     <ul class="mb-6 flex-1 space-y-2 text-base text-slate-700 dark:text-slate-300">
-                        <li>• 1 sunucu</li>
-                        <li>• Temel site &amp; domain yönetimi</li>
-                        <li>• Otomatik SSL</li>
-                        <li>• Sınırlı log &amp; terminal erişimi</li>
+                        <li>{{ landing_p('home.pricing_freemium_li_1') }}</li>
+                        <li>{{ landing_p('home.pricing_freemium_li_2') }}</li>
+                        <li>{{ landing_p('home.pricing_freemium_li_3') }}</li>
+                        <li>{{ landing_p('home.pricing_freemium_li_4') }}</li>
                     </ul>
                     <button type="button" class="mt-auto inline-flex w-full items-center justify-center rounded-full border border-slate-300/90 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100">
-                        Ücretsiz başla
+                        {{ landing_p('home.pricing_freemium_cta') }}
                     </button>
                 </div>
 
                 <div class="hv-card-pro">
                     <div class="hv-card-pro-badge">
-                        Önerilen
+                        {{ landing_p('home.pricing_pro_badge') }}
                     </div>
-                    <h3 class="mb-1 pr-16 text-lg font-semibold text-slate-900 dark:text-slate-50">Pro Lisans</h3>
-                    <p class="mb-4 text-base text-slate-600 dark:text-slate-300">Ajanslar ve yoğun trafik alan siteler için.</p>
+                    <h3 class="mb-1 pr-16 text-lg font-semibold text-slate-900 dark:text-slate-50">{{ landing_p('home.pricing_pro_title') }}</h3>
+                    <p class="mb-4 text-base text-slate-600 dark:text-slate-300">{{ landing_p('home.pricing_pro_desc') }}</p>
                     <div class="mb-4 flex items-baseline gap-1 hv-text-brand">
-                        <span class="text-3xl font-semibold">₺?</span>
-                        <span class="text-sm">/ay · sunucu başına</span>
+                        <span class="text-3xl font-semibold">{{ landing_p('home.pricing_pro_amount') }}</span>
+                        <span class="text-sm">{{ landing_p('home.pricing_pro_period') }}</span>
                     </div>
                     <ul class="mb-6 flex-1 space-y-2 text-base text-slate-800 dark:text-slate-200">
-                        <li>• Sınırsız site &amp; domain</li>
-                        <li>• Gelişmiş güvenlik profilleri</li>
-                        <li>• Detaylı metrikler &amp; health checks</li>
-                        <li>• Öncelikli destek</li>
+                        <li>{{ landing_p('home.pricing_pro_li_1') }}</li>
+                        <li>{{ landing_p('home.pricing_pro_li_2') }}</li>
+                        <li>{{ landing_p('home.pricing_pro_li_3') }}</li>
+                        <li>{{ landing_p('home.pricing_pro_li_4') }}</li>
                     </ul>
                     <button type="button" class="hv-btn-primary-sm mt-auto w-full py-2.5 text-sm font-semibold text-white">
-                        Lansman fiyatı için iletişim
+                        {{ landing_p('home.pricing_pro_cta') }}
                     </button>
                 </div>
 
                 <div class="flex flex-col rounded-2xl border border-slate-200/90 bg-white/90 p-6 dark:border-slate-800 dark:bg-slate-900/60">
-                    <h3 class="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">Vendor / White-label</h3>
-                    <p class="mb-4 text-base text-slate-600 dark:text-slate-400">Kendi markanla sunmak isteyen paneller / firmalar için.</p>
-                    <p class="mb-6 flex-1 text-base text-slate-700 dark:text-slate-300">Özel fiyatlandırma, SLA ve roadmap iş birliği.</p>
+                    <h3 class="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('home.pricing_vendor_title') }}</h3>
+                    <p class="mb-4 text-base text-slate-600 dark:text-slate-400">{{ landing_p('home.pricing_vendor_desc') }}</p>
+                    <p class="mb-6 flex-1 text-base text-slate-700 dark:text-slate-300">{{ landing_p('home.pricing_vendor_lead') }}</p>
                     <button type="button" class="mt-auto inline-flex w-full items-center justify-center rounded-full border border-slate-300/90 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100">
-                        Kurumsal teklif iste
+                        {{ landing_p('home.pricing_vendor_cta') }}
                     </button>
                 </div>
             </div>
@@ -235,8 +235,8 @@
 
                     <div class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-5 font-mono text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-200">
                         <div class="mb-2 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-500">
-                            <span>Kurulum komutu (örnek)</span>
-                            <span class="rounded-full bg-white px-2 py-0.5 text-[10px] dark:bg-slate-900">root@server</span>
+                            <span>{{ landing_p('home.docs_install_caption') }}</span>
+                            <span class="rounded-full bg-white px-2 py-0.5 text-[10px] dark:bg-slate-900">{{ landing_p('home.docs_install_prompt_user') }}</span>
                         </div>
                         <div class="overflow-x-auto rounded-xl border border-slate-200/90 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/80">
                             <span class="hv-code-accent">curl</span>
@@ -255,9 +255,10 @@
                     <ul class="space-y-2">
                         <li>• <a href="{{ route('docs.show', 'architecture') }}" class="hv-link font-medium">{{ landing_t('home.docs_link_architecture') }}</a></li>
                         <li>• <a href="{{ route('docs.show', 'getting-started') }}" class="hv-link font-medium">{{ landing_t('home.docs_link_getting_started') }}</a></li>
-                        <li>• WordPress, Laravel ve static site senaryoları</li>
-                        <li>• Güvenlik ve backup stratejileri</li>
-                        <li>• Freemium &amp; lisanslama entegrasyonu</li>
+                        <li>• <a href="{{ route('docs.show', 'platform-features') }}" class="hv-link font-medium">{{ landing_t('home.docs_link_platform_features') }}</a></li>
+                        <li>• {{ landing_p('home.docs_bullet_wp_laravel') }}</li>
+                        <li>• {{ landing_p('home.docs_bullet_security_backup') }}</li>
+                        <li>• {{ landing_p('home.docs_bullet_freemium_license') }}</li>
                     </ul>
                 </div>
             </div>
@@ -301,16 +302,16 @@
                 </div>
                 <div class="space-y-4 text-base text-slate-700 dark:text-slate-300">
                     <div class="rounded-2xl border border-slate-200/90 bg-white/90 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-                        <p class="mb-2 font-semibold text-slate-900 dark:text-slate-100">Freemium’da hangi kısıtlar var?</p>
-                        <p class="leading-relaxed text-slate-600 dark:text-slate-400">Tek sunucu, sınırlı site sayısı ve temel metriklerle başlarsınız. Yükseltme yaptığınızda aynı panel devam eder.</p>
+                        <p class="mb-2 font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('home.faq1_q') }}</p>
+                        <p class="leading-relaxed text-slate-600 dark:text-slate-400">{{ landing_p('home.faq1_a') }}</p>
                     </div>
                     <div class="rounded-2xl border border-slate-200/90 bg-white/90 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-                        <p class="mb-2 font-semibold text-slate-900 dark:text-slate-100">Lisans nasıl doğrulanacak?</p>
-                        <p class="leading-relaxed text-slate-600 dark:text-slate-400">Panel tarafında lisans anahtarı oluşturulup, engine ile güvenli bir API üzerinden eşleşecek (entegrasyon bu projede kurgulanacak).</p>
+                        <p class="mb-2 font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('home.faq2_q') }}</p>
+                        <p class="leading-relaxed text-slate-600 dark:text-slate-400">{{ landing_p('home.faq2_a') }}</p>
                     </div>
                     <div class="rounded-2xl border border-slate-200/90 bg-white/90 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-                        <p class="mb-2 font-semibold text-slate-900 dark:text-slate-100">Mevcut panellerle birlikte kullanılabilir mi?</p>
-                        <p class="leading-relaxed text-slate-600 dark:text-slate-400">Evet, farklı sunucularda farklı paneller çalıştırabilirsiniz. Hostvim kendi engine yapısı ile izole ilerler.</p>
+                        <p class="mb-2 font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('home.faq3_q') }}</p>
+                        <p class="leading-relaxed text-slate-600 dark:text-slate-400">{{ landing_p('home.faq3_a') }}</p>
                     </div>
                 </div>
             </div>

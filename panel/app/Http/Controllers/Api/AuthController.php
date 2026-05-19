@@ -174,7 +174,11 @@ class AuthController extends Controller
         $user->currentAccessToken()->delete();
         $expiresAt = now()->addHours(24);
         $abilities = $user->sanctumAbilities();
-        $token = $user->createToken('panel-token', $abilities, $expiresAt);
+        // 2FA sonrası verilen token adı korunmalı; aksi halde require_admin_2fa ve oturum tutarlılığı bozulur.
+        $tokenName = ($user->two_factor_enabled && $user->two_factor_secret)
+            ? 'panel-token-2fa'
+            : 'panel-token';
+        $token = $user->createToken($tokenName, $abilities, $expiresAt);
 
         return response()->json([
             'token' => $token->plainTextToken,

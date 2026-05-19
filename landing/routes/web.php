@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\Auth\LoginController;
+use App\Http\Controllers\Admin\AppearanceController;
 use App\Http\Controllers\Admin\BillingSettingsController;
 use App\Http\Controllers\Admin\BlogCategoryController;
 use App\Http\Controllers\Admin\BlogPostController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Admin\DocPageController;
 use App\Http\Controllers\Admin\LandingTranslationController;
 use App\Http\Controllers\Admin\LocaleSettingsController;
 use App\Http\Controllers\Admin\NavMenuItemController;
+use App\Http\Controllers\Admin\PanelReleaseController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\PublicHomeContentController;
 use App\Http\Controllers\Admin\SaasCustomerController;
@@ -167,6 +169,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
             Route::get('site-settings', [SiteSettingsController::class, 'edit'])->name('site-settings.edit');
             Route::put('site-settings', [SiteSettingsController::class, 'update'])->name('site-settings.update');
+            Route::get('appearance', [AppearanceController::class, 'index'])->name('appearance.index');
             Route::get('system/logs', [SystemLogsController::class, 'index'])->name('system.logs.index');
             Route::get('system/logs/export.csv', [SystemLogsController::class, 'exportCsv'])->name('system.logs.export');
 
@@ -215,6 +218,14 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
                 ->names($saasResourceNames('licenses'));
             Route::post('saas/licenses/{saas_license}/regenerate', [SaasLicenseController::class, 'regenerate'])
                 ->name('saas.licenses.regenerate');
+
+            Route::resource('panel-releases', PanelReleaseController::class)
+                ->except(['show'])
+                ->parameters(['panel-releases' => 'panel_release']);
+            Route::post('panel-releases/{panel_release}/publish', [PanelReleaseController::class, 'publish'])
+                ->name('panel-releases.publish');
+            Route::post('panel-releases/{panel_release}/unpublish', [PanelReleaseController::class, 'unpublish'])
+                ->name('panel-releases.unpublish');
 
             Route::get('nav-menu', [NavMenuItemController::class, 'index'])->name('nav-menu.index');
             Route::get('nav-menu/create', [NavMenuItemController::class, 'create'])->name('nav-menu.create');

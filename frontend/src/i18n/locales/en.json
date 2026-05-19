@@ -357,6 +357,21 @@
     "repair_partial": "Panel checked; some steps still need manual action.",
     "check_failed": "Panel validation failed."
   },
+  "panel_update": {
+    "title": "Panel update",
+    "current": "Installed version",
+    "check": "Check for updates",
+    "check_done": "Update check completed",
+    "check_failed": "Could not reach update server",
+    "view_changelog": "What's new",
+    "apply": "Update now",
+    "confirm": "Update panel to {{version}}? Your sites and settings are preserved; this may take a few minutes.",
+    "apply_started": "Update started in the background",
+    "apply_success": "Panel updated successfully",
+    "apply_failed": "Update failed",
+    "in_progress": "Update in progress…",
+    "dismiss": "Remind me later"
+  },
   "domains": {
     "title": "Domain Management",
     "add": "Add Domain",

@@ -3,21 +3,21 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Ön yüz temaları (Tema 1 = orange, Tema 2 = turkuaz, Tema 3 = neon/material)
+    | Ön yüz temaları (orange, turquoise, neon)
     |--------------------------------------------------------------------------
     */
     'themes' => [
         'orange' => [
-            'label' => 'Tema 1 — Turuncu (varsayılan)',
-            'description' => 'Mevcut Hostvim turuncu vurgulu arayüz.',
+            'label' => 'Orange (varsayılan)',
+            'description' => 'Klasik Hostvim düzeni, turuncu vurgu renkleri.',
         ],
         'turquoise' => [
-            'label' => 'Tema 2 — Turkuaz',
-            'description' => 'Beyaz ve turkuaz tonları; gece modunda turkuaz vurgular.',
+            'label' => 'Turquoise',
+            'description' => 'Klasik düzen, turkuaz vurgu paleti.',
         ],
         'neon' => [
-            'label' => 'Tema 3 — Neon / Material (sade)',
-            'description' => 'Ayrı üst-alt çerçeve, neon vurgulu material yüzeyler, gece modu. Ana sayfa üst alan + 5’li liste + 6’lı ızgara admin’den düzenlenir.',
+            'label' => 'Neon',
+            'description' => 'Neon header/footer, özel ana sayfa akışı (üst alan + 5 satır + 6 kutu), koyu mod uyumlu yüzeyler.',
         ],
     ],
 

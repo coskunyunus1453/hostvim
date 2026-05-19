@@ -13,14 +13,14 @@ class SetLandingLocale
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["tr","en"]');
-        $enabled = json_decode($enabledJson, true) ?: ['tr', 'en'];
+        $enabledJson = LandingSiteSetting::getValue('landing.enabled_locales', '["en","tr"]');
+        $enabled = json_decode($enabledJson, true) ?: ['en', 'tr'];
         $enabled = array_values(array_intersect($enabled, array_keys(config('landing.locales', []))));
         if ($enabled === []) {
-            $enabled = ['tr'];
+            $enabled = ['en'];
         }
 
-        $default = LandingSiteSetting::getValue('landing.default_locale', config('app.locale', 'tr')) ?? 'tr';
+        $default = LandingSiteSetting::getValue('landing.default_locale', config('app.locale', 'en')) ?? 'en';
         if (! in_array($default, $enabled, true)) {
             $default = $enabled[0];
         }

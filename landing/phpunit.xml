@@ -18,6 +18,8 @@
         </include>
     </source>
     <php>
+        <!-- $this->get('/') tam URL üretir; APP_URL alt path içerirse rotalar eşleşmez (404). -->
+        <env name="APP_URL" value="http://localhost"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

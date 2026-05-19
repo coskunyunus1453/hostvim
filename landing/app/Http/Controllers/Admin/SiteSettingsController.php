@@ -25,6 +25,8 @@ class SiteSettingsController extends Controller
             'socialGithub' => trim((string) (LandingSiteSetting::getValue('landing.social_github_url', '') ?? '')),
             'socialLinkedin' => trim((string) (LandingSiteSetting::getValue('landing.social_linkedin_url', '') ?? '')),
             'analyticsGa4' => trim((string) (LandingSiteSetting::getValue('landing.analytics_ga4_id', '') ?? '')),
+            'analyticsHeadCode' => trim((string) (LandingSiteSetting::getValue('landing.analytics_head_code', '') ?? '')),
+            'analyticsBodyCode' => trim((string) (LandingSiteSetting::getValue('landing.analytics_body_code', '') ?? '')),
             'footerExtraNote' => trim((string) (LandingSiteSetting::getValue('landing.footer_extra_note', '') ?? '')),
             'logoMaxHeightPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_max_height_px', '') ?? ''),
             'logoMaxWidthPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_max_width_px', '') ?? ''),
@@ -58,6 +60,8 @@ class SiteSettingsController extends Controller
             'social_github_url' => ['nullable', 'string', 'max:500'],
             'social_linkedin_url' => ['nullable', 'string', 'max:500'],
             'analytics_ga4_id' => ['nullable', 'string', 'max:24'],
+            'analytics_head_code' => ['nullable', 'string', 'max:20000'],
+            'analytics_body_code' => ['nullable', 'string', 'max:20000'],
             'footer_extra_note' => ['nullable', 'string', 'max:500'],
             'site_logo_max_height_px' => ['nullable', 'integer', 'min:20', 'max:200'],
             'site_logo_max_width_px' => ['nullable', 'integer', 'min:0', 'max:600'],
@@ -88,6 +92,8 @@ class SiteSettingsController extends Controller
         LandingSiteSetting::put('landing.social_github_url', trim((string) ($validated['social_github_url'] ?? '')));
         LandingSiteSetting::put('landing.social_linkedin_url', trim((string) ($validated['social_linkedin_url'] ?? '')));
         LandingSiteSetting::put('landing.analytics_ga4_id', trim((string) ($validated['analytics_ga4_id'] ?? '')));
+        LandingSiteSetting::put('landing.analytics_head_code', trim((string) ($validated['analytics_head_code'] ?? '')));
+        LandingSiteSetting::put('landing.analytics_body_code', trim((string) ($validated['analytics_body_code'] ?? '')));
         LandingSiteSetting::put('landing.footer_extra_note', trim((string) ($validated['footer_extra_note'] ?? '')));
 
         $logoH = $validated['site_logo_max_height_px'] ?? null;
@@ -139,6 +145,11 @@ class SiteSettingsController extends Controller
         }
 
         LandingI18n::clearRuntimeCache();
+
+        if ($request->input('return_to') === 'appearance') {
+            return redirect()->route('admin.appearance.index', ['tab' => $request->input('tab', 'site')])
+                ->with('status', 'Site ayarları kaydedildi.');
+        }
 
         return redirect()->route('admin.site-settings.edit')->with('status', 'Site ayarları kaydedildi.');
     }

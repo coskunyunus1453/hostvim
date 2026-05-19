@@ -8,6 +8,7 @@ import { isHostingSuperAdmin, isServerAdminUI } from '../lib/authRoles'
 import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, RotateCw, Server } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ResourceChartsSection from '../components/dashboard/ResourceChartsSection'
+import PanelUpdateCard from '../components/panel/PanelUpdateCard'
 
 function fmtGb(nBytes?: number | null): string {
   if (nBytes == null || !Number.isFinite(nBytes)) return '—'
@@ -76,11 +77,6 @@ export default function DashboardPage() {
       toast.error(parseApiErrorMessage(err, t('dashboard.service_restart_failed')))
     },
   })
-
-  const updateClick = () => {
-    // Şimdilik sadece placeholder: ileride gerçek update mekanizmasına bağlanacak.
-    toast('Güncelleme sistemi yakında eklenecek.', { icon: '⏳' })
-  }
 
   const statCards = [
     {
@@ -215,7 +211,7 @@ export default function DashboardPage() {
             <button
               type="button"
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-sky-300 text-sky-900 bg-sky-50 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-100 text-xs sm:text-sm"
-              onClick={updateClick}
+              onClick={() => document.getElementById('panel-update')?.scrollIntoView({ behavior: 'smooth' })}
             >
               <RefreshCcw className="h-4 w-4" />
               {t('dashboard.update_panel')}
@@ -223,6 +219,12 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {isSuper && (
+        <div id="panel-update">
+          <PanelUpdateCard compact />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-5 sm:col-span-2 lg:col-span-2">

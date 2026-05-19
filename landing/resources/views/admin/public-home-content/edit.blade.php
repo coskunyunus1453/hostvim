@@ -1,13 +1,22 @@
+@php($embedded = $embedded ?? false)
+@if (! $embedded)
 <x-admin.layout title="Ön yüz — ana sayfa içeriği">
+@endif
     <div class="mx-auto max-w-4xl space-y-10">
-        <p class="admin-muted">
-            Alanları doldurduğunuzda çeviri dosyası ve veritabanı çevirilerinin üzerine yazılır; boş bıraktığınız alanlar mevcut çeviriye döner.
-            Özellik kartları ve kahraman görseli yalnızca buradan yönetilir.
-        </p>
+        @if (! $embedded)
+            <p class="admin-muted">
+                Alanları doldurduğunuzda çeviri dosyası ve veritabanı çevirilerinin üzerine yazılır; boş bıraktığınız alanlar mevcut çeviriye döner.
+                Özellik kartları ve kahraman görseli yalnızca buradan yönetilir.
+            </p>
+        @endif
 
         <form method="POST" action="{{ route('admin.public-home-content.update') }}" enctype="multipart/form-data" class="space-y-10">
             @csrf
             @method('PUT')
+            @if ($embedded)
+                <input type="hidden" name="return_to" value="appearance">
+                <input type="hidden" name="tab" value="home">
+            @endif
 
             <div class="admin-card">
                 <h2 class="admin-label-block text-base">Kahraman görseli</h2>
@@ -104,4 +113,6 @@
             </div>
         </form>
     </div>
+@if (! $embedded)
 </x-admin.layout>
+@endif

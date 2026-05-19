@@ -474,6 +474,9 @@ if [[ -f "$REPO_ROOT/deploy/host/hostvim-cleaner" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/hostvim-cleaner" /usr/local/sbin/hostvim-cleaner
   ln -sfn /usr/local/sbin/hostvim-cleaner /usr/local/sbin/panelsar-cleaner
 fi
+if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
+fi
 cat > /etc/sudoers.d/hostvim-engine <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
@@ -485,6 +488,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-php-ini
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-php-ini
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-security
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-security
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-panel-update
 SUDOERS
 chmod 440 /etc/sudoers.d/hostvim-engine
 visudo -cf /etc/sudoers.d/hostvim-engine
