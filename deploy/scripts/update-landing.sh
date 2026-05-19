@@ -56,6 +56,19 @@ if [[ ! -d "$HOSTVIM_HOME/landing" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$HOSTVIM_HOME/landing/public/index.php" ]]; then
+  echo "Hata: Git'teki landing/public boş görünüyor — rsync yapılmadı (silme riski)." >&2
+  echo "Önce: cd $HOSTVIM_HOME && git checkout origin/$HOSTVIM_BRANCH -- landing/" >&2
+  echo "Veya: curl -fsSL .../restore-landing.sh | bash" >&2
+  exit 1
+fi
+
+STAMP="$(date +%Y%m%d-%H%M%S)"
+if [[ -d "$PUBLIC_HTML" ]]; then
+  echo "==> Yedek: ${PUBLIC_HTML}.bak-${STAMP}"
+  cp -a "$PUBLIC_HTML" "${PUBLIC_HTML}.bak-${STAMP}" 2>/dev/null || true
+fi
+
 echo "==> Site köküne kopyala: $LANDING_ROOT"
 rsync -a \
   --exclude '.env' \
@@ -64,8 +77,8 @@ rsync -a \
   --exclude 'storage/logs/' \
   "$HOSTVIM_HOME/landing/" "$LANDING_ROOT/"
 
-echo "==> Web kökü (public): $PUBLIC_HTML"
-rsync -a --delete \
+echo "==> Web kökü (public): $PUBLIC_HTML — rsync --delete KAPALI"
+rsync -a \
   "$HOSTVIM_HOME/landing/public/" "$PUBLIC_HTML/"
 
 if [[ ! -f "$LANDING_ROOT/artisan" ]]; then
@@ -74,6 +87,11 @@ if [[ ! -f "$LANDING_ROOT/artisan" ]]; then
 fi
 
 cd "$LANDING_ROOT"
+
+echo "==> İzinler ($RUN_USER)"
+mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache vendor
+chown -R "$RUN_USER:$RUN_USER" "$LANDING_ROOT"
+chmod -R ug+rwx storage bootstrap/cache 2>/dev/null || true
 
 LOCK_HASH="$(md5sum composer.lock 2>/dev/null | awk '{print $1}' || echo '')"
 LOCK_STAMP="$LANDING_ROOT/storage/framework/.composer-lock-hash"
@@ -98,7 +116,5 @@ sudo -u "$RUN_USER" php artisan config:cache
 sudo -u "$RUN_USER" php artisan route:cache
 sudo -u "$RUN_USER" php artisan view:cache
 
-chown -R "$RUN_USER:$RUN_USER" storage bootstrap/cache 2>/dev/null || true
-chmod -R ug+rwx storage bootstrap/cache 2>/dev/null || true
-
 echo "==> Bitti. Landing: $LANDING_ROOT"
+echo "    Admin: /admin/panel-releases"
