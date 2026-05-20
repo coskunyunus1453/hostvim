@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Hostvim Yönetim Girişi</title>
+    <title>Panelze Yönetim Girişi</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script>
         (function () {
@@ -27,7 +27,7 @@
                     <span class="text-lg font-bold text-orange-600 dark:text-orange-400">H</span>
                 </div>
                 <div>
-                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Hostvim</div>
+                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Panelze</div>
                     <div class="text-xs text-slate-500 dark:text-slate-500">Yönetim paneli</div>
                 </div>
             </div>

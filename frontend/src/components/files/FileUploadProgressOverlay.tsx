@@ -99,7 +99,7 @@ export default function FileUploadProgressOverlay({ open, state }: Props) {
               id="hostvim-upload-progress-title"
               className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-lg font-bold tracking-tight text-transparent sm:text-xl"
             >
-              Hostvim
+              {t('app.name')}
             </p>
             <p className="text-sm font-medium text-primary-300/90">{t('files.upload_progress_tagline')}</p>
             <p className="mt-1 truncate text-xs text-slate-400" title={state.currentName}>

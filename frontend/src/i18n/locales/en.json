@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Hostvim",
+    "name": "Panelze",
     "tagline": "Modern Hosting Control Panel"
   },
   "nav": {
@@ -145,7 +145,7 @@
     "step_1": "In this panel’s .env set HOSTVIM_WHMCS_SECRET to a long random value (e.g. openssl rand -hex 32).",
     "step_2": "Extract the ZIP. Copy the hostvim folder to your WHMCS server at: whmcs_root/modules/servers/hostvim/ (hostvim.php must sit in that folder).",
     "step_3": "WHMCS admin → Configuration → System Settings → Servers → Add New Server and choose module hostvim.",
-    "step_4": "Server hostname: this panel’s URL (e.g. https://panel.example.com). Password field: same value as HOSTVIM_WHMCS_SECRET. Optional username: Hostvim admin email (admin SSO).",
+    "step_4": "Server hostname: this panel’s URL (e.g. https://panel.example.com). Password field: same value as HOSTVIM_WHMCS_SECRET. Optional username: Panelze admin email (admin SSO).",
     "step_5": "Test connection. Package IDs: GET .../api/integrations/whmcs/packages with Authorization: Bearer and the same secret.",
     "step_6": "Attach your hosting product to this server; on provision the panel user and site are created automatically. WHMCS client email = panel user email.",
     "step_7": "Customer access: WHMCS client area → service details → SSO / “Open panel” (template link or WHMCS single sign-on).",
@@ -269,7 +269,7 @@
     "validation_label": "Last check",
     "valid_yes": "Valid (license server)",
     "engine_skip": "No local key; engine call skipped",
-    "ui_hint": "Paste the key from your Hostvim account and click Activate. The key is stored encrypted on the server (APP_KEY).",
+    "ui_hint": "Paste the key from your Panelze account and click Activate. The key is stored encrypted on the server (APP_KEY).",
     "activate_title": "Activate Pro",
     "activate_hint": "Copy the license key from our site and paste it here. You do not need to edit .env.",
     "key_placeholder": "hv_…",
@@ -289,7 +289,7 @@
     "password": "Password",
     "remember": "Remember me",
     "forgot": "Forgot password?",
-    "login_title": "Sign in to Hostvim",
+    "login_title": "Sign in to Panelze",
     "login_subtitle": "Manage your hosting environment"
   },
   "dashboard": {
@@ -428,7 +428,7 @@
     "apache_vhost_hint": "On disk: sites-available/hostvim-<your-domain>.conf (symlink in sites-enabled). Saving runs apachectl configtest and graceful reload.",
     "apache_vhost_saved": "Apache configuration saved.",
     "apache_vhost_reload": "Save and reload Apache",
-    "vhost_safety_notice": "Before saving: keep a backup elsewhere if unsure. After a successful save, Hostvim keeps the previous version on the server (.hostvim-prev) so you can use “Revert last save” to swap back—pressing again toggles between the last two saved versions. A syntax test still runs before reload; a failed test blocks the bad file from going live.",
+    "vhost_safety_notice": "Before saving: keep a backup elsewhere if unsure. After a successful save, Panelze keeps the previous version on the server (.hostvim-prev) so you can use “Revert last save” to swap back—pressing again toggles between the last two saved versions. A syntax test still runs before reload; a failed test blocks the bad file from going live.",
     "vhost_confirm_save": "A bad config can break the site. Syntax is tested before reload; if the test fails, the live file is not replaced. After a good save you can still revert to the previous file. Save anyway?",
     "vhost_revert_last": "Revert last save",
     "vhost_revert_confirm": "Swap the live vhost with the previous saved version on disk? You can repeat this to toggle between the last two versions.",
@@ -943,7 +943,7 @@
     "connect_title": "Connection summary",
     "imap_label": "IMAP server (typical)",
     "smtp_label": "SMTP server (typical)",
-    "ports_hint": "Recommended ports (Hostvim mail stack): IMAPS 993, SMTP submission 587 (STARTTLS), SMTPS 465. IMAP 143 is optional with STARTTLS.",
+    "ports_hint": "Recommended ports (Panelze mail stack): IMAPS 993, SMTP submission 587 (STARTTLS), SMTPS 465. IMAP 143 is optional with STARTTLS.",
     "ports_table_title": "Ports & encryption",
     "port_col_service": "Service",
     "port_col_port": "Port",
@@ -1104,7 +1104,7 @@
     "disk_usage_estimate": "Database space (estimate)",
     "no_metrics_yet": "No data yet",
     "server_section": "Server (engine)",
-    "server_hint": "Requires admin privileges and a reachable Hostvim Engine",
+    "server_hint": "Requires admin privileges and a reachable Panelze Engine",
     "engine_unavailable": "Engine unreachable or insufficient permission",
     "admin_only": "Server metrics are only available to administrators.",
     "system_identity": "System",
@@ -1230,7 +1230,7 @@
       "actions_protocols": "Action & protocol distribution"
     },
     "ssh": {
-      "intro": "SSH access policy and session hardening. The controls below will be managed centrally in Hostvim Pro.",
+      "intro": "SSH access policy and session hardening. The controls below will be managed centrally in Panelze Pro.",
       "port_title": "SSH port & bind interface",
       "port_desc": "Custom port instead of 22, listen on internal networks only, align with firewall rules.",
       "root_title": "Root login",
@@ -1276,7 +1276,7 @@
       "per_user_desc": "Grant compile rights to selected system users (Pro)."
     },
     "attack": {
-      "intro": "Defence in depth across network, application, and session. Advanced items below are planned for Hostvim Pro.",
+      "intro": "Defence in depth across network, application, and session. Advanced items below are planned for Panelze Pro.",
       "layers_title": "Layers available today",
       "layer_fw": "Firewall (iptables) — port and source policy",
       "layer_f2b": "Fail2ban — brute-force and repeated failures",

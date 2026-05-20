@@ -2,7 +2,7 @@
 
 return [
     'brand' => [
-        'name' => 'Hostvim',
+        'name' => 'Panelze',
         'subtitle' => 'Linux Hosting Panel',
     ],
 
@@ -35,13 +35,13 @@ return [
     ],
 
     'home' => [
-        'meta_title' => 'Hostvim - Linux Hosting Control Panel',
+        'meta_title' => 'Panelze - Linux Hosting Control Panel',
         'meta_description' => 'Operate sites, domains, SSL, databases, terminal sessions and logs from one panel. Start freemium, move to licensed Pro as you scale.',
 
-        'hero_badge_engine' => 'Hostvim Engine integrated',
+        'hero_badge_engine' => 'Panelze Engine integrated',
         'hero_badge_model' => 'Freemium · Licensed Pro',
         'hero_title' => 'Modern. Secure. :brand panel.',
-        'hero_lead' => 'Hostvim combines Nginx/PHP-FPM controls, SSL lifecycle, database operations, role access and logs in one focused interface.',
+        'hero_lead' => 'Panelze combines Nginx/PHP-FPM controls, SSL lifecycle, database operations, role access and logs in one focused interface.',
         'hero_cta_primary' => 'Start free',
         'hero_cta_secondary' => '5-minute setup guide',
         'hero_stat_server' => 'Server',
@@ -69,7 +69,7 @@ return [
         'docs_lead' => 'Follow the setup steps, verify services in-panel, and move to production safely.',
         'docs_toc' => 'Contents',
         'docs_all' => 'All docs',
-        'docs_link_architecture' => 'Hostvim architecture',
+        'docs_link_architecture' => 'Panelze architecture',
         'docs_link_getting_started' => 'Getting started',
         'docs_link_platform_features' => 'Platform capabilities overview',
 
@@ -83,7 +83,7 @@ return [
         'faq_title' => 'Frequently asked questions.',
         'faq_lead' => 'Answers on licensing, setup flow, security model and how the platform works technically.',
 
-        'mock_engine_label' => 'Hostvim engine',
+        'mock_engine_label' => 'Panelze engine',
         'mock_health_label' => 'Realtime health',
         'mock_active_sites' => 'Active sites',
         'mock_active_example' => '12 domains',
@@ -127,11 +127,11 @@ return [
         'faq2_q' => 'How will licensing be verified?',
         'faq2_a' => 'You create a license key in the panel and the engine validates it over a secure API (the integration is implemented in this project stack).',
         'faq3_q' => 'Can I run it next to existing panels?',
-        'faq3_a' => 'Yes. Different servers can run different stacks. Hostvim stays isolated with its own engine.',
+        'faq3_a' => 'Yes. Different servers can run different stacks. Panelze stays isolated with its own engine.',
     ],
 
     'docs' => [
-        'index_meta_description' => 'Hostvim installation, architecture, and usage guides.',
+        'index_meta_description' => 'Panelze installation, architecture, and usage guides.',
         'breadcrumb' => 'Documentation',
         'index_page_title' => 'Documentation · :brand',
         'index_heading' => 'Documentation',
@@ -152,8 +152,8 @@ return [
     ],
 
     'blog' => [
-        'page_title' => 'Blog · Hostvim',
-        'meta_description' => 'Product updates and guides on Linux hosting and Hostvim.',
+        'page_title' => 'Blog · Panelze',
+        'meta_description' => 'Product updates and guides on Linux hosting and Panelze.',
         'heading' => 'Blog',
         'subtitle' => 'Server operations, security and product news.',
         'categories_label' => 'Categories',
@@ -164,8 +164,8 @@ return [
     ],
 
     'pricing_page' => [
-        'title' => 'Pricing · Hostvim',
-        'meta_default' => 'Hostvim freemium and licensed tiers. Transparent per-server pricing.',
+        'title' => 'Pricing · Panelze',
+        'meta_default' => 'Panelze freemium and licensed tiers. Transparent per-server pricing.',
         'badge' => 'Pricing',
         'fallback_intro' => 'Freemium to start, licensed professional.',
         'fallback_lead' => 'Plans are managed in the admin. Cards below reflect active rows in the database.',

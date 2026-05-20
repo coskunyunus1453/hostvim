@@ -9,7 +9,7 @@ return [
     'themes' => [
         'orange' => [
             'label' => 'Orange (varsayılan)',
-            'description' => 'Klasik Hostvim düzeni, turuncu vurgu renkleri.',
+            'description' => 'Klasik Panelze düzeni, turuncu vurgu renkleri.',
         ],
         'turquoise' => [
             'label' => 'Turquoise',

@@ -2,7 +2,7 @@
 
 return [
     'install_ok' => 'Bundle installed successfully.',
-    'mail_test_subject' => 'Hostvim mail test',
+    'mail_test_subject' => 'Panelze mail test',
     'mail_test_body' => 'Outbound mail settings are working.',
     'mail_test_sent' => 'Test message was handed off via SMTP or sendmail to :email. Check inbox and spam.',
     'mail_test_failed_generic' => 'Test email could not be sent. Check SMTP/sendmail settings and logs.',

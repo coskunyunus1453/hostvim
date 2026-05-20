@@ -15,7 +15,7 @@ class TwoFactorController extends Controller
 {
     private function getIssuer(User $user): string
     {
-        return (string) config('app.name', 'Hostvim');
+        return (string) config('app.name', 'Panelze');
     }
 
     private function makeBackupCode(): string

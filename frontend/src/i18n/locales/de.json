@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Hostvim",
+    "name": "Panelze",
     "tagline": "Modernes Hosting-Kontrollpanel"
   },
   "nav": {
@@ -48,7 +48,7 @@
     "password": "Passwort",
     "remember": "Angemeldet bleiben",
     "forgot": "Passwort vergessen?",
-    "login_title": "Bei Hostvim anmelden",
+    "login_title": "Bei Panelze anmelden",
     "login_subtitle": "Verwalten Sie Ihre Hosting-Umgebung"
   },
   "dashboard": {

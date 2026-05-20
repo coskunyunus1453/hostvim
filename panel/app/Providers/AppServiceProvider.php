@@ -102,11 +102,11 @@ class AppServiceProvider extends ServiceProvider
 
         if ($this->app->environment('production')) {
             if (config('app.debug')) {
-                Log::warning('Hostvim: APP_DEBUG is enabled in production.');
+                Log::warning('Panelze: APP_DEBUG is enabled in production.');
             }
             if ((string) config('hostvim.engine_internal_key', '') === ''
                 && (string) config('hostvim.engine_secret', '') === '') {
-                Log::warning('Hostvim: ENGINE_INTERNAL_KEY ve ENGINE_API_SECRET bos; motor entegrasyonu calismaz (eski PANELSAR_* anahtarlari config/hostvim.php uzerinden okunur).');
+                Log::warning('Panelze: ENGINE_INTERNAL_KEY ve ENGINE_API_SECRET bos; motor entegrasyonu calismaz (eski PANELSAR_* anahtarlari config/hostvim.php uzerinden okunur).');
             }
         }
     }

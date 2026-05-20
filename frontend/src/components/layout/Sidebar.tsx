@@ -249,7 +249,7 @@ export default function Sidebar() {
           )}
           {!headerLogo && (
             <span className="truncate text-xl font-bold text-gray-900 dark:text-white">
-              Hostvim
+              {t('app.name')}
             </span>
           )}
         </div>

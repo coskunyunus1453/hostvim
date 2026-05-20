@@ -240,7 +240,7 @@
                         </div>
                         <div class="overflow-x-auto rounded-xl border border-slate-200/90 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/80">
                             <span class="hv-code-accent">curl</span>
-                            <span class="text-slate-600 dark:text-slate-400"> -fsSL https://get.hostvim.sh </span>
+                            <span class="text-slate-600 dark:text-slate-400"> -fsSL {{ config('panelze.install_one_liner_url') }} </span>
                             <span class="text-slate-400">|</span>
                             <span class="hv-code-accent"> bash</span>
                         </div>

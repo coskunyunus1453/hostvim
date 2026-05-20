@@ -22,8 +22,8 @@ class LicenseKeyDelivered extends Mailable
     public function envelope(): Envelope
     {
         $subject = $this->order->locale === 'tr'
-            ? 'Hostvim lisans anahtarınız'
-            : 'Your Hostvim license key';
+            ? 'Panelze lisans anahtarınız'
+            : 'Your Panelze license key';
 
         return new Envelope(
             subject: $subject,

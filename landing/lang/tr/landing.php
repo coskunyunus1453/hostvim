@@ -2,7 +2,7 @@
 
 return [
     'brand' => [
-        'name' => 'Hostvim',
+        'name' => 'Panelze',
         'subtitle' => 'Linux Hosting Panel',
     ],
 
@@ -35,13 +35,13 @@ return [
     ],
 
     'home' => [
-        'meta_title' => 'Hostvim - Linux Hosting Kontrol Paneli',
+        'meta_title' => 'Panelze - Linux Hosting Kontrol Paneli',
         'meta_description' => 'Site, domain, SSL, veritabanı, terminal ve log operasyonlarını tek panelden yönetin. Freemium başlangıç ve lisanslı Pro geçiş modeli.',
 
-        'hero_badge_engine' => 'Hostvim Engine Entegre',
+        'hero_badge_engine' => 'Panelze Engine Entegre',
         'hero_badge_model' => 'Freemium · Lisanslı Pro',
         'hero_title' => 'Modern. Güvenli. :brand Paneli.',
-        'hero_lead' => 'Hostvim; Nginx/PHP-FPM ayarları, SSL, veritabanı, kullanıcı yetkileri ve operasyon loglarını tek bir sade arayüzde birleştirir.',
+        'hero_lead' => 'Panelze; Nginx/PHP-FPM ayarları, SSL, veritabanı, kullanıcı yetkileri ve operasyon loglarını tek bir sade arayüzde birleştirir.',
         'hero_cta_primary' => 'Ücretsiz Başla',
         'hero_cta_secondary' => '5 dakikada kurulum rehberi',
         'hero_stat_server' => 'Sunucu',
@@ -69,9 +69,9 @@ return [
         'docs_lead' => 'Kurulum adımlarını izleyin, panel üzerinden servisleri doğrulayın ve canlı ortama güvenle geçin.',
         'docs_toc' => 'İçindekiler',
         'docs_all' => 'Tüm docs',
-        'docs_link_architecture' => 'Hostvim mimarisi',
+        'docs_link_architecture' => 'Panelze mimarisi',
         'docs_link_getting_started' => 'Başlangıç rehberi',
-        'docs_link_platform_features' => 'Hostvim yetenekleri özeti',
+        'docs_link_platform_features' => 'Panelze yetenekleri özeti',
 
         'blog_badge' => 'Blog',
         'blog_title' => 'Linux hosting ve panel operasyon notları.',
@@ -83,7 +83,7 @@ return [
         'faq_title' => 'Sık sorulan sorular.',
         'faq_lead' => 'Lisans, kurulum, güvenlik ve teknik çalışma modeli hakkında en çok sorulan başlıklar.',
 
-        'mock_engine_label' => 'hostvim engine',
+        'mock_engine_label' => 'Panelze engine',
         'mock_health_label' => 'Realtime health',
         'mock_active_sites' => 'Aktif siteler',
         'mock_active_example' => '12 domain',
@@ -127,11 +127,11 @@ return [
         'faq2_q' => 'Lisans nasıl doğrulanacak?',
         'faq2_a' => 'Panel tarafında lisans anahtarı oluşturulup, engine ile güvenli bir API üzerinden eşleşecek (entegrasyon bu projede kurgulanacak).',
         'faq3_q' => 'Mevcut panellerle birlikte kullanılabilir mi?',
-        'faq3_a' => 'Evet, farklı sunucularda farklı paneller çalıştırabilirsiniz. Hostvim kendi engine yapısı ile izole ilerler.',
+        'faq3_a' => 'Evet, farklı sunucularda farklı paneller çalıştırabilirsiniz. Panelze kendi engine yapısı ile izole ilerler.',
     ],
 
     'docs' => [
-        'index_meta_description' => 'Hostvim kurulumu, mimari ve kullanım rehberleri.',
+        'index_meta_description' => 'Panelze kurulumu, mimari ve kullanım rehberleri.',
         'breadcrumb' => 'Dokümantasyon',
         'index_page_title' => 'Dokümantasyon · :brand',
         'index_heading' => 'Dokümantasyon',
@@ -152,10 +152,10 @@ return [
     ],
 
     'blog' => [
-        'page_title' => 'Blog · Hostvim',
-        'meta_description' => 'Hostvim, Linux hosting ve panel üzerine güncellemeler ve rehberler.',
+        'page_title' => 'Blog · Panelze',
+        'meta_description' => 'Panelze, Linux hosting ve panel üzerine güncellemeler ve rehberler.',
         'heading' => 'Blog',
-        'subtitle' => 'Sunucu yönetimi, güvenlik ve Hostvim ürün güncellemeleri.',
+        'subtitle' => 'Sunucu yönetimi, güvenlik ve Panelze ürün güncellemeleri.',
         'categories_label' => 'Kategoriler',
         'all_posts' => 'Tüm yazılar',
         'category_empty' => 'Bu kategoride henüz yazı yok.',
@@ -164,8 +164,8 @@ return [
     ],
 
     'pricing_page' => [
-        'title' => 'Fiyatlandırma · Hostvim',
-        'meta_default' => 'Hostvim freemium ve lisanslı planları. Sunucu başına şeffaf fiyatlandırma.',
+        'title' => 'Fiyatlandırma · Panelze',
+        'meta_default' => 'Panelze freemium ve lisanslı planları. Sunucu başına şeffaf fiyatlandırma.',
         'badge' => 'Fiyatlandırma',
         'fallback_intro' => 'Freemium başlangıç, lisanslı profesyonel.',
         'fallback_lead' => 'Planlar admin panelden yönetilir. Aşağıdaki kartlar veritabanındaki aktif planlardan oluşturulur.',

@@ -1,7 +1,7 @@
 <x-admin.layout title="Panel sürümleri">
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p class="admin-muted">
-            Müşteri sunucularındaki Hostvim paneli bu sürümleri kontrol eder. Yayınlanan sürümler için müşteri yöneticisine bildirim gider; güncelleme müşterinin onayı ile uygulanır.
+            Müşteri sunucularındaki Panelze paneli bu sürümleri kontrol eder. Yayınlanan sürümler için müşteri yöneticisine bildirim gider; güncelleme müşterinin onayı ile uygulanır.
         </p>
         <a href="{{ route('admin.panel-releases.create') }}" class="admin-btn-emerald">Yeni sürüm</a>
     </div>

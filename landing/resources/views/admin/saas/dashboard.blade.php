@@ -1,4 +1,4 @@
-<x-admin.layout title="Hostvim SaaS — özet">
+<x-admin.layout title="Panelze SaaS — özet">
     <p class="admin-muted mb-6">Müşteri sunucularındaki panel <code class="rounded bg-slate-200 px-1 text-xs dark:bg-slate-800">LICENSE_SERVER_URL</code> ile bu siteye bağlanıp lisans doğrulayabilir.</p>
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

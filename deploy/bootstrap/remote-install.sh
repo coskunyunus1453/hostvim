@@ -3,15 +3,15 @@
 # Müşteri sunucusunda çalıştırılır (root). Repoyu sizin barındırdığınız adresten çeker ve üretim kurulumunu başlatır.
 #
 # Örnek (sizin dağıtım URL’nize göre değiştirin):
-#   curl -fsSL https://install.hostvim.com/remote-install.sh | sudo bash
+#   curl -fsSL https://install.panelze.com/remote-install.sh | sudo bash
 #
 # Veya ortam değişkenleriyle:
-#   curl -fsSL https://install.hostvim.com/remote-install.sh | sudo -E bash -s
+#   curl -fsSL https://install.panelze.com/remote-install.sh | sudo -E bash -s
 #
 #   HOSTVIM_REPO_URL=https://github.com/sirket/hostvim.git \
 #   HOSTVIM_BRANCH=main \
 #   HOSTVIM_HOME=/var/www/hostvim \
-#   bash -s <<< "$(curl -fsSL https://install.hostvim.com/remote-install.sh)"
+#   bash -s <<< "$(curl -fsSL https://install.panelze.com/remote-install.sh)"
 #
 # Eski otomasyon: PANELSAR_REPO_URL / PANELSAR_BRANCH / PANELSAR_HOME hâlâ okunur.
 #

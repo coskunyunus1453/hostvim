@@ -11,7 +11,7 @@
             <div class="pointer-events-none absolute bottom-0 left-1/3 h-32 w-64 rounded-full bg-amber-300/15 blur-3xl dark:bg-amber-600/10"></div>
             <div class="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-orange-700/90 dark:text-orange-300/90">Hostvim yönetim</p>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-orange-700/90 dark:text-orange-300/90">Panelze yönetim</p>
                     <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
                         Merhaba, {{ Str::limit(auth()->user()->name, 32) }}
                     </h1>

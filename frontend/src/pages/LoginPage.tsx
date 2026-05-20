@@ -186,7 +186,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                    placeholder="admin@hostvim.com"
+                    placeholder="admin@panelze.com"
                     required
                   />
                 </div>

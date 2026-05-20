@@ -7,7 +7,7 @@ use App\Services\OutboundMailConfigurator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 
-class HostvimInitOutboundMailCommand extends Command
+class PanelzeInitOutboundMailCommand extends Command
 {
     protected $signature = 'hostvim:init-outbound-mail';
 
@@ -24,7 +24,7 @@ class HostvimInitOutboundMailCommand extends Command
         }
 
         $from = (string) config('mail.from.address', env('MAIL_FROM_ADDRESS', 'noreply@localhost'));
-        $name = (string) config('mail.from.name', env('MAIL_FROM_NAME', config('app.name', 'Hostvim')));
+        $name = (string) config('mail.from.name', env('MAIL_FROM_NAME', config('app.name', 'Panelze')));
 
         $pairs = [
             'outbound_mail.driver' => 'sendmail',

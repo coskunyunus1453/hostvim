@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Panelze">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M16 46V18h13c8 0 13 5 13 11s-5 11-13 11h-5v6H16zm8-18h4c4 0 6 2 6 5s-2 5-6 5h-4v-10z" fill="url(#g)" />
+  <circle cx="49" cy="17" r="4" fill="#22c55e" />
+</svg>

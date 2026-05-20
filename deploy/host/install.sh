@@ -15,6 +15,7 @@
 # Bu dosya (install.sh) ortak motor; doğrudan çağrılırsa APP_PROFILE varsayılanı customer’dır.
 #
 # Müşteri komutu (Linux VPS — SSL doğrulaması AÇIK):
+#   • Tek satır (kısa domain): curl -fsSL https://get.panelze.sh | bash
 #   • Root SSH: ssh root@SUNUCU_IP → curl -fsSL "…/install-community.sh" | bash
 #   • Pro: HOSTVIM_LICENSE_KEY="..." curl -fsSL "…/install-pro.sh" | bash
 #   • Eski adlar (yönlendirme): install-customer.sh → community, install-vendor.sh → pro

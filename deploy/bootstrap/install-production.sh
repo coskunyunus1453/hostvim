@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Hostvim — tek sunucuda üretim kurulumu (Debian 12 / Ubuntu 22.04+)
+# Panelze — tek sunucuda üretim kurulumu (Debian 12 / Ubuntu 22.04+)
 #
 # Hedef: güvenlik (engine yalnızca loopback), hız (gzip, static cache), kolaylık (tek komut iskeleti)
 #
@@ -143,7 +143,7 @@ ensure_engine_port_free() {
       kill -TERM "$pid" 2>/dev/null || true
     else
       foreign=1
-      echo "Hata: 9090 portunu Hostvim dışı süreç kullanıyor (pid=$pid, comm=$comm)." >&2
+      echo "Hata: 9090 portunu Panelze dışı süreç kullanıyor (pid=$pid, comm=$comm)." >&2
     fi
   done
   sleep 1
@@ -157,7 +157,7 @@ ensure_engine_port_free() {
         kill -KILL "$pid" 2>/dev/null || true
       else
         foreign=1
-        echo "Hata: 9090 portu hâlâ Hostvim dışı süreçte (pid=$pid, comm=$comm)." >&2
+        echo "Hata: 9090 portu hâlâ Panelze dışı süreçte (pid=$pid, comm=$comm)." >&2
       fi
     done
     sleep 1
@@ -602,7 +602,7 @@ if [[ "${WITH_LOCAL_POSTFIX:-1}" == "1" ]] || [[ "${WITH_LOCAL_POSTFIX:-1}" == "
   _MAIL_FROM="noreply@$(hostname -f 2>/dev/null || hostname)"
   update_env "MAIL_MAILER" "sendmail"
   update_env "MAIL_FROM_ADDRESS" "\"${_MAIL_FROM}\""
-  update_env "MAIL_FROM_NAME" "\"Hostvim\""
+  update_env "MAIL_FROM_NAME" "\"Panelze\""
 fi
 
 # phpMyAdmin (kuruluysa panelde otomatik link)
@@ -762,7 +762,7 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   [[ -n "$PANEL_URL_HINT" ]] || PANEL_URL_HINT="http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo localhost)"
 
   {
-    echo "Hostvim — panel giriş bilgisi ($(date -u +%Y-%m-%dT%H:%MZ 2>/dev/null || date))"
+    echo "Panelze — panel giriş bilgisi ($(date -u +%Y-%m-%dT%H:%MZ 2>/dev/null || date))"
     echo "Panel URL: ${PANEL_URL_HINT}"
     echo "E-posta:   ${ADMIN_EMAIL}"
     if [[ -n "$ADMIN_PASSWORD" ]]; then
@@ -839,7 +839,7 @@ fi
 systemctl disable --now panelsar-panel-queue.service 2>/dev/null || true
 cat > /etc/systemd/system/hostvim-panel-queue.service <<EOF
 [Unit]
-Description=Hostvim Laravel Queue Worker
+Description=Panelze Laravel Queue Worker
 After=network.target
 
 [Service]
@@ -968,7 +968,7 @@ else
 fi
 
 echo ""
-echo "=== Hostvim kurulum özeti ==="
+echo "=== Panelze kurulum özeti ==="
 echo "  Panel kökü:     $HOSTVIM_HOME"
 if [[ "${SKIP_DB_SEED:-}" != "1" ]] && [[ -n "${ADMIN_EMAIL:-}" ]]; then
   case "$ADMIN_EMAIL" in

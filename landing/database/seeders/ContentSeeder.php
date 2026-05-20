@@ -17,20 +17,20 @@ class ContentSeeder extends Seeder
             ['locale' => 'tr', 'slug' => 'setup'],
             [
                 'title' => 'Kurulum rehberi',
-                'meta_description' => 'Hostvim Engine ve panel kurulumu: ön koşullar, güvenlik, ortam değişkenleri ve doğrulama adımları.',
+                'meta_description' => 'Panelze Engine ve panel kurulumu: ön koşullar, güvenlik, ortam değişkenleri ve doğrulama adımları.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
 ## Bu rehberde neler var?
 
-Hostvim yığını **iki ana parçadan** oluşur ve üretimde birlikte çalışması gerekir:
+Panelze yığını **iki ana parçadan** oluşur ve üretimde birlikte çalışması gerekir:
 
 | Bileşen | Rol |
 | --- | --- |
-| **Hostvim Engine** | Sunucuda Nginx, PHP-FPM, sertifika ve site düzeyi işlemleri yürüten servis (genelde `127.0.0.1:9090` gibi bir adresten API dinler). |
+| **Panelze Engine** | Sunucuda Nginx, PHP-FPM, sertifika ve site düzeyi işlemleri yürüten servis (genelde `127.0.0.1:9090` gibi bir adresten API dinler). |
 | **Panel (Laravel)** | Tarayıcıdan yönetim, kullanıcı/rol, lisans ve Engine’e giden API çağrıları. |
 
-Bu sayfa **genel kurulum akışını** özetler; mimari ve ürün özellikleri için [dokümantasyon](/docs) altındaki [Mimari](/docs/architecture) ve [Hostvim yetenekleri](/docs/platform-features) sayfalarına bakın.
+Bu sayfa **genel kurulum akışını** özetler; mimari ve ürün özellikleri için [dokümantasyon](/docs) altındaki [Mimari](/docs/architecture) ve [Panelze yetenekleri](/docs/platform-features) sayfalarına bakın.
 
 ---
 
@@ -56,7 +56,7 @@ Bu sayfa **genel kurulum akışını** özetler; mimari ve ürün özellikleri i
 Resmi bootstrap betiği indirilip çalıştırılabilir:
 
 ```bash
-curl -fsSL https://get.hostvim.sh | bash
+curl -fsSL https://get.panelze.sh | bash
 ```
 
 > **Üretim:** Betiği çalıştırmadan önce imza / checksum doğrulaması ve betik içeriğinin incelemesi şart sayılmalıdır. Test ortamında önce deneyin.
@@ -96,17 +96,17 @@ MD
             ['locale' => 'en', 'slug' => 'setup'],
             [
                 'title' => 'Installation guide',
-                'meta_description' => 'Install Hostvim Engine and panel: prerequisites, hardening, environment variables, and post-install verification.',
+                'meta_description' => 'Install Panelze Engine and panel: prerequisites, hardening, environment variables, and post-install verification.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
 ## What this guide covers
 
-The Hostvim stack has **two cooperating parts** that must be installed and configured together:
+The Panelze stack has **two cooperating parts** that must be installed and configured together:
 
 | Component | Role |
 | --- | --- |
-| **Hostvim Engine** | Runs on the server and executes changes for Nginx, PHP-FPM, certificates, and per-site operations (typically exposes an HTTP API, e.g. on `127.0.0.1:9090`). |
+| **Panelze Engine** | Runs on the server and executes changes for Nginx, PHP-FPM, certificates, and per-site operations (typically exposes an HTTP API, e.g. on `127.0.0.1:9090`). |
 | **Panel (Laravel)** | Browser UI, user/role management, licensing, and authenticated calls into the Engine. |
 
 This page walks through the **end-to-end install flow**. For deeper architecture and product depth, read [Architecture](/docs/architecture) and [Platform capabilities](/docs/platform-features) under [Documentation](/docs).
@@ -135,7 +135,7 @@ This page walks through the **end-to-end install flow**. For deeper architecture
 The official bootstrap script can be fetched and executed:
 
 ```bash
-curl -fsSL https://get.hostvim.sh | bash
+curl -fsSL https://get.panelze.sh | bash
 ```
 
 > **Production:** Treat every `curl | bash` as privileged code execution — verify checksums / signatures and review the script before it touches production. Always pilot in staging.
@@ -211,7 +211,7 @@ This copy powers the introductory blurb on the public **pricing** page. Feature 
 
 - **Freemium** — One server, core hosting workflows (sites, TLS, databases, limited observability) with conservative quotas. Zero licence fee to start; upgrades keep the same panel tenant.
 - **Pro licence** — Higher ceilings for agencies and demanding workloads: richer monitoring, security profiles, and support tiers (exact bullets pull from the `plans` table).
-- **Vendor / white-label** — Brand packaging, custom commercials, and roadmap partnership. Reach sales for an enterprise quote when you resell Hostvim to your own customers.
+- **Vendor / white-label** — Brand packaging, custom commercials, and roadmap partnership. Reach sales for an enterprise quote when you resell Panelze to your own customers.
 
 ## Licensing & payments
 
@@ -231,9 +231,9 @@ MD
                 'is_published' => true,
                 'sort_order' => 0,
                 'content' => <<<'MD'
-# Hostvim dokümantasyonu
+# Panelze dokümantasyonu
 
-Hostvim; Linux üzerinde **Engine + Panel** bileşenlerinden oluşan bir hosting kontrol paneli yığınıdır. Bu sitedeki dokümanlar; kurulum, mimari, yetenekler ve güvenli operasyon için yol gösterir.
+Panelze; Linux üzerinde **Engine + Panel** bileşenlerinden oluşan bir hosting kontrol paneli yığınıdır. Bu sitedeki dokümanlar; kurulum, mimari, yetenekler ve güvenli operasyon için yol gösterir.
 
 ## Nereden başlamalıyım?
 
@@ -242,7 +242,7 @@ Hostvim; Linux üzerinde **Engine + Panel** bileşenlerinden oluşan bir hosting
 | Kurulum ve ortam değişkenleri | [Kurulum rehberi](/setup) |
 | Paket ve firewall sırası | [Sunucu kurulumu](/docs/server-setup) |
 | Bileşenler ve veri akışı | [Mimari](/docs/architecture) |
-| Panelde neler yapılabilir? | [Hostvim yetenekleri](/docs/platform-features) |
+| Panelde neler yapılabilir? | [Panelze yetenekleri](/docs/platform-features) |
 
 **Başlangıç** altında yer alan sayfalar, üretim öncesi kontrol listesi ve sunucu hazırlığını adım adım anlatır. Sol taraftaki hiyerarşi veya doğrudan bağlantılarla ilerleyebilirsiniz.
 MD
@@ -257,9 +257,9 @@ MD
                 'is_published' => true,
                 'sort_order' => 0,
                 'content' => <<<'MD'
-# Hostvim documentation
+# Panelze documentation
 
-Hostvim is a Linux hosting control stack composed of **Engine + Panel**. These guides explain installation, architecture, platform capabilities, and safe day-2 operations.
+Panelze is a Linux hosting control stack composed of **Engine + Panel**. These guides explain installation, architecture, platform capabilities, and safe day-2 operations.
 
 ## Where should I start?
 
@@ -280,13 +280,13 @@ MD
             [
                 'parent_id' => $rootTr->id,
                 'title' => 'Sunucu kurulumu',
-                'meta_description' => 'Ubuntu sunucu hazırlığı, firewall, saat senkronizasyonu ve Hostvim bootstrap sonrası doğrulama.',
+                'meta_description' => 'Ubuntu sunucu hazırlığı, firewall, saat senkronizasyonu ve Panelze bootstrap sonrası doğrulama.',
                 'is_published' => true,
                 'sort_order' => 10,
                 'content' => <<<'MD'
 ## Amaç
 
-Bu sayfa, Hostvim bootstrap betiğini çalıştırmadan önceki **sunucu hazırlığını** ve betik sonrası **doğrulama** adımlarını toplar. Yönergeler Ubuntu tabanlı dağıtımlar içindir; başka bir aile kullanıyorsanız paket ve servis adlarını eşdeğerleriyle değiştirin.
+Bu sayfa, Panelze bootstrap betiğini çalıştırmadan önceki **sunucu hazırlığını** ve betik sonrası **doğrulama** adımlarını toplar. Yönergeler Ubuntu tabanlı dağıtımlar içindir; başka bir aile kullanıyorsanız paket ve servis adlarını eşdeğerleriyle değiştirin.
 
 ---
 
@@ -329,7 +329,7 @@ sudo ufw status verbose
 
 ---
 
-## 4. Hostvim bootstrap
+## 4. Panelze bootstrap
 
 Güncel ve imzası doğrulanmış betiği çalıştırın ([Kurulum rehberi](/setup) içindeki örnek komut). Betik tamamlandıktan sonra:
 
@@ -366,7 +366,7 @@ MD
                 'content' => <<<'MD'
 ## Scope
 
-Use this checklist before and after the Hostvim bootstrap installer. Commands assume a **Debian/Ubuntu**-style host—swap in the equivalent packages/services for RHEL-derived distros if that is your standard.
+Use this checklist before and after the Panelze bootstrap installer. Commands assume a **Debian/Ubuntu**-style host—swap in the equivalent packages/services for RHEL-derived distros if that is your standard.
 
 ---
 
@@ -409,7 +409,7 @@ Many teams keep the panel off the public Internet entirely (VPN-only). That is s
 
 ---
 
-## 4. Bootstrap Hostvim
+## 4. Bootstrap Panelze
 
 Run the signed bootstrap flow referenced from the [Installation guide](/setup). When it finishes:
 
@@ -439,14 +439,14 @@ MD
             ['locale' => 'tr', 'slug' => 'platform-features'],
             [
                 'parent_id' => $rootTr->id,
-                'title' => 'Hostvim yetenekleri',
+                'title' => 'Panelze yetenekleri',
                 'meta_description' => 'Site, domain, SSL, veritabanı, yedek, e-posta, cron, izleme ve lisans — panel özellikleri özeti.',
                 'is_published' => true,
                 'sort_order' => 20,
                 'content' => <<<'MD'
 ## Genel bakış
 
-Hostvim **müşteri paneli**, alan adı ve site yaşam döngüsünü tek yerden yönetmek için tasarlanmıştır. Arayüz, arka planda **Engine** ile konuşan bir Laravel uygulamasıdır; Engine gerçek sunucu değişikliklerini (Nginx, PHP-FPM, sertifikalar vb.) uygular.
+Panelze **müşteri paneli**, alan adı ve site yaşam döngüsünü tek yerden yönetmek için tasarlanmıştır. Arayüz, arka planda **Engine** ile konuşan bir Laravel uygulamasıdır; Engine gerçek sunucu değişikliklerini (Nginx, PHP-FPM, sertifikalar vb.) uygular.
 
 Yetenekler, **rol ve izin modeline** göre kısıtlanır (ör. site oluşturma, veritabanı yazma, yedek alma). Aşağıdaki liste ürün yönünü özetler; tam API yüzeyi sürüme göre genişleyebilir.
 
@@ -495,13 +495,13 @@ MD
             [
                 'parent_id' => $rootEn->id,
                 'title' => 'Platform capabilities',
-                'meta_description' => 'Sites, SSL, databases, backups, email, cron, monitoring, licensing—what Hostvim exposes end-to-end.',
+                'meta_description' => 'Sites, SSL, databases, backups, email, cron, monitoring, licensing—what Panelze exposes end-to-end.',
                 'is_published' => true,
                 'sort_order' => 20,
                 'content' => <<<'MD'
 ## Overview
 
-The Hostvim **customer panel** is a Laravel application that orchestrates day-to-day hosting operations. Persistent changes land on the host through the **Engine**, which applies Nginx/PHP-FPM/Let’s Encrypt mutations and enforces quotas.
+The Panelze **customer panel** is a Laravel application that orchestrates day-to-day hosting operations. Persistent changes land on the host through the **Engine**, which applies Nginx/PHP-FPM/Let’s Encrypt mutations and enforces quotas.
 
 Authorisation is **ability-based**—features below map to coarse capability groups (sites, databases, backups, etc.). The public API surface evolves per release; treat this page as the product map, not an endpoint manifest.
 
@@ -558,7 +558,7 @@ MD
 
 | Katman | Sorumluluk |
 | --- | --- |
-| **Hostvim Engine** | Sunucu üzerinde Nginx/Apache sanal hostları, PHP-FPM havuzlarını, dosya yollarını ve Let’s Encrypt yaşam döngüsünü uygular; kota ve politika uygular. |
+| **Panelze Engine** | Sunucu üzerinde Nginx/Apache sanal hostları, PHP-FPM havuzlarını, dosya yollarını ve Let’s Encrypt yaşam döngüsünü uygular; kota ve politika uygular. |
 | **Panel (Laravel + Horizon/queue)** | Web ve API katmanı: kimlik (`sanctum`), rol/ability modeli, faturalama (Stripe), lisans doğrulama, müşteri arayüzü. |
 | **Panel veritabanı** | Kiracı, site, domain, kullanıcı ve operasyonel meta veriler — **müşteri sitelerinin kendi MySQL/Postgres veritabanlarından ayrıdır**. |
 | **Müşteri veritabanları** | Engine aracılığıyla oluşturulan MySQL/MariaDB veya PostgreSQL örnekleri; yedekleme ve içe/dışa aktarma panel üzerinden tetiklenir. |
@@ -586,9 +586,9 @@ Uzaktan SSH ile doğrudan sunucuya bağlanma ihtiyacı azalır; yine de kilitlen
 
 ## Çoklu sunucu ve yol haritası
 
-Bugünün tipik kurulumu **tek düğüm** (Engine + panel aynı makinede) şeklindedir. Trafik büyüdükçe veritabanını ayırmak, CDN eklemek veya Engine örneklerini yük dengeleyici arkasına almak mümkündür; Hostvim ürünü bu evrimleri destekleyecek biçimde genişler — ayrıntılar blog ve sürüm notlarında duyurulur.
+Bugünün tipik kurulumu **tek düğüm** (Engine + panel aynı makinede) şeklindedir. Trafik büyüdükçe veritabanını ayırmak, CDN eklemek veya Engine örneklerini yük dengeleyici arkasına almak mümkündür; Panelze ürünü bu evrimleri destekleyecek biçimde genişler — ayrıntılar blog ve sürüm notlarında duyurulur.
 
-Takip edilecek sayfa: [Hostvim yetenekleri](/docs/platform-features).
+Takip edilecek sayfa: [Panelze yetenekleri](/docs/platform-features).
 MD
             ]
         );
@@ -606,7 +606,7 @@ MD
 
 | Layer | Responsibility |
 | --- | --- |
-| **Hostvim Engine** | Applies Nginx/Apache vhosts, PHP-FPM pools, filesystem paths, TLS automation, and host-level quotas. |
+| **Panelze Engine** | Applies Nginx/Apache vhosts, PHP-FPM pools, filesystem paths, TLS automation, and host-level quotas. |
 | **Panel (Laravel)** | HTTP UI + JSON API: Sanctum auth, ability-based RBAC, Stripe checkout, license verification hooks, queues. |
 | **Panel database** | Stores tenants, sites, service metadata — **not** the same thing as customer MySQL/Postgres databases that belong to hosted sites. |
 | **Customer DBs** | MySQL/MariaDB or PostgreSQL instances created via Engine provisioning APIs; backups/imports initiated from the panel. |
@@ -636,7 +636,7 @@ Authoritative **plan limits** live beside the licensing module—marketing copy 
 
 ## Multi-node roadmap
 
-Most deployments today co-locate Engine + panel on one Linux host. As you grow, split the DB tier, add CDNs, or fan out Engine instances behind load balancers. Hostvim’s roadmap targets multi-host orchestration—watch release notes and the blog for timelines.
+Most deployments today co-locate Engine + panel on one Linux host. As you grow, split the DB tier, add CDNs, or fan out Engine instances behind load balancers. Panelze’s roadmap targets multi-host orchestration—watch release notes and the blog for timelines.
 
 For capability depth, jump to [Platform capabilities](/docs/platform-features).
 MD
@@ -647,7 +647,7 @@ MD
             ['locale' => 'tr', 'slug' => 'hosting-migration'],
             [
                 'name' => 'Hosting ve geçiş',
-                'meta_title' => 'Hosting ve geçiş — Hostvim blog',
+                'meta_title' => 'Hosting ve geçiş — Panelze blog',
                 'meta_description' => 'Paylaşımlı hostingden çıkış, sunucu taşıma ve panel geçişi üzerine yazılar.',
                 'sort_order' => 10,
             ]
@@ -657,7 +657,7 @@ MD
             ['locale' => 'en', 'slug' => 'hosting-migration'],
             [
                 'name' => 'Hosting & migration',
-                'meta_title' => 'Hosting & migration — Hostvim blog',
+                'meta_title' => 'Hosting & migration — Panelze blog',
                 'meta_description' => 'Moving off shared hosting, server migrations, and panel transitions.',
                 'sort_order' => 10,
             ]
@@ -667,7 +667,7 @@ MD
             ['locale' => 'tr', 'slug' => 'security'],
             [
                 'name' => 'Güvenlik',
-                'meta_title' => 'Güvenlik — Hostvim blog',
+                'meta_title' => 'Güvenlik — Panelze blog',
                 'meta_description' => 'Panel ve sunucu güvenliği, erişim ve sertifika konuları.',
                 'sort_order' => 20,
             ]
@@ -677,7 +677,7 @@ MD
             ['locale' => 'en', 'slug' => 'security'],
             [
                 'name' => 'Security',
-                'meta_title' => 'Security — Hostvim blog',
+                'meta_title' => 'Security — Panelze blog',
                 'meta_description' => 'Panel and server security, access control, and certificates.',
                 'sort_order' => 20,
             ]
@@ -687,7 +687,7 @@ MD
             ['locale' => 'tr', 'slug' => 'scaling'],
             [
                 'name' => 'Ölçeklendirme',
-                'meta_title' => 'Ölçeklendirme ve mimari — Hostvim blog',
+                'meta_title' => 'Ölçeklendirme ve mimari — Panelze blog',
                 'meta_description' => 'Tek sunucudan çoklu düzene geçiş ve mimari notları.',
                 'sort_order' => 30,
             ]
@@ -697,7 +697,7 @@ MD
             ['locale' => 'en', 'slug' => 'scaling'],
             [
                 'name' => 'Scaling',
-                'meta_title' => 'Scaling & architecture — Hostvim blog',
+                'meta_title' => 'Scaling & architecture — Panelze blog',
                 'meta_description' => 'Growing from one server to multi-node setups.',
                 'sort_order' => 30,
             ]
@@ -708,7 +708,7 @@ MD
             [
                 'blog_category_id' => $catHostingTr->id,
                 'title' => 'Shared hosting’den kendi panelime',
-                'excerpt' => 'Klasik paylaşımlı hostingden çıkıp kendi sunucunuzda Hostvim ile nasıl ilerlersiniz?',
+                'excerpt' => 'Klasik paylaşımlı hostingden çıkıp kendi sunucunuzda Panelze ile nasıl ilerlersiniz?',
                 'is_published' => true,
                 'published_at' => now()->subDays(5),
                 'content' => <<<'MD'
@@ -719,7 +719,7 @@ Paylaşımlı hosting uzun yıllar işinizi görür; ta ki tek panelden onlarca 
 1. **DNS TTL** düşürün; taşıma günü kesintiyi azaltır.
 2. Veritabanını **mysqldump** veya panel araçlarıyla alın.
 3. Dosyaları **rsync** ile senkronize edin.
-4. Hostvim’de site sihirbazını çalıştırıp SSL’i doğrulayın.
+4. Panelze’de site sihirbazını çalıştırıp SSL’i doğrulayın.
 
 Küçük projelerde önce staging subdomain ile test etmek riski ciddi şekilde azaltır.
 MD
@@ -731,7 +731,7 @@ MD
             [
                 'blog_category_id' => $catHostingEn->id,
                 'title' => 'From shared hosting to your own panel',
-                'excerpt' => 'How to move from classic shared hosting to Hostvim on your own server.',
+                'excerpt' => 'How to move from classic shared hosting to Panelze on your own server.',
                 'is_published' => true,
                 'published_at' => now()->subDays(5),
                 'content' => <<<'MD'
@@ -742,7 +742,7 @@ Shared hosting works for years — until you need to run many sites from one pan
 1. Lower **DNS TTL** to reduce cutover pain.
 2. Export the database with **mysqldump** or your tools.
 3. Sync files with **rsync**.
-4. Run the Hostvim site wizard and verify TLS.
+4. Run the Panelze site wizard and verify TLS.
 
 For smaller projects, test on a staging subdomain first.
 MD
@@ -764,7 +764,7 @@ Panel URL’sini herkese açık bırakmak yerine:
 - Yönetim yolunu **rate limit** ile koruyun
 - Varsayılan portları değiştirin veya **VPN** arkasına alın
 
-Hostvim yönetim hesapları için güçlü şifre politikası ve oturum süresi sınırları önerilir.
+Panelze yönetim hesapları için güçlü şifre politikası ve oturum süresi sınırları önerilir.
 MD
             ]
         );
@@ -784,7 +784,7 @@ Before leaving the panel URL wide open:
 - Protect admin routes with **rate limiting**
 - Change default ports or place the panel behind a **VPN**
 
-Strong password policy and session limits are recommended for Hostvim admin accounts.
+Strong password policy and session limits are recommended for Panelze admin accounts.
 MD
             ]
         );
@@ -804,7 +804,7 @@ MD
 - Statik ve medya için **CDN** ekleyin
 - Engine örneklerini **load balancer** arkasında çoğaltın
 
-Hostvim bu aşamalarda aynı panel üzerinden çoklu sunucu yönetimini hedefler; roadmap’i ürün duyurularından takip edin.
+Panelze bu aşamalarda aynı panel üzerinden çoklu sunucu yönetimini hedefler; roadmap’i ürün duyurularından takip edin.
 MD
             ]
         );
@@ -824,7 +824,7 @@ A single server is enough at first. As traffic and teams grow:
 - Add a **CDN** for static assets and media
 - Run multiple Engine instances behind a **load balancer**
 
-Hostvim aims to manage multiple servers from the same panel over time — follow product announcements for the roadmap.
+Panelze aims to manage multiple servers from the same panel over time — follow product announcements for the roadmap.
 MD
             ]
         );

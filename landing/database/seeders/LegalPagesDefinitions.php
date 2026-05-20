@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 /**
- * Hostvim landing — yasal / ticari şablon metinler (avukat onayı şarttır).
+ * Panelze landing — yasal / ticari şablon metinler (avukat onayı şarttır).
  *
  * @return list<array{locale: string, slug: string, title: string, meta_description: string, sort_order: int, content: string}>
  */
@@ -110,7 +110,7 @@ MD,
             'gizlilik' => <<<MD
 {$not}
 
-Bu politika, **Hostvim** markası altında sunulan web sitesi, demo, iletişim formları ve bağlantılı dijital hizmetler için geçerlidir.
+Bu politika, **Panelze** markası altında sunulan web sitesi, demo, iletişim formları ve bağlantılı dijital hizmetler için geçerlidir.
 
 ## Toplanan bilgiler
 
@@ -186,7 +186,7 @@ MD,
 
 ## Kapsam
 
-Web sitesi, dokümantasyon ve **Hostvim** hosting kontrol paneli yazılımının kullanımına ilişkin şartlar.
+Web sitesi, dokümantasyon ve **Panelze** hosting kontrol paneli yazılımının kullanımına ilişkin şartlar.
 
 ## Lisans
 
@@ -273,7 +273,7 @@ MD,
 
 ## Hizmetin kapsamı
 
-Hostvim hosting kontrol paneli yazılımının sağlanması, güncellemeler (lisansa bağlı) ve belirlenen destek kanalları.
+Panelze hosting kontrol paneli yazılımının sağlanması, güncellemeler (lisansa bağlı) ve belirlenen destek kanalları.
 
 ## Ücretlendirme ve ödeme
 
@@ -346,7 +346,7 @@ MD,
             'gizlilik' => <<<MD
 {$not}
 
-This policy describes how **Hostvim** collects and uses personal data when you use our website, demos, and related digital services.
+This policy describes how **Panelze** collects and uses personal data when you use our website, demos, and related digital services.
 
 ## What we collect
 
@@ -397,7 +397,7 @@ MD,
 
 ## Subject
 
-Online purchase of digital services or software licenses related to the Hostvim hosting control panel.
+Online purchase of digital services or software licenses related to the Panelze hosting control panel.
 
 ## Withdrawal / cooling-off
 
@@ -418,7 +418,7 @@ MD,
 
 ## Scope
 
-Use of the website, documentation, and Hostvim software under the purchased license.
+Use of the website, documentation, and Panelze software under the purchased license.
 
 ## License
 
@@ -505,7 +505,7 @@ MD,
 
 ## Service
 
-Provision of the Hostvim hosting control panel software, updates as covered by the license, and agreed support channels.
+Provision of the Panelze hosting control panel software, updates as covered by the license, and agreed support channels.
 
 ## Fees
 

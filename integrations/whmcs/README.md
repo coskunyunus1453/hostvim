@@ -1,4 +1,4 @@
-# Hostvim ↔ WHMCS entegrasyonu
+# Panelze ↔ WHMCS entegrasyonu
 
 **Panel arayüzü:** Yönetici olarak giriş yapın → sol menü **Erişim ve yönetim** → **WHMCS** (`/admin/whmcs`). Oradan ZIP indirip aşağıdaki adımlarla kurulumu tamamlayın.
 
@@ -11,21 +11,21 @@ Referans (aynı mantık, farklı ürün):
 
 ## Hangisi “daha kolay”?
 
-| | Plesk / aaPanel | Hostvim |
+| | Plesk / aaPanel | Panelze |
 |---|------------------|---------|
 | Yer | `modules/servers/<modül>/` | `modules/servers/hostvim/` |
-| Panel tarafı | Plesk API / aaPanel API | Hostvim panel API + `HOSTVIM_WHMCS_SECRET` |
+| Panel tarafı | Plesk API / aaPanel API | Panelze panel API + `HOSTVIM_WHMCS_SECRET` |
 | WHMCS tarafı | Sunucu + ürün + modül ayarları | Aynı |
 
-**Teknik olarak hepsi aynı yol.** aaPanel sayfası operatör için genelde en anlaşılır çünkü adım adım ekran mantığıyla yazılmış; Hostvim’de de aşağıdaki sırayı izlemeniz yeterli.
+**Teknik olarak hepsi aynı yol.** aaPanel sayfası operatör için genelde en anlaşılır çünkü adım adım ekran mantığıyla yazılmış; Panelze’de de aşağıdaki sırayı izlemeniz yeterli.
 
 ## Ön koşullar
 
 - WHMCS kurulu ve çalışır.
-- Hostvim **panel** kurulu; `.env` düzenlenebilir.
+- Panelze **panel** kurulu; `.env` düzenlenebilir.
 - WHMCS sunucusundan panele HTTPS ile erişim (firewall / DNS tamam).
 
-## 1) Hostvim panelde gizli anahtar
+## 1) Panelze panelde gizli anahtar
 
 Panel `.env`:
 
@@ -71,7 +71,7 @@ integrations/whmcs/includes/hooks/hostvim_example_automation.php
 | **Modül adı** | `hostvim` |
 | **Hostname** | Panel kök URL (örn. `https://panel.ornek.com`) — modül API yolunu kendisi birleştirir |
 | **Şifre** | `HOSTVIM_WHMCS_SECRET` ile **aynı** |
-| **Kullanıcı adı** | (İsteğe bağlı) Hostvim **admin** e-postası — yönetici SSO için |
+| **Kullanıcı adı** | (İsteğe bağlı) Panelze **admin** e-postası — yönetici SSO için |
 
 **Bağlantıyı test et** (Test Connection).
 
@@ -101,4 +101,4 @@ Modül `templates/clientarea.tpl` ile ürün sayfasında ek bir “Panele git”
 
 ---
 
-**Özet:** Hostvim yaklaşımı Plesk/aaPanel’den kötü veya farklı bir “mimari” değil; hepsi **sunucu modülü + gizli anahtar + ürün**. Kolaylık için bu README, aaPanel tarzı tek sayfada toplandı; ürün paketinizde PDF veya wiki’ye aynı adımları kopyalayabilirsiniz.
+**Özet:** Panelze yaklaşımı Plesk/aaPanel’den kötü veya farklı bir “mimari” değil; hepsi **sunucu modülü + gizli anahtar + ürün**. Kolaylık için bu README, aaPanel tarzı tek sayfada toplandı; ürün paketinizde PDF veya wiki’ye aynı adımları kopyalayabilirsiniz.

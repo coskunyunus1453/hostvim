@@ -1,5 +1,5 @@
 @props([
-    'title' => 'Hostvim Yönetim',
+    'title' => 'Panelze Yönetim',
 ])
 
 <!DOCTYPE html>
@@ -40,7 +40,7 @@
                     <span class="text-lg font-bold text-orange-600 dark:text-orange-400">H</span>
                 </div>
                 <div class="leading-tight">
-                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Hostvim</div>
+                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Panelze</div>
                     <div class="text-[11px] text-slate-500">Yönetim</div>
                 </div>
             </div>
@@ -49,7 +49,7 @@
                     <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
                     Özet
                 </a>
-                <div class="px-3 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Hostvim SaaS</div>
+                <div class="px-3 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Panelze SaaS</div>
                 <a href="{{ route('admin.saas.dashboard') }}" class="flex items-center gap-2 rounded-xl px-3 py-2 {{ request()->routeIs('admin.saas.dashboard') ? 'bg-orange-500/15 font-medium text-orange-800 ring-1 ring-orange-500/30 dark:text-orange-200' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900/80' }}">
                     Lisans özeti
                 </a>
@@ -181,7 +181,7 @@
                     <div class="flex h-8 w-8 items-center justify-center rounded-2xl bg-orange-500/15 ring-1 ring-orange-500/35 dark:bg-orange-500/10 dark:ring-orange-400/40">
                         <span class="text-base font-bold text-orange-600 dark:text-orange-400">H</span>
                     </div>
-                    <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Hostvim</span>
+                    <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Panelze</span>
                 </div>
                 <button type="button" @click="open = false" class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-300/90 text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <span class="sr-only">Kapat</span>

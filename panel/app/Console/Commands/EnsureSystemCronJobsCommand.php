@@ -38,7 +38,7 @@ class EnsureSystemCronJobsCommand extends Command
                 'key' => 'panel.scheduler.run',
                 'schedule' => '* * * * *',
                 'command' => '/usr/bin/php '.base_path('artisan').' schedule:run >> /dev/null 2>&1',
-                'description' => 'Hostvim system scheduler (protected)',
+                'description' => 'Panelze system scheduler (protected)',
             ],
         ];
 

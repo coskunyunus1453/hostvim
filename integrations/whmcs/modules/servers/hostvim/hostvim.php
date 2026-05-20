@@ -1,15 +1,15 @@
 <?php
 /**
- * Hostvim — WHMCS provisioning module (server / hosting product).
+ * Panelze — WHMCS provisioning module (server / hosting product).
  *
  * Kurulum:
  * 1) Bu klasörü WHMCS sunucusuna kopyalayın: modules/servers/hostvim/
- * 2) Hostvim panel .env: HOSTVIM_WHMCS_SECRET=uzun-rastgele-gizli-deger
+ * 2) Panelze panel .env: HOSTVIM_WHMCS_SECRET=uzun-rastgele-gizli-deger
  *    İsteğe bağlı: HOSTVIM_SSO_PANEL_URL=https://panel.example.com/admin
  * 3) WHMCS → Yapılandırma → Sunucular → Yeni sunucu: Modül=hostvim
  *    - Hostname: panel kök URL (örn. https://panel.ornek.com veya IP)
  *    - Şifre: HOSTVIM_WHMCS_SECRET ile aynı (WHMCS şifre alanında saklanır)
- *    - Kullanıcı adı (yönetici SSO için): Hostvim admin hesabının e-postası
+ *    - Kullanıcı adı (yönetici SSO için): Panelze admin hesabının e-postası
  * 4) Ürün → Modül ayarları: Hosting Package ID, PHP, web sunucusu, Let’s Encrypt
  * 5) Siparişte alan adı (WHMCS “Domain” alanı) dolu olmalı — engine’de site açılır
  *
@@ -45,7 +45,7 @@ if (! defined('WHMCS')) {
 function hostvim_MetaData()
 {
     return [
-        'DisplayName' => 'Hostvim Panel',
+        'DisplayName' => 'Panelze Panel',
         'APIVersion' => '1.1',
         'RequiresServer' => true,
     ];
@@ -58,7 +58,7 @@ function hostvim_ConfigOptions()
             'Type' => 'text',
             'Size' => '8',
             'Default' => '',
-            'Description' => 'Hostvim panel: hosting_packages tablosundaki sayısal id (boş = paket atanmaz)',
+            'Description' => 'Panelze panel: hosting_packages tablosundaki sayısal id (boş = paket atanmaz)',
         ],
         'PHP Version' => [
             'Type' => 'dropdown',
@@ -273,7 +273,7 @@ function hostvim_Renew(array $params)
 }
 
 /**
- * Müşteri ürün sayfasında Hostvim SSO bağlantısı (templates/clientarea.tpl).
+ * Müşteri ürün sayfasında Panelze SSO bağlantısı (templates/clientarea.tpl).
  *
  * @see https://developers.whmcs.com/provisioning-modules/single-sign-on/
  */
@@ -290,7 +290,7 @@ function hostvim_ClientArea(array $params)
 }
 
 /**
- * WHMCS yönetim → Hostvim panel (sunucu kaydındaki “Kullanıcı adı” = admin e-postası).
+ * WHMCS yönetim → Panelze panel (sunucu kaydındaki “Kullanıcı adı” = admin e-postası).
  *
  * @see https://developers.whmcs.com/provisioning-modules/single-sign-on/
  */
@@ -304,7 +304,7 @@ function hostvim_AdminSingleSignOn(array $params)
     try {
         $email = strtolower(trim((string) ($params['serverusername'] ?? '')));
         if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('Sunucu “Kullanıcı adı” alanına Hostvim admin e-postasını girin.');
+            throw new RuntimeException('Sunucu “Kullanıcı adı” alanına Panelze admin e-postasını girin.');
         }
         $data = hostvim_apiPost($params, 'sso/mint-admin', ['email' => $email]);
         $url = trim((string) ($data['redirect_url'] ?? ''));

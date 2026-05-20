@@ -37,7 +37,7 @@ export function setIniDirective(ini: string, directive: string, value: string): 
     return lines.join('\n')
   }
   const base = ini.replace(/\s+$/, '')
-  return `${base}\n\n; Hostvim — quick settings\n${directive} = ${value}\n`
+  return `${base}\n\n; Panelze — quick settings\n${directive} = ${value}\n`
 }
 
 export function iniValueToBool(v: string | null): boolean {

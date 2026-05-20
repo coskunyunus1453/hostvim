@@ -2,7 +2,7 @@
 
 return [
     'install_ok' => 'Paket demeti kuruldu.',
-    'mail_test_subject' => 'Hostvim posta testi',
+    'mail_test_subject' => 'Panelze posta testi',
     'mail_test_body' => 'Giden posta ayarları çalışıyor.',
     'mail_test_sent' => 'Test mesajı gönderildi (SMTP veya sendmail): :email. Gelen kutusu ve spam klasörünü kontrol edin.',
     'mail_test_failed_generic' => 'Test e-postası gönderilemedi. SMTP/Sendmail ayarlarını ve logları kontrol edin.',

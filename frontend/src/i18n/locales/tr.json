@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Hostvim",
+    "name": "Panelze",
     "tagline": "Modern Hosting Yönetim Paneli"
   },
   "nav": {
@@ -145,7 +145,7 @@
     "step_1": "Bu panelin .env dosyasında HOSTVIM_WHMCS_SECRET için uzun ve rastgele bir değer tanımlayın (ör. openssl rand -hex 32).",
     "step_2": "ZIP’i açın. İçindeki hostvim klasörünü WHMCS sunucunuzda şu konuma kopyalayın: whmcs_kökü/modules/servers/hostvim/ (hostvim.php bu klasörde görünmeli).",
     "step_3": "WHMCS yönetim → Yapılandırma → Sunucular → Yeni sunucu: Modül olarak hostvim seçin.",
-    "step_4": "Sunucu Hostname: bu panelin adresi (örn. https://panel.sizinadresiniz.com). Şifre alanına .env’deki HOSTVIM_WHMCS_SECRET ile aynı değeri yazın. İsteğe bağlı: Kullanıcı adı = Hostvim admin e-postanız (yönetici SSO için).",
+    "step_4": "Sunucu Hostname: bu panelin adresi (örn. https://panel.sizinadresiniz.com). Şifre alanına .env’deki HOSTVIM_WHMCS_SECRET ile aynı değeri yazın. İsteğe bağlı: Kullanıcı adı = Panelze admin e-postanız (yönetici SSO için).",
     "step_5": "Bağlantıyı test edin. Paket ID listesi için WHMCS’ten veya tarayıcıdan: GET .../api/integrations/whmcs/packages (Authorization: Bearer ile aynı secret).",
     "step_6": "Hosting ürününüzü bu sunucuya bağlayın; sipariş onayında hesap ve site otomatik oluşur. Müşteri WHMCS e-postası = panel kullanıcı e-postası olur.",
     "step_7": "Müşteri paneline giriş: WHMCS müşteri alanı → Hizmet detayı → SSO / “Panele git” (şablonda veya WHMCS’in oturum aç bağlantısı ile).",
@@ -269,7 +269,7 @@
     "validation_label": "Son kontrol",
     "valid_yes": "Geçerli (lisans sunucusu)",
     "engine_skip": "Yerel anahtar yok; engine çağrısı atlandı",
-    "ui_hint": "Hostvim hesabınızdan kopyaladığınız anahtarı yapıştırıp «Etkinleştir»e basın. Anahtar sunucuda şifreli saklanır (APP_KEY).",
+    "ui_hint": "Panelze hesabınızdan kopyaladığınız anahtarı yapıştırıp «Etkinleştir»e basın. Anahtar sunucuda şifreli saklanır (APP_KEY).",
     "activate_title": "Pro’yu etkinleştir",
     "activate_hint": "Anahtarı sitemizden kopyalayıp buraya yapıştırmanız yeterli; .env düzenlemenize gerek yok.",
     "key_placeholder": "hv_…",
@@ -289,7 +289,7 @@
     "password": "Şifre",
     "remember": "Beni hatırla",
     "forgot": "Şifremi unuttum",
-    "login_title": "Hostvim'a Giriş Yap",
+    "login_title": "Panelze'a Giriş Yap",
     "login_subtitle": "Hosting ortamınızı yönetin"
   },
   "dashboard": {
@@ -943,7 +943,7 @@
     "connect_title": "Bağlantı özeti",
     "imap_label": "IMAP sunucusu (tahmini)",
     "smtp_label": "SMTP sunucusu (tahmini)",
-    "ports_hint": "Önerilen portlar (Hostvim posta yığını): IMAPS 993, SMTP gönderim 587 (STARTTLS), SMTPS 465. IMAP 143 isteğe bağlı (STARTTLS).",
+    "ports_hint": "Önerilen portlar (Panelze posta yığını): IMAPS 993, SMTP gönderim 587 (STARTTLS), SMTPS 465. IMAP 143 isteğe bağlı (STARTTLS).",
     "ports_table_title": "Portlar ve şifreleme",
     "port_col_service": "Servis",
     "port_col_port": "Port",
@@ -1104,7 +1104,7 @@
     "disk_usage_estimate": "Veritabanı alanı (tahmini)",
     "no_metrics_yet": "Henüz veri yok",
     "server_section": "Sunucu (engine)",
-    "server_hint": "Yönetici yetkisi ve erişilebilir Hostvim Engine gerekir",
+    "server_hint": "Yönetici yetkisi ve erişilebilir Panelze Engine gerekir",
     "engine_unavailable": "Engine erişilemiyor veya yetki yetersiz",
     "admin_only": "Sunucu metrikleri yalnızca yöneticilere açıktır.",
     "system_identity": "Sistem",
@@ -1230,7 +1230,7 @@
       "actions_protocols": "Eylem ve protokol dağılımı"
     },
     "ssh": {
-      "intro": "SSH erişim politikası ve oturum sertleştirme. Aşağıdaki kontroller Hostvim Pro ile merkezi olarak yönetilecek.",
+      "intro": "SSH erişim politikası ve oturum sertleştirme. Aşağıdaki kontroller Panelze Pro ile merkezi olarak yönetilecek.",
       "port_title": "SSH portu ve dinleme arayüzü",
       "port_desc": "Varsayılan 22 yerine özel port, yalnızca iç ağdan dinleme ve güvenlik duvarı ile eşleme.",
       "root_title": "Root girişi",

@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'welcome' => 'Hostvim\'e Hoş Geldiniz',
+    'welcome' => 'Panelze\'e Hoş Geldiniz',
     'dashboard' => 'Kontrol Paneli',
     'domains' => 'Alan Adları',
     'databases' => 'Veritabanları',

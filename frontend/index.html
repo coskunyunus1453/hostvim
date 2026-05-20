@@ -6,26 +6,26 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a" />
-    <meta name="description" content="Hostvim — modern barındırma kontrol paneli. Siteler, alan adları, SSL, yedekleme ve dosya yönetimi tek yerden." />
-    <meta name="keywords" content="hosting panel, kontrol paneli, web hosting, SSL, yedekleme, Hostvim" />
-    <meta name="author" content="Hostvim" />
+    <meta name="description" content="Panelze — modern barındırma kontrol paneli. Siteler, alan adları, SSL, yedekleme ve dosya yönetimi tek yerden." />
+    <meta name="keywords" content="hosting panel, kontrol paneli, web hosting, SSL, yedekleme, Panelze" />
+    <meta name="author" content="Panelze" />
     <meta name="robots" content="index, follow" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="format-detection" content="telephone=no" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Hostvim" />
-    <meta property="og:title" content="Hostvim — Hosting Kontrol Paneli" />
+    <meta property="og:site_name" content="Panelze" />
+    <meta property="og:title" content="Panelze — Hosting Kontrol Paneli" />
     <meta property="og:description" content="Sitelerinizi, alan adlarınızı ve sunucu işlemlerinizi güvenli ve hızlı yönetin." />
     <meta property="og:locale" content="tr_TR" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Hostvim — Hosting Kontrol Paneli" />
+    <meta name="twitter:title" content="Panelze — Hosting Kontrol Paneli" />
     <meta name="twitter:description" content="Modern barındırma yönetimi: SSL, yedek, dosyalar ve daha fazlası." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Hostvim" />
-    <link rel="icon" type="image/svg+xml" href="/hostvim-icon.svg" />
-    <link rel="apple-touch-icon" href="/hostvim-icon.svg" />
-    <title>Hostvim — Hosting Kontrol Paneli</title>
+    <meta name="apple-mobile-web-app-title" content="Panelze" />
+    <link rel="icon" type="image/svg+xml" href="/panelze-icon.svg" />
+    <link rel="apple-touch-icon" href="/panelze-icon.svg" />
+    <title>Panelze — Hosting Kontrol Paneli</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -217,16 +217,16 @@
   <body>
     <noscript>
       <div class="ps-noscript">
-        Hostvim arayüzü için tarayıcıda <strong>JavaScript</strong> gerekir. Lütfen JavaScript’i etkinleştirip sayfayı yenileyin.
+        Panelze arayüzü için tarayıcıda <strong>JavaScript</strong> gerekir. Lütfen JavaScript’i etkinleştirip sayfayı yenileyin.
       </div>
     </noscript>
     <div id="root">
       <div id="hostvim-boot" aria-busy="true" aria-live="polite">
         <div class="ps-boot-card">
           <div class="ps-boot-brand">
-            <img src="/hostvim-icon.svg" alt="" width="44" height="44" decoding="async" />
+            <img src="/panelze-icon.svg" alt="" width="44" height="44" decoding="async" />
             <div>
-              <h1>Hostvim</h1>
+              <h1>Panelze</h1>
               <p>Hosting kontrol paneli</p>
             </div>
           </div>
@@ -340,7 +340,7 @@
           var idx = pathname.indexOf(marker)
           if (idx < 0) return
           var base = pathname.slice(0, idx).replace(/\/*$/, '')
-          var iconPath = (base === '' ? '' : base) + '/hostvim-icon.svg'
+          var iconPath = (base === '' ? '' : base) + '/panelze-icon.svg'
           if (!iconPath.startsWith('/')) iconPath = '/' + iconPath.replace(/^\/+/, '')
           document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(function (l) {
             l.setAttribute('href', iconPath)

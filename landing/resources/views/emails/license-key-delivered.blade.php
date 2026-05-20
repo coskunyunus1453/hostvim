@@ -8,7 +8,7 @@
 <code style="word-break: break-all;">{{ $license->license_key }}</code>
 </x-mail::panel>
 
-Bu anahtarı Hostvim panelinde **Ayarlar → Lisans** (veya kurulum sihirbazı) bölümüne girin.
+Bu anahtarı Panelze panelinde **Ayarlar → Lisans** (veya kurulum sihirbazı) bölümüne girin.
 
 Sipariş referansı: `{{ $order->order_ref }}`
 
@@ -23,7 +23,7 @@ Your license key for **{{ $order->product->name }}**:
 <code style="word-break: break-all;">{{ $license->license_key }}</code>
 </x-mail::panel>
 
-Enter this key in the Hostvim panel under **Settings → License** (or the setup wizard).
+Enter this key in the Panelze panel under **Settings → License** (or the setup wizard).
 
 Order reference: `{{ $order->order_ref }}`
 

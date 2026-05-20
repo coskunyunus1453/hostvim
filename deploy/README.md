@@ -13,7 +13,8 @@ Müşteri **sizin barındırdığınız** kaynaktan kodu çekecek. Yaygın seçe
 | **Genel Git** | GitHub / GitLab **public** repo → müşteri `git clone` veya `remote-install.sh` ile çeker. |
 | **Özel Git** | Private repo → müşteriye **deploy key** veya **sınırlı PAT** verirsiniz; `HOSTVIM_REPO_URL` içinde token kullanılabilir (risk: shell geçmişi). Daha iyisi: müşteriye salt okunur deploy key. |
 | **Sabit arşiv** | `hostvim-v1.tar.gz` üretip CDN/S3’e koyarsınız; müşteri `curl … \| tar` ile açar (ayrı betik gerekir). |
-| **Kurulum script’i CDN** | Sadece `remote-install.sh` dosyasını kendi domain’inize koyarsınız (`https://install.sirketiniz.com/remote-install.sh`); script içinde `HOSTVIM_REPO_URL` sizin repo adresinize ayarlı olur. |
+| **Kurulum script’i CDN** | Sadece `remote-install.sh` dosyasını kendi domain’inize koyarsınız (`https://install.panelze.com/remote-install.sh`); script içinde `HOSTVIM_REPO_URL` sizin repo adresinize ayarlı olur. |
+| **Tek satır kısa domain** | `deploy/get.panelze.sh` → DNS **get.panelze.sh** A kaydı; müşteri: `curl -fsSL https://get.panelze.sh \| bash` |
 
 Öneri: **Public veya müşteriye özel erişimli** bir Git URL + müşterinin indirdiği **tek** kurulum dosyasını kendi domain’inizde host edin.
 
