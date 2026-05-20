@@ -6,7 +6,10 @@ import "strings"
 func NormalizeAppProfile(v string) string {
 	s := strings.ToLower(strings.TrimSpace(v))
 	switch s {
-	case "laravel", "symfony", "wordpress", "drupal", "joomla", "opencart", "magento", "nextjs", "nuxt", "strapi", "n8n", "node", "htaccess", "standard":
+	case "laravel", "symfony", "wordpress", "woocommerce", "drupal", "joomla", "opencart", "magento",
+		"prestashop", "moodle", "mediawiki",
+		"nextjs", "nuxt", "strapi", "n8n", "node", "htaccess", "standard",
+		"codeigniter", "codeigniter3", "codeigniter4", "php", "static":
 		return s
 	default:
 		return "standard"
@@ -19,7 +22,7 @@ func NormalizeAppProfile(v string) string {
 //   - public => <base>/public
 func DocrootVariantForProfile(profile string) string {
 	switch NormalizeAppProfile(profile) {
-	case "laravel", "symfony":
+	case "laravel", "symfony", "codeigniter4":
 		return "public"
 	default:
 		return "root"

@@ -21,7 +21,7 @@ class AutoWebConfigurator
         [$rootEntries, $publicEntries, $publicHtmlEntries, $publicHtmlPublicEntries] = $this->readDetectionEntries($domain);
 
         $profile = $this->detectProfile($rootEntries, $publicEntries, $publicHtmlEntries, $publicHtmlPublicEntries);
-        $variant = in_array($profile, ['laravel', 'symfony'], true) ? 'public' : 'root';
+        $variant = in_array($profile, ['laravel', 'symfony', 'codeigniter4'], true) ? 'public' : 'root';
 
         $resp = $this->engine->setSiteDocumentRoot($domain->name, $variant, $profile, null);
         if (! empty($resp['error'])) {
@@ -124,8 +124,29 @@ class AutoWebConfigurator
         if ($hasDirAny('bin') && $hasNameAny('composer.json') && $hasDirAny('config') && $hasDirAny('src') && $hasPublicIndex) {
             return 'symfony';
         }
+        $hasCI3 = $hasDirAny('application') && $hasDirAny('system') && ($hasName($publicHtml, 'index.php') || $hasName($root, 'index.php'));
+        $hasCI4 = $hasDirAny('app') && $hasDirAny('writable') && $hasPublicIndex && $hasNameAny('spark');
+        if ($hasCI4) {
+            return 'codeigniter4';
+        }
+        if ($hasCI3) {
+            return 'codeigniter3';
+        }
+        if ($hasNameAny('config/settings.inc.php') && $hasDirAny('classes') && $hasDirAny('themes')) {
+            return 'prestashop';
+        }
         if ($hasNameAny('wp-config.php') || $hasDirAny('wp-content')) {
+            if ($hasDirAny('wp-content/plugins/woocommerce')) {
+                return 'woocommerce';
+            }
+
             return 'wordpress';
+        }
+        if ($hasNameAny('LocalSettings.php') && $hasDirAny('includes')) {
+            return 'mediawiki';
+        }
+        if ($hasNameAny('config.php') && $hasDirAny('lib') && $hasNameAny('version.php')) {
+            return 'moodle';
         }
         if ($hasDirAny('core') && $hasDirAny('sites')) {
             return 'drupal';

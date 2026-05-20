@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\RedirectController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SecurityController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Controllers\Api\SiteStackController;
 use App\Http\Controllers\Api\SiteToolsController;
 use App\Http\Controllers\Api\SslController;
 use App\Http\Controllers\Api\SystemController;
@@ -116,6 +117,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('domains/{domain}', [DomainController::class, 'show']);
         Route::get('domains/{domain}/logs', [DomainController::class, 'logs']);
         Route::get('domains/{domain}/traffic', [DomainController::class, 'traffic']);
+        Route::get('domains/stack-alerts', [SiteStackController::class, 'alerts']);
+        Route::get('domains/{domain}/stack-scan', [SiteStackController::class, 'scan']);
     });
     Route::middleware('ability:domains:write')->group(function () {
         Route::post('domains', [DomainController::class, 'store']);
@@ -128,6 +131,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('domains/{domain}/aliases', [DomainController::class, 'storeAlias']);
         Route::delete('domains/{domain}/aliases', [DomainController::class, 'destroyAlias']);
         Route::post('domains/{domain}/document-root', [DocumentRootController::class, 'update']);
+        Route::post('domains/{domain}/stack-fix', [SiteStackController::class, 'fix']);
+        Route::post('domains/stack-alerts/{alert}/dismiss', [SiteStackController::class, 'dismissAlert']);
         Route::get('domains/{domain}/performance', [PerformanceController::class, 'show']);
         Route::post('domains/{domain}/performance', [PerformanceController::class, 'update']);
         Route::get('domains/{domain}/redirects', [RedirectController::class, 'index']);

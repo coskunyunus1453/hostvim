@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
         $schedule->command('hostvim:self-heal')->everyMinute()->withoutOverlapping();
         $schedule->command('hostvim:check-panel-update')->everySixHours()->withoutOverlapping();
+        $schedule->command('hostvim:stack-scan-hourly')->hourly()->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware) {
         // Nginx / TLS sonlandırma arkasında doğru şema (wss, secure() vb.)

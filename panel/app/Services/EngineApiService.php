@@ -491,6 +491,14 @@ class EngineApiService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function siteStackScan(string $domain): array
+    {
+        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/stack-scan');
+    }
+
+    /**
      * @return array{
      *  nginx_manage_vhosts: bool,
      *  nginx_reload_after_vhost: bool,

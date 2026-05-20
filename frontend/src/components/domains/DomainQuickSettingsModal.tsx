@@ -15,9 +15,9 @@ import {
   Loader2,
   CheckCircle2,
   Trash2,
-  Wand2,
 } from 'lucide-react'
 import DomainDeleteConfirmModal from './DomainDeleteConfirmModal'
+import SiteStackAdvisorPanel from './SiteStackAdvisorPanel'
 
 export type DomainQuickRow = {
   id: number
@@ -49,7 +49,6 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
   const [sslDiagnostics, setSslDiagnostics] = useState<Array<{ key: string; ok: boolean; message: string }> | null>(
     null,
   )
-  const [autoDetectSummary, setAutoDetectSummary] = useState<string>('')
   const sslTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -264,293 +263,11 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
     },
   })
 
-  const autoWebConfigM = useMutation({
-    mutationFn: async () => {
-      if (!domain) {
-        throw new Error('Domain not selected')
-      }
-
-      const detectEntries = async (p: string) => {
-        const u = new URLSearchParams()
-        u.set('limit', '300')
-        u.set('offset', '0')
-        u.set('sort', 'name')
-        u.set('order', 'asc')
-        if (p) u.set('path', p)
-        const { data } = await api.get<{ entries?: Array<{ name?: string; type?: string }> }>(
-          `/domains/${domain.id}/files?${u.toString()}`,
-        )
-        return data.entries ?? []
-      }
-
-      let rootEntries: Array<{ name?: string; type?: string }> = []
-      let publicEntries: Array<{ name?: string; type?: string }> = []
-      let publicHtmlEntries: Array<{ name?: string; type?: string }> = []
-      let publicHtmlPublicEntries: Array<{ name?: string; type?: string }> = []
-      try {
-        rootEntries = await detectEntries('')
-      } catch {
-        // files yetkisi yoksa veya engine anlık yanıt vermezse güvenli varsayım ile devam.
-      }
-      try {
-        publicEntries = await detectEntries('public')
-      } catch {
-        // ignore
-      }
-      try {
-        publicHtmlEntries = await detectEntries('public_html')
-      } catch {
-        // ignore
-      }
-      try {
-        publicHtmlPublicEntries = await detectEntries('public_html/public')
-      } catch {
-        // ignore
-      }
-
-      const hasName = (arr: Array<{ name?: string; type?: string }>, n: string) =>
-        arr.some((e) => String(e.name || '').toLowerCase() === n.toLowerCase())
-      const hasDir = (arr: Array<{ name?: string; type?: string }>, n: string) =>
-        arr.some((e) => String(e.type || '').toLowerCase() === 'directory' && String(e.name || '').toLowerCase() === n.toLowerCase())
-      const hasNameAny = (n: string, ...sets: Array<Array<{ name?: string; type?: string }>>) =>
-        sets.some((s) => hasName(s, n))
-      const hasDirAny = (n: string, ...sets: Array<Array<{ name?: string; type?: string }>>) =>
-        sets.some((s) => hasDir(s, n))
-      const hasPublicHtmlDir = hasDir(rootEntries, 'public_html')
-      const hasPublicIndex = hasName(publicEntries, 'index.php') || hasName(publicHtmlPublicEntries, 'index.php')
-      const hasPackageJson = hasNameAny('package.json', rootEntries, publicHtmlEntries)
-
-      const hasLaravel =
-        (hasNameAny('artisan', rootEntries, publicHtmlEntries) && hasPublicIndex) ||
-        (hasNameAny('.env', rootEntries, publicHtmlEntries) && hasPublicIndex)
-      const hasWp =
-        hasNameAny('wp-config.php', rootEntries, publicHtmlEntries) || hasDirAny('wp-content', rootEntries, publicHtmlEntries)
-      const hasSymfony =
-        hasDirAny('bin', rootEntries, publicHtmlEntries) &&
-        hasNameAny('composer.json', rootEntries, publicHtmlEntries) &&
-        hasDirAny('config', rootEntries, publicHtmlEntries) &&
-        hasDirAny('src', rootEntries, publicHtmlEntries)
-      const hasDrupal = hasDirAny('core', rootEntries, publicHtmlEntries) && hasDirAny('sites', rootEntries, publicHtmlEntries)
-      const hasJoomla = hasNameAny('configuration.php', rootEntries, publicHtmlEntries) && hasDirAny('administrator', rootEntries, publicHtmlEntries)
-      const hasOpenCart = hasNameAny('config.php', rootEntries, publicHtmlEntries) && hasDirAny('catalog', rootEntries, publicHtmlEntries) && hasDirAny('admin', rootEntries, publicHtmlEntries)
-      const hasMagento =
-        hasDirAny('app', rootEntries, publicHtmlEntries) &&
-        hasDirAny('vendor', rootEntries, publicHtmlEntries) &&
-        hasNameAny('composer.json', rootEntries, publicHtmlEntries)
-      const hasNext =
-        hasPackageJson &&
-        (
-          hasDirAny('.next', rootEntries, publicHtmlEntries) ||
-          hasNameAny('next.config.js', rootEntries, publicHtmlEntries) ||
-          hasNameAny('next.config.mjs', rootEntries, publicHtmlEntries) ||
-          hasNameAny('next.config.ts', rootEntries, publicHtmlEntries)
-        )
-      const hasNuxt = hasPackageJson && (hasNameAny('nuxt.config.ts', rootEntries, publicHtmlEntries) || hasNameAny('nuxt.config.js', rootEntries, publicHtmlEntries))
-      const hasStrapi = hasPackageJson && hasDirAny('src', rootEntries, publicHtmlEntries) && hasDirAny('config', rootEntries, publicHtmlEntries) && (hasNameAny('strapi.config.ts', rootEntries, publicHtmlEntries) || hasNameAny('strapi.config.js', rootEntries, publicHtmlEntries))
-      const hasN8n = hasPackageJson && (hasNameAny('n8n.config.js', rootEntries, publicHtmlEntries) || hasNameAny('n8n.json', rootEntries, publicHtmlEntries))
-      const hasNodeApp = hasPackageJson
-      const hasHtaccess = hasNameAny('.htaccess', rootEntries, publicHtmlEntries)
-      const hasNginxHint = hasNameAny('nginx.conf', rootEntries, publicHtmlEntries) || hasNameAny('.nginx.conf', rootEntries, publicHtmlEntries)
-
-      // Server tipini otomatikte zorla değiştirme; mevcut stack korunur.
-      const currentServer = String(domain.server_type ?? '').toLowerCase()
-      let targetServer: 'nginx' | 'apache' | 'openlitespeed' =
-        currentServer === 'apache' || currentServer === 'openlitespeed' || currentServer === 'nginx'
-          ? (currentServer as 'nginx' | 'apache' | 'openlitespeed')
-          : 'nginx'
-      let targetVariant: 'root' | 'public' = 'root'
-      let targetPerf: 'off' | 'standard' = 'standard'
-      let profile:
-        | 'laravel'
-        | 'wordpress'
-        | 'symfony'
-        | 'drupal'
-        | 'joomla'
-        | 'opencart'
-        | 'magento'
-        | 'nextjs'
-        | 'nuxt'
-        | 'strapi'
-        | 'n8n'
-        | 'node'
-        | 'htaccess'
-        | 'standard' = 'standard'
-      const detectSignals: string[] = []
-
-      if (hasNameAny('artisan', rootEntries, publicHtmlEntries)) detectSignals.push('artisan')
-      if (hasNameAny('.env', rootEntries, publicHtmlEntries)) detectSignals.push('.env')
-      if (hasPublicIndex) detectSignals.push('public/index.php')
-      if (hasNameAny('wp-config.php', rootEntries, publicHtmlEntries)) detectSignals.push('wp-config.php')
-      if (hasDirAny('wp-content', rootEntries, publicHtmlEntries)) detectSignals.push('wp-content/')
-      if (hasNameAny('composer.json', rootEntries, publicHtmlEntries)) detectSignals.push('composer.json')
-      if (hasPackageJson) detectSignals.push('package.json')
-      if (hasPublicHtmlDir) detectSignals.push('public_html/')
-      if (hasNameAny('next.config.js', rootEntries, publicHtmlEntries) || hasNameAny('next.config.mjs', rootEntries, publicHtmlEntries) || hasNameAny('next.config.ts', rootEntries, publicHtmlEntries)) {
-        detectSignals.push('next.config.*')
-      }
-      if (hasNameAny('nuxt.config.js', rootEntries, publicHtmlEntries) || hasNameAny('nuxt.config.ts', rootEntries, publicHtmlEntries)) {
-        detectSignals.push('nuxt.config.*')
-      }
-      if (hasNameAny('strapi.config.js', rootEntries, publicHtmlEntries) || hasNameAny('strapi.config.ts', rootEntries, publicHtmlEntries)) {
-        detectSignals.push('strapi.config.*')
-      }
-      if (hasNameAny('n8n.config.js', rootEntries, publicHtmlEntries) || hasNameAny('n8n.json', rootEntries, publicHtmlEntries)) {
-        detectSignals.push('n8n.config')
-      }
-      if (hasNameAny('.htaccess', rootEntries, publicHtmlEntries)) detectSignals.push('.htaccess')
-
-      if (hasLaravel) {
-        profile = 'laravel'
-        targetVariant = 'public'
-        targetPerf = 'standard'
-      } else if (hasSymfony) {
-        profile = 'symfony'
-        targetVariant = 'public'
-        targetPerf = 'standard'
-      } else if (hasWp) {
-        profile = 'wordpress'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasDrupal) {
-        profile = 'drupal'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasJoomla) {
-        profile = 'joomla'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasOpenCart) {
-        profile = 'opencart'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasMagento) {
-        profile = 'magento'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasNext) {
-        profile = 'nextjs'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasNuxt) {
-        profile = 'nuxt'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasStrapi) {
-        profile = 'strapi'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasN8n) {
-        profile = 'n8n'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasNodeApp) {
-        profile = 'node'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      } else if (hasHtaccess && !hasNginxHint) {
-        profile = 'htaccess'
-        targetVariant = 'root'
-        targetPerf = 'standard'
-      }
-
-      const changed: string[] = []
-      if (targetServer !== domain.server_type) {
-        await api.post(`/domains/${domain.id}/server`, { server_type: targetServer })
-        changed.push(`server=${targetServer}`)
-      }
-
-      await api.post(`/domains/${domain.id}/document-root`, { variant: targetVariant, profile })
-      changed.push(`docroot=${targetVariant}`)
-
-      // Güvenli preset: performans API'si yalnız nginx'te destekleniyor.
-      if (targetServer === 'nginx') {
-        await api.post(`/domains/${domain.id}/performance`, { mode: targetPerf })
-        changed.push(`perf=${targetPerf}`)
-      }
-
-      if (['nextjs', 'nuxt', 'strapi', 'n8n', 'node'].includes(profile)) {
-        try {
-          await api.post(`/domains/${domain.id}/node-app/auto-configure`, { app_profile: profile })
-          changed.push('node=auto')
-        } catch {
-          // Node yapılandırması isteğe bağlı; docroot yine uygulanmış olur
-        }
-      }
-
-      const confidence: 'high' | 'medium' | 'low' =
-        profile === 'laravel' || profile === 'symfony' || profile === 'wordpress'
-          ? 'high'
-          : profile === 'standard' || profile === 'htaccess' || detectSignals.length <= 1
-            ? 'low'
-            : 'medium'
-
-      return {
-        profile,
-        targetServer,
-        targetVariant,
-        targetPerf,
-        changed,
-        detectedBy: detectSignals.slice(0, 8),
-        confidence,
-      }
-    },
-    onSuccess: (res) => {
-      if (!res) return
-      invalidate()
-      void qc.invalidateQueries({ queryKey: ['domain-performance', domain?.id ?? 0] })
-      const profileText =
-        res.profile === 'laravel'
-          ? t('domains.auto_profile_laravel')
-          : res.profile === 'symfony'
-            ? t('domains.auto_profile_symfony')
-          : res.profile === 'wordpress'
-            ? t('domains.auto_profile_wordpress')
-            : res.profile === 'drupal'
-              ? t('domains.auto_profile_drupal')
-              : res.profile === 'joomla'
-                ? t('domains.auto_profile_joomla')
-                : res.profile === 'opencart'
-                  ? t('domains.auto_profile_opencart')
-                  : res.profile === 'magento'
-                    ? t('domains.auto_profile_magento')
-                    : res.profile === 'nextjs'
-                      ? t('domains.auto_profile_nextjs')
-                      : res.profile === 'nuxt'
-                        ? t('domains.auto_profile_nuxt')
-                        : res.profile === 'strapi'
-                          ? t('domains.auto_profile_strapi')
-                          : res.profile === 'n8n'
-                            ? t('domains.auto_profile_n8n')
-                            : res.profile === 'node'
-                              ? t('domains.auto_profile_node')
-            : res.profile === 'htaccess'
-              ? t('domains.auto_profile_htaccess')
-              : t('domains.auto_profile_standard')
-      toast.success(t('domains.auto_web_applied', { profile: profileText }))
-      const sig = Array.isArray((res as any).detectedBy) ? (res as any).detectedBy as string[] : []
-      const confRaw = String((res as any).confidence ?? 'low')
-      const confText =
-        confRaw === 'high'
-          ? t('domains.auto_confidence_high')
-          : confRaw === 'medium'
-            ? t('domains.auto_confidence_medium')
-            : t('domains.auto_confidence_low')
-      setAutoDetectSummary(
-        sig.length > 0
-          ? `${t('domains.auto_web_detected_by', { list: sig.join(', ') })} - ${t('domains.auto_web_confidence', { level: confText })}`
-          : `${t('domains.auto_web_detected_by', { list: t('domains.auto_profile_standard') })} - ${t('domains.auto_web_confidence', { level: confText })}`,
-      )
-    },
-    onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
-    },
-  })
-
   const lastDeploy = useMemo(() => {
     const runs = deployRunsQ.data?.runs ?? []
     return runs.length > 0 ? runs[0] : null
   }, [deployRunsQ.data?.runs])
+
 
   const phpM = useMutation({
     mutationFn: async () => {
@@ -837,22 +554,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
         </div>
 
         <div className="mb-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-          <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50/70 p-3 dark:border-primary-900/40 dark:bg-primary-950/20">
-            <p className="text-sm font-semibold text-primary-900 dark:text-primary-200">{t('domains.auto_web_title')}</p>
-            <p className="mt-1 text-xs text-primary-800/90 dark:text-primary-200/90">{t('domains.auto_web_hint')}</p>
-            <button
-              type="button"
-              className="btn-primary mt-3 inline-flex items-center gap-2"
-              onClick={() => autoWebConfigM.mutate()}
-              disabled={autoWebConfigM.isPending}
-            >
-              {autoWebConfigM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              {t('domains.auto_web_apply')}
-            </button>
-            {autoDetectSummary && (
-              <p className="mt-2 text-xs text-primary-900/90 dark:text-primary-200/90">{autoDetectSummary}</p>
-            )}
-          </div>
+          {domain ? <SiteStackAdvisorPanel domain={domain} open={open} /> : null}
 
           <div className="flex items-start justify-between gap-3">
             <div>

@@ -7,21 +7,35 @@ use App\Models\Backup;
 use App\Models\CronJobRun;
 use App\Models\DeploymentRun;
 use App\Models\InstallerRun;
+use App\Models\SiteStackAlert;
 use App\Models\SystemAlert;
+use App\Services\SiteStackTranslator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class NotificationController extends Controller
 {
-    public function feed(Request $request): JsonResponse
+    public function feed(Request $request, SiteStackTranslator $stackTranslator): JsonResponse
     {
         $user = $request->user();
         $userId = (int) $user->id;
         $cacheKey = 'notifications:feed:'.$userId.':'.($user->isAdmin() || $user->isVendorOperator() ? 'ops' : 'user');
 
-        $items = Cache::remember($cacheKey, 45, function () use ($user, $userId): array {
+        $items = Cache::remember($cacheKey, 45, function () use ($user, $userId, $stackTranslator): array {
             $items = [];
+
+            foreach (SiteStackAlert::query()->where('user_id', $userId)->where('status', 'open')->latest('id')->limit(8)->get() as $a) {
+                $items[] = [
+                    'id' => 'stack-'.$a->id,
+                    'level' => $a->severity === 'critical' ? 'error' : 'warning',
+                    'title' => $stackTranslator->alertTitle($a->domain_name, $a->profile, (int) $a->issue_count),
+                    'message' => __('domains.stack_alert_open_hint'),
+                    'path' => '/domains',
+                    'meta' => ['stack_alert_id' => $a->id, 'domain_id' => $a->domain_id],
+                    'created_at' => optional($a->created_at)->toIso8601String(),
+                ];
+            }
 
             foreach (InstallerRun::query()->where('user_id', $userId)->latest('id')->limit(10)->get(['id', 'status', 'app', 'message', 'created_at']) as $r) {
                 $items[] = [
