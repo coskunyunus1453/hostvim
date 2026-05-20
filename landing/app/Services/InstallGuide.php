@@ -54,14 +54,14 @@ final class InstallGuide
     {
         $url = self::settings()['update_community_script'];
 
-        return "curl -fsSL {$url} | sudo bash";
+        return "curl -fsSL {$url} -o /tmp/hostvim-update.sh && sudo bash /tmp/hostvim-update.sh";
     }
 
     public static function updatePro(string $licensePlaceholder = 'hv_...'): string
     {
         $url = self::settings()['update_pro_script'];
 
-        return "HOSTVIM_LICENSE_KEY=\"{$licensePlaceholder}\" curl -fsSL {$url} | sudo bash";
+        return "curl -fsSL {$url} -o /tmp/hostvim-update.sh && HOSTVIM_LICENSE_KEY=\"{$licensePlaceholder}\" sudo bash /tmp/hostvim-update.sh";
     }
 
     public static function remote(): string
