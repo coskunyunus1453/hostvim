@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api, { apiBaseUrl } from '../services/api'
@@ -268,24 +268,173 @@ export default function DatabasesPage() {
     },
   })
 
-  const importSqlM = useMutation({
-    mutationFn: async ({ id, file, confirmation }: { id: number; file: File; confirmation: string }) => {
+  type ImportMeta = {
+    confirm_phrase: string
+    max_import_mb: number
+    mysql_tools_enabled: boolean
+    postgres_tools_enabled: boolean
+  }
+
+  type ImportStatusPayload = {
+    import_id: number
+    status: string
+    progress: number
+    phase: string
+    message?: string | null
+    error_message?: string | null
+  }
+
+  type ImportUiProgress = {
+    mode: 'upload' | 'server'
+    uploadPct: number
+    serverPct: number
+    phase: string
+    detail: string
+  }
+
+  const [importBusy, setImportBusy] = useState(false)
+  const [importUi, setImportUi] = useState<ImportUiProgress | null>(null)
+  const importPollCancel = useRef(false)
+
+  const importMetaQ = useQuery({
+    queryKey: ['databases-import-meta'],
+    queryFn: async () => {
+      const { data } = await api.get<ImportMeta>('/databases/import-meta')
+      return data
+    },
+    enabled: !!importDb,
+    staleTime: 60_000,
+  })
+
+  const normalizeImportConfirm = (value: string) =>
+    value
+      .trim()
+      .toLocaleUpperCase('tr-TR')
+      .replace(/İ/g, 'I')
+      .replace(/Ü/g, 'U')
+      .replace(/Ö/g, 'O')
+      .replace(/Ş/g, 'S')
+      .replace(/Ğ/g, 'G')
+      .replace(/Ç/g, 'C')
+
+  const importConfirmMatches = (given: string, expected: string) => {
+    const g = normalizeImportConfirm(given)
+    const phrases = [
+      normalizeImportConfirm(expected),
+      normalizeImportConfirm(t('databases.import_confirm_expected')),
+      'TUMVERISILINECEK',
+      'REPLACEALLDATA',
+      'HOSTVIM_REPLACE_DB',
+    ]
+    return phrases.includes(g)
+  }
+
+  const phaseLabel = useCallback(
+    (phase: string, fallback?: string | null) => {
+      const key = `databases.import_phase_${phase}` as const
+      const translated = t(key)
+      if (translated !== key) return translated
+      return fallback?.trim() || phase
+    },
+    [t],
+  )
+
+  const combinedImportPct = (ui: ImportUiProgress) =>
+    ui.mode === 'upload' ? Math.min(40, ui.uploadPct) : 40 + Math.round(ui.serverPct * 0.6)
+
+  const pollImportUntilDone = async (dbId: number, importId: number) => {
+    importPollCancel.current = false
+    for (let i = 0; i < 7200; i++) {
+      if (importPollCancel.current) return
+      await new Promise((r) => setTimeout(r, 1000))
+      const { data } = await api.get<ImportStatusPayload>(`/databases/${dbId}/import/${importId}`)
+      const pct = Math.max(0, Math.min(100, Number(data.progress) || 0))
+      setImportUi({
+        mode: 'server',
+        uploadPct: 40,
+        serverPct: pct,
+        phase: data.phase || data.status,
+        detail: phaseLabel(data.phase, data.message),
+      })
+      if (data.status === 'completed') {
+        return data
+      }
+      if (data.status === 'failed') {
+        throw new Error(data.error_message || data.message || t('databases.import_failed'))
+      }
+    }
+    throw new Error(t('databases.import_failed'))
+  }
+
+  const runDatabaseImport = async (db: DbRow, file: File, confirmation: string) => {
+    setImportBusy(true)
+    setImportUi({
+      mode: 'upload',
+      uploadPct: 0,
+      serverPct: 0,
+      phase: 'upload',
+      detail: t('databases.import_progress_upload'),
+    })
+    try {
       const fd = new FormData()
       fd.append('sql_file', file)
       fd.append('confirmation', confirmation)
-      const { data } = await api.post<{ message?: string }>(`/databases/${id}/import`, fd)
-      return data
-    },
-    onSuccess: (data) => {
-      toast.success(data?.message ?? t('databases.import_started'))
+      const sizeHint = file.size > 0 ? file.size : 0
+      const { data } = await api.post<{ import_id?: number; message?: string }>(
+        `/databases/${db.id}/import`,
+        fd,
+        {
+          timeout: 600_000,
+          onUploadProgress: (ev) => {
+            const total = ev.total && ev.total > 0 ? ev.total : sizeHint
+            const pct = total > 0 ? Math.min(40, Math.round((ev.loaded / total) * 40)) : 5
+            setImportUi((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    mode: 'upload',
+                    uploadPct: pct,
+                    detail: t('databases.import_progress_upload'),
+                  }
+                : prev,
+            )
+          },
+        },
+      )
+      const importId = data.import_id
+      if (!importId) {
+        toast.success(data.message ?? t('databases.imported'))
+        qc.invalidateQueries({ queryKey: ['databases'] })
+        setImportDb(null)
+        return
+      }
+      setImportUi({
+        mode: 'server',
+        uploadPct: 40,
+        serverPct: 2,
+        phase: 'queued',
+        detail: phaseLabel('queued'),
+      })
+      const final = await pollImportUntilDone(db.id, importId)
+      toast.success(final?.message ?? t('databases.imported'))
       qc.invalidateQueries({ queryKey: ['databases'] })
       setImportDb(null)
-    },
-    onError: (err: unknown) => {
+    } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
-    },
-  })
+      toast.error(ax.response?.data?.message ?? (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setImportBusy(false)
+      setImportUi(null)
+    }
+  }
+
+  useEffect(() => {
+    importPollCancel.current = true
+    if (!importDb) {
+      setImportUi(null)
+      setImportBusy(false)
+    }
+  }, [importDb])
 
   const runExport = async (db: DbRow) => {
     const token = useAuthStore.getState().token
@@ -691,12 +840,42 @@ export default function DatabasesPage() {
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">{t('databases.import_warning_body')}</p>
             <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-              {t('databases.import_confirm_hint', { phrase: t('databases.import_confirm_expected') })}
+              {t('databases.import_confirm_hint', {
+                phrase: importMetaQ.data?.confirm_phrase ?? t('databases.import_confirm_expected'),
+              })}
             </p>
+            {importDb.type === 'mysql' && importMetaQ.data && !importMetaQ.data.mysql_tools_enabled && (
+              <p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                {t('databases.import_tools_disabled')}
+              </p>
+            )}
+            {importDb.type === 'postgresql' && importMetaQ.data && !importMetaQ.data.postgres_tools_enabled && (
+              <p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                {t('databases.import_tools_disabled')}
+              </p>
+            )}
+            {importUi && (
+              <div className="space-y-2" role="status" aria-live="polite">
+                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                  <span>{importUi.detail}</span>
+                  <span>{t('databases.import_progress_percent', { pct: combinedImportPct(importUi) })}</span>
+                </div>
+                <div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-red-600 transition-[width] duration-300 ease-out"
+                    style={{ width: `${combinedImportPct(importUi)}%` }}
+                  />
+                </div>
+                {importUi.mode === 'server' && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('databases.import_progress_server')}</p>
+                )}
+              </div>
+            )}
             <form
               className="space-y-3"
               onSubmit={(ev) => {
                 ev.preventDefault()
+                if (importBusy) return
                 const fd = new FormData(ev.currentTarget)
                 const file = (fd.get('sql_file') as File | null) ?? null
                 const confirmation = String(fd.get('confirmation') || '').trim()
@@ -704,33 +883,71 @@ export default function DatabasesPage() {
                   toast.error(t('databases.import_choose_file'))
                   return
                 }
-                const expected = t('databases.import_confirm_expected')
-                if (confirmation !== expected) {
+                const maxMb = importMetaQ.data?.max_import_mb ?? 512
+                if (file.size > maxMb * 1024 * 1024) {
+                  toast.error(t('databases.import_file_too_large', { max: maxMb }))
+                  return
+                }
+                const expected =
+                  importMetaQ.data?.confirm_phrase ?? t('databases.import_confirm_expected')
+                if (!importConfirmMatches(confirmation, expected)) {
                   toast.error(t('databases.import_confirm_mismatch'))
                   return
                 }
-                importSqlM.mutate({ id: importDb.id, file, confirmation })
+                if (
+                  (importDb.type === 'mysql' && importMetaQ.data && !importMetaQ.data.mysql_tools_enabled) ||
+                  (importDb.type === 'postgresql' &&
+                    importMetaQ.data &&
+                    !importMetaQ.data.postgres_tools_enabled)
+                ) {
+                  toast.error(t('databases.import_tools_disabled'))
+                  return
+                }
+                void runDatabaseImport(importDb, file, confirmation)
               }}
             >
               <div>
                 <label className="label">{t('databases.import_choose_file')}</label>
-                <input name="sql_file" type="file" accept=".sql,text/plain,application/sql" className="input w-full" required />
+                <input
+                  name="sql_file"
+                  type="file"
+                  accept=".sql,text/plain,application/sql"
+                  className="input w-full"
+                  required
+                  disabled={importBusy}
+                />
+                {importMetaQ.data?.max_import_mb ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {t('databases.import_max_size', { max: importMetaQ.data.max_import_mb })}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="label">{t('databases.import_confirm_label')}</label>
-                <input name="confirmation" type="text" className="input w-full font-mono" autoComplete="off" required />
+                <input
+                  name="confirmation"
+                  type="text"
+                  className="input w-full font-mono"
+                  autoComplete="off"
+                  required
+                  disabled={importBusy}
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   className="btn-secondary"
                   onClick={() => setImportDb(null)}
-                  disabled={importSqlM.isPending}
+                  disabled={importBusy}
                 >
                   {t('common.cancel')}
                 </button>
-                <button type="submit" className="btn-primary bg-red-600 hover:bg-red-700 border-red-600" disabled={importSqlM.isPending}>
-                  {t('databases.import_sql')}
+                <button
+                  type="submit"
+                  className="btn-primary bg-red-600 hover:bg-red-700 border-red-600"
+                  disabled={importBusy}
+                >
+                  {importBusy ? t('databases.import_started') : t('databases.import_sql')}
                 </button>
               </div>
             </form>

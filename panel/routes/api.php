@@ -142,6 +142,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
 
     Route::middleware('ability:databases:read')->group(function () {
         Route::get('databases', [DatabaseController::class, 'index']);
+        Route::get('databases/import-meta', [DatabaseController::class, 'importMeta']);
+        Route::get('databases/{database}/import/{import}', [DatabaseController::class, 'importStatus']);
         Route::get('databases/{database}/export', [DatabaseController::class, 'export'])->middleware('throttle:api');
     });
     Route::middleware('ability:databases:write')->group(function () {

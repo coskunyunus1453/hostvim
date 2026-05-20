@@ -42,6 +42,20 @@ if [[ -f "$PANEL_ROOT/artisan" ]]; then
   hostvim_run_artisan hostvim:install-check --ping || true
 fi
 
+# Sudoers / hostvim-system-settings (mevcut kurulumlarda eksik olabilir)
+if [[ -f "${HOSTVIM_HOME}/deploy/host/hostvim-system-settings" ]]; then
+  install -m 755 "${HOSTVIM_HOME}/deploy/host/hostvim-system-settings" /usr/local/sbin/hostvim-system-settings
+  ln -sfn /usr/local/sbin/hostvim-system-settings /usr/local/sbin/panelsar-system-settings 2>/dev/null || true
+fi
+if [[ -f /etc/sudoers.d/hostvim-engine ]] && ! grep -q 'hostvim-system-settings' /etc/sudoers.d/hostvim-engine 2>/dev/null; then
+  echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-system-settings' >>/etc/sudoers.d/hostvim-engine
+  echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings' >>/etc/sudoers.d/hostvim-engine
+  chmod 440 /etc/sudoers.d/hostvim-engine
+  visudo -cf /etc/sudoers.d/hostvim-engine >/dev/null 2>&1 || true
+  echo "==> sudoers: hostvim-system-settings eklendi"
+fi
+systemctl restart hostvim-engine 2>/dev/null || true
+
 echo ""
 echo "Tamam. Sorun devam ederse:"
 echo "  tail -50 $PANEL_ROOT/storage/logs/laravel.log"

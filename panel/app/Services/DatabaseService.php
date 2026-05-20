@@ -405,7 +405,10 @@ class DatabaseService
         }
     }
 
-    public function importMysqlFromSqlFile(Database $database, string $absolutePath): void
+    /**
+     * @param  callable(int $progress, string $phase, ?string $message): void|null  $onProgress
+     */
+    public function importMysqlFromSqlFile(Database $database, string $absolutePath, ?callable $onProgress = null): void
     {
         if ($database->type !== 'mysql') {
             throw new \InvalidArgumentException(__('databases.import_not_mysql'));
@@ -415,6 +418,10 @@ class DatabaseService
         }
         if (! is_readable($absolutePath)) {
             throw new \InvalidArgumentException(__('databases.import_file_unreadable'));
+        }
+
+        if ($onProgress !== null) {
+            $onProgress(12, 'recreating', __('databases.import_phase_recreating'));
         }
 
         $plain = $this->plainPasswordForOps($database);
@@ -433,7 +440,10 @@ class DatabaseService
         }
 
         try {
-            // --one-database: dump içindeki başka veritabanlarına yönelen USE/DDL satırlarını yok sayar (hedef DB’ye yanlış yazmayı önler).
+            if ($onProgress !== null) {
+                $onProgress(28, 'importing', __('databases.import_phase_importing'));
+            }
+
             $process = new Process(
                 [
                     $bin,
@@ -449,17 +459,23 @@ class DatabaseService
                 $input,
                 3600.0,
             );
-            $process->mustRun();
+            $this->runProcessWithProgress($process, $absolutePath, $onProgress, 28, 88);
         } finally {
             if (is_resource($input)) {
                 fclose($input);
             }
         }
 
+        if ($onProgress !== null) {
+            $onProgress(92, 'finalizing', __('databases.import_phase_finalizing'));
+        }
         $this->refreshSingleDatabaseSize($database->fresh());
     }
 
-    public function importPostgresFromSqlFile(Database $database, string $absolutePath): void
+    /**
+     * @param  callable(int $progress, string $phase, ?string $message): void|null  $onProgress
+     */
+    public function importPostgresFromSqlFile(Database $database, string $absolutePath, ?callable $onProgress = null): void
     {
         if ($database->type !== 'postgresql') {
             throw new \InvalidArgumentException(__('databases.import_not_postgresql'));
@@ -471,10 +487,17 @@ class DatabaseService
             throw new \InvalidArgumentException(__('databases.import_file_unreadable'));
         }
 
+        if ($onProgress !== null) {
+            $onProgress(12, 'recreating', __('databases.import_phase_recreating'));
+        }
         $this->postgresProvisioner->recreateEmptyDatabase($database->name, $database->username);
 
         $bin = (string) config('hostvim.database_tools.psql_path', 'psql');
         $plain = $this->plainPasswordForOps($database);
+        if ($onProgress !== null) {
+            $onProgress(28, 'importing', __('databases.import_phase_importing'));
+        }
+
         $process = new Process(
             [
                 $bin,
@@ -490,8 +513,43 @@ class DatabaseService
             null,
             3600.0,
         );
-        $process->mustRun();
+        $this->runProcessWithProgress($process, $absolutePath, $onProgress, 28, 88);
 
+        if ($onProgress !== null) {
+            $onProgress(92, 'finalizing', __('databases.import_phase_finalizing'));
+        }
         $this->refreshSingleDatabaseSize($database->fresh());
+    }
+
+    /**
+     * @param  callable(int $progress, string $phase, ?string $message): void|null  $onProgress
+     */
+    private function runProcessWithProgress(
+        Process $process,
+        string $absolutePath,
+        ?callable $onProgress,
+        int $progressMin,
+        int $progressMax,
+    ): void {
+        $fileBytes = max(1, (int) @filesize($absolutePath));
+        $estimatedSec = max(30, min(3600, (int) ceil($fileBytes / 200_000)));
+        $startedAt = time();
+
+        $process->start();
+
+        while ($process->isRunning()) {
+            $elapsed = max(1, time() - $startedAt);
+            $ratio = min(1.0, $elapsed / $estimatedSec);
+            $pct = (int) round($progressMin + ($progressMax - $progressMin) * $ratio);
+            if ($onProgress !== null) {
+                $onProgress($pct, 'importing', __('databases.import_phase_importing'));
+            }
+            usleep(400_000);
+            $process->checkTimeout();
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException(trim($process->getErrorOutput() ?: $process->getOutput()) ?: __('databases.import_failed'));
+        }
     }
 }

@@ -3,10 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ImportDatabaseJob;
 use App\Models\Database;
+use App\Models\DatabaseImportRun;
 use App\Models\Domain;
 use App\Services\DatabaseService;
 use App\Services\HostingQuotaService;
+use App\Services\MysqlProvisioner;
+use App\Services\PostgresProvisioner;
+use App\Support\DatabaseImportConfirmation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use PDOException;
@@ -18,6 +23,8 @@ class DatabaseController extends Controller
     public function __construct(
         private DatabaseService $databaseService,
         private HostingQuotaService $quota,
+        private MysqlProvisioner $mysqlProvisioner,
+        private PostgresProvisioner $postgresProvisioner,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -242,12 +249,58 @@ class DatabaseController extends Controller
         }
     }
 
+    public function importMeta(Request $request): JsonResponse
+    {
+        return response()->json([
+            'confirm_phrase' => DatabaseImportConfirmation::expectedPhrase(),
+            'max_import_mb' => max(1, (int) config('hostvim.limits.max_db_import_mb', 512)),
+            'mysql_tools_enabled' => $this->mysqlProvisioner->enabled(),
+            'postgres_tools_enabled' => $this->postgresProvisioner->enabled(),
+        ]);
+    }
+
+    public function importStatus(Request $request, Database $database, int $import): JsonResponse
+    {
+        $this->authorize('import', $database);
+
+        $run = DatabaseImportRun::query()
+            ->whereKey($import)
+            ->where('database_id', $database->id)
+            ->when(! $request->user()->isAdmin(), fn ($q) => $q->where('user_id', $request->user()->id))
+            ->firstOrFail();
+
+        return response()->json([
+            'import_id' => $run->id,
+            'status' => $run->status,
+            'progress' => $run->progress,
+            'phase' => $run->phase,
+            'message' => $run->message,
+            'error_message' => $run->error_message,
+            'finished_at' => $run->finished_at,
+        ]);
+    }
+
     public function import(Request $request, Database $database): JsonResponse
     {
         $this->authorize('import', $database);
 
         if (! in_array($database->type, ['mysql', 'postgresql'], true)) {
             return response()->json(['message' => __('databases.import_unsupported_type')], 422);
+        }
+
+        if ($database->type === 'mysql' && ! $this->mysqlProvisioner->enabled()) {
+            return response()->json(['message' => __('databases.provision_disabled_import')], 422);
+        }
+        if ($database->type === 'postgresql' && ! $this->postgresProvisioner->enabled()) {
+            return response()->json(['message' => __('databases.provision_disabled_import')], 422);
+        }
+
+        $active = DatabaseImportRun::query()
+            ->where('database_id', $database->id)
+            ->whereIn('status', ['queued', 'running'])
+            ->exists();
+        if ($active) {
+            return response()->json(['message' => __('databases.import_already_running')], 409);
         }
 
         $maxMb = max(1, (int) config('hostvim.limits.max_db_import_mb', 512));
@@ -258,38 +311,40 @@ class DatabaseController extends Controller
             'confirmation' => ['required', 'string', 'max:128'],
         ]);
 
-        $expected = (string) __('databases.import_confirm_expected');
-        if (trim((string) $validated['confirmation']) !== $expected) {
+        if (! DatabaseImportConfirmation::matches((string) $validated['confirmation'])) {
             return response()->json(['message' => __('databases.import_confirm_mismatch')], 422);
         }
 
         $upload = $request->file('sql_file');
-        $ext = strtolower((string) $upload->getClientOriginalExtension());
-        if ($ext !== 'sql') {
+        if (! DatabaseImportConfirmation::isSqlUpload($upload)) {
             return response()->json(['message' => __('databases.import_sql_only')], 422);
         }
 
-        $path = $upload->getRealPath();
-        if ($path === false || ! is_readable($path)) {
-            return response()->json(['message' => __('databases.import_file_unreadable')], 422);
+        $run = DatabaseImportRun::query()->create([
+            'user_id' => $request->user()->id,
+            'database_id' => $database->id,
+            'status' => 'queued',
+            'progress' => 0,
+            'phase' => 'queued',
+            'message' => __('databases.import_started'),
+        ]);
+
+        $stored = $upload->storeAs('db-imports', (string) $run->id.'.sql', 'local');
+        if ($stored === false) {
+            $run->delete();
+
+            return response()->json(['message' => __('databases.import_file_unreadable')], 500);
         }
 
-        try {
-            if ($database->type === 'mysql') {
-                $this->databaseService->importMysqlFromSqlFile($database, $path);
-            } else {
-                $this->databaseService->importPostgresFromSqlFile($database, $path);
-            }
-        } catch (\InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        } catch (Throwable $e) {
-            report($e);
+        $run->file_path = $stored;
+        $run->save();
 
-            return response()->json([
-                'message' => $e->getMessage() ?: __('databases.import_failed'),
-            ], 500);
-        }
+        ImportDatabaseJob::dispatch($run->id)->afterResponse();
 
-        return response()->json(['message' => __('databases.imported')]);
+        return response()->json([
+            'message' => __('databases.import_started'),
+            'import_id' => $run->id,
+            'status' => 'queued',
+        ], 202);
     }
 }

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Hostvim engine (www-data) — sunucu hostname ve saat dilimi (sudo NOPASSWD).
+set -euo pipefail
+
+ACTION="${1:-}"
+ARG="${2:-}"
+
+usage() {
+  echo "Kullanim: hostvim-system-settings set-timezone <IANA_TZ>" >&2
+  echo "          hostvim-system-settings set-hostname <fqdn>" >&2
+  exit 2
+}
+
+[[ -n "$ACTION" ]] || usage
+
+case "$ACTION" in
+  set-timezone)
+    [[ -n "$ARG" ]] || usage
+    if [[ "$ARG" == *..* ]] || [[ "$ARG" =~ [[:space:]] ]]; then
+      echo "Gecersiz saat dilimi: $ARG" >&2
+      exit 1
+    fi
+    ZONE_FILE="/usr/share/zoneinfo/${ARG}"
+    if [[ ! -f "$ZONE_FILE" ]]; then
+      echo "Bilinmeyen saat dilimi: $ARG" >&2
+      exit 1
+    fi
+    if command -v timedatectl >/dev/null 2>&1; then
+      timedatectl set-timezone "$ARG"
+      exit 0
+    fi
+    echo "$ARG" >/etc/timezone
+    ln -sf "$ZONE_FILE" /etc/localtime
+    dpkg-reconfigure -f noninteractive tzdata >/dev/null 2>&1 || true
+    ;;
+  set-hostname)
+    [[ -n "$ARG" ]] || usage
+    if command -v hostnamectl >/dev/null 2>&1; then
+      hostnamectl set-hostname "$ARG"
+      exit 0
+    fi
+    echo "$ARG" >/etc/hostname
+    hostname -F /etc/hostname 2>/dev/null || hostname "$ARG"
+    ;;
+  *)
+    usage
+    ;;
+esac

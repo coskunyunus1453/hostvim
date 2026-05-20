@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -36,6 +37,8 @@ var commonTimezones = []string{
 	"Asia/Singapore",
 	"Asia/Tokyo",
 }
+
+const hostvimSystemSettingsBin = "/usr/local/sbin/hostvim-system-settings"
 
 // GetServerSettings hostname, saat dilimi ve NTP durumunu okur.
 func GetServerSettings(dataDir string) ServerSettings {
@@ -123,12 +126,16 @@ func listTimezones() ([]string, error) {
 
 // UpdateServerSettings hostname ve/veya timezone günceller.
 func UpdateServerSettings(hostname, timezone *string) error {
+	current := GetServerSettings("")
 	if hostname != nil {
 		h := strings.TrimSpace(*hostname)
 		if h == "" || !hostnameRe.MatchString(h) {
 			return fmt.Errorf("invalid hostname")
 		}
-		if err := setHostname(h); err != nil {
+		cur := strings.TrimSpace(current.Hostname)
+		if cur != "" && strings.EqualFold(cur, h) {
+			hostname = nil
+		} else if err := setHostname(h); err != nil {
 			return err
 		}
 	}
@@ -136,6 +143,9 @@ func UpdateServerSettings(hostname, timezone *string) error {
 		tz := strings.TrimSpace(*timezone)
 		if tz == "" || strings.Contains(tz, "..") || strings.ContainsAny(tz, " \t\n") {
 			return fmt.Errorf("invalid timezone")
+		}
+		if strings.EqualFold(strings.TrimSpace(current.Timezone), tz) {
+			return nil
 		}
 		if err := setTimezone(tz); err != nil {
 			return err
@@ -148,34 +158,79 @@ func setHostname(name string) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("hostname change supported only on Linux")
 	}
-	if _, err := exec.LookPath("hostnamectl"); err == nil {
-		out, err := exec.Command("hostnamectl", "set-hostname", name).CombinedOutput()
-		if err == nil {
-			return nil
-		}
-		out2, err2 := exec.Command("sudo", "-n", "hostnamectl", "set-hostname", name).CombinedOutput()
+	out, err := runPrivileged(hostvimSystemSettingsBin, "set-hostname", name)
+	if err == nil {
+		return nil
+	}
+	if _, look := exec.LookPath("hostnamectl"); look == nil {
+		out2, err2 := runPrivileged("hostnamectl", "set-hostname", name)
 		if err2 != nil {
-			return fmt.Errorf("%s — %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(out2)))
+			return combineCmdErrors(out, out2)
 		}
 		return nil
 	}
-	return fmt.Errorf("hostnamectl not found")
+	return fmt.Errorf("%s", formatCmdError(out, err))
 }
 
 func setTimezone(tz string) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("timezone change supported only on Linux")
 	}
-	if _, err := exec.LookPath("timedatectl"); err == nil {
-		out, err := exec.Command("timedatectl", "set-timezone", tz).CombinedOutput()
-		if err == nil {
-			return nil
-		}
-		out2, err2 := exec.Command("sudo", "-n", "timedatectl", "set-timezone", tz).CombinedOutput()
+	if err := validateZoneinfo(tz); err != nil {
+		return err
+	}
+	out, err := runPrivileged(hostvimSystemSettingsBin, "set-timezone", tz)
+	if err == nil {
+		return nil
+	}
+	if _, look := exec.LookPath("timedatectl"); look == nil {
+		out2, err2 := runPrivileged("timedatectl", "set-timezone", tz)
 		if err2 != nil {
-			return fmt.Errorf("%s — %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(out2)))
+			return combineCmdErrors(out, out2)
 		}
 		return nil
 	}
-	return fmt.Errorf("timedatectl not found")
+	return fmt.Errorf("%s", formatCmdError(out, err))
+}
+
+func validateZoneinfo(tz string) error {
+	zonePath := filepath.Join("/usr/share/zoneinfo", tz)
+	if st, err := os.Stat(zonePath); err != nil || st.IsDir() {
+		return fmt.Errorf("invalid timezone")
+	}
+	return nil
+}
+
+// runPrivileged root veya sudo -n ile komut çalıştırır (engine www-data).
+func runPrivileged(bin string, args ...string) ([]byte, error) {
+	if os.Geteuid() == 0 {
+		return exec.Command(bin, args...).CombinedOutput()
+	}
+	if _, err := exec.LookPath("sudo"); err != nil {
+		return nil, fmt.Errorf("sudo not found")
+	}
+	return exec.Command("sudo", append([]string{"-n", bin}, args...)...).CombinedOutput()
+}
+
+func formatCmdError(out []byte, err error) string {
+	msg := strings.TrimSpace(string(out))
+	if msg == "" && err != nil {
+		msg = err.Error()
+	}
+	if strings.Contains(msg, "password is required") {
+		return msg + " — panel kurulumunda /etc/sudoers.d/hostvim-engine içinde hostvim-system-settings NOPASSWD tanımlı olmalı; sudo bash deploy/bootstrap/install-production.sh veya sudo hostvim-post-install çalıştırın"
+	}
+	return msg
+}
+
+func combineCmdErrors(a []byte, b []byte) error {
+	sa := strings.TrimSpace(string(a))
+	sb := strings.TrimSpace(string(b))
+	if sa != "" && sb != "" {
+		return fmt.Errorf("%s — %s", sa, sb)
+	}
+	if sa != "" {
+		return fmt.Errorf("%s", sa)
+	}
+	return fmt.Errorf("%s", sb)
 }

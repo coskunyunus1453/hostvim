@@ -40,7 +40,7 @@
 #   HOSTVIM_RUN_CERTBOT=1         # 0: certbot calistirma (DNS hazir degilken)
 #   HOSTVIM_LICENSE_KEY=…         # İsteğe bağlı; bos birakilabilir (müşteri Admin → Lisans’tan yapistirir)
 #   LETS_ENCRYPT_EMAIL=…          # ACME; HOSTVIM_ADMIN_EMAIL yoksa ilk admin e-postası olarak da kullanılabilir
-#   HOSTVIM_ADMIN_PASSWORD=...       # sabit şifre; verilmezse her çalıştırmada yeni rastgele (DB’de admin güncellenir)
+#   HOSTVIM_DEFAULT_TIMEZONE=Europe/Istanbul  # kurulumda timedatectl (varsayılan UTC)
 #   HOSTVIM_PRESERVE_ADMIN_PASSWORD=1  # DB’de kullanıcı varken şifreyi değiştirme / dosyada gösterme (otomasyon güncellemesi için)
 #
 set -euo pipefail
@@ -328,6 +328,16 @@ else
   require_php_for_composer
 fi
 
+# Sunucu saat dilimi (panel engine www-data ile timedatectl kullanır)
+HOSTVIM_DEFAULT_TIMEZONE="${HOSTVIM_DEFAULT_TIMEZONE:-UTC}"
+if command -v timedatectl >/dev/null 2>&1; then
+  echo "==> Sistem saat dilimi: $HOSTVIM_DEFAULT_TIMEZONE"
+  timedatectl set-timezone "$HOSTVIM_DEFAULT_TIMEZONE" 2>/dev/null || true
+elif [[ -f "/usr/share/zoneinfo/${HOSTVIM_DEFAULT_TIMEZONE}" ]]; then
+  echo "$HOSTVIM_DEFAULT_TIMEZONE" >/etc/timezone
+  ln -sf "/usr/share/zoneinfo/${HOSTVIM_DEFAULT_TIMEZONE}" /etc/localtime
+fi
+
 # PHP-FPM soketi (apt sonrası)
 PHP_FPM_SOCK="$(detect_php_fpm_sock)"
 
@@ -477,6 +487,10 @@ fi
 if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
 fi
+if [[ -f "$REPO_ROOT/deploy/host/hostvim-system-settings" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/hostvim-system-settings" /usr/local/sbin/hostvim-system-settings
+  ln -sfn /usr/local/sbin/hostvim-system-settings /usr/local/sbin/panelsar-system-settings
+fi
 if [[ -f "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" /usr/local/sbin/hostvim-post-install
   ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelsar-post-install
@@ -500,6 +514,8 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-php-ini
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-php-ini
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-security
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-security
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-system-settings
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-panel-update
 SUDOERS
 chmod 440 /etc/sudoers.d/hostvim-engine

@@ -97,19 +97,29 @@ export default function AdminServerSettingsPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin-server-settings'] })
 
+  const initialHostname = settings?.hostname ?? ''
+  const initialTimezone = settings?.timezone ?? 'UTC'
+
   const saveM = useMutation({
-    mutationFn: async () =>
-      api.patch('/system/server-settings', {
-        hostname: hostname.trim(),
-        timezone: timezone.trim(),
-      }),
+    mutationFn: async () => {
+      const payload: { hostname?: string; timezone?: string } = {}
+      const h = hostname.trim()
+      const tz = timezone.trim()
+      if (h && h !== initialHostname) payload.hostname = h
+      if (tz && tz !== initialTimezone) payload.timezone = tz
+      if (Object.keys(payload).length === 0) {
+        throw new Error(t('server_settings.nothing_to_update'))
+      }
+      return api.patch('/system/server-settings', payload)
+    },
     onSuccess: () => {
       toast.success(t('server_settings.saved'))
       invalidate()
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const msg = ax.response?.data?.message ?? (err instanceof Error ? err.message : String(err))
+      toast.error(msg)
     },
   })
 
