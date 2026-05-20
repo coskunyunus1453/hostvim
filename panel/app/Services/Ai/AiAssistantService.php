@@ -56,7 +56,7 @@ class AiAssistantService
                 'default_model' => AiLlmClient::DEFAULT_MODELS[$provider],
                 'enabled' => (bool) ($row?->enabled),
                 'is_default' => (bool) ($row?->is_default),
-                'model' => $row?->model ?: AiLlmClient::DEFAULT_MODELS[$provider],
+                'model' => $this->llm->resolveModel($provider, $row?->model ?: AiLlmClient::DEFAULT_MODELS[$provider]),
                 'api_key_set' => $row !== null && filled($row->api_key),
                 'api_key_hint' => $this->maskKey($row?->api_key),
                 'last_test_at' => $row?->last_test_at,

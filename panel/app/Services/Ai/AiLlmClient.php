@@ -7,17 +7,41 @@ use Illuminate\Support\Str;
 
 class AiLlmClient
 {
-    /** @var array<string, list<string>> */
+    /**
+     * Google Gemini — metin/sohbet (generateContent) için güncel model kimlikleri.
+     *
+     * @see https://ai.google.dev/gemini-api/docs/models
+     *
+     * @var array<string, list<string>>
+     */
     public const PROVIDER_MODELS = [
         'openai' => ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-        'gemini' => ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+        'gemini' => [
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-2.5-pro',
+            'gemini-3.1-flash-lite',
+            'gemini-3.5-flash',
+            'gemini-3-flash-preview',
+            'gemini-3.1-pro-preview',
+        ],
         'anthropic' => ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
+    ];
+
+    /** Eski panel ayarları → güncel model (Google deprecations). */
+    private const GEMINI_MODEL_ALIASES = [
+        'gemini-2.0-flash' => 'gemini-2.5-flash',
+        'gemini-2.0-flash-lite' => 'gemini-2.5-flash-lite',
+        'gemini-1.5-pro' => 'gemini-2.5-pro',
+        'gemini-1.5-flash' => 'gemini-2.5-flash',
+        'gemini-1.5-flash-8b' => 'gemini-2.5-flash-lite',
+        'gemini-pro' => 'gemini-2.5-pro',
     ];
 
     /** @var array<string, string> */
     public const DEFAULT_MODELS = [
         'openai' => 'gpt-4o-mini',
-        'gemini' => 'gemini-2.0-flash',
+        'gemini' => 'gemini-2.5-flash',
         'anthropic' => 'claude-3-5-haiku-latest',
     ];
 
@@ -77,11 +101,15 @@ class AiLlmClient
     {
         $provider = strtolower(trim($provider));
         $model = trim((string) $model);
-        if ($model !== '') {
-            return $model;
+        if ($model === '') {
+            return self::DEFAULT_MODELS[$provider] ?? 'gpt-4o-mini';
         }
 
-        return self::DEFAULT_MODELS[$provider] ?? 'gpt-4o-mini';
+        if ($provider === 'gemini') {
+            return self::GEMINI_MODEL_ALIASES[$model] ?? $model;
+        }
+
+        return $model;
     }
 
     /**
@@ -134,16 +162,6 @@ class AiLlmClient
     private function chatGemini(string $apiKey, string $model, array $messages, int $maxTokens, ?string $systemPrompt): array
     {
         $contents = [];
-        if ($systemPrompt) {
-            $contents[] = [
-                'role' => 'user',
-                'parts' => [['text' => "[System instructions]\n".$systemPrompt]],
-            ];
-            $contents[] = [
-                'role' => 'model',
-                'parts' => [['text' => 'Anladım. Hostvim panel asistanı olarak yardımcı olacağım.']],
-            ];
-        }
         foreach ($messages as $m) {
             $role = $m['role'] === 'assistant' ? 'model' : 'user';
             if ($m['role'] === 'system') {
@@ -155,21 +173,35 @@ class AiLlmClient
             ];
         }
 
+        if ($contents === []) {
+            $contents[] = [
+                'role' => 'user',
+                'parts' => [['text' => 'Hello']],
+            ];
+        }
+
         $url = sprintf(
             'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
             rawurlencode($model),
             rawurlencode($apiKey)
         );
 
+        $payload = [
+            'contents' => $contents,
+            'generationConfig' => [
+                'maxOutputTokens' => $maxTokens,
+                'temperature' => 0.4,
+            ],
+        ];
+        if ($systemPrompt) {
+            $payload['systemInstruction'] = [
+                'parts' => [['text' => $systemPrompt]],
+            ];
+        }
+
         $response = Http::timeout(120)
             ->acceptJson()
-            ->post($url, [
-                'contents' => $contents,
-                'generationConfig' => [
-                    'maxOutputTokens' => $maxTokens,
-                    'temperature' => 0.4,
-                ],
-            ]);
+            ->post($url, $payload);
 
         if (! $response->successful()) {
             throw new \RuntimeException($this->formatHttpError('Gemini', $response->status(), $response->json()));

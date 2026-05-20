@@ -32,14 +32,55 @@ fi
 echo "==> Hosting web kökü: $WEB_ROOT"
 echo "==> Sahiplik: $OWNER:$GROUP"
 
-if [[ "$(id -u)" -eq 0 ]]; then
-  chown -R "$OWNER:$GROUP" "$HOSTVIM_HOME/data"
-  find "$WEB_ROOT" -type d -exec chmod 775 {} \; 2>/dev/null || true
-  find "$WEB_ROOT" -type f -exec chmod 664 {} \; 2>/dev/null || true
+_site_count=0
+if [[ -d "$WEB_ROOT" ]]; then
+  _site_count="$(find "$WEB_ROOT" -mindepth 1 -maxdepth 1 \( -type d -o -type f \) 2>/dev/null | wc -l | tr -d ' ')"
+fi
+
+# Güncelleme: tüm data/ üzerinde chown+find saatler sürebilir; yalnızca web kökü
+_quick=0
+if [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "1" ]] || [[ "${HOSTVIM_QUICK_PERM_FIX:-0}" == "1" ]]; then
+  _quick=1
+fi
+
+if [[ "$_site_count" -gt 20 ]] && [[ "${HOSTVIM_FORCE_FULL_PERM_FIX:-0}" != "1" ]]; then
+  _quick=1
+  echo "==> $_site_count site/klasör algılandı; hızlı izin modu (tam tarama atlandı)."
+  echo "    Tam onarım: HOSTVIM_FORCE_FULL_PERM_FIX=1 sudo hostvim-fix-hosting-perms"
+fi
+
+_run_chown_chmod() {
+  local target="$1"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown -R "$OWNER:$GROUP" "$target"
+    chmod -R ug=rwX,o=rX "$target" 2>/dev/null || chmod -R 775 "$target"
+  else
+    sudo chown -R "$OWNER:$GROUP" "$target"
+    sudo chmod -R ug=rwX,o=rX "$target" 2>/dev/null || sudo chmod -R 775 "$target"
+  fi
+}
+
+if [[ "$_quick" == "1" ]]; then
+  echo "==> Hızlı izin (web kökü; birkaç dakika sürebilir)…"
+  _run_chown_chmod "$WEB_ROOT"
+  for _d in tmp ssl backups logs vhosts; do
+    if [[ -d "$HOSTVIM_HOME/data/$_d" ]]; then
+      if [[ "$(id -u)" -eq 0 ]]; then
+        chown -R "$OWNER:$GROUP" "$HOSTVIM_HOME/data/$_d"
+      else
+        sudo chown -R "$OWNER:$GROUP" "$HOSTVIM_HOME/data/$_d"
+      fi
+    fi
+  done
 else
-  sudo chown -R "$OWNER:$GROUP" "$HOSTVIM_HOME/data"
-  sudo find "$WEB_ROOT" -type d -exec chmod 775 {} \; 2>/dev/null || true
-  sudo find "$WEB_ROOT" -type f -exec chmod 664 {} \; 2>/dev/null || true
+  echo "==> Tam izin onarımı (çok dosya varsa uzun sürebilir, bekleyin)…"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown -R "$OWNER:$GROUP" "$HOSTVIM_HOME/data"
+    chmod -R ug=rwX,o=rX "$WEB_ROOT" 2>/dev/null || chmod -R 775 "$WEB_ROOT"
+  else
+    sudo chown -R "$OWNER:$GROUP" "$HOSTVIM_HOME/data"
+    sudo chmod -R ug=rwX,o=rX "$WEB_ROOT" 2>/dev/null || sudo chmod -R 775 "$WEB_ROOT"
+  fi
 fi
 
 echo "Tamam. Panel dosya düzenleyici (Engine) site dosyalarına yazabilir."

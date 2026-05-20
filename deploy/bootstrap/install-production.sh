@@ -1004,6 +1004,9 @@ if [[ -x /usr/local/sbin/hostvim-security ]]; then
 fi
 
 echo "==> Laravel onbellek + kurulum kontrolu (musterinin manuel komut calistirmasi gerekmez)"
+if [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "1" ]]; then
+  export HOSTVIM_QUICK_PERM_FIX=1
+fi
 bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
 hostvim_run_artisan config:cache
 hostvim_run_artisan route:cache
