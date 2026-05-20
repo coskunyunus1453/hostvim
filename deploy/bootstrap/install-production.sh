@@ -556,6 +556,10 @@ if [[ -f "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/hostvim-fix-hosting-perms
   ln -sfn /usr/local/sbin/hostvim-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
 fi
+if [[ -f "$REPO_ROOT/deploy/host/hostvim-node-pm2" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/hostvim-node-pm2" /usr/local/sbin/hostvim-node-pm2
+  ln -sfn /usr/local/sbin/hostvim-node-pm2 /usr/local/sbin/panelsar-node-pm2
+fi
 cat > /etc/sudoers.d/hostvim-engine <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
@@ -570,6 +574,8 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-security
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-panel-update
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-node-pm2
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 SUDOERS
 chmod 440 /etc/sudoers.d/hostvim-engine
 visudo -cf /etc/sudoers.d/hostvim-engine

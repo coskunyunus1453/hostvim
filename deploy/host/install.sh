@@ -189,6 +189,10 @@ if [[ -f deploy/host/hostvim-cleaner ]]; then
   install -m 755 deploy/host/hostvim-cleaner /usr/local/sbin/hostvim-cleaner
   ln -sfn /usr/local/sbin/hostvim-cleaner /usr/local/sbin/panelsar-cleaner
 fi
+if [[ -f deploy/host/hostvim-node-pm2 ]]; then
+  install -m 755 deploy/host/hostvim-node-pm2 /usr/local/sbin/hostvim-node-pm2
+  ln -sfn /usr/local/sbin/hostvim-node-pm2 /usr/local/sbin/panelsar-node-pm2
+fi
 if [[ -f deploy/host/hostvim-mail-stack-setup.sh ]]; then
   install -m 755 deploy/host/hostvim-mail-stack-setup.sh /usr/local/sbin/hostvim-mail-stack-setup.sh
   ln -sfn /usr/local/sbin/hostvim-mail-stack-setup.sh /usr/local/sbin/panelsar-mail-stack-setup.sh

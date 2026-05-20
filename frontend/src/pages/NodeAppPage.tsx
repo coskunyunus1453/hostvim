@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import { Cpu, Play, Square, RotateCcw, Wand2, Package, Hammer } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useDomainsList } from '../hooks/useDomains'
+
+type WorkDirCandidate = {
+  rel: string
+  label: string
+  package_name?: string
+  has_start?: boolean
+}
 
 type NodeDetect = {
   has_package_json?: boolean
@@ -14,6 +21,7 @@ type NodeDetect = {
   suggested_port?: number
   scripts?: string[]
   package_name?: string
+  work_dir_candidates?: WorkDirCandidate[]
 }
 
 type NodeConfig = {
@@ -62,6 +70,8 @@ export default function NodeAppPage() {
     auto_start: true,
     env_file: '.env',
   })
+  const [workDirCandidates, setWorkDirCandidates] = useState<WorkDirCandidate[]>([])
+  const [npmScripts, setNpmScripts] = useState<string[]>(['start'])
 
   useEffect(() => {
     const c = configQ.data
@@ -77,26 +87,39 @@ export default function NodeAppPage() {
     })
   }, [configQ.data])
 
-  const detectM = useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post<{ detect?: NodeDetect }>(`/domains/${domainId}/node-app/detect`, {
-        work_dir: form.work_dir,
-      })
-      return data.detect
-    },
-    onSuccess: (det) => {
-      if (!det?.has_package_json) {
+  const applyDetect = useCallback(
+    (det?: NodeDetect) => {
+      if (!det) return
+      if (det.work_dir_candidates?.length) {
+        setWorkDirCandidates(det.work_dir_candidates)
+      }
+      if (!det.has_package_json) {
         toast.error(t('node_apps.no_package_json'))
         return
       }
+      if (det.scripts?.length) {
+        setNpmScripts(det.scripts)
+      }
       setForm((f) => ({
         ...f,
+        work_dir: det.work_dir || f.work_dir,
         profile: det.profile || f.profile,
         start_script: det.start_script || f.start_script,
         listen_port: det.suggested_port || f.listen_port,
       }))
       toast.success(t('node_apps.detected', { name: det.package_name || 'package.json' }))
     },
+    [t],
+  )
+
+  const detectM = useMutation({
+    mutationFn: async (workDir?: string) => {
+      const { data } = await api.post<{ detect?: NodeDetect }>(`/domains/${domainId}/node-app/detect`, {
+        work_dir: workDir ?? form.work_dir,
+      })
+      return data.detect
+    },
+    onSuccess: (det) => applyDetect(det),
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
@@ -128,9 +151,22 @@ export default function NodeAppPage() {
       })
       return data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success(t('node_apps.auto_configured'))
       qc.invalidateQueries({ queryKey: ['node-app', domainId] })
+      const cfg = data as NodeConfig
+      if (cfg?.work_dir) {
+        setForm((f) => ({
+          ...f,
+          enabled: Boolean(cfg.enabled),
+          profile: cfg.profile || cfg.app_profile || f.profile,
+          work_dir: cfg.work_dir || f.work_dir,
+          start_script: cfg.start_script || f.start_script,
+          listen_port: cfg.listen_port || f.listen_port,
+          auto_start: cfg.auto_start ?? f.auto_start,
+          env_file: cfg.env_file || f.env_file,
+        }))
+      }
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; output?: string } } }
@@ -163,7 +199,22 @@ export default function NodeAppPage() {
     },
   })
 
+  useEffect(() => {
+    if (domainId === '') {
+      setWorkDirCandidates([])
+      return
+    }
+    detectM.mutate('.')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- domain değişince otomatik algıla
+  }, [domainId])
+
   const running = configQ.data?.status?.running
+
+  const workDirOptions = useMemo(() => {
+    const fromApi = workDirCandidates
+    if (fromApi.length > 0) return fromApi
+    return [{ rel: '.', label: t('node_apps.work_dir_root') }]
+  }, [workDirCandidates, t])
 
   return (
     <div className="space-y-6">
@@ -231,19 +282,38 @@ export default function NodeAppPage() {
               </div>
               <div>
                 <label className="label">{t('node_apps.work_dir')}</label>
-                <input
-                  className="input w-full"
+                <select
+                  className="input w-full font-mono text-sm"
                   value={form.work_dir}
-                  onChange={(e) => setForm((f) => ({ ...f, work_dir: e.target.value }))}
-                />
+                  onChange={(e) => {
+                    const rel = e.target.value
+                    setForm((f) => ({ ...f, work_dir: rel }))
+                    detectM.mutate(rel)
+                  }}
+                >
+                  {workDirOptions.map((c) => (
+                    <option key={c.rel} value={c.rel}>
+                      {c.label}
+                      {c.package_name ? ` — ${c.package_name}` : ''}
+                      {c.has_start ? '' : ` (${t('node_apps.no_start_script')})`}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('node_apps.work_dir_hint')}</p>
               </div>
               <div>
                 <label className="label">{t('node_apps.start_script')}</label>
-                <input
-                  className="input w-full"
+                <select
+                  className="input w-full font-mono text-sm"
                   value={form.start_script}
                   onChange={(e) => setForm((f) => ({ ...f, start_script: e.target.value }))}
-                />
+                >
+                  {npmScripts.map((s) => (
+                    <option key={s} value={s}>
+                      npm run {s}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="label">{t('node_apps.listen_port')}</label>
@@ -273,7 +343,7 @@ export default function NodeAppPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-secondary" onClick={() => detectM.mutate()} disabled={detectM.isPending}>
+              <button type="button" className="btn-secondary" onClick={() => detectM.mutate(form.work_dir)} disabled={detectM.isPending}>
                 <Wand2 className="h-4 w-4 inline mr-1" />
                 {t('node_apps.detect')}
               </button>

@@ -124,6 +124,8 @@ export default function AiAdvisorPage() {
   const [tab, setTab] = useState<TabId>('chat')
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [input, setInput] = useState('')
+  /** Gönderildi, API yanıtı beklenirken gösterilen kullanıcı mesajı (WhatsApp tarzı anında temiz input). */
+  const [pendingUserText, setPendingUserText] = useState<string | null>(null)
   const [domainId, setDomainId] = useState<number | ''>('')
   const [contextMode, setContextMode] = useState<'server' | 'site' | 'file'>('server')
   const [filePath, setFilePath] = useState('')
@@ -184,10 +186,6 @@ export default function AiAdvisorPage() {
     })
   }, [settingsQ.data?.providers])
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messagesQ.data?.messages, tab])
-
   const saveSettingsM = useMutation({
     mutationFn: async () => {
       const providers = (settingsQ.data?.providers ?? []).map((p) => ({
@@ -237,8 +235,8 @@ export default function AiAdvisorPage() {
         assistant_message: ChatMessage
       },
     onSuccess: (data) => {
+      setPendingUserText(null)
       setSessionId(data.session.id)
-      setInput('')
       qc.invalidateQueries({ queryKey: ['ai-assistant-sessions'] })
       qc.invalidateQueries({ queryKey: ['ai-assistant-messages', data.session.id] })
       qc.invalidateQueries({ queryKey: ['ai-assistant-usage'] })
@@ -248,6 +246,28 @@ export default function AiAdvisorPage() {
       toast.error(ax.response?.data?.message ?? String(err))
     },
   })
+
+  const sendChatMessage = (raw: string) => {
+    const message = raw.trim()
+    if (!message || chatM.isPending) return
+    if (!hasProvider) {
+      toast.error(t('ai.no_provider_hint'))
+      setTab('settings')
+      return
+    }
+    setInput('')
+    setPendingUserText(message)
+    chatM.mutate(message, {
+      onError: () => {
+        setPendingUserText(null)
+        setInput(message)
+      },
+    })
+  }
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messagesQ.data?.messages, pendingUserText, chatM.isPending, tab])
 
   const applyFixM = useMutation({
     mutationFn: async (fix: FixAction) =>
@@ -344,6 +364,8 @@ export default function AiAdvisorPage() {
                 className="btn-primary flex w-full items-center justify-center gap-2 text-sm"
                 onClick={() => {
                   setSessionId(null)
+                  setPendingUserText(null)
+                  setInput('')
                   qc.removeQueries({ queryKey: ['ai-assistant-messages'] })
                 }}
               >
@@ -443,11 +465,19 @@ export default function AiAdvisorPage() {
                         key={p}
                         type="button"
                         className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1.5 text-xs text-fuchsia-800 hover:bg-fuchsia-100 dark:border-fuchsia-800 dark:bg-fuchsia-950/30 dark:text-fuchsia-200"
-                        onClick={() => setInput(p)}
+                        onClick={() => sendChatMessage(p)}
                       >
                         {p}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {pendingUserText && (
+                <div className="flex justify-end">
+                  <div className="max-w-[92%] rounded-2xl bg-fuchsia-600 px-4 py-3 text-sm text-white shadow-sm sm:max-w-[80%] whitespace-pre-wrap break-words">
+                    {pendingUserText}
                   </div>
                 </div>
               )}
@@ -521,13 +551,7 @@ export default function AiAdvisorPage() {
                 className="flex gap-2"
                 onSubmit={(e) => {
                   e.preventDefault()
-                  if (!input.trim() || chatM.isPending) return
-                  if (!hasProvider) {
-                    toast.error(t('ai.no_provider_hint'))
-                    setTab('settings')
-                    return
-                  }
-                  chatM.mutate(input.trim())
+                  sendChatMessage(input)
                 }}
               >
                 <textarea

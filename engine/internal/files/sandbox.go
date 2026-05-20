@@ -151,9 +151,30 @@ func List(root, rel string) ([]ListEntry, error) {
 // ListPaged returns paginated entries along with total count.
 // Sorting is stable and directories are always listed first.
 func ListPaged(root, rel string, offset, limit int, sortKey, order string) ([]ListEntry, int, error) {
-	all, err := List(root, rel)
+	base, err := ResolveUnderRoot(root, rel)
 	if err != nil {
 		return nil, 0, err
+	}
+	dirEntries, err := os.ReadDir(base)
+	if err != nil {
+		return nil, 0, err
+	}
+	all := make([]ListEntry, 0, len(dirEntries))
+	for _, e := range dirEntries {
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		owner, group := resolveOwnerGroup(info)
+		all = append(all, ListEntry{
+			Name:    e.Name(),
+			IsDir:   e.IsDir(),
+			Size:    info.Size(),
+			Mode:    info.Mode().String(),
+			Owner:   owner,
+			Group:   group,
+			ModTime: info.ModTime().Unix(),
+		})
 	}
 
 	total := len(all)

@@ -47,12 +47,22 @@ if [[ -f "${HOSTVIM_HOME}/deploy/host/hostvim-system-settings" ]]; then
   install -m 755 "${HOSTVIM_HOME}/deploy/host/hostvim-system-settings" /usr/local/sbin/hostvim-system-settings
   ln -sfn /usr/local/sbin/hostvim-system-settings /usr/local/sbin/panelsar-system-settings 2>/dev/null || true
 fi
-if [[ -f /etc/sudoers.d/hostvim-engine ]] && ! grep -q 'hostvim-system-settings' /etc/sudoers.d/hostvim-engine 2>/dev/null; then
-  echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-system-settings' >>/etc/sudoers.d/hostvim-engine
-  echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings' >>/etc/sudoers.d/hostvim-engine
+if [[ -f "${HOSTVIM_HOME}/deploy/host/hostvim-node-pm2" ]]; then
+  install -m 755 "${HOSTVIM_HOME}/deploy/host/hostvim-node-pm2" /usr/local/sbin/hostvim-node-pm2
+  ln -sfn /usr/local/sbin/hostvim-node-pm2 /usr/local/sbin/panelsar-node-pm2 2>/dev/null || true
+fi
+if [[ -f /etc/sudoers.d/hostvim-engine ]]; then
+  if ! grep -q 'hostvim-system-settings' /etc/sudoers.d/hostvim-engine 2>/dev/null; then
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-system-settings' >>/etc/sudoers.d/hostvim-engine
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings' >>/etc/sudoers.d/hostvim-engine
+  fi
+  if ! grep -q 'hostvim-node-pm2' /etc/sudoers.d/hostvim-engine 2>/dev/null; then
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-node-pm2' >>/etc/sudoers.d/hostvim-engine
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2' >>/etc/sudoers.d/hostvim-engine
+  fi
   chmod 440 /etc/sudoers.d/hostvim-engine
   visudo -cf /etc/sudoers.d/hostvim-engine >/dev/null 2>&1 || true
-  echo "==> sudoers: hostvim-system-settings eklendi"
+  echo "==> sudoers: hostvim-system-settings / node-pm2 güncellendi"
 fi
 systemctl restart hostvim-engine 2>/dev/null || true
 

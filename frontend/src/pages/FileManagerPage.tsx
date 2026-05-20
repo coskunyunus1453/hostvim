@@ -22,6 +22,7 @@ import {
   Unlock,
   Upload,
   FilePlus,
+  Loader2,
   X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -398,14 +399,8 @@ export default function FileManagerPage() {
         },
         { replace: true },
       )
-      // Path değişince önbellekte kalmış eski dizin listesini zorla temizle
-      if (domainId !== '') {
-        queueMicrotask(() => {
-          void qc.invalidateQueries({ queryKey: ['files', domainId] })
-        })
-      }
     },
-    [setSearchParams, domainId, qc],
+    [setSearchParams],
   )
 
   useEffect(() => {
@@ -443,6 +438,9 @@ export default function FileManagerPage() {
 
   const listScrollRef = useRef<HTMLDivElement | null>(null)
   const fileOpsRef = useRef<HTMLDivElement | null>(null)
+  const openFileSeqRef = useRef(0)
+  const readAbortRef = useRef<AbortController | null>(null)
+  const [monacoReady, setMonacoReady] = useState(false)
 
   useEffect(() => {
     if (!fileOpsOpen) return
@@ -579,9 +577,18 @@ export default function FileManagerPage() {
   const filesQ = useQuery<FilesListResponse>({
     queryKey: ['files', domainId, path, pageSize, offset, sortKey, sortOrder],
     enabled: domainId !== '',
-    staleTime: 5000,
-    placeholderData: (prev) => prev,
-    queryFn: async ({ queryKey }) => {
+    staleTime: 15_000,
+    gcTime: 120_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev, prevQuery) => {
+      const pk = prevQuery?.queryKey as [string, number | '', string, number, number, string, string] | undefined
+      if (!pk || !prev) return undefined
+      if (pk[1] === domainId && pk[2] === path && pk[3] === pageSize && pk[4] === offset && pk[5] === sortKey && pk[6] === sortOrder) {
+        return prev
+      }
+      return undefined
+    },
+    queryFn: async ({ queryKey, signal }) => {
       const [, domId, pathSeg, lim, off, sk, so] = queryKey as [
         string,
         number,
@@ -599,10 +606,30 @@ export default function FileManagerPage() {
       if (pathSeg !== '') {
         u.set('path', pathSeg)
       }
-      const { data } = await api.get(`/domains/${domId}/files?${u.toString()}`)
+      const { data } = await api.get(`/domains/${domId}/files?${u.toString()}`, { signal })
       return data as FilesListResponse
     },
   })
+
+  useEffect(() => {
+    if (!editorOpen) {
+      setMonacoReady(false)
+      return
+    }
+    let cancelled = false
+    void Promise.all([
+      import('@monaco-editor/react'),
+      import('@monaco-editor/loader'),
+      import('monaco-editor'),
+    ]).then(([, loaderMod, monacoMod]) => {
+      if (cancelled) return
+      loaderMod.default.config({ monaco: monacoMod })
+      setMonacoReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [editorOpen])
 
   useEffect(() => {
     setOffset(0)
@@ -638,20 +665,40 @@ export default function FileManagerPage() {
         toast.error(t('files.cannot_edit'))
         return
       }
-      const existing = tabs.findIndex((x) => x.path === relPath)
-      if (existing >= 0) {
-        setActiveTab(existing)
+      if (domainId === '') return
+
+      const existingIdx = tabs.findIndex((x) => x.path === relPath)
+      if (existingIdx >= 0) {
+        const tab = tabs[existingIdx]
         setEditorOpen(true)
-        return
+        setActiveTab(existingIdx)
+        if (!tab.loading && tab.content.length > 0) {
+          return
+        }
+      } else {
+        setEditorOpen(true)
+        setTabs((prev) => [...prev, { path: relPath, content: '', original: '', loading: true }])
+        setActiveTab(tabs.length)
       }
-      setEditorOpen(true)
-      setTabs((prev) => [...prev, { path: relPath, content: '', original: '', loading: true }])
-      const newIndex = tabs.length
-      setActiveTab(newIndex)
+
+      const seq = ++openFileSeqRef.current
+      readAbortRef.current?.abort()
+      const ac = new AbortController()
+      readAbortRef.current = ac
+
+      if (existingIdx >= 0) {
+        setTabs((prev) =>
+          prev.map((x, i) => (i === existingIdx ? { ...x, loading: true } : x)),
+        )
+      }
+
       try {
-        const { data } = await api.post<{ content: string }>(`/domains/${domainId}/files/read`, {
-          path: relPath,
-        })
+        const { data } = await api.post<{ content: string }>(
+          `/domains/${domainId}/files/read`,
+          { path: relPath },
+          { signal: ac.signal, timeout: 120_000 },
+        )
+        if (openFileSeqRef.current !== seq) return
         const c = data?.content ?? ''
         setTabs((prev) => {
           const i = prev.findIndex((x) => x.path === relPath)
@@ -660,10 +707,13 @@ export default function FileManagerPage() {
           next[i] = { path: relPath, content: c, original: c, loading: false }
           return next
         })
-        setActiveTab(newIndex)
       } catch (e: unknown) {
-        const ax = e as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
-        const msg = ax.response?.data?.errors?.path?.[0] ?? ax.response?.data?.message ?? t('files.read_error')
+        if (openFileSeqRef.current !== seq) return
+        const err = e as { code?: string; name?: string; response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
+        if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.name === 'AbortError') {
+          return
+        }
+        const msg = err.response?.data?.errors?.path?.[0] ?? err.response?.data?.message ?? t('files.read_error')
         toast.error(msg)
         setTabs((prev) => {
           const next = prev.filter((x) => !(x.path === relPath && x.loading))
@@ -1884,8 +1934,19 @@ export default function FileManagerPage() {
             <div
               key={`files-${domainId}-${path || 'root'}`}
               ref={listScrollRef}
-              className="min-h-[min(52vh,28rem)] max-h-[min(78vh,calc(100vh-11rem))] overflow-x-auto overflow-y-auto overscroll-x-contain"
+              className="relative min-h-[min(52vh,28rem)] max-h-[min(78vh,calc(100vh-11rem))] overflow-x-auto overflow-y-auto overscroll-x-contain"
             >
+              {filesQ.isFetching && (
+                <div
+                  className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-gray-900/70"
+                  aria-live="polite"
+                >
+                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 shadow-md dark:bg-gray-800">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">{t('files.list_loading')}</span>
+                  </div>
+                </div>
+              )}
               {viewMode === 'list' ? (
                 <table className="w-full min-w-[960px] text-sm">
                   <thead className="bg-gray-50 text-gray-700 dark:bg-gray-800/80 dark:text-gray-300">
@@ -3374,8 +3435,10 @@ export default function FileManagerPage() {
                   onClick={() => {
                     const unsaved = tabs.some((x) => !x.loading && x.content !== x.original)
                     if (unsaved && !window.confirm(t('files.unsaved_close'))) return
+                    readAbortRef.current?.abort()
                     setEditorOpen(false)
                     setTabs([])
+                    setMonacoReady(false)
                   }}
                 >
                   <X className="h-5 w-5" />
@@ -3383,8 +3446,13 @@ export default function FileManagerPage() {
               </div>
             </div>
             <div className="min-h-0 flex-1 border-t border-gray-200 dark:border-gray-800">
-              {currentTab?.loading ? (
-                <p className="p-8 text-center text-gray-500">{t('common.loading')}</p>
+              {currentTab?.loading || !monacoReady ? (
+                <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 p-8 text-center">
+                  <Loader2 className="h-9 w-9 animate-spin text-primary-600" />
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {currentTab?.loading ? t('files.editor_loading', { name: currentTab.path.split('/').pop() }) : t('common.loading')}
+                  </p>
+                </div>
               ) : currentTab ? (
                 <div className="flex h-full min-h-[320px] flex-col">
                   {activeReadOnly && (
@@ -3394,13 +3462,14 @@ export default function FileManagerPage() {
                   )}
                   <Suspense
                     fallback={
-                      <p className="flex-1 p-8 text-center text-gray-500 dark:text-gray-400">
-                        {t('common.loading')}
-                      </p>
+                      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
+                      </div>
                     }
                   >
                     <MonacoEditor
-                      key={currentTab.path}
+                      key={`${currentTab.path}-${isDark ? 'dark' : 'light'}`}
                       height="100%"
                       defaultLanguage={getMonacoLanguageFromPath(currentTab.path)}
                       language={getMonacoLanguageFromPath(currentTab.path)}

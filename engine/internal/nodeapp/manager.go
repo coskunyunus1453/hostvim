@@ -102,22 +102,25 @@ func runUser(cfg *config.Config) string {
 	return u
 }
 
+func pm2Wrapper(cfg *config.Config) string {
+	return "/usr/local/sbin/hostvim-node-pm2"
+}
+
 func ensurePm2Home(cfg *config.Config) error {
 	home := pm2Home(cfg)
-	if err := os.MkdirAll(home, 0o750); err != nil {
-		return err
-	}
-	// www-data yazabilsin
-	_ = exec.Command("sudo", "chown", "-R", runUser(cfg)+":"+runUser(cfg), home).Run()
-	return nil
+	return os.MkdirAll(home, 0o750)
 }
 
 func pm2Cmd(cfg *config.Config, args ...string) *exec.Cmd {
-	env := []string{"PM2_HOME=" + pm2Home(cfg), "HOME=" + pm2Home(cfg)}
-	allArgs := append([]string{"-u", runUser(cfg), "env"}, env...)
-	allArgs = append(allArgs, pm2Bin(cfg))
-	allArgs = append(allArgs, args...)
-	return exec.Command("sudo", allArgs...)
+	wrapper := pm2Wrapper(cfg)
+	cmdArgs := append([]string{wrapper}, args...)
+	cmd := exec.Command("sudo", cmdArgs...)
+	cmd.Env = append(os.Environ(),
+		"HOSTVIM_PM2_HOME="+pm2Home(cfg),
+		"HOSTVIM_PM2_USER="+runUser(cfg),
+		"HOSTVIM_PM2_BIN="+pm2Bin(cfg),
+	)
+	return cmd
 }
 
 func pm2Output(cfg *config.Config, args ...string) (string, error) {
@@ -467,7 +470,7 @@ func NpmBuild(cfg *config.Config, domain string) (string, error) {
 // AutoConfigureFromDetect algılama sonucunu uygular (aaPanel benzeri tek tık).
 func AutoConfigureFromDetect(cfg *config.Config, domain, appProfile string) (*ConfigView, error) {
 	base := siteBase(cfg.Paths.WebRoot, domain)
-	det, err := Detect(base, ".")
+	det, err := DetectBest(base)
 	if err != nil {
 		return nil, err
 	}

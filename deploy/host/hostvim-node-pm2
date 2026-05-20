@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Hostvim — PM2 komutları (engine www-data → sudo → bu betik → www-data olarak pm2).
+# /etc/sudoers.d/hostvim-engine içinde NOPASSWD tanımlı olmalı.
+set -euo pipefail
+
+PM2_HOME="${HOSTVIM_PM2_HOME:-/var/www/hostvim/data/pm2}"
+RUN_USER="${HOSTVIM_PM2_USER:-www-data}"
+PM2_BIN="${HOSTVIM_PM2_BIN:-/usr/bin/pm2}"
+
+if [[ ! -x "$PM2_BIN" ]] && command -v pm2 >/dev/null 2>&1; then
+  PM2_BIN="$(command -v pm2)"
+fi
+
+if [[ ! -x "$PM2_BIN" ]]; then
+  echo "pm2 bulunamadı. Sunucuda: npm install -g pm2" >&2
+  exit 127
+fi
+
+mkdir -p "$PM2_HOME"
+chown -R "$RUN_USER:$RUN_USER" "$PM2_HOME" 2>/dev/null || true
+
+if command -v runuser >/dev/null 2>&1; then
+  exec runuser -u "$RUN_USER" -- env PM2_HOME="$PM2_HOME" HOME="$PM2_HOME" "$PM2_BIN" "$@"
+fi
+
+exec sudo -u "$RUN_USER" env PM2_HOME="$PM2_HOME" HOME="$PM2_HOME" "$PM2_BIN" "$@"
