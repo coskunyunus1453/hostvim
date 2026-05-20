@@ -147,8 +147,7 @@ if [[ -d "$HOSTVIM_HOME/.git" ]]; then
   git checkout "$HOSTVIM_BRANCH"
   if [[ "$HOSTVIM_INSTALL_MODE" == "update" ]]; then
     git merge --ff-only "origin/$HOSTVIM_BRANCH" 2>/dev/null || git reset --hard "origin/$HOSTVIM_BRANCH"
-    # data/, panel/.env ve müşteri dosyaları asla git clean ile silinmez
-    git clean -fd -e 'data/' -e 'panel/.env' -e 'panel/storage/' -e 'panel/database/' 2>/dev/null || true
+    # Güncellemede git clean ÇALIŞTIRILMAZ (repo kökündeki izlenmeyen dosya/klasörler silinmesin).
   else
     git reset --hard "origin/$HOSTVIM_BRANCH"
     git clean -fd

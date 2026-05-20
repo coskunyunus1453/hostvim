@@ -49,7 +49,10 @@ if [[ "$(hostvim_resolve_install_mode)" == "update" ]] && [[ "${HOSTVIM_FORCE_FU
   echo "==> Mevcut kurulum algılandı; güvenli güncelleme modu (install-update-community.sh)"
   UPDATE_URL="${HOSTVIM_INSTALL_UPDATE_COMMUNITY_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-community.sh}"
   UPDATE_URL="${UPDATE_URL}?ts=$(date +%s)"
-  curl -fsSL "$UPDATE_URL" | bash
+  _tmp_up="$(mktemp)"
+  curl -fsSL "$UPDATE_URL" -o "$_tmp_up"
+  bash "$_tmp_up"
+  rm -f "$_tmp_up"
   exit 0
 fi
 
