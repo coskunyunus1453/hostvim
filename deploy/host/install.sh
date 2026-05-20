@@ -27,9 +27,11 @@
 #   (Eski: PANELSAR_BRANCH / PANELSAR_REPO_URL hâlâ okunur.)
 #
 # Plesk / cPanel benzeri izolasyon (varsayılan):
-#   Aynı komutu tekrar çalıştırmak = kod güncelle + migrate; panel DB ve data/www korunur.
+#   Mevcut kurulum algılanırsa otomatik GÜNCELLEME modu (panel DB + data/www + MySQL korunur).
+#   Güvenli güncelleme betiği (önerilen, tekrar kurulumda):
+#     curl -fsSL "…/install-update-community.sh" | sudo bash
 # Tam sıfırlama (migrate:fresh + hosting temizliği) ancak bilinçli seçilirse:
-#   HOSTVIM_FRESH_INSTALL=1 curl -fsSL "URL" | bash
+#   HOSTVIM_FRESH_INSTALL=1 curl -fsSL "URL" | sudo bash
 #   veya RESET_PANEL_DB=1 curl -fsSL "URL" | bash
 #
 # Diğer varsayılanlar:
@@ -60,13 +62,40 @@ export PANELSAR_BRANCH="$HOSTVIM_BRANCH"
 export PANELSAR_INSTALL_SCRIPT_URL="$HOSTVIM_INSTALL_SCRIPT_URL"
 export PANELSAR_SEED_DEMO_USERS="$HOSTVIM_SEED_DEMO_USERS"
 export HOSTVIM_SEED_DEMO_USERS="$HOSTVIM_SEED_DEMO_USERS"
-# Varsayılan RESET_PANEL_DB=0: yeniden kurulum / güncellemede müşteri verisi silinmez.
-: "${RESET_PANEL_DB:=0}"
-if [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "1" ]] || [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "yes" ]]; then
-  RESET_PANEL_DB=1
+
+if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
+  for _lib_boot in \
+    "$(dirname "${BASH_SOURCE[0]:-$0}")/lib/source-install-mode.sh" \
+    "/var/www/hostvim/deploy/host/lib/source-install-mode.sh" \
+    "${HOSTVIM_HOME:-/var/www/hostvim}/deploy/host/lib/source-install-mode.sh"; do
+    if [[ -f "$_lib_boot" ]]; then
+      # shellcheck source=lib/source-install-mode.sh
+      source "$_lib_boot"
+      break
+    fi
+  done
 fi
-export RESET_PANEL_DB
+if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
+  _raw_boot="${HOSTVIM_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${HOSTVIM_BRANCH:-main}}"
+  _tmp_boot="$(mktemp)"
+  curl -fsSL "${_raw_boot}/deploy/host/lib/source-install-mode.sh" -o "$_tmp_boot"
+  # shellcheck source=/dev/null
+  source "$_tmp_boot"
+  rm -f "$_tmp_boot"
+fi
+hostvim_source_install_mode_lib
+
+HOSTVIM_INSTALL_MODE="$(hostvim_resolve_install_mode)"
+if [[ "$HOSTVIM_INSTALL_MODE" == "update" ]]; then
+  hostvim_apply_update_safe_env
+else
+  hostvim_apply_fresh_env
+fi
+export RESET_PANEL_DB HOSTVIM_UPDATE_ONLY HOSTVIM_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
+export HOSTVIM_PRESERVE_ADMIN_PASSWORD SKIP_APT
 export HOSTVIM_SEED_DEMO_USERS
+
+hostvim_print_install_mode_banner "$HOSTVIM_INSTALL_MODE"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "Hostvim kurulumu yalnızca Linux (Debian/Ubuntu) sunucu içindir." >&2
@@ -111,13 +140,19 @@ PARENT="$(dirname "$HOSTVIM_HOME")"
 mkdir -p "$PARENT"
 
 if [[ -d "$HOSTVIM_HOME/.git" ]]; then
-  echo "==> Güncelleniyor: $HOSTVIM_HOME"
+  echo "==> Güncelleniyor: $HOSTVIM_HOME ($HOSTVIM_INSTALL_MODE)"
   cd "$HOSTVIM_HOME"
   git remote set-url origin "$HOSTVIM_REPO_URL" 2>/dev/null || true
   git fetch origin "$HOSTVIM_BRANCH" --depth 1
   git checkout "$HOSTVIM_BRANCH"
-  git reset --hard "origin/$HOSTVIM_BRANCH"
-  git clean -fd
+  if [[ "$HOSTVIM_INSTALL_MODE" == "update" ]]; then
+    git merge --ff-only "origin/$HOSTVIM_BRANCH" 2>/dev/null || git reset --hard "origin/$HOSTVIM_BRANCH"
+    # data/, panel/.env ve müşteri dosyaları asla git clean ile silinmez
+    git clean -fd -e 'data/' -e 'panel/.env' -e 'panel/storage/' -e 'panel/database/' 2>/dev/null || true
+  else
+    git reset --hard "origin/$HOSTVIM_BRANCH"
+    git clean -fd
+  fi
 else
   echo "==> Klonlanıyor: $HOSTVIM_REPO_URL ($HOSTVIM_BRANCH)"
   rm -rf "$HOSTVIM_HOME"

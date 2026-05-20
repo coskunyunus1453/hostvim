@@ -40,12 +40,14 @@ URL="https://kodsar.com/panel/install.sh" && if command -v curl >/dev/null 2>&1;
 
 Komutu yapıştırırken satır başına `*` veya madde işareti **eklemeyin**; kabukta `*` dosya adlarını genişletir ve komut bozulur (ör. `go hostvim-admin-login.txt` hatası). Sorun yaşarsanız: `cd /tmp && curl … | bash`.
 
-**Plesk/cPanel benzeri davranış:** `install.sh` varsayılanında panel MySQL’i ve `data/www` **silinmez**; aynı komutla tekrar çalıştırmak kod + `migrate` güncellemesidir. Sunucuyu baştan sıfırlamak (fabrika) için bilinçli olarak `HOSTVIM_FRESH_INSTALL=1` veya `RESET_PANEL_DB=1` verin.
+**Plesk/cPanel benzeri davranış:** Mevcut kurulum algılanırsa (`panel/.env` veya `data/www` dolu) aynı Community/Pro komutu **otomatik güncelleme moduna** geçer: panel MySQL’i, müşteri siteleri (`data/www`) ve MySQL veritabanları **silinmez**; yalnızca kod + `migrate --force` (değişen tablolar) uygulanır. Sunucuyu baştan sıfırlamak (fabrika) için bilinçli olarak `HOSTVIM_FRESH_INSTALL=1` veya `RESET_PANEL_DB=1` verin.
 
 | Sürüm | Açıklama | Komut (örnek URL) |
 |--------|-----------|-------------------|
 | **Community** | Freemium / barındırma paneli; `APP_PROFILE=customer`, vendor kapalı | `curl -fsSL …/install-community.sh \| sudo bash` |
 | **Pro** | Lisans + tam özellik; `APP_PROFILE=customer`, vendor kapalı. Lisans/SaaS müşterileri merkezi sitede. İsteğe bağlı: `HOSTVIM_LICENSE_KEY=...` | `HOSTVIM_LICENSE_KEY="..." curl -fsSL …/install-pro.sh \| sudo bash` |
+| **Güncelleme (Community)** | Veri korunur; açık güncelleme betiği | `curl -fsSL …/install-update-community.sh \| sudo bash` |
+| **Güncelleme (Pro)** | Veri korunur | `curl -fsSL …/install-update-pro.sh \| sudo bash` |
 
 Eski dosya adları yönlendirme: `install-customer.sh` → community, `install-vendor.sh` → pro.
 

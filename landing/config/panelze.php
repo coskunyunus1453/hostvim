@@ -33,6 +33,17 @@ return [
         'https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install.sh'
     ),
 
+    /** Güvenli güncelleme (siteler + DB korunur). */
+    'install_update_community_script' => env(
+        'PANELZE_INSTALL_UPDATE_COMMUNITY_SCRIPT',
+        'https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-community.sh'
+    ),
+
+    'install_update_pro_script' => env(
+        'PANELZE_INSTALL_UPDATE_PRO_SCRIPT',
+        'https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-pro.sh'
+    ),
+
     /** İlk admin bilgisi dosyası (install.sh sonrası). */
     'admin_login_file' => env('PANELZE_ADMIN_LOGIN_FILE', '/root/hostvim-admin-login.txt'),
 ];

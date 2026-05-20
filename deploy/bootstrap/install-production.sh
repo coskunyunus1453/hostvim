@@ -29,6 +29,7 @@
 #   WITH_APACHE=1               # apache2; Nginx 80 ile çakışmaz — Apache :8080 + engine apache_http_port: 8080
 #   WITH_LOCAL_POSTFIX=1        # Postfix + mailutils (panel giden posta: sendmail; Admin → Giden posta’dan SMTP’ye geçilebilir)
 #   SKIP_DB_SEED=1              # migrate sonrası db:seed atla
+#   HOSTVIM_UPDATE_ONLY=1       # Güncelleme kilidi: RESET_PANEL_DB=0, data/www ve migrate:fresh yok (install-update*.sh)
 #   RESET_PANEL_DB=1            # DİKKAT: migrate:fresh + (varsayılan) data/www vb. temizlik — üretimde yalnızca gerektiğinde
 #   HOSTVIM_FRESH_INSTALL=1     # RESET_PANEL_DB=1 ile aynı (fabrika / boş lab sunucusu; müşteri “onarım”unda kullanmayın)
 #   HOSTVIM_SEED_DEMO_USERS=1  # Demo reseller/user hesaplarını da seed et (varsayılan: 0)
@@ -45,10 +46,22 @@
 #
 set -euo pipefail
 
-# Fabrika sıfırlama (install.sh ile aynı anahtar; doğrudan bu betik çalıştırılıyorsa da geçerli)
-if [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "1" ]] || [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "yes" ]]; then
-  export RESET_PANEL_DB=1
+_SCRIPT_DIR_BOOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../host/lib/source-install-mode.sh
+source "$_SCRIPT_DIR_BOOT/../host/lib/source-install-mode.sh"
+hostvim_source_install_mode_lib
+
+HOSTVIM_INSTALL_MODE="$(hostvim_resolve_install_mode)"
+if [[ "$HOSTVIM_INSTALL_MODE" == "update" ]]; then
+  hostvim_apply_update_safe_env
+  hostvim_print_install_mode_banner "update"
+else
+  if [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "1" ]] || [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "yes" ]]; then
+    export RESET_PANEL_DB=1
+  fi
+  hostvim_print_install_mode_banner "fresh"
 fi
+export RESET_PANEL_DB HOSTVIM_UPDATE_ONLY HOSTVIM_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
 
 # Kolay kurulum: varsayılan olarak MariaDB + Node 20 kaynağı
 WITH_MARIADB="${WITH_MARIADB:-1}"
@@ -56,7 +69,7 @@ WITH_NODE_REPO="${WITH_NODE_REPO:-1}"
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Root ile çalıştırın: sudo bash $0" >&2; exit 1; }
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$_SCRIPT_DIR_BOOT"
 # shellcheck source=ensure-go-toolchain.sh
 source "$SCRIPT_DIR/ensure-go-toolchain.sh"
 # shellcheck source=ensure-php-packages.sh

@@ -20,6 +20,8 @@ final class InstallGuide
             'pro_script' => self::resolve('landing.install_pro_script', 'panelze.install_pro_script'),
             'remote_script' => self::resolve('landing.install_remote_url', 'panelze.install_remote_url'),
             'motor_script' => self::resolve('landing.install_motor_script', 'panelze.install_motor_script'),
+            'update_community_script' => self::resolve('landing.install_update_community_script', 'panelze.install_update_community_script'),
+            'update_pro_script' => self::resolve('landing.install_update_pro_script', 'panelze.install_update_pro_script'),
             'repo_url' => self::resolve('landing.install_repo_url', 'panelze.repo_url'),
             'repo_branch' => self::resolve('landing.install_repo_branch', 'panelze.repo_branch'),
             'install_home' => self::resolve('landing.install_home', 'panelze.install_home'),
@@ -44,6 +46,20 @@ final class InstallGuide
     public static function pro(string $licensePlaceholder = 'hv_...'): string
     {
         $url = self::settings()['pro_script'];
+
+        return "HOSTVIM_LICENSE_KEY=\"{$licensePlaceholder}\" curl -fsSL {$url} | sudo bash";
+    }
+
+    public static function updateCommunity(): string
+    {
+        $url = self::settings()['update_community_script'];
+
+        return "curl -fsSL {$url} | sudo bash";
+    }
+
+    public static function updatePro(string $licensePlaceholder = 'hv_...'): string
+    {
+        $url = self::settings()['update_pro_script'];
 
         return "HOSTVIM_LICENSE_KEY=\"{$licensePlaceholder}\" curl -fsSL {$url} | sudo bash";
     }
@@ -92,12 +108,22 @@ BASH;
                 [
                     'label' => 'Community (Freemium hosting panel)',
                     'command' => self::community(),
-                    'note' => 'Sets APP_PROFILE=customer, clones '.$repo.' (branch '.$branch.'), runs install-production.sh.',
+                    'note' => 'First install on empty server. If '.$home.' already exists, the same command auto-switches to safe update (sites + DB preserved).',
+                ],
+                [
+                    'label' => 'Safe update (Community)',
+                    'command' => self::updateCommunity(),
+                    'note' => 'Git pull + panel/frontend/engine + migrate only. Does not run migrate:fresh or wipe data/www.',
                 ],
                 [
                     'label' => 'Pro (licensed)',
                     'command' => self::pro('hv_YOUR_KEY'),
                     'note' => 'Replace hv_YOUR_KEY with the key from your purchase email or SaaS dashboard.',
+                ],
+                [
+                    'label' => 'Safe update (Pro)',
+                    'command' => self::updatePro('hv_YOUR_KEY'),
+                    'note' => 'Same as Community update; optional license key for Pro env.',
                 ],
                 [
                     'label' => 'Remote install (git + bootstrap)',
@@ -151,12 +177,22 @@ BASH,
             [
                 'label' => 'Community (Freemium barındırma paneli)',
                 'command' => self::community(),
-                'note' => 'APP_PROFILE=customer; '.$repo.' deposunu (dal: '.$branch.') klonlar ve install-production.sh çalıştırır.',
+                'note' => 'Boş sunucuda ilk kurulum. '.$home.' zaten varsa aynı komut otomatik güvenli güncellemeye geçer (siteler + DB korunur).',
+            ],
+            [
+                'label' => 'Güvenli güncelleme (Community)',
+                'command' => self::updateCommunity(),
+                'note' => 'Git + panel/frontend/engine + yalnızca migrate; migrate:fresh ve data/www silinmez.',
             ],
             [
                 'label' => 'Pro (lisanslı)',
                 'command' => self::pro('hv_ANAHTARINIZ'),
                 'note' => 'hv_ANAHTARINIZ yerine satın alma e-postasındaki veya SaaS panelindeki anahtarı yazın.',
+            ],
+            [
+                'label' => 'Güvenli güncelleme (Pro)',
+                'command' => self::updatePro('hv_ANAHTARINIZ'),
+                'note' => 'Community güncelleme ile aynı; Pro için isteğe bağlı lisans anahtarı.',
             ],
             [
                 'label' => 'Uzak kurulum (git + bootstrap)',
