@@ -359,7 +359,7 @@ class WhmcsResourcesController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ]);
         $user = $this->userByEmail($validated['email']);
-        $this->cronCommandParser->assertValid($validated['command']);
+        $this->cronCommandParser->assertValid($validated['command'], $user);
         $this->quota->ensureCanCreateCronJob($user);
 
         $job = CronJob::create([

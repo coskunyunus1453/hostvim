@@ -1312,7 +1312,7 @@
     "info_engine": "Görevler panel zamanlayıcısı ile (her dakika) otomatik çalıştırılır. Sunucuda /etc/cron.d/hostvim-panel-scheduler aktif olmalıdır.",
     "info_paths": "Komutta mutlak yol kullanın (php, wget, site dizininiz).",
     "examples_title": "Örnek komutlar",
-    "examples_body": "# CodeIgniter 4 (spark proje kökünde)\n0 8 * * *  →  /usr/bin/php /var/www/.../public_html/spark ai:generate-post\n\n# Laravel\n0 * * * *  →  /usr/bin/php /var/www/site/public_html/artisan schedule:run\n\n# Dizin gerekirse (cd ile, && kullanmayın)\n0 8 * * *  →  cd /var/www/site/public_html/public /usr/bin/php /var/www/site/public_html/spark ai:generate-post",
+    "examples_body": "# Zamanlama üst alanda (örn. 0 * * * *), komut kutusunda YALNIZCA:\n\n# CodeIgniter spark\n/usr/bin/php /var/www/.../public_html/spark scrape:prices\n\n# public klasöründen çalışsın istiyorsanız:\ncd /var/www/.../public_html/public /usr/bin/php /var/www/.../public_html/spark scrape:prices\n\n# &&, >>, 2>&1 kullanmayın — panel güvenli modda çalıştırır.",
     "quota_unlimited": "Kullanılan görev: {{used}} (pakette sınır yok).",
     "quota_count": "Görev kotası: {{used}} / {{max}}",
     "system_section_title": "Sistem görevleri",

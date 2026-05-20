@@ -225,7 +225,7 @@ class PanelZekaActionExecutor
             return ['ok' => false, 'message' => 'Komut boş.'];
         }
 
-        $parsed = $this->cronParser->parse($command);
+        $parsed = $this->cronParser->parse($command, $user);
         $argv = $parsed['argv'];
         $cwd = $parsed['working_directory'];
 

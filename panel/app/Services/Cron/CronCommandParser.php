@@ -2,16 +2,39 @@
 
 namespace App\Services\Cron;
 
+use App\Models\User;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CronCommandParser
 {
     /**
-     * @return array{argv: array<int, string>, working_directory: string|null}
+     * Komut alanına yanlışlıkla yapıştırılan "0 * * * * ..." önekini ayırır.
+     *
+     * @return array{command: string, stripped_schedule: string|null}
      */
-    public function parse(string $command): array
+    public function normalizeInput(string $command): array
     {
         $cmd = trim($command);
+        if (preg_match('#^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+(.+)$#s', $cmd, $m) === 1) {
+            $schedule = trim($m[1]);
+            $rest = trim($m[2]);
+            $parts = preg_split('/\s+/', $schedule, -1, PREG_SPLIT_NO_EMPTY);
+            if (is_array($parts) && count($parts) === 5) {
+                return ['command' => $rest, 'stripped_schedule' => $schedule];
+            }
+        }
+
+        return ['command' => $cmd, 'stripped_schedule' => null];
+    }
+
+    /**
+     * @return array{argv: array<int, string>, working_directory: string|null}
+     */
+    public function parse(string $command, ?User $user = null): array
+    {
+        $normalized = $this->normalizeInput($command);
+        $cmd = $normalized['command'];
         $workingDirectory = null;
 
         if (preg_match('#^cd\s+(/[A-Za-z0-9_./-]+)\s+(.+)$#', $cmd, $matches) === 1) {
@@ -22,12 +45,12 @@ class CronCommandParser
         $argv = $this->argvFromCommand($cmd);
 
         if ($workingDirectory !== null) {
-            $this->assertPathUnderHostingRoot($workingDirectory);
+            $this->assertPathAllowed($workingDirectory, $user);
         }
 
         foreach ($argv as $arg) {
             if (str_starts_with($arg, '/')) {
-                $this->assertPathUnderHostingRoot($arg);
+                $this->assertPathAllowed($arg, $user);
             }
         }
 
@@ -37,9 +60,16 @@ class CronCommandParser
         ];
     }
 
-    public function assertValid(string $command): void
+    public function assertValid(string $command, ?User $user = null): void
     {
-        $this->parse($command);
+        $normalized = $this->normalizeInput($command);
+        if ($normalized['stripped_schedule'] !== null) {
+            throw ValidationException::withMessages([
+                'command' => 'Zamanlama komut alanına değil, üstteki "Cron" / zamanlama alanına yazılmalı (örn. 0 * * * *). Komut kutusuna yalnızca çalıştırılacak kısmı girin.',
+            ]);
+        }
+
+        $this->parse($command, $user);
     }
 
     /**
@@ -55,7 +85,7 @@ class CronCommandParser
 
         if (preg_match('/[;&|`><\n\r]/', $cmd) === 1) {
             throw ValidationException::withMessages([
-                'command' => 'Güvenlik nedeniyle shell operatörleri (|, ;, &, >, <, `) kullanılamaz. Çalışma dizini için komut başına "cd /mutlak/yol" yazabilirsiniz.',
+                'command' => 'Güvenlik nedeniyle shell operatörleri (|, ;, &, >, <, `) kullanılamaz. Örnek: cd /site/public_html/public /usr/bin/php /site/public_html/spark görev:adı',
             ]);
         }
 
@@ -89,22 +119,17 @@ class CronCommandParser
         return $argv;
     }
 
-    private function assertPathUnderHostingRoot(string $path): void
+    private function assertPathAllowed(string $path, ?User $user): void
     {
-        $normalized = str_replace('\\', '/', $path);
-        $allowedRoots = array_values(array_filter([
-            rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/'),
-            rtrim(str_replace('\\', '/', base_path()), '/'),
-        ]));
-
-        foreach ($allowedRoots as $root) {
-            if ($root !== '' && ($normalized === $root || str_starts_with($normalized.'/', $root.'/'))) {
-                return;
-            }
+        if (CronAllowedPaths::isAllowed($path, $user)) {
+            return;
         }
 
+        $roots = CronAllowedPaths::rootsFor($user);
+        $hint = $roots !== [] ? ' İzin verilen örnek kök: '.Str::limit($roots[0], 80) : '';
+
         throw ValidationException::withMessages([
-            'command' => 'Komut yalnızca site veya panel dizini altındaki mutlak yollara izin verir.',
+            'command' => 'Komut yolu bu hesabın site dizinleri veya panel kökü altında olmalı.'.$hint,
         ]);
     }
 }

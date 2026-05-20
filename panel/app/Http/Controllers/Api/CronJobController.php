@@ -49,7 +49,7 @@ class CronJobController extends Controller
             'command' => 'required|string|max:2000',
             'description' => 'nullable|string|max:255',
         ]);
-        $this->commandParser->assertValid($validated['command']);
+        $this->commandParser->assertValid($validated['command'], $request->user());
 
         $this->quota->ensureCanCreateCronJob($request->user());
 
@@ -92,7 +92,7 @@ class CronJobController extends Controller
             'command' => 'required|string|max:2000',
             'description' => 'nullable|string|max:255',
         ]);
-        $this->commandParser->assertValid($validated['command']);
+        $this->commandParser->assertValid($validated['command'], $request->user());
 
         $eid = $cronJob->engine_job_id;
         if ($eid === null || $eid === '') {

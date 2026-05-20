@@ -42,7 +42,8 @@ class CronJobExecutor
 
     private function runProcess(CronJob $job, ?int $triggerUserId): CronJobRun
     {
-        $parsed = $this->parser->parse($job->command);
+        $job->loadMissing('user');
+        $parsed = $this->parser->parse($job->command, $job->user);
         $argv = $parsed['argv'];
         $cwd = $parsed['working_directory'] ?? $this->inferWorkingDirectory($job, $argv);
 
