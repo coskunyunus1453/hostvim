@@ -713,7 +713,7 @@ else
   echo "==> Panel veritabanı korunuyor: migrate --force (yeniden kurulum / güncelleme; kullanıcı ve site kayıtları silinmez)."
   sudo -u www-data php "$PANEL_ROOT/artisan" migrate --force
 fi
-sudo -u www-data php "$PANEL_ROOT/artisan" hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
+sudo -u www-data php "$PANEL_ROOT/artisan" panelze:init-outbound-mail --no-interaction 2>/dev/null || sudo -u www-data php "$PANEL_ROOT/artisan" hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
 
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   RESET_DB_MODE=0

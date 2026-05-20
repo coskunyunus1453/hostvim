@@ -52,7 +52,7 @@ fi
 
 echo "==> migrate"
 sudo -u "$RUN_USER" php artisan migrate --force
-sudo -u "$RUN_USER" php artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
+sudo -u "$RUN_USER" php artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || sudo -u "$RUN_USER" php artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
 
 echo "==> optimize"
 sudo -u "$RUN_USER" php artisan config:cache
