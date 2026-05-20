@@ -40,7 +40,7 @@ class FileManagerController extends Controller
     private function panelRelToEngineRel(HostingSiteTarget $target, string $panelRel): string
     {
         $hostingRoot = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
-        $engineRoot = $hostingRoot.DIRECTORY_SEPARATOR.$hostingTarget->engineSiteName;
+        $engineRoot = $hostingRoot.DIRECTORY_SEPARATOR.$target->engineSiteName;
 
         $docRoot = $this->fileManagerBasePath($target);
 
@@ -57,7 +57,7 @@ class FileManagerController extends Controller
             $baseRel = substr($docRootNorm, strlen($engineRootNorm) + 1);
         } else {
             // Fallback: document_root hostingRoot/domain altında mı?
-            $expectedPrefix = $hostingRoot.'/'.$hostingTarget->engineSiteName.'/';
+            $expectedPrefix = $hostingRoot.'/'.$target->engineSiteName.'/';
             if ($hostingRoot !== '' && str_starts_with($docRootNorm, $expectedPrefix)) {
                 $baseRel = substr($docRootNorm, strlen($expectedPrefix));
             }
@@ -1032,11 +1032,11 @@ class FileManagerController extends Controller
         ?string $error,
     ): void {
         SafeAuditLogger::info('hostvim.file_audit', [
-            'domain' => $hostingTarget->engineSiteName,
+            'domain' => $domain->name,
             'action' => $action,
-            'from_fp' => SafeAuditLogger::pathFingerprint($hostingTarget->engineSiteName, $from),
+            'from_fp' => SafeAuditLogger::pathFingerprint($domain->name, $from),
             'from_base' => SafeAuditLogger::pathBasename($from),
-            'to_fp' => SafeAuditLogger::pathFingerprint($hostingTarget->engineSiteName, $to),
+            'to_fp' => SafeAuditLogger::pathFingerprint($domain->name, $to),
             'to_base' => SafeAuditLogger::pathBasename($to),
             'success' => $success,
             'error' => $error,
