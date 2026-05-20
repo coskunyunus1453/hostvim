@@ -31,4 +31,8 @@ return [
     'import_sql_only' => 'Only .sql files are accepted.',
     'import_confirm_expected' => 'REPLACEALLDATA',
     'import_confirm_mismatch' => 'Confirmation phrase does not match. Type the exact phrase from your language file.',
+
+    'server_mysql_provision_use' => 'Use this account in phpMyAdmin instead of MySQL root — it has privileges to manage all hosting databases (provision user from install).',
+    'server_mysql_root_socket' => 'On many Debian/Ubuntu MariaDB installs, the root account uses unix_socket (no password). Prefer the provision user below for web imports.',
+    'server_mysql_ssh_secret' => 'SSH (root): credentials are also saved to /root/hostvim-mysql-provision.secret next to the installer output.',
 ];

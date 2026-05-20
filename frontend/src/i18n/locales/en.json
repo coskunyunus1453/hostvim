@@ -566,7 +566,18 @@
     "new_password_optional": "New password (optional)",
     "new_password_optional_hint": "Leave empty to keep current password.",
     "password_temp_title": "New password (temporary view)",
-    "password_temp_desc": "For security, this password will be hidden in {{seconds}}s. Copy it now."
+    "password_temp_desc": "For security, this password will be hidden in {{seconds}}s. Copy it now.",
+    "server_mysql_card_title": "Server MySQL (maintenance account)",
+    "server_mysql_card_subtitle": "For phpMyAdmin, SQL imports, and tools that ask for «root» — use this provision user instead.",
+    "server_mysql_disabled": "MYSQL_PROVISION_ENABLED is off or not configured. Enable it in .env and set MYSQL_PROVISION_* credentials, or reinstall with MariaDB provisioning.",
+    "server_mysql_open_pma": "Open phpMyAdmin",
+    "server_mysql_show_password": "Show password",
+    "server_mysql_hide_password": "Hide password",
+    "server_mysql_port": "Port",
+    "server_mysql_password": "Password",
+    "server_mysql_panel_section": "Panel application database (Laravel)",
+    "server_mysql_panel_hint": "Used only by this panel for its own tables — not for hosting site imports.",
+    "server_mysql_load_error": "Could not load server database credentials."
   },
   "common": {
     "create": "Create",

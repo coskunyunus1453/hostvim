@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StackController;
 use App\Http\Controllers\Admin\TerminalSettingsController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\ServerMysqlSettingsController;
 use App\Http\Controllers\Admin\WebServerSettingsController;
 use App\Http\Controllers\Admin\WhmcsModuleController;
 use App\Http\Controllers\Api\AiAdvisorController;
@@ -344,6 +345,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('stack/runs/{stackInstallRun}', [StackController::class, 'showRun']);
         Route::post('stack/runs/{stackInstallRun}/cancel', [StackController::class, 'cancelRun']);
         Route::get('settings/mail', [OutboundMailSettingsController::class, 'show']);
+        Route::get('settings/server-mysql', [ServerMysqlSettingsController::class, 'show'])->middleware('throttle:60,1');
         Route::put('settings/mail', [OutboundMailSettingsController::class, 'update']);
         Route::post('settings/mail/test', [OutboundMailSettingsController::class, 'test']);
         Route::post('settings/mail/diagnostics', [OutboundMailSettingsController::class, 'diagnostics']);

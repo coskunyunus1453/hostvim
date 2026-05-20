@@ -31,4 +31,8 @@ return [
     'import_sql_only' => 'Yalnızca .sql dosyası kabul edilir.',
     'import_confirm_expected' => 'TÜMVERİSİLİNECEK',
     'import_confirm_mismatch' => 'Onay metni eşleşmiyor. Dil dosyanızdaki ifadeyi aynen yazın.',
+
+    'server_mysql_provision_use' => 'phpMyAdmin ve manuel .sql yüklemelerinde MySQL «root» yerine bu hesabı kullanın; kurulumda oluşturulan, tüm barındırma veritabanlarını yönetebilen özel kullanıcıdır.',
+    'server_mysql_root_socket' => 'Debian/Ubuntu MariaDB kurulumlarında «root» sıklıkla unix_socket ile girer (şifre gerekmeyebilir). Web üzerinden güvenli seçenek: aşağıdaki provision kullanıcısı.',
+    'server_mysql_ssh_secret' => 'SSH ile (root): aynı şifre kurulum betiğinin kaydettiği dosyada da yer alır — /root/hostvim-mysql-provision.secret',
 ];

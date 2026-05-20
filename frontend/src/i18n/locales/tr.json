@@ -566,7 +566,18 @@
     "new_password_optional": "Yeni şifre (opsiyonel)",
     "new_password_optional_hint": "Boş bırakırsanız mevcut şifre korunur.",
     "password_temp_title": "Yeni şifre (geçici görünüm)",
-    "password_temp_desc": "Bu şifre güvenlik nedeniyle {{seconds}} sn sonra gizlenecek. Hemen kopyalayın."
+    "password_temp_desc": "Bu şifre güvenlik nedeniyle {{seconds}} sn sonra gizlenecek. Hemen kopyalayın.",
+    "server_mysql_card_title": "Sunucu MySQL (bakım hesabı)",
+    "server_mysql_card_subtitle": "phpMyAdmin, .sql içe aktarma ve «root» isteyen araçlar için — aşağıdaki provision kullanıcısını kullanın.",
+    "server_mysql_disabled": "MYSQL_PROVISION_ENABLED kapalı veya tanımlı değil. .env içinde MYSQL_PROVISION_* ayarlarını açın veya MariaDB’li kurulumu kullanın.",
+    "server_mysql_open_pma": "phpMyAdmin’i aç",
+    "server_mysql_show_password": "Şifreyi göster",
+    "server_mysql_hide_password": "Şifreyi gizle",
+    "server_mysql_port": "Port",
+    "server_mysql_password": "Şifre",
+    "server_mysql_panel_section": "Panel uygulama veritabanı (Laravel)",
+    "server_mysql_panel_hint": "Yalnızca panelin kendi tabloları içindir — barındırma sitelerinin yedeği için uygun değildir.",
+    "server_mysql_load_error": "Sunucu veritabanı bilgileri yüklenemedi."
   },
   "common": {
     "create": "Oluştur",

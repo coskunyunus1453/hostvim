@@ -19,6 +19,30 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
+import { isHostingSuperAdmin } from '../lib/authRoles'
+
+type ServerMysqlApi = {
+  provision: {
+    enabled: boolean
+    host: string
+    port: number
+    username: string
+    password: string
+  }
+  panel_app_database: {
+    host: string
+    port: number
+    database: string
+    username: string
+    password: string
+  }
+  phpmyadmin_url: string
+  hints: {
+    provision_use: string
+    root_socket: string
+    ssh_secret_file: string
+  }
+}
 
 type DbRow = {
   id: number
@@ -85,6 +109,8 @@ async function copyPlaintextWithToasts(text: string, messages: { ok: string; fai
 export default function DatabasesPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const isSuperAdmin = isHostingSuperAdmin(user)
   const abilities = useAuthStore((s) => s.user?.abilities)
   const canImportDb = tokenHasAbility(abilities, 'databases:write')
   const [search, setSearch] = useState('')
@@ -100,6 +126,9 @@ export default function DatabasesPage() {
   } | null>(null)
   const [nowTs, setNowTs] = useState<number>(Date.now())
 
+  const [showServerProvPassword, setShowServerProvPassword] = useState(false)
+  const [showServerPanelPassword, setShowServerPanelPassword] = useState(false)
+
   const databasesQ = useQuery({
     queryKey: ['databases', 'paginated'],
     queryFn: async () => (await api.get('/databases')).data,
@@ -112,6 +141,12 @@ export default function DatabasesPage() {
         phpmyadmin_url?: string
         adminer_url?: string
       },
+  })
+
+  const serverMysqlQ = useQuery({
+    queryKey: ['admin', 'settings', 'server-mysql'],
+    enabled: isSuperAdmin,
+    queryFn: async () => (await api.get('/admin/settings/server-mysql')).data as ServerMysqlApi,
   })
 
   const domainsQ = useQuery({
@@ -370,6 +405,202 @@ export default function DatabasesPage() {
           {t('databases.add')}
         </button>
       </div>
+
+      {isSuperAdmin && (
+        <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 text-sm dark:border-amber-900/40 dark:bg-amber-950/25">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-amber-50">
+            {t('databases.server_mysql_card_title')}
+          </h2>
+          <p className="mt-1 text-gray-600 dark:text-amber-100/85">{t('databases.server_mysql_card_subtitle')}</p>
+
+          {serverMysqlQ.isLoading && (
+            <p className="mt-3 text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
+          )}
+          {serverMysqlQ.isError && (
+            <p className="mt-3 text-red-600 dark:text-red-400">{t('databases.server_mysql_load_error')}</p>
+          )}
+          {serverMysqlQ.data && (
+            <>
+              <ul className="mt-3 list-disc space-y-1 pl-4 text-gray-600 dark:text-amber-100/85">
+                <li>{serverMysqlQ.data.hints.provision_use}</li>
+                <li>{serverMysqlQ.data.hints.root_socket}</li>
+                <li>{serverMysqlQ.data.hints.ssh_secret_file}</li>
+              </ul>
+
+              {!serverMysqlQ.data.provision.enabled ? (
+                <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-amber-900 dark:bg-black/25 dark:text-amber-200">
+                  {t('databases.server_mysql_disabled')}
+                </p>
+              ) : (
+                <div className="mt-4 space-y-3 rounded-lg border border-amber-200/60 bg-white/80 p-3 dark:border-amber-800/50 dark:bg-black/30">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(() => {
+                      const pma =
+                        safeExternalHttpUrl(serverMysqlQ.data.phpmyadmin_url?.trim()) ||
+                        safeExternalHttpUrl(phpmyadminUrl)
+                      return pma ? (
+                        <a
+                          href={pma}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {t('databases.server_mysql_open_pma')}
+                        </a>
+                      ) : null
+                    })()}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {t('databases.host')}
+                      </span>
+                      <div className="mt-0.5 flex items-center gap-1 font-mono text-xs text-gray-900 dark:text-white">
+                        <span className="min-w-0 flex-1 break-all">{serverMysqlQ.data.provision.host}</span>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          onClick={() =>
+                            copyText(serverMysqlQ.data!.provision.host, t('files.ctx_copy_ok'))
+                          }
+                          aria-label={t('common.copy')}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {t('databases.server_mysql_port')}
+                      </span>
+                      <div className="mt-0.5 font-mono text-xs text-gray-900 dark:text-white">
+                        {serverMysqlQ.data.provision.port}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {t('databases.username')}
+                      </span>
+                      <div className="mt-0.5 flex items-center gap-1 font-mono text-xs text-gray-900 dark:text-white">
+                        <span className="min-w-0 flex-1 break-all">{serverMysqlQ.data.provision.username}</span>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          onClick={() =>
+                            copyText(serverMysqlQ.data!.provision.username, t('files.ctx_copy_ok'))
+                          }
+                          aria-label={t('common.copy')}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {t('databases.server_mysql_password')}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs text-primary-600 hover:underline dark:text-primary-400"
+                          onClick={() => setShowServerProvPassword((v) => !v)}
+                        >
+                          {showServerProvPassword
+                            ? t('databases.server_mysql_hide_password')
+                            : t('databases.server_mysql_show_password')}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          onClick={() =>
+                            copyText(
+                              serverMysqlQ.data!.provision.password,
+                              t('databases.password_copied'),
+                            )
+                          }
+                          disabled={!serverMysqlQ.data.provision.password}
+                          aria-label={t('common.copy')}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="mt-1 font-mono text-xs text-gray-900 dark:text-white">
+                        {showServerProvPassword ? (
+                          serverMysqlQ.data.provision.password || '—'
+                        ) : (
+                          <span className="tracking-wider">••••••••</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <details className="rounded-md border border-gray-200/80 bg-gray-50/80 p-2 dark:border-gray-700 dark:bg-gray-900/40">
+                    <summary className="cursor-pointer text-xs font-semibold text-gray-700 dark:text-gray-200">
+                      {t('databases.server_mysql_panel_section')}
+                    </summary>
+                    <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                      {t('databases.server_mysql_panel_hint')}
+                    </p>
+                    <dl className="mt-2 space-y-1 font-mono text-[11px] text-gray-800 dark:text-gray-200">
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">DB</dt>
+                        <dd className="truncate">{serverMysqlQ.data.panel_app_database.database}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">{t('databases.username')}</dt>
+                        <dd className="truncate">{serverMysqlQ.data.panel_app_database.username}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">{t('databases.host')}</dt>
+                        <dd>{serverMysqlQ.data.panel_app_database.host}:{serverMysqlQ.data.panel_app_database.port}</dd>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <dt className="shrink-0 text-gray-500">{t('databases.server_mysql_password')}</dt>
+                        <dd className="flex min-w-0 flex-1 items-center gap-2">
+                          <button
+                            type="button"
+                            className="text-[10px] text-primary-600 hover:underline dark:text-primary-400"
+                            onClick={() => setShowServerPanelPassword((v) => !v)}
+                          >
+                            {showServerPanelPassword
+                              ? t('databases.server_mysql_hide_password')
+                              : t('databases.server_mysql_show_password')}
+                          </button>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            onClick={() =>
+                              copyText(
+                                serverMysqlQ.data!.panel_app_database.password,
+                                t('databases.password_copied'),
+                              )
+                            }
+                            aria-label={t('common.copy')}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </dd>
+                      </div>
+                      <div className="pl-14 font-mono text-[11px]">
+                        {showServerPanelPassword ? (
+                          serverMysqlQ.data.panel_app_database.password ? (
+                            serverMysqlQ.data.panel_app_database.password
+                          ) : (
+                            '—'
+                          )
+                        ) : (
+                          <span className="tracking-wider">••••••••</span>
+                        )}
+                      </div>
+                    </dl>
+                  </details>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
