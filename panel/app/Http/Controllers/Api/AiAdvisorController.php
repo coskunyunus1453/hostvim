@@ -134,16 +134,20 @@ class AiAdvisorController extends Controller
 
     public function monitoring(Request $request): JsonResponse
     {
-        $stats = $this->engine->getSystemStats();
+        $stats = \App\Services\SystemStatsNormalizer::normalize($this->engine->getSystemStats());
         $security = $this->engine->securityOverview();
         $alerts = [];
-        $cpu = (float) ($stats['cpu']['usage'] ?? 0);
-        $mem = (float) ($stats['memory']['usage_percent'] ?? 0);
+        $cpu = (float) ($stats['cpu_usage'] ?? 0);
+        $mem = (float) ($stats['memory_usage_percent'] ?? 0);
+        $disk = (float) ($stats['disk_usage_percent'] ?? 0);
         if ($cpu > 85) {
             $alerts[] = 'Yuksek CPU kullanimi tespit edildi.';
         }
         if ($mem > 90) {
             $alerts[] = 'Yuksek RAM kullanimi tespit edildi.';
+        }
+        if ($disk > 90) {
+            $alerts[] = 'Disk dolulugu kritik seviyede.';
         }
         if (($security['fail2ban']['enabled'] ?? false) !== true) {
             $alerts[] = 'Fail2ban kapali. Brute-force riskine acik.';
@@ -159,6 +163,9 @@ class AiAdvisorController extends Controller
             'alerts' => $alerts,
             'cpu_usage' => $cpu,
             'memory_usage' => $mem,
+            'disk_usage' => $disk,
+            'load' => $stats['load'] ?? null,
+            'server_available' => $stats['available'] ?? false,
         ]);
     }
 

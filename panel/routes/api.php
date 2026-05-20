@@ -283,6 +283,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         });
     });
     Route::middleware('ability:files:write')->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);
+    Route::middleware('ability:files:write')->post('ai-assistant/execute-actions', [AiAssistantController::class, 'executeActions']);
+    Route::middleware('ability:files:read')->post('ai-assistant/read-file', [AiAssistantController::class, 'readFile']);
     Route::middleware('ability:files:read')->post('domains/{domain}/ai/file-editor', [AiAdvisorController::class, 'fileEditor']);
     Route::middleware('ability:tools:run')->get('domains/{domain}/ai/deploy', [AiAdvisorController::class, 'deploy']);
     Route::middleware('ability:dashboard:read')->get('domains/{domain}/ai/slow-site', [AiAdvisorController::class, 'slowSite']);

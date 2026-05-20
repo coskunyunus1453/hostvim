@@ -197,4 +197,52 @@ class AiAssistantController extends Controller
 
         return response()->json(['result' => $result]);
     }
+
+    public function executeActions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'actions' => 'required|array|min:1|max:10',
+            'actions.*.id' => 'nullable|string|max:64',
+            'actions.*.type' => 'required|string|max:64',
+            'actions.*.params' => 'required|array',
+            'actions.*.title' => 'nullable|string|max:255',
+        ]);
+
+        $results = $this->assistant->executeApprovedActions(
+            $request->user(),
+            $validated['actions'],
+        );
+
+        $allOk = collect($results)->every(fn ($r) => ($r['ok'] ?? false) === true);
+
+        return response()->json([
+            'message' => $allOk ? __('ai.actions_applied') : __('ai.actions_partial'),
+            'results' => $results,
+        ], $allOk ? 200 : 422);
+    }
+
+    public function readFile(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'domain_id' => 'required|integer|exists:domains,id',
+            'path' => 'required|string|max:2048',
+        ]);
+
+        $owns = $request->user()->domains()->where('id', $validated['domain_id'])->exists();
+        if (! $owns && ! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        try {
+            $result = $this->assistant->readFileForUser(
+                $request->user(),
+                (int) $validated['domain_id'],
+                $validated['path'],
+            );
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+    }
 }

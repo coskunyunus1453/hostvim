@@ -16,6 +16,7 @@ class AiAssistantService
         private AiLlmClient $llm,
         private AiAssistantContextBuilder $contextBuilder,
         private EngineApiService $engine,
+        private PanelZekaActionExecutor $actionExecutor,
     ) {}
 
     /**
@@ -232,22 +233,44 @@ class AiAssistantService
      */
     public function applyFix(User $user, int $domainId, string $path, string $content): array
     {
-        $domain = Domain::query()->where('user_id', $user->id)->findOrFail($domainId);
-        $path = trim($path);
-        if ($path === '' || str_contains($path, '..')) {
-            throw new \InvalidArgumentException('Geçersiz dosya yolu.');
-        }
+        $result = $this->actionExecutor->execute($user, [
+            'type' => 'file_write',
+            'params' => [
+                'domain_id' => $domainId,
+                'path' => $path,
+                'content' => $content,
+            ],
+        ]);
 
-        $resp = $this->engine->writeFile($domain->name, $path, $content);
-        if (! empty($resp['error'])) {
-            throw new \RuntimeException((string) $resp['error']);
+        if (! ($result['ok'] ?? false)) {
+            throw new \RuntimeException((string) ($result['message'] ?? 'Dosya kaydedilemedi.'));
         }
 
         return [
             'applied' => true,
             'path' => $path,
-            'message' => 'Dosya güncellendi.',
+            'message' => (string) ($result['message'] ?? 'Dosya güncellendi.'),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $actions
+     * @return list<array<string, mixed>>
+     */
+    public function executeApprovedActions(User $user, array $actions): array
+    {
+        return $this->actionExecutor->executeBatch($user, $actions);
+    }
+
+    /**
+     * @return array{ok: bool, message: string, data?: array<string, mixed>}
+     */
+    public function readFileForUser(User $user, int $domainId, string $path): array
+    {
+        return $this->actionExecutor->execute($user, [
+            'type' => 'read_file',
+            'params' => ['domain_id' => $domainId, 'path' => $path],
+        ]);
     }
 
     /**

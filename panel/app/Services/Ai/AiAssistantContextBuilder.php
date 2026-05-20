@@ -2,15 +2,20 @@
 
 namespace App\Services\Ai;
 
+use App\Models\CronJob;
+use App\Models\Database;
 use App\Models\Domain;
 use App\Models\User;
 use App\Services\EngineApiService;
+use App\Services\HostingQuotaService;
+use App\Services\SystemStatsNormalizer;
 use Illuminate\Support\Facades\Cache;
 
 class AiAssistantContextBuilder
 {
     public function __construct(
         private EngineApiService $engine,
+        private HostingQuotaService $quota,
     ) {}
 
     /**
@@ -23,15 +28,28 @@ class AiAssistantContextBuilder
         ?string $filePath = null,
         ?string $fileContent = null,
     ): array {
+        $locale = str_starts_with((string) ($user->locale ?: app()->getLocale()), 'en') ? 'en' : 'tr';
+
         $ctx = [
+            'assistant_name' => 'PanelZeka',
             'mode' => $contextMode,
+            'locale' => $locale,
+            'timezone' => config('app.timezone', 'UTC'),
             'user' => [
+                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'is_admin' => $user->isAdmin(),
             ],
+            'panel_routes' => PanelZekaKnowledge::routes($user->isAdmin()),
+            'account' => [
+                'domains_count' => $user->domains()->count(),
+                'databases_count' => $user->databases()->count(),
+                'cron_jobs_count' => CronJob::query()->where('user_id', $user->id)->where('is_system', false)->count(),
+                'quota' => $this->quota->cronQuotaSummary($user),
+            ],
             'domains' => $user->domains()
-                ->select(['id', 'name', 'status', 'php_version', 'server_type', 'ssl_enabled'])
+                ->select(['id', 'name', 'status', 'php_version', 'server_type', 'ssl_enabled', 'document_root'])
                 ->latest()
                 ->limit(30)
                 ->get()
@@ -42,38 +60,49 @@ class AiAssistantContextBuilder
                     'php' => $d->php_version,
                     'server' => $d->server_type,
                     'ssl' => (bool) $d->ssl_enabled,
+                    'document_root' => $d->document_root,
+                ])
+                ->values()
+                ->all(),
+            'databases' => Database::query()
+                ->where('user_id', $user->id)
+                ->latest()
+                ->limit(20)
+                ->get(['id', 'name', 'type', 'domain_id', 'size_mb'])
+                ->map(fn (Database $db) => [
+                    'id' => $db->id,
+                    'name' => $db->name,
+                    'type' => $db->type,
+                    'domain_id' => $db->domain_id,
+                    'size_mb' => $db->size_mb,
                 ])
                 ->values()
                 ->all(),
         ];
 
         try {
-            $stats = Cache::remember('ai:ctx:server_stats', 30, function (): array {
-                return $this->engine->getSystemStats();
-            });
-            if (empty($stats['error'])) {
-                $ctx['server'] = [
-                    'cpu_usage' => $stats['cpu']['usage'] ?? null,
-                    'memory_usage_percent' => $stats['memory']['usage_percent'] ?? null,
-                    'disk_usage_percent' => $stats['disk']['usage_percent'] ?? null,
-                    'load' => $stats['load'] ?? null,
-                    'uptime' => $stats['uptime'] ?? null,
-                ];
+            $raw = Cache::remember('ai:ctx:server_stats', 25, fn (): array => $this->engine->getSystemStats());
+            $server = SystemStatsNormalizer::normalize($raw);
+            if ($server['available'] ?? false) {
+                $ctx['server'] = $server;
+            } else {
+                $ctx['server_unavailable'] = true;
+                $ctx['server_error'] = $server['error'] ?? 'unknown';
             }
-        } catch (\Throwable) {
-            // Engine offline — context still usable
+        } catch (\Throwable $e) {
+            $ctx['server_unavailable'] = true;
+            $ctx['server_error'] = $e->getMessage();
         }
 
         try {
-            $security = Cache::remember('ai:ctx:security_overview', 45, function (): array {
-                return $this->engine->securityOverview();
-            });
+            $security = Cache::remember('ai:ctx:security_overview', 45, fn (): array => $this->engine->securityOverview());
             if (empty($security['error'])) {
                 $ctx['security'] = [
-                    'fail2ban' => $security['fail2ban']['enabled'] ?? false,
-                    'modsecurity' => $security['modsecurity']['enabled'] ?? false,
-                    'clamav' => $security['clamav']['enabled'] ?? false,
-                    'firewall_rules' => count($security['firewall']['recent_rules'] ?? []),
+                    'fail2ban_enabled' => (bool) ($security['fail2ban']['enabled'] ?? false),
+                    'modsecurity_enabled' => (bool) ($security['modsecurity']['enabled'] ?? false),
+                    'clamav_enabled' => (bool) ($security['clamav']['enabled'] ?? false),
+                    'firewall_rules_count' => count($security['firewall']['recent_rules'] ?? []),
+                    'panel_path' => '/security',
                 ];
             }
         } catch (\Throwable) {
@@ -129,37 +158,44 @@ class AiAssistantContextBuilder
     public function toSystemPrompt(array $context, string $locale = 'tr'): string
     {
         $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $routesDoc = json_encode(PanelZekaKnowledge::routes((bool) ($context['user']['is_admin'] ?? false)), JSON_UNESCAPED_UNICODE);
+        $actionDoc = PanelZekaKnowledge::actionSchemaDoc($locale);
+
         if ($locale === 'en') {
             return <<<PROMPT
-You are Hostvim AI Assistant — an expert hosting panel copilot for server and website administration.
+You are **PanelZeka** — the intelligent copilot built into the Hostvim hosting panel. Always introduce yourself as PanelZeka when greeting.
 
-Capabilities:
-- Analyze server health, security posture, domains, logs and site files.
-- Explain errors clearly and propose concrete fixes.
-- When a file fix is needed, include a JSON block fenced as ```hostvim-actions with schema:
-{"fixes":[{"domain_id":1,"path":"relative/path/from/site/root","content":"full new file content","summary":"short reason"}],"tips":["optional tips"]}
-- Only suggest fixes the user can apply from the panel. Paths are relative to the site document root unless absolute under /var/www or /home.
-- Never invent domain IDs — use IDs from context.domains or selected_domain.
-- Be concise, actionable, friendly. Use markdown for readability.
+Your job:
+- Analyze server metrics in context.server (CPU, RAM, disk, load, processes) and give actionable advice.
+- Guide users to the correct panel page using paths from panel_routes (e.g. /domains, /ssl, /cron).
+- Diagnose site errors using logs and files; propose fixes via hostvim-actions (user must approve before apply).
+- Never claim metrics are missing if context.server has numeric values.
 
-Current panel context (JSON):
+{$actionDoc}
+
+Panel navigation (JSON):
+{$routesDoc}
+
+Current context (JSON):
 {$json}
 PROMPT;
         }
 
         return <<<PROMPT
-Sen Hostvim AI Asistanısın — sunucu ve web sitesi yönetimi konusunda uzman bir hosting panel yardımcısısın.
+Sen **PanelZeka**'sın — Hostvim hosting panelinin yapay zeka asistanısın. Kendini her zaman PanelZeka olarak tanıt.
 
-Yeteneklerin:
-- Sunucu sağlığı, güvenlik durumu, domainler, loglar ve site dosyalarını analiz et.
-- Hataları açıkça açıkla ve somut düzeltmeler öner.
-- Dosya düzeltmesi gerekiyorsa ```hostvim-actions ile şu JSON şemasını ekle:
-{"fixes":[{"domain_id":1,"path":"site-köküne-göre-yol","content":"dosyanın yeni tam içeriği","summary":"kısa neden"}],"tips":["isteğe bağlı ipuçları"]}
-- Yalnızca panelden uygulanabilir düzeltmeler öner. Yollar site document root'una göre relative olmalı.
-- Domain ID uydurma — context.domains veya selected_domain içindeki ID'leri kullan.
-- Öz, uygulanabilir ve dostane ol. Markdown kullan.
+Görevlerin:
+- context.server içindeki CPU, RAM, disk, load ve süreç verilerini analiz et; uygulanabilir öneriler sun.
+- Kullanıcıyı panel_routes yollarıyla doğru sayfaya yönlendir (ör. /domains, /ssl, /cron).
+- Site hatalarını log ve dosyalarla teşhis et; düzeltmeleri hostvim-actions ile öner (kullanıcı onaylamadan uygulanmaz).
+- context.server sayısal değerler içeriyorsa "veri yok" deme.
 
-Güncel panel bağlamı (JSON):
+{$actionDoc}
+
+Panel menüleri (JSON):
+{$routesDoc}
+
+Güncel bağlam (JSON):
 {$json}
 PROMPT;
     }

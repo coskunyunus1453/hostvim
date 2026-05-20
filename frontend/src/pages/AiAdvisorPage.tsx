@@ -48,11 +48,20 @@ type ProviderRow = {
   last_test_message?: string | null
 }
 
+type PanelAction = {
+  id?: string
+  type: string
+  title?: string
+  params: Record<string, unknown>
+}
+
 type ChatMessage = {
   id: number
   role: 'user' | 'assistant' | 'system'
   content: string
-  meta?: { actions?: { fixes?: FixAction[]; tips?: string[] } }
+  meta?: {
+    actions?: { fixes?: FixAction[]; actions?: PanelAction[]; tips?: string[] }
+  }
   provider?: string
   model?: string
   created_at?: string
@@ -63,6 +72,19 @@ type FixAction = {
   path: string
   content: string
   summary?: string
+}
+
+function fixToPanelAction(fix: FixAction, idx: number): PanelAction {
+  return {
+    id: `fix-${idx}`,
+    type: 'file_write',
+    title: fix.summary ?? fix.path,
+    params: {
+      domain_id: fix.domain_id,
+      path: fix.path,
+      content: fix.content,
+    },
+  }
 }
 
 type SessionRow = {
@@ -283,6 +305,29 @@ export default function AiAdvisorPage() {
     },
   })
 
+  const executeActionsM = useMutation({
+    mutationFn: async (actions: PanelAction[]) =>
+      (
+        await api.post('/ai-assistant/execute-actions', {
+          actions: actions.map((a, i) => ({
+            id: a.id ?? `action-${i}`,
+            type: a.type,
+            title: a.title,
+            params: a.params,
+          })),
+        })
+      ).data as { message?: string; results?: Array<{ ok?: boolean; message?: string }> },
+    onSuccess: (data) => {
+      toast.success(data.message ?? t('ai.actions_applied'))
+      if (sessionId) qc.invalidateQueries({ queryKey: ['ai-assistant-messages', sessionId] })
+      qc.invalidateQueries({ queryKey: ['domains'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
   const deleteSessionM = useMutation({
     mutationFn: async (id: number) => api.delete(`/ai-assistant/sessions/${id}`),
     onSuccess: (_, id) => {
@@ -331,7 +376,7 @@ export default function AiAdvisorPage() {
             <Sparkles className="h-7 w-7 text-fuchsia-600 dark:text-fuchsia-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('nav.ai_advisor')}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">PanelZeka</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('ai.subtitle_new')}</p>
           </div>
         </div>
@@ -484,6 +529,11 @@ export default function AiAdvisorPage() {
 
               {(messagesQ.data?.messages ?? []).map((m) => {
                 const fixes = m.meta?.actions?.fixes ?? []
+                const panelActions = m.meta?.actions?.actions ?? []
+                const allActions: PanelAction[] = [
+                  ...fixes.map((f, i) => fixToPanelAction(f, i)),
+                  ...panelActions,
+                ]
                 const isUser = m.role === 'user'
                 return (
                   <div key={m.id} className={clsx('flex', isUser ? 'justify-end' : 'justify-start')}>
@@ -497,7 +547,7 @@ export default function AiAdvisorPage() {
                     >
                       {!isUser && (
                         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-600 dark:text-fuchsia-400">
-                          {m.provider ?? 'AI'} · {m.model ?? ''}
+                          {t('ai.assistant_badge')} · {m.provider ?? ''} {m.model ? `· ${m.model}` : ''}
                         </p>
                       )}
                       {isUser ? (
@@ -505,29 +555,68 @@ export default function AiAdvisorPage() {
                       ) : (
                         <MarkdownLite text={m.content} />
                       )}
-                      {fixes.length > 0 && (
+                      {allActions.length > 0 && (
                         <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 dark:border-gray-600">
-                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t('ai.suggested_fixes')}</p>
-                          {fixes.map((fix, idx) => (
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                              {t('ai.pending_actions')}
+                            </p>
+                            {allActions.length > 1 && (
+                              <button
+                                type="button"
+                                className="text-[11px] font-medium text-emerald-700 hover:underline dark:text-emerald-300"
+                                disabled={executeActionsM.isPending}
+                                onClick={() => {
+                                  if (!window.confirm(t('ai.apply_all_actions'))) return
+                                  executeActionsM.mutate(allActions)
+                                }}
+                              >
+                                {t('ai.apply_all_actions')}
+                              </button>
+                            )}
+                          </div>
+                          {allActions.map((action, idx) => (
                             <div
-                              key={idx}
+                              key={action.id ?? idx}
                               className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20"
                             >
                               <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
-                                {fix.summary ?? fix.path}
+                                {action.title ?? action.type}
                               </p>
-                              <p className="mt-1 font-mono text-[11px] text-gray-600 dark:text-gray-400">{fix.path}</p>
+                              <p className="mt-1 font-mono text-[10px] text-gray-600 dark:text-gray-400">
+                                {action.type}
+                                {action.type === 'file_write' && typeof action.params.path === 'string'
+                                  ? ` · ${action.params.path}`
+                                  : ''}
+                                {action.type === 'create_domain' && typeof action.params.name === 'string'
+                                  ? ` · ${action.params.name}`
+                                  : ''}
+                                {action.type === 'create_database' && typeof action.params.name === 'string'
+                                  ? ` · ${action.params.name}`
+                                  : ''}
+                              </p>
                               <button
                                 type="button"
                                 className="mt-2 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                                disabled={applyFixM.isPending}
+                                disabled={executeActionsM.isPending || applyFixM.isPending}
                                 onClick={() => {
-                                  if (!window.confirm(t('ai.fix_confirm', { path: fix.path }))) return
-                                  applyFixM.mutate(fix)
+                                  const title =
+                                    action.title ??
+                                    (typeof action.params.path === 'string' ? String(action.params.path) : action.type)
+                                  if (!window.confirm(t('ai.action_confirm', { title }))) return
+                                  if (action.type === 'file_write' && action.params.domain_id && action.params.path) {
+                                    applyFixM.mutate({
+                                      domain_id: Number(action.params.domain_id),
+                                      path: String(action.params.path),
+                                      content: String(action.params.content ?? ''),
+                                    })
+                                  } else {
+                                    executeActionsM.mutate([action])
+                                  }
                                 }}
                               >
                                 <Wrench className="h-3.5 w-3.5" />
-                                {t('ai.apply_fix')}
+                                {t('ai.apply_action')}
                               </button>
                             </div>
                           ))}
