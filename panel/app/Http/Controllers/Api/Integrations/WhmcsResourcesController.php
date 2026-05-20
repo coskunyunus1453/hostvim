@@ -15,6 +15,8 @@ use App\Models\EmailForwarder;
 use App\Models\FtpAccount;
 use App\Models\User;
 use App\Services\BindZoneTextParser;
+use App\Services\Cron\CronCommandParser;
+use App\Services\Cron\CronScheduleHelper;
 use App\Services\DatabaseService;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
@@ -41,6 +43,7 @@ class WhmcsResourcesController extends Controller
         private HostingQuotaService $quota,
         private DatabaseService $databaseService,
         private SslIssueService $sslIssue,
+        private CronCommandParser $cronCommandParser,
     ) {}
 
     /** Tüm aktif siteler — WHMCS UsageUpdate (sunucu başına günlük). */
@@ -356,7 +359,7 @@ class WhmcsResourcesController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ]);
         $user = $this->userByEmail($validated['email']);
-        $this->assertSafeCronCommand($validated['command']);
+        $this->cronCommandParser->assertValid($validated['command']);
         $this->quota->ensureCanCreateCronJob($user);
 
         $job = CronJob::create([
@@ -365,6 +368,7 @@ class WhmcsResourcesController extends Controller
             'command' => $validated['command'],
             'description' => $validated['description'] ?? null,
             'status' => 'active',
+            'next_run_at' => CronScheduleHelper::nextRunAt($validated['schedule']),
         ]);
 
         $engine = $this->engine->engineCronCreate([
@@ -1036,25 +1040,4 @@ class WhmcsResourcesController extends Controller
         };
     }
 
-    private function assertSafeCronCommand(string $command): void
-    {
-        $cmd = trim($command);
-        if ($cmd === '') {
-            throw ValidationException::withMessages(['command' => 'Komut boş olamaz.']);
-        }
-        if (preg_match('/[;&|`><\n\r]/', $cmd) === 1) {
-            throw ValidationException::withMessages([
-                'command' => 'Güvenlik nedeniyle shell operatörleri kullanılamaz.',
-            ]);
-        }
-        $parts = str_getcsv($cmd, ' ', '"', '\\');
-        $argv = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $parts), static fn ($v) => $v !== ''));
-        if ($argv === []) {
-            throw ValidationException::withMessages(['command' => 'Komut çözümlenemedi.']);
-        }
-        $binary = $argv[0];
-        if (! preg_match('/^[A-Za-z0-9_\/.\-]+$/', $binary)) {
-            throw ValidationException::withMessages(['command' => 'Komut adı geçersiz.']);
-        }
-    }
 }

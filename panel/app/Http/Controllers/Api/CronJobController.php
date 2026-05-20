@@ -5,19 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CronJob;
 use App\Models\CronJobRun;
+use App\Services\Cron\CronCommandParser;
+use App\Services\Cron\CronJobExecutor;
+use App\Services\Cron\CronScheduleHelper;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Process;
-
 class CronJobController extends Controller
 {
     public function __construct(
         private EngineApiService $engine,
         private HostingQuotaService $quota,
+        private CronCommandParser $commandParser,
+        private CronJobExecutor $executor,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -37,7 +38,7 @@ class CronJobController extends Controller
     {
         return response()->json([
             'quota' => $this->quota->cronQuotaSummary($request->user()),
-            'timezone_hint' => config('app.timezone', 'UTC'),
+            'timezone_hint' => CronScheduleHelper::timezone(),
         ]);
     }
 
@@ -48,7 +49,7 @@ class CronJobController extends Controller
             'command' => 'required|string|max:2000',
             'description' => 'nullable|string|max:255',
         ]);
-        $this->assertSafeCommand($validated['command']);
+        $this->commandParser->assertValid($validated['command']);
 
         $this->quota->ensureCanCreateCronJob($request->user());
 
@@ -58,6 +59,7 @@ class CronJobController extends Controller
             'command' => $validated['command'],
             'description' => $validated['description'] ?? null,
             'status' => 'active',
+            'next_run_at' => CronScheduleHelper::nextRunAt($validated['schedule']),
         ]);
 
         $engine = $this->engine->engineCronCreate([
@@ -90,7 +92,7 @@ class CronJobController extends Controller
             'command' => 'required|string|max:2000',
             'description' => 'nullable|string|max:255',
         ]);
-        $this->assertSafeCommand($validated['command']);
+        $this->commandParser->assertValid($validated['command']);
 
         $eid = $cronJob->engine_job_id;
         if ($eid === null || $eid === '') {
@@ -114,6 +116,7 @@ class CronJobController extends Controller
             'schedule' => $validated['schedule'],
             'command' => $validated['command'],
             'description' => $validated['description'] ?? null,
+            'next_run_at' => CronScheduleHelper::nextRunAt($validated['schedule']),
         ]);
 
         return response()->json([
@@ -147,55 +150,32 @@ class CronJobController extends Controller
             return response()->json(['message' => 'Sistem cron görevi yalnızca yönetici tarafından çalıştırılabilir.'], 403);
         }
 
-        $run = CronJobRun::create([
-            'cron_job_id' => $cronJob->id,
-            'user_id' => $request->user()->id,
-            'status' => 'running',
-            'started_at' => now(),
-        ]);
-
-        $argv = $this->safeCommandToArgv($cronJob->command);
-        $process = new Process($argv);
-        $process->setTimeout(180);
-        $process->setIdleTimeout(120);
-
         try {
-            $process->mustRun();
-            $run->update([
-                'status' => 'success',
-                'exit_code' => $process->getExitCode(),
-                'output' => trim($process->getOutput()."\n".$process->getErrorOutput()),
-                'finished_at' => now(),
-            ]);
-        } catch (ProcessTimedOutException $e) {
-            $run->update([
-                'status' => 'timeout',
-                'exit_code' => $process->getExitCode(),
-                'output' => trim(($process->getOutput() ?? '')."\n".($process->getErrorOutput() ?? '')."\n".$e->getMessage()),
-                'finished_at' => now(),
-            ]);
-
-            return response()->json([
-                'message' => __('cron.run_timeout'),
-                'run' => $run->fresh(),
-            ], 408);
+            $run = $this->executor->execute($cronJob, $request->user()->id);
         } catch (\Throwable $e) {
-            $run->update([
-                'status' => 'failed',
-                'exit_code' => $process->getExitCode(),
-                'output' => trim(($process->getOutput() ?? '')."\n".($process->getErrorOutput() ?? '')."\n".$e->getMessage()),
-                'finished_at' => now(),
-            ]);
-
             return response()->json([
                 'message' => __('cron.run_failed'),
-                'run' => $run->fresh(),
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+
+        if ($run->status === 'timeout') {
+            return response()->json([
+                'message' => __('cron.run_timeout'),
+                'run' => $run,
+            ], 408);
+        }
+
+        if ($run->status !== 'success') {
+            return response()->json([
+                'message' => __('cron.run_failed'),
+                'run' => $run,
             ], 422);
         }
 
         return response()->json([
             'message' => __('cron.run_success'),
-            'run' => $run->fresh(),
+            'run' => $run,
         ]);
     }
 
@@ -215,13 +195,7 @@ class CronJobController extends Controller
     private function cronScheduleRule(): \Closure
     {
         return function (string $attribute, mixed $value, \Closure $fail): void {
-            if (! is_string($value)) {
-                $fail(__('cron.invalid_schedule'));
-
-                return;
-            }
-            $parts = preg_split('/\s+/', trim($value), -1, PREG_SPLIT_NO_EMPTY);
-            if ($parts === false || count($parts) !== 5) {
+            if (! is_string($value) || ! CronScheduleHelper::isValidSchedule($value)) {
                 $fail(__('cron.invalid_schedule'));
             }
         };
@@ -232,55 +206,5 @@ class CronJobController extends Controller
         if ($cronJob->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
             abort(403);
         }
-    }
-
-    private function assertSafeCommand(string $command): void
-    {
-        $this->safeCommandToArgv($command);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function safeCommandToArgv(string $command): array
-    {
-        $cmd = trim($command);
-        if ($cmd === '') {
-            throw ValidationException::withMessages([
-                'command' => 'Komut boş olamaz.',
-            ]);
-        }
-
-        // Shell metakarakterlerini reddet; komut doğrudan shell'e verilmez.
-        if (preg_match('/[;&|`><\n\r]/', $cmd) === 1) {
-            throw ValidationException::withMessages([
-                'command' => 'Güvenlik nedeniyle shell operatörleri (|, ;, &, >, <, `) kullanılamaz.',
-            ]);
-        }
-
-        $parts = str_getcsv($cmd, ' ', '"', '\\');
-        $argv = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $parts), static fn ($v) => $v !== ''));
-        if ($argv === []) {
-            throw ValidationException::withMessages([
-                'command' => 'Komut çözümlenemedi.',
-            ]);
-        }
-
-        $binary = $argv[0];
-        if (! preg_match('/^[A-Za-z0-9_\/.\-]+$/', $binary)) {
-            throw ValidationException::withMessages([
-                'command' => 'Komut adı geçersiz karakter içeriyor.',
-            ]);
-        }
-
-        foreach ($argv as $arg) {
-            if (preg_match('/[\x00]/', $arg) === 1) {
-                throw ValidationException::withMessages([
-                    'command' => 'Komut argümanlarında geçersiz karakter var.',
-                ]);
-            }
-        }
-
-        return $argv;
     }
 }

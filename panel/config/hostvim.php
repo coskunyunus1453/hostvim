@@ -130,6 +130,13 @@ return [
         'disk_unzip_expand_multiplier' => max(2, (int) env('HOSTVIM_DISK_UNZIP_EXPAND_MULT', 4)),
     ],
 
+    /** Müşteri cron görevleri (cron:run-due) */
+    'cron' => [
+        'timeout' => max(30, (int) env('HOSTVIM_CRON_TIMEOUT', 180)),
+        'idle_timeout' => max(30, (int) env('HOSTVIM_CRON_IDLE_TIMEOUT', 120)),
+        'lock_seconds' => max(60, (int) env('HOSTVIM_CRON_LOCK_SECONDS', 600)),
+    ],
+
     /** API throttle (dosya yöneticisi vb.) — .env ile artırılabilir */
     'rate_limits' => [
         'files_read_per_minute' => max(60, (int) env('HOSTVIM_FILES_READ_PER_MINUTE', 360)),

@@ -591,7 +591,7 @@ export default function CronPage() {
                   className="rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-600"
                   onClick={() =>
                     insertSnippet(
-                      '/usr/bin/php /var/www/ORNEK/public_html/artisan schedule:run >> /dev/null 2>&1',
+                      '/usr/bin/php /var/www/ORNEK/public_html/artisan schedule:run',
                     )
                   }
                 >
@@ -600,9 +600,18 @@ export default function CronPage() {
                 <button
                   type="button"
                   className="rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-600"
-                  onClick={() => insertSnippet('wget -q -O - https://ornek.com/wp-cron.php?doing_wp_cron >/dev/null 2>&1')}
+                  onClick={() => insertSnippet('wget -q -O - https://ornek.com/wp-cron.php?doing_wp_cron')}
                 >
                   {t('cron.snippet_wp')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-600"
+                  onClick={() =>
+                    insertSnippet('/usr/bin/php /var/www/ORNEK/public_html/spark list')
+                  }
+                >
+                  {t('cron.snippet_ci4')}
                 </button>
                 <button
                   type="button"
