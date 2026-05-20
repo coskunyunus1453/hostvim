@@ -43,4 +43,11 @@ git checkout "$HOSTVIM_BRANCH"
 git merge --ff-only "origin/$HOSTVIM_BRANCH" 2>/dev/null || git reset --hard "origin/$HOSTVIM_BRANCH"
 
 echo "==> install-production.sh (veri korunur)…"
-exec bash deploy/bootstrap/install-production.sh
+export HOSTVIM_HOME
+bash deploy/bootstrap/install-production.sh
+_exit=$?
+if [[ "$_exit" -ne 0 ]]; then
+  echo "HATA: install-production çıkış kodu: $_exit" >&2
+  exit "$_exit"
+fi
+echo "==> Güncelleme tamamlandı."

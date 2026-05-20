@@ -47,9 +47,47 @@
 set -euo pipefail
 
 _SCRIPT_DIR_BOOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../host/lib/source-install-mode.sh
-source "$_SCRIPT_DIR_BOOT/../host/lib/source-install-mode.sh"
-hostvim_source_install_mode_lib
+_REPO_EARLY="$(cd "$_SCRIPT_DIR_BOOT/../.." && pwd)"
+_HOSTVIM_EARLY="${HOSTVIM_HOME:-${PANELSAR_HOME:-$_REPO_EARLY}}"
+
+# Harici lib yoksa da çalışsın (sunucuda eski checkout / eksik deploy/host/lib)
+if [[ -f "$_SCRIPT_DIR_BOOT/../host/lib/install-mode.sh" ]]; then
+  # shellcheck source=../host/lib/install-mode.sh
+  source "$_SCRIPT_DIR_BOOT/../host/lib/install-mode.sh"
+elif [[ -f "$_REPO_EARLY/deploy/host/lib/install-mode.sh" ]]; then
+  # shellcheck source=../host/lib/install-mode.sh
+  source "$_REPO_EARLY/deploy/host/lib/install-mode.sh"
+else
+  hostvim_resolve_install_mode() {
+    local home="${HOSTVIM_HOME:-${PANELSAR_HOME:-/var/www/hostvim}}"
+    if [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "1" ]] || [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "yes" ]]; then echo "fresh"; return; fi
+    if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then echo "fresh"; return; fi
+    if [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "1" ]] || [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "yes" ]]; then echo "update"; return; fi
+    if [[ -f "$home/panel/.env" ]]; then echo "update"; return; fi
+    if [[ -d "$home/data/www" ]] && find "$home/data/www" -mindepth 1 -maxdepth 1 \( -type d -o -type f \) -print -quit 2>/dev/null | grep -q .; then
+      echo "update"; return
+    fi
+    echo "fresh"
+  }
+  hostvim_apply_update_safe_env() {
+    export HOSTVIM_UPDATE_ONLY=1 RESET_PANEL_DB=0 HOSTVIM_FRESH_INSTALL=0 CLEAN_HOSTING_STATE_ON_RESET=0
+    export HOSTVIM_PRESERVE_ADMIN_PASSWORD="${HOSTVIM_PRESERVE_ADMIN_PASSWORD:-1}"
+    export SKIP_APT="${SKIP_APT:-${HOSTVIM_SKIP_APT_ON_UPDATE:-1}}"
+  }
+  hostvim_print_install_mode_banner() {
+    if [[ "$1" == "update" ]]; then
+      echo "╔══════════════════════════════════════════════════════════════╗"
+      echo "║  Hostvim GÜNCELLEME — panel DB, siteler ve MySQL korunur       ║"
+      echo "╚══════════════════════════════════════════════════════════════╝"
+    else
+      echo "╔══════════════════════════════════════════════════════════════╗"
+      echo "║  Hostvim YENİ KURULUM                                         ║"
+      echo "╚══════════════════════════════════════════════════════════════╝"
+    fi
+  }
+fi
+
+echo "==> install-production.sh başladı ($_HOSTVIM_EARLY)"
 
 HOSTVIM_INSTALL_MODE="$(hostvim_resolve_install_mode)"
 if [[ "$HOSTVIM_INSTALL_MODE" == "update" ]]; then
@@ -62,6 +100,8 @@ else
   hostvim_print_install_mode_banner "fresh"
 fi
 export RESET_PANEL_DB HOSTVIM_UPDATE_ONLY HOSTVIM_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
+
+trap 'echo "HATA: install-production satır \$LINENO, çıkış \$?" >&2' ERR
 
 # Kolay kurulum: varsayılan olarak MariaDB + Node 20 kaynağı
 WITH_MARIADB="${WITH_MARIADB:-1}"
