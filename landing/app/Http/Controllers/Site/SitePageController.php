@@ -54,6 +54,7 @@ class SitePageController extends Controller
 
         return view('site.page', [
             'page' => $page,
+            'showInstallCommands' => $page->slug === 'setup',
             'seoCanonical' => $canonical,
             'seoDescription' => $page->effectiveMetaDescription(),
             'seoOgImage' => $ogImage,

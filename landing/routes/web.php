@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\CommunityTopicController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocPageController;
 use App\Http\Controllers\Admin\LandingTranslationController;
+use App\Http\Controllers\Admin\InstallSettingsController;
 use App\Http\Controllers\Admin\LocaleSettingsController;
 use App\Http\Controllers\Admin\NavMenuItemController;
 use App\Http\Controllers\Admin\PanelReleaseController;
@@ -183,6 +184,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::put('theme-settings', [ThemeSettingsController::class, 'update'])->name('theme-settings.update');
             Route::get('public-home-content', [PublicHomeContentController::class, 'edit'])->name('public-home-content.edit');
             Route::put('public-home-content', [PublicHomeContentController::class, 'update'])->name('public-home-content.update');
+            Route::get('install-settings', [InstallSettingsController::class, 'edit'])->name('install-settings.edit');
+            Route::put('install-settings', [InstallSettingsController::class, 'update'])->name('install-settings.update');
 
             Route::resource('site-pages', AdminSitePageController::class)->except(['show']);
             Route::resource('blog-categories', BlogCategoryController::class)->except(['show']);

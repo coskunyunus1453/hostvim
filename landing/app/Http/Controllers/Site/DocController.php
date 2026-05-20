@@ -69,6 +69,7 @@ class DocController extends Controller
 
         return view('site.docs.show', [
             'page' => $page,
+            'showInstallCommands' => $page->slug === 'server-setup',
             'seoCanonical' => $canonical,
             'seoDescription' => $page->effectiveMetaDescription(),
             'seoSchema' => SchemaBuilder::encode($schema),

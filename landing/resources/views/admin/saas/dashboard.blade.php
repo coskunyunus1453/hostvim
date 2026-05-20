@@ -34,6 +34,17 @@
         <p class="mt-2 text-xs text-slate-500">Sürümleri <a href="{{ route('admin.panel-releases.index') }}" class="text-sky-600 underline">Panel sürümleri</a> ekranından yayınlayın. Bearer: <code>HOSTVIM_PANEL_UPDATES_API_SECRET</code> (boşsa lisans secret’ı kullanılır).</p>
     </div>
 
+    <div class="mt-4 rounded-2xl border border-slate-200/90 bg-white/90 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/60">
+        <div class="font-medium text-slate-900 dark:text-slate-100">Müşteri kurulum komutları</div>
+        <p class="mt-1 text-slate-600 dark:text-slate-400">Ana sayfa ve <code class="text-xs">/setup</code> sayfasında gösterilen komutlar.</p>
+        <code class="mt-2 block break-all rounded-lg bg-slate-100 p-3 text-xs dark:bg-slate-950">{{ \App\Services\InstallGuide::oneLiner() }}</code>
+        <p class="mt-2 text-xs text-slate-500">
+            URL ve betik adreslerini
+            <a href="{{ route('admin.appearance.index', ['tab' => 'install']) }}" class="text-sky-600 underline">Görünüm → Kurulum komutları</a>
+            sekmesinden düzenleyin.
+        </p>
+    </div>
+
     <div class="mt-4 flex flex-wrap gap-3 text-sm">
         <a href="{{ route('admin.saas.licenses.index') }}" class="rounded-lg border border-slate-300 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">Lisanslar</a>
         <a href="{{ route('admin.panel-releases.index') }}" class="rounded-lg border border-slate-300 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">Panel sürümleri</a>

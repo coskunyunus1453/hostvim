@@ -233,18 +233,7 @@
                         <a href="{{ route('docs.index') }}" class="hv-link">{{ landing_p('nav.docs') }}</a>
                     </p>
 
-                    <div class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-5 font-mono text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-200">
-                        <div class="mb-2 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-500">
-                            <span>{{ landing_p('home.docs_install_caption') }}</span>
-                            <span class="rounded-full bg-white px-2 py-0.5 text-[10px] dark:bg-slate-900">{{ landing_p('home.docs_install_prompt_user') }}</span>
-                        </div>
-                        <div class="overflow-x-auto rounded-xl border border-slate-200/90 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/80">
-                            <span class="hv-code-accent">curl</span>
-                            <span class="text-slate-600 dark:text-slate-400"> -fsSL {{ config('panelze.install_one_liner_url') }} </span>
-                            <span class="text-slate-400">|</span>
-                            <span class="hv-code-accent"> bash</span>
-                        </div>
-                    </div>
+                    <x-landing.install-commands variant="compact" />
                 </div>
 
                 <div class="space-y-3 rounded-2xl border border-slate-200/90 bg-white/90 p-6 text-base text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">

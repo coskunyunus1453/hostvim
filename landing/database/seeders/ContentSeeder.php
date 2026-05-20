@@ -51,17 +51,13 @@ Bu sayfa **genel kurulum akışını** özetler; mimari ve ürün özellikleri i
 
 ---
 
-## Hızlı kurulum (örnek bootstrap)
+## Hızlı kurulum
 
-Resmi bootstrap betiği indirilip çalıştırılabilir:
+Aşağıdaki **Güncel kurulum komutları** bölümünde deploy betikleriyle uyumlu tüm komutlar listelenir (tek satır, Community, Pro, elle kurulum, güncelleme ve onarım).
 
-```bash
-curl -fsSL https://get.panelze.sh | bash
-```
+> **Üretim:** Betiği çalıştırmadan önce imza / checksum doğrulaması ve betik içeriğinin incelemesi şart sayılmalıdır. Test ortamında önce deneyin. Komutları yalnızca Debian/Ubuntu VPS üzerinde root veya sudo ile çalıştırın.
 
-> **Üretim:** Betiği çalıştırmadan önce imza / checksum doğrulaması ve betik içeriğinin incelemesi şart sayılmalıdır. Test ortamında önce deneyin.
-
-Betiğin yüklediği paketler ve servis adları sürüme göre değişebilir; güncel adımlar için konsol çıktısını ve [Sunucu kurulumu](/docs/server-setup) dokümanını takip edin.
+Kurulum betiği tipik olarak şunları yapar: `git` ile `/var/www/hostvim` altına kodu çeker, `deploy/bootstrap/install-production.sh` ile Nginx, PHP, MariaDB, Engine derlemesi ve frontend build çalıştırır. İlk yönetici bilgisi `/root/hostvim-admin-login.txt` dosyasına yazılır.
 
 ---
 
@@ -130,17 +126,13 @@ This page walks through the **end-to-end install flow**. For deeper architecture
 
 ---
 
-## Quick install (bootstrap example)
+## Quick install
 
-The official bootstrap script can be fetched and executed:
+Use the **Current install commands** section below — it lists every supported path (one-liner, Community, Pro, manual git clone, updates, and repair) kept in sync with `deploy/` scripts.
 
-```bash
-curl -fsSL https://get.panelze.sh | bash
-```
+> **Production:** Treat every `curl | bash` as privileged code execution — verify checksums / signatures and review the script before it touches production. Always pilot in staging on Debian/Ubuntu with root or sudo.
 
-> **Production:** Treat every `curl | bash` as privileged code execution — verify checksums / signatures and review the script before it touches production. Always pilot in staging.
-
-Installed packages, unit names, and directories may vary by release; follow the console output from the installer and the [Server setup](/docs/server-setup) doc for the exact sequence.
+The installer typically clones into `/var/www/hostvim`, then runs `deploy/bootstrap/install-production.sh` (Nginx, PHP, MariaDB, Engine build, frontend). First admin credentials are written to `/root/hostvim-admin-login.txt`.
 
 ---
 
@@ -331,10 +323,16 @@ sudo ufw status verbose
 
 ## 4. Panelze bootstrap
 
-Güncel ve imzası doğrulanmış betiği çalıştırın ([Kurulum rehberi](/setup) içindeki örnek komut). Betik tamamlandıktan sonra:
+Güncel komutlar sayfanın altındaki **Kurulum komutları** bölümünde listelenir. Önerilen giriş:
 
-- Engine servisinin **aktif** ve hatasız olduğunu kontrol edin (`systemctl status …` çıktısı dağıtıma göre değişir).
-- Panel dosyalarının beklenen dizinde olduğunu ve web sunucusu sanal hostunun **doğru `root` ve PHP** ile eşlendiğini doğrulayın.
+- **Tek satır:** `curl -fsSL https://get.panelze.sh | bash`
+- **Community:** GitHub `install-community.sh` → `install.sh` → `install-production.sh`
+
+Betiğin tamamlandıktan sonra:
+
+- `sudo systemctl status hostvim-engine` — Engine servisi **active** olmalı
+- `sudo cat /root/hostvim-admin-login.txt` — ilk yönetici e-posta/parola
+- Tarayıcıdan panel URL’si (Nginx varsayılanında sunucu IP veya `SERVER_NAME`)
 
 ---
 
@@ -411,10 +409,16 @@ Many teams keep the panel off the public Internet entirely (VPN-only). That is s
 
 ## 4. Bootstrap Panelze
 
-Run the signed bootstrap flow referenced from the [Installation guide](/setup). When it finishes:
+Exact commands are listed in the **Install commands** block at the bottom of this page. Recommended entry points:
 
-- Confirm the Engine daemon is **running** (`systemctl status …` names differ per release).
-- Verify the panel’s web root, PHP-FPM pool, and reverse proxy mapping line up with your SSL terminator.
+- **One-liner:** `curl -fsSL https://get.panelze.sh | bash`
+- **Community:** GitHub `install-community.sh` chains into `install.sh` and `install-production.sh`
+
+After the script finishes:
+
+- `sudo systemctl status hostvim-engine` — Engine unit should be **active**
+- `sudo cat /root/hostvim-admin-login.txt` — first admin email/password
+- Open the panel URL in a browser (server IP or your `SERVER_NAME` in Nginx)
 
 ---
 

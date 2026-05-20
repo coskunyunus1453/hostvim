@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\LandingSiteSetting;
+use App\Services\InstallGuide;
 use App\Services\LandingAppearance;
 use Illuminate\Contracts\View\View;
 
@@ -66,6 +67,7 @@ class AppearanceController extends Controller
             'heroImageCaption' => LandingAppearance::heroImageCaption(),
             'icons' => config('landing_theme.feature_icons', []),
             'embedded' => true,
+            'installSettings' => InstallGuide::settings(),
         ]);
     }
 }

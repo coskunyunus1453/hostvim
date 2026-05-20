@@ -22,6 +22,15 @@
             <div class="markdown-body mt-6">
                 {!! \App\Support\SafeRichContent::toHtml($page->content) !!}
             </div>
+
+            @if (! empty($showInstallCommands))
+                <div class="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
+                    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                        {{ app()->getLocale() === 'tr' ? 'Kurulum komutları' : 'Install commands' }}
+                    </h2>
+                    <x-landing.install-commands variant="full" class="mt-6" />
+                </div>
+            @endif
         </article>
 
         <p class="mt-10 text-center text-sm font-medium">

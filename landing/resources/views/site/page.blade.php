@@ -20,6 +20,20 @@
             <div class="markdown-body mt-6">
                 {!! \App\Support\SafeRichContent::toHtml($page->content) !!}
             </div>
+
+            @if (! empty($showInstallCommands))
+                <div class="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
+                    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                        {{ app()->getLocale() === 'tr' ? 'Güncel kurulum komutları' : 'Current install commands' }}
+                    </h2>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                        {{ app()->getLocale() === 'tr'
+                            ? 'Aşağıdaki komutlar deploy betikleriyle senkron tutulur; URL değişiklikleri yönetim → Görünüm → Kurulum komutları ekranından yapılır.'
+                            : 'Commands below stay in sync with deploy scripts; URL overrides live in Admin → Appearance → Install commands.' }}
+                    </p>
+                    <x-landing.install-commands variant="full" class="mt-6" />
+                </div>
+            @endif
         </article>
     </div>
 </x-site.layout>

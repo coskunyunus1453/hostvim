@@ -3,7 +3,7 @@
         <div>
             <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Görünüm</h1>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Site ayarları, tema ayarları ve ana sayfa içerik yönetimini tek ekranda sekmelerle düzenleyin.
+                Site ayarları, tema, ana sayfa içeriği ve kurulum komutlarını tek ekranda sekmelerle düzenleyin.
             </p>
         </div>
 
@@ -27,6 +27,12 @@
                         @click="tab = 'home'">
                     Ana sayfa içeriği
                 </button>
+                <button type="button"
+                        class="admin-btn-outline px-4 py-2 text-xs"
+                        :class="tab === 'install' ? '!border-orange-500 !text-orange-700 dark:!text-orange-200' : ''"
+                        @click="tab = 'install'">
+                    Kurulum komutları
+                </button>
             </div>
 
             <div x-show="tab === 'site'" x-cloak>
@@ -39,6 +45,10 @@
 
             <div x-show="tab === 'home'" x-cloak>
                 @include('admin.public-home-content.edit', ['embedded' => true])
+            </div>
+
+            <div x-show="tab === 'install'" x-cloak>
+                @include('admin.install-settings.edit', ['embedded' => true, 'installSettings' => $installSettings ?? \App\Services\InstallGuide::settings()])
             </div>
         </div>
     </div>
