@@ -26,6 +26,8 @@ export type DomainQuickRow = {
   server_type: string
   status: string
   ssl_enabled?: boolean
+  /** Alt alan adı için panel domain id + subdomain kaydı */
+  subdomain_id?: number
 }
 
 const PHP_VERSIONS = ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'] as const
@@ -320,7 +322,9 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
   const sslIssueM = useMutation({
     mutationFn: async () => {
       if (!domain) return
-      await api.post(`/domains/${domain.id}/ssl/issue`, {})
+      await api.post(`/domains/${domain.id}/ssl/issue`, {
+        ...(domain.subdomain_id ? { subdomain_id: domain.subdomain_id } : {}),
+      })
     },
     onSuccess: () => {
       setSslPhase('done')
@@ -366,7 +370,9 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
   const sslRevokeM = useMutation({
     mutationFn: async () => {
       if (!domain) return
-      await api.post(`/domains/${domain.id}/ssl/revoke`, {})
+      await api.post(`/domains/${domain.id}/ssl/revoke`, {
+        ...(domain.subdomain_id ? { subdomain_id: domain.subdomain_id } : {}),
+      })
     },
     onSuccess: () => {
       toast.success(t('ssl.revoked'))
@@ -432,7 +438,11 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             className="btn-secondary inline-flex items-center justify-center gap-2"
             onClick={() => {
               onClose()
-              navigate(`/files?domain=${domain.id}`)
+              navigate(
+                domain.subdomain_id
+                  ? `/files?domain=${domain.id}&subdomain_id=${domain.subdomain_id}`
+                  : `/files?domain=${domain.id}`,
+              )
             }}
           >
             <FolderOpen className="h-4 w-4" />

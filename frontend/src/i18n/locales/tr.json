@@ -512,6 +512,8 @@
     "subdomain_delete_confirm": "{{hostname}} alt alan adı kaldırılsın mı? Dosyalar silinir.",
     "subdomain_of": "{{domain}} altında",
     "subdomain_badge": "Alt alan",
+    "subdomain_files": "Dosya yöneticisi (site kökü)",
+    "subdomain_ssl": "SSL sertifikası",
     "add_mode_alias": "Park / alias",
     "alias_new_title": "Park edilmiş alan adı (alias)",
     "alias_parent": "Ana site",
@@ -1297,7 +1299,9 @@
     "status_none": "Yok",
     "provider_letsencrypt": "Let's Encrypt",
     "provider_manual": "Manuel",
-    "col_settings": "Ayarlar"
+    "col_settings": "Ayarlar",
+    "subdomain_hint": "Alt alan adları (ör. blog.site.com) ana domain ile aynı şekilde Let's Encrypt sertifikası alabilir. DNS kaydının sunucuya işaret ettiğinden emin olun.",
+    "subdomain_settings_na": "HTTPS yönlendirme yalnızca ana domain için"
   },
   "cron": {
     "subtitle": "Hazır zamanlamalar, özel cron ifadesi ve görev kotası özeti",

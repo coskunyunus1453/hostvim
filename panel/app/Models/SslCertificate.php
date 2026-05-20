@@ -11,6 +11,7 @@ class SslCertificate extends Model
 
     protected $fillable = [
         'domain_id',
+        'site_subdomain_id',
         'provider',
         'type',
         'status',
@@ -33,6 +34,11 @@ class SslCertificate extends Model
     public function domain()
     {
         return $this->belongsTo(Domain::class);
+    }
+
+    public function siteSubdomain()
+    {
+        return $this->belongsTo(SiteSubdomain::class);
     }
 
     public function isExpiringSoon(): bool

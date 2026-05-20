@@ -4,18 +4,19 @@ import { useState } from 'react'
 import api from '../services/api'
 import { Lock, RefreshCw, ShieldOff, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useHostingTargets, type HostingTarget } from '../hooks/useHostingTargets'
 
 type Cert = {
   id: number
   domain_id: number
+  site_subdomain_id?: number | null
   provider: string
   status: string
   auto_renew: boolean
   expires_at: string | null
   domain?: { id: number; name: string; force_https?: boolean; ssl_enabled?: boolean }
+  site_subdomain?: { id: number; hostname: string } | null
 }
-
-type DomainOpt = { id: number; name: string; force_https?: boolean; ssl_enabled?: boolean }
 
 function statusLabel(status: string | undefined, t: (k: string) => string): string {
   switch (status) {
@@ -49,10 +50,14 @@ function statusBadgeClass(status: string | undefined): string {
   }
 }
 
+function certKey(domainId: number, subdomainId?: number | null): string {
+  return subdomainId ? `${domainId}:s:${subdomainId}` : `${domainId}:d`
+}
+
 export default function SslPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [manualDomainId, setManualDomainId] = useState<number | null>(null)
+  const [manualTarget, setManualTarget] = useState<HostingTarget | null>(null)
   const [manualCert, setManualCert] = useState('')
   const [manualKey, setManualKey] = useState('')
 
@@ -61,26 +66,28 @@ export default function SslPage() {
     queryFn: async () => (await api.get('/ssl')).data as { certificates: Cert[] },
   })
 
-  const domainsQ = useQuery({
-    queryKey: ['domains', 'paginated'],
-    queryFn: async () => (await api.get('/domains')).data,
-  })
+  const targetsQ = useHostingTargets()
+  const targets = targetsQ.data ?? []
 
   const certs = sslQ.data?.certificates ?? []
-  const domains: DomainOpt[] = domainsQ.data?.data ?? []
 
-  const certByDomain = new Map<number, Cert>()
+  const certByTarget = new Map<string, Cert>()
   for (const c of certs) {
-    certByDomain.set(c.domain_id, c)
+    certByTarget.set(certKey(c.domain_id, c.site_subdomain_id), c)
   }
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['ssl'] })
     qc.invalidateQueries({ queryKey: ['domains'] })
+    qc.invalidateQueries({ queryKey: ['hosting-targets'] })
   }
 
+  const sslBody = (target: HostingTarget) =>
+    target.subdomain_id ? { subdomain_id: target.subdomain_id } : {}
+
   const issueM = useMutation({
-    mutationFn: async (id: number) => api.post(`/domains/${id}/ssl/issue`),
+    mutationFn: async (target: HostingTarget) =>
+      api.post(`/domains/${target.domain_id}/ssl/issue`, sslBody(target)),
     onSuccess: () => {
       toast.success(t('ssl.issued'))
       invalidate()
@@ -92,7 +99,8 @@ export default function SslPage() {
   })
 
   const renewM = useMutation({
-    mutationFn: async (id: number) => api.post(`/domains/${id}/ssl/renew`),
+    mutationFn: async (target: HostingTarget) =>
+      api.post(`/domains/${target.domain_id}/ssl/renew`, sslBody(target)),
     onSuccess: () => {
       toast.success(t('ssl.renewed'))
       invalidate()
@@ -104,7 +112,8 @@ export default function SslPage() {
   })
 
   const revokeM = useMutation({
-    mutationFn: async (id: number) => api.post(`/domains/${id}/ssl/revoke`),
+    mutationFn: async (target: HostingTarget) =>
+      api.post(`/domains/${target.domain_id}/ssl/revoke`, sslBody(target)),
     onSuccess: () => {
       toast.success(t('ssl.revoked'))
       invalidate()
@@ -132,14 +141,15 @@ export default function SslPage() {
   })
 
   const manualM = useMutation({
-    mutationFn: async (vars: { id: number; certificate: string; private_key: string }) =>
-      api.post(`/domains/${vars.id}/ssl/manual`, {
+    mutationFn: async (vars: { target: HostingTarget; certificate: string; private_key: string }) =>
+      api.post(`/domains/${vars.target.domain_id}/ssl/manual`, {
         certificate: vars.certificate,
         private_key: vars.private_key,
+        ...(vars.target.subdomain_id ? { subdomain_id: vars.target.subdomain_id } : {}),
       }),
     onSuccess: () => {
       toast.success(t('ssl.manual_uploaded'))
-      setManualDomainId(null)
+      setManualTarget(null)
       setManualCert('')
       setManualKey('')
       invalidate()
@@ -156,6 +166,8 @@ export default function SslPage() {
     return Math.ceil(ms / 86400000)
   }
 
+  const loading = targetsQ.isLoading || sslQ.isLoading
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -171,6 +183,7 @@ export default function SslPage() {
         <div>
           <p className="font-medium text-gray-900 dark:text-white">{t('ssl.info_title')}</p>
           <p className="mt-1">{t('ssl.info_body')}</p>
+          <p className="mt-2 text-xs text-gray-500">{t('ssl.subdomain_hint')}</p>
         </div>
       </div>
 
@@ -188,38 +201,51 @@ export default function SslPage() {
               </tr>
             </thead>
             <tbody>
-              {domainsQ.isLoading || sslQ.isLoading ? (
+              {loading ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     {t('common.loading')}
                   </td>
                 </tr>
               ) : (
-                domains.map((d) => {
-                  const c = certByDomain.get(d.id)
-                  const hasSsl = Boolean(c?.status === 'active' || d.ssl_enabled)
-                  const forceHttps = c?.domain?.force_https ?? d.force_https ?? true
+                targets.map((ht) => {
+                  const c = certByTarget.get(certKey(ht.domain_id, ht.subdomain_id))
+                  const isSub = ht.kind === 'subdomain'
+                  const hasSsl = Boolean(c?.status === 'active' || ht.ssl_enabled)
+                  const forceHttps = !isSub && (c?.domain?.force_https ?? true)
                   const autoRenew = c?.auto_renew ?? false
-                  const days = daysUntil(c?.expires_at)
+                  const days = daysUntil(c?.expires_at ?? ht.ssl_expiry ?? null)
                   const expiringSoon = days !== null && days >= 0 && days <= 30
 
                   return (
-                    <tr key={d.id} className="border-t border-gray-100 dark:border-gray-800">
-                      <td className="px-4 py-3 font-medium">{d.name}</td>
+                    <tr
+                      key={ht.key}
+                      className="border-t border-gray-100 dark:border-gray-800"
+                    >
+                      <td className="px-4 py-3 font-medium">
+                        <span className={isSub ? 'pl-4 font-mono text-sm' : ''}>
+                          {isSub ? `↳ ${ht.hostname}` : ht.hostname}
+                        </span>
+                        {isSub && (
+                          <p className="pl-4 text-[11px] font-normal text-gray-500">
+                            {t('domains.subdomain_of', { domain: ht.parent_domain })}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                         {c ? providerLabel(c.provider, t) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(c?.status)}`}
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(c?.status ?? ht.ssl_status ?? undefined)}`}
                         >
-                          {c ? statusLabel(c.status, t) : t('ssl.no_cert')}
+                          {c ? statusLabel(c.status, t) : ht.ssl_status ? statusLabel(ht.ssl_status, t) : t('ssl.no_cert')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-500">
-                        {c?.expires_at ? (
+                        {(c?.expires_at ?? ht.ssl_expiry) ? (
                           <span className={expiringSoon ? 'text-amber-600 dark:text-amber-400' : ''}>
-                            {new Date(c.expires_at).toLocaleString()}
+                            {new Date(c?.expires_at ?? ht.ssl_expiry!).toLocaleString()}
                             {expiringSoon && days !== null && (
                               <span className="ml-1 block text-xs">
                                 {t('ssl.expiring_soon', { days })}
@@ -231,38 +257,42 @@ export default function SslPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="space-y-2">
-                          <label
-                            className={`flex items-center gap-2 text-xs ${hasSsl ? 'cursor-pointer' : 'opacity-50'}`}
-                            title={t('ssl.force_https_hint')}
-                          >
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300"
-                              checked={forceHttps}
-                              disabled={!hasSsl || settingsM.isPending}
-                              onChange={(e) =>
-                                settingsM.mutate({ id: d.id, force_https: e.target.checked })
-                              }
-                            />
-                            <span>{t('ssl.force_https')}</span>
-                          </label>
-                          <label
-                            className={`flex items-center gap-2 text-xs ${c ? 'cursor-pointer' : 'opacity-50'}`}
-                            title={t('ssl.auto_renew_hint')}
-                          >
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300"
-                              checked={autoRenew}
-                              disabled={!c || settingsM.isPending}
-                              onChange={(e) =>
-                                settingsM.mutate({ id: d.id, auto_renew: e.target.checked })
-                              }
-                            />
-                            <span>{t('ssl.auto_renew')}</span>
-                          </label>
-                        </div>
+                        {isSub ? (
+                          <span className="text-xs text-gray-400">{t('ssl.subdomain_settings_na')}</span>
+                        ) : (
+                          <div className="space-y-2">
+                            <label
+                              className={`flex items-center gap-2 text-xs ${hasSsl ? 'cursor-pointer' : 'opacity-50'}`}
+                              title={t('ssl.force_https_hint')}
+                            >
+                              <input
+                                type="checkbox"
+                                className="rounded border-gray-300"
+                                checked={forceHttps}
+                                disabled={!hasSsl || settingsM.isPending}
+                                onChange={(e) =>
+                                  settingsM.mutate({ id: ht.domain_id, force_https: e.target.checked })
+                                }
+                              />
+                              <span>{t('ssl.force_https')}</span>
+                            </label>
+                            <label
+                              className={`flex items-center gap-2 text-xs ${c ? 'cursor-pointer' : 'opacity-50'}`}
+                              title={t('ssl.auto_renew_hint')}
+                            >
+                              <input
+                                type="checkbox"
+                                className="rounded border-gray-300"
+                                checked={autoRenew}
+                                disabled={!c || settingsM.isPending}
+                                onChange={(e) =>
+                                  settingsM.mutate({ id: ht.domain_id, auto_renew: e.target.checked })
+                                }
+                              />
+                              <span>{t('ssl.auto_renew')}</span>
+                            </label>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-wrap justify-end gap-1">
@@ -270,7 +300,7 @@ export default function SslPage() {
                             type="button"
                             className="btn-secondary text-xs py-1 px-2"
                             disabled={issueM.isPending}
-                            onClick={() => issueM.mutate(d.id)}
+                            onClick={() => issueM.mutate(ht)}
                           >
                             {t('ssl.issue')}
                           </button>
@@ -278,7 +308,7 @@ export default function SslPage() {
                             type="button"
                             className="btn-secondary text-xs py-1 px-2 inline-flex items-center gap-1"
                             disabled={!c || renewM.isPending}
-                            onClick={() => renewM.mutate(d.id)}
+                            onClick={() => renewM.mutate(ht)}
                           >
                             <RefreshCw className="h-3 w-3" />
                             {t('ssl.renew')}
@@ -286,21 +316,23 @@ export default function SslPage() {
                           <button
                             type="button"
                             className="btn-secondary text-xs py-1 px-2 text-red-600 inline-flex items-center gap-1"
-                            disabled={!c || revokeM.isPending}
+                            disabled={!hasSsl || revokeM.isPending}
                             onClick={() => {
-                              if (window.confirm(t('ssl.confirm_revoke'))) revokeM.mutate(d.id)
+                              if (window.confirm(t('ssl.confirm_revoke'))) revokeM.mutate(ht)
                             }}
                           >
                             <ShieldOff className="h-3 w-3" />
                             {t('ssl.revoke')}
                           </button>
-                          <button
-                            type="button"
-                            className="btn-secondary text-xs py-1 px-2"
-                            onClick={() => setManualDomainId(d.id)}
-                          >
-                            {t('ssl.manual_upload')}
-                          </button>
+                          {!isSub && (
+                            <button
+                              type="button"
+                              className="btn-secondary text-xs py-1 px-2"
+                              onClick={() => setManualTarget(ht)}
+                            >
+                              {t('ssl.manual_upload')}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -310,65 +342,46 @@ export default function SslPage() {
             </tbody>
           </table>
         </div>
-        {!domainsQ.isLoading && domains.length === 0 && (
+        {!loading && targets.length === 0 && (
           <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
         )}
       </div>
 
-      {manualDomainId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card w-full max-w-3xl bg-white p-6 dark:bg-gray-900">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+      {manualTarget && (
+        <div className="card space-y-4 p-4">
+          <h2 className="font-semibold text-gray-900 dark:text-white">
+            {t('ssl.manual_upload')} — {manualTarget.hostname}
+          </h2>
+          <textarea
+            className="input font-mono text-xs min-h-[120px]"
+            placeholder={t('ssl.cert_pem')}
+            value={manualCert}
+            onChange={(e) => setManualCert(e.target.value)}
+          />
+          <textarea
+            className="input font-mono text-xs min-h-[120px]"
+            placeholder={t('ssl.private_key_pem')}
+            value={manualKey}
+            onChange={(e) => setManualKey(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={manualM.isPending || manualCert.length < 64 || manualKey.length < 64}
+              onClick={() =>
+                manualM.mutate({
+                  target: manualTarget,
+                  certificate: manualCert,
+                  private_key: manualKey,
+                })
+              }
+            >
               {t('ssl.manual_upload')}
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <label className="label">{t('ssl.cert_pem')}</label>
-                <textarea
-                  className="input min-h-[140px] w-full font-mono text-xs"
-                  value={manualCert}
-                  onChange={(e) => setManualCert(e.target.value)}
-                  placeholder="-----BEGIN CERTIFICATE-----"
-                />
-              </div>
-              <div>
-                <label className="label">{t('ssl.private_key_pem')}</label>
-                <textarea
-                  className="input min-h-[140px] w-full font-mono text-xs"
-                  value={manualKey}
-                  onChange={(e) => setManualKey(e.target.value)}
-                  placeholder="-----BEGIN PRIVATE KEY-----"
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  setManualDomainId(null)
-                  setManualCert('')
-                  setManualKey('')
-                }}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={manualM.isPending || !manualCert.trim() || !manualKey.trim()}
-                onClick={() => {
-                  if (manualDomainId === null) return
-                  manualM.mutate({
-                    id: manualDomainId,
-                    certificate: manualCert.trim(),
-                    private_key: manualKey.trim(),
-                  })
-                }}
-              >
-                {t('common.save')}
-              </button>
-            </div>
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setManualTarget(null)}>
+              {t('common.cancel')}
+            </button>
           </div>
         </div>
       )}

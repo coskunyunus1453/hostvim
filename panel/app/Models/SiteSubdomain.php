@@ -12,7 +12,24 @@ class SiteSubdomain extends Model
         'hostname',
         'path_segment',
         'document_root',
+        'php_version',
+        'server_type',
+        'ssl_enabled',
+        'ssl_expiry',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'ssl_enabled' => 'boolean',
+            'ssl_expiry' => 'datetime',
+        ];
+    }
+
+    public function sslCertificate()
+    {
+        return $this->hasOne(SslCertificate::class, 'site_subdomain_id');
+    }
 
     public function site(): BelongsTo
     {

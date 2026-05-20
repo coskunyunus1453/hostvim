@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\DomainApacheVhostController;
 use App\Http\Controllers\Api\DomainNginxVhostController;
 use App\Http\Controllers\Api\EmailAccountController;
 use App\Http\Controllers\Api\FileManagerController;
+use App\Http\Controllers\Api\HostingTargetsController;
 use App\Http\Controllers\Api\FtpController;
 use App\Http\Controllers\Api\Integrations\WhmcsProvisioningController;
 use App\Http\Controllers\Api\Integrations\WhmcsResourcesController;
@@ -112,6 +113,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     });
 
     Route::middleware('ability:domains:read')->group(function () {
+        Route::get('hosting/targets', [HostingTargetsController::class, 'index']);
         Route::get('domains/options', [DomainController::class, 'options']);
         Route::get('domains', [DomainController::class, 'index']);
         Route::get('domains/{domain}', [DomainController::class, 'show']);

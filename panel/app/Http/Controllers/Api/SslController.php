@@ -8,6 +8,7 @@ use App\Models\Domain;
 use App\Models\SslCertificate;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
+use App\Services\HostingSiteTargetResolver;
 use App\Services\SslIssueService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,13 +21,17 @@ class SslController extends Controller
         private EngineApiService $engine,
         private HostingQuotaService $quota,
         private SslIssueService $sslIssue,
+        private HostingSiteTargetResolver $targets,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
         $domainIds = $request->user()->domains()->pluck('id');
         $certs = SslCertificate::whereIn('domain_id', $domainIds)
-            ->with('domain:id,name,force_https,ssl_enabled')
+            ->with([
+                'domain:id,name,force_https,ssl_enabled',
+                'siteSubdomain:id,hostname',
+            ])
             ->get();
 
         return response()->json(['certificates' => $certs]);
@@ -40,13 +45,15 @@ class SslController extends Controller
 
         $validated = $request->validate([
             'email' => 'nullable|email',
+            'subdomain_id' => 'nullable|integer',
         ]);
 
         $result = $this->sslIssue->issue(
             $request->user(),
             $domain,
             $validated['email'] ?? null,
-            config('hostvim.lets_encrypt_email') ?: null
+            config('hostvim.lets_encrypt_email') ?: null,
+            isset($validated['subdomain_id']) ? (int) $validated['subdomain_id'] : null,
         );
 
         if (! $result['ok']) {
@@ -71,14 +78,26 @@ class SslController extends Controller
             abort(403);
         }
 
+        $validated = $request->validate([
+            'subdomain_id' => 'nullable|integer',
+        ]);
+
         $this->quota->ensureSslAllowed($request->user());
 
-        $cert = $domain->sslCertificate;
+        $target = $this->targets->forDomain(
+            $domain,
+            isset($validated['subdomain_id']) ? (int) $validated['subdomain_id'] : null,
+        );
+
+        $cert = SslCertificate::query()
+            ->where('domain_id', $domain->id)
+            ->where('site_subdomain_id', $target->subdomain?->id)
+            ->first();
         if (! $cert) {
             return response()->json(['message' => __('ssl.missing')], 404);
         }
 
-        $engine = $this->engine->renewSSL($domain->name);
+        $engine = $this->engine->renewSSL($target->hostname);
         if (! empty($engine['error'])) {
             return response()->json([
                 'message' => $engine['error'],
@@ -98,16 +117,37 @@ class SslController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
-        $engine = $this->engine->revokeSSL($domain->name);
+
+        $validated = $request->validate([
+            'subdomain_id' => 'nullable|integer',
+        ]);
+
+        $target = $this->targets->forDomain(
+            $domain,
+            isset($validated['subdomain_id']) ? (int) $validated['subdomain_id'] : null,
+        );
+
+        $engine = $this->engine->revokeSSL($target->hostname);
         if (! empty($engine['error'])) {
             return response()->json(['message' => $engine['error']], 503);
         }
 
-        $domain->sslCertificate?->delete();
-        $domain->update([
-            'ssl_enabled' => false,
-            'ssl_expiry' => null,
-        ]);
+        SslCertificate::query()
+            ->where('domain_id', $domain->id)
+            ->where('site_subdomain_id', $target->subdomain?->id)
+            ->delete();
+
+        if ($target->isSubdomain() && $target->subdomain) {
+            $target->subdomain->update([
+                'ssl_enabled' => false,
+                'ssl_expiry' => null,
+            ]);
+        } else {
+            $domain->update([
+                'ssl_enabled' => false,
+                'ssl_expiry' => null,
+            ]);
+        }
 
         return response()->json([
             'message' => __('ssl.revoked'),

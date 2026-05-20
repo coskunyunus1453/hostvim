@@ -513,6 +513,8 @@
     "subdomain_delete_confirm": "Remove subdomain {{hostname}}? Its files will be deleted.",
     "subdomain_of": "Under {{domain}}",
     "subdomain_badge": "Subdomain",
+    "subdomain_files": "File manager (site root)",
+    "subdomain_ssl": "SSL certificate",
     "add_mode_alias": "Park / alias",
     "alias_new_title": "Parked domain (alias)",
     "alias_parent": "Primary site",
@@ -1298,7 +1300,9 @@
     "status_none": "None",
     "provider_letsencrypt": "Let's Encrypt",
     "provider_manual": "Manual",
-    "col_settings": "Settings"
+    "col_settings": "Settings",
+    "subdomain_hint": "Subdomains (e.g. blog.example.com) can get Let's Encrypt certificates like the main domain. Ensure DNS points to this server.",
+    "subdomain_settings_na": "HTTPS redirect applies to the main domain only"
   },
   "cron": {
     "subtitle": "Presets, custom cron expression, and quota summary",

@@ -4,6 +4,11 @@ import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useDropzone, type DropEvent } from 'react-dropzone'
 import api from '../services/api'
+import {
+  useHostingTargets,
+  targetSelectValue,
+  parseTargetSelectValue,
+} from '../hooks/useHostingTargets'
 import { useThemeStore } from '../store/themeStore'
 import {
   ArrowLeft,
@@ -240,7 +245,11 @@ function formatMtimeIso(sec?: number): string {
   }
 }
 
-async function fetchAllFileEntries(domainId: number, dirRel: string): Promise<ListEntry[]> {
+async function fetchAllFileEntries(
+  domainId: number,
+  dirRel: string,
+  subdomainId?: number,
+): Promise<ListEntry[]> {
   const all: ListEntry[] = []
   let offset = 0
   const limit = 2000
@@ -251,6 +260,7 @@ async function fetchAllFileEntries(domainId: number, dirRel: string): Promise<Li
     u.set('sort', 'name')
     u.set('order', 'asc')
     if (dirRel) u.set('path', dirRel)
+    if (subdomainId) u.set('subdomain_id', String(subdomainId))
     let data: { entries?: ListEntry[]; total?: number } | null = null
     try {
       const res = await api.get<{ entries?: ListEntry[]; total?: number }>(
@@ -374,6 +384,9 @@ export default function FileManagerPage() {
   const { isDark } = useThemeStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const domainParam = searchParams.get('domain')
+  const subdomainParam = searchParams.get('subdomain_id')
+  const subdomainId =
+    subdomainParam && Number(subdomainParam) > 0 ? Number(subdomainParam) : undefined
   const [domainId, setDomainId] = useState<number | ''>(() => {
     const n = domainParam ? Number(domainParam) : NaN
     return Number.isFinite(n) && n > 0 ? n : ''
@@ -493,20 +506,18 @@ export default function FileManagerPage() {
     conflicts: UploadConflictRow[]
   } | null>(null)
 
-  const domainsQ = useQuery({
-    queryKey: ['domains', 'paginated'],
-    queryFn: async () => (await api.get('/domains')).data,
-  })
+  const targetsQ = useHostingTargets()
+  const hostingTargets = targetsQ.data ?? []
 
-  const domainOptions = useMemo(() => {
-    const raw = domainsQ.data
-    if (!raw) return [] as { id: number; name: string }[]
-    if (Array.isArray(raw)) return raw as { id: number; name: string }[]
-    if (raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data)) {
-      return (raw as { data: { id: number; name: string }[] }).data
+  const targetSelectValueCurrent = useMemo(() => {
+    if (domainId === '') return ''
+    if (subdomainId) {
+      const t = hostingTargets.find((x) => x.subdomain_id === subdomainId)
+      return t ? targetSelectValue(t) : ''
     }
-    return []
-  }, [domainsQ.data])
+    const t = hostingTargets.find((x) => x.kind === 'domain' && x.domain_id === domainId)
+    return t ? targetSelectValue(t) : `d:${domainId}`
+  }, [domainId, subdomainId, hostingTargets])
 
   useEffect(() => {
     if (!domainParam) return
@@ -517,23 +528,23 @@ export default function FileManagerPage() {
   }, [domainParam])
 
   useEffect(() => {
-    if (domainOptions.length === 0) return
-    const hasCurrent = domainId !== '' && domainOptions.some((d) => d.id === domainId)
-    if (hasCurrent) return
-
-    const firstId = domainOptions[0]?.id
-    if (!firstId || !Number.isFinite(firstId)) return
-
-    setDomainId(firstId)
+    if (hostingTargets.length === 0) return
+    if (targetSelectValueCurrent !== '') return
+    const first = hostingTargets[0]
+    if (!first) return
+    const { domainId: dId, subdomainId: sId } = parseTargetSelectValue(targetSelectValue(first))
+    setDomainId(dId)
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        next.set('domain', String(firstId))
+        next.set('domain', String(dId))
+        if (sId) next.set('subdomain_id', String(sId))
+        else next.delete('subdomain_id')
         return next
       },
       { replace: true },
     )
-  }, [domainOptions, domainId, setSearchParams])
+  }, [hostingTargets, targetSelectValueCurrent, setSearchParams])
 
   useEffect(() => {
     if (domainId === '') return
@@ -546,13 +557,14 @@ export default function FileManagerPage() {
     }
   }, [domainId])
 
-  const onDomainSelectChange = (value: string) => {
+  const onTargetSelectChange = (value: string) => {
     if (!value) {
       setDomainId('')
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
           next.delete('domain')
+          next.delete('subdomain_id')
           next.delete('path')
           return next
         },
@@ -560,13 +572,15 @@ export default function FileManagerPage() {
       )
       return
     }
-    const n = Number(value)
-    if (!Number.isFinite(n) || n <= 0) return
-    setDomainId(n)
+    const { domainId: dId, subdomainId: sId } = parseTargetSelectValue(value)
+    if (!Number.isFinite(dId) || dId <= 0) return
+    setDomainId(dId)
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        next.set('domain', String(n))
+        next.set('domain', String(dId))
+        if (sId) next.set('subdomain_id', String(sId))
+        else next.delete('subdomain_id')
         next.delete('path')
         return next
       },
@@ -574,24 +588,46 @@ export default function FileManagerPage() {
     )
   }
 
+  const fileReqConfig = useCallback(
+    (extra?: { params?: Record<string, unknown> }) => ({
+      ...extra,
+      params: {
+        ...(extra?.params ?? {}),
+        ...(subdomainId ? { subdomain_id: subdomainId } : {}),
+      },
+    }),
+    [subdomainId],
+  )
+
   const filesQ = useQuery<FilesListResponse>({
-    queryKey: ['files', domainId, path, pageSize, offset, sortKey, sortOrder],
+    queryKey: ['files', domainId, subdomainId, path, pageSize, offset, sortKey, sortOrder],
     enabled: domainId !== '',
     staleTime: 15_000,
     gcTime: 120_000,
     refetchOnWindowFocus: false,
     placeholderData: (prev, prevQuery) => {
-      const pk = prevQuery?.queryKey as [string, number | '', string, number, number, string, string] | undefined
+      const pk = prevQuery?.queryKey as
+        | [string, number | '', number | undefined, string, number, number, string, string]
+        | undefined
       if (!pk || !prev) return undefined
-      if (pk[1] === domainId && pk[2] === path && pk[3] === pageSize && pk[4] === offset && pk[5] === sortKey && pk[6] === sortOrder) {
+      if (
+        pk[1] === domainId &&
+        pk[2] === subdomainId &&
+        pk[3] === path &&
+        pk[4] === pageSize &&
+        pk[5] === offset &&
+        pk[6] === sortKey &&
+        pk[7] === sortOrder
+      ) {
         return prev
       }
       return undefined
     },
     queryFn: async ({ queryKey, signal }) => {
-      const [, domId, pathSeg, lim, off, sk, so] = queryKey as [
+      const [, domId, subId, pathSeg, lim, off, sk, so] = queryKey as [
         string,
         number,
+        number | undefined,
         string,
         number,
         number,
@@ -606,6 +642,7 @@ export default function FileManagerPage() {
       if (pathSeg !== '') {
         u.set('path', pathSeg)
       }
+      if (subId) u.set('subdomain_id', String(subId))
       const { data } = await api.get(`/domains/${domId}/files?${u.toString()}`, { signal })
       return data as FilesListResponse
     },
@@ -696,7 +733,7 @@ export default function FileManagerPage() {
         const { data } = await api.post<{ content: string }>(
           `/domains/${domainId}/files/read`,
           { path: relPath },
-          { signal: ac.signal, timeout: 120_000 },
+          { ...fileReqConfig(), signal: ac.signal, timeout: 120_000 },
         )
         if (openFileSeqRef.current !== seq) return
         const c = data?.content ?? ''
@@ -724,14 +761,14 @@ export default function FileManagerPage() {
         })
       }
     },
-    [domainId, tabs, t],
+    [domainId, subdomainId, tabs, t, fileReqConfig],
   )
 
   const downloadAsFile = useCallback(
     async (rel: string) => {
       if (!domainId) return
       const res = await api.get(`/domains/${domainId}/files/download`, {
-        params: { path: rel },
+        ...fileReqConfig({ params: { path: rel } }),
         responseType: 'blob',
       })
       const blob = res.data as Blob
@@ -745,14 +782,14 @@ export default function FileManagerPage() {
       a.remove()
       URL.revokeObjectURL(url)
     },
-    [domainId],
+    [domainId, fileReqConfig],
   )
 
   const previewImage = useCallback(
     async (rel: string) => {
       if (!domainId) return
       const res = await api.get(`/domains/${domainId}/files/download`, {
-        params: { path: rel },
+        ...fileReqConfig({ params: { path: rel } }),
         responseType: 'blob',
       })
       const blob = res.data as Blob
@@ -763,18 +800,18 @@ export default function FileManagerPage() {
         return { url, filename }
       })
     },
-    [domainId],
+    [domainId, fileReqConfig],
   )
 
   const mkdirM = useMutation({
     mutationFn: async (name: string) => {
       const target = path ? joinRel(path, name) : name
-      await api.post(`/domains/${domainId}/files/mkdir`, { path: target })
+      await api.post(`/domains/${domainId}/files/mkdir`, { path: target }, fileReqConfig())
     },
     onSuccess: async () => {
       toast.success(t('files.folder_created'))
       setOffset(0)
-      await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -785,13 +822,13 @@ export default function FileManagerPage() {
   const createFileM = useMutation({
     mutationFn: async (fileName: string) => {
       const target = path ? joinRel(path, fileName) : fileName
-      await api.post(`/domains/${domainId}/files/create`, { path: target, content: '' })
+      await api.post(`/domains/${domainId}/files/create`, { path: target, content: '' }, fileReqConfig())
       return target
     },
     onSuccess: async (relPath) => {
       toast.success(t('files.file_created'))
       setOffset(0)
-      await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       const base = relPath.split('/').pop() || relPath
       if (isEditableFile(base)) {
         void openFileWrapped(relPath)
@@ -812,6 +849,7 @@ export default function FileManagerPage() {
       const res = await api.post<{
         auto_web?: { applied?: boolean; profile?: string; variant?: string; error?: string }
       }>(`/domains/${domainId}/files/upload`, fd, {
+        ...fileReqConfig(),
         onUploadProgress: (ev) => {
           const total = ev.total && ev.total > 0 ? ev.total : sizeHint
           onProgress?.(ev.loaded, total > 0 ? total : Math.max(ev.loaded, 1))
@@ -819,23 +857,23 @@ export default function FileManagerPage() {
       })
       return res.data
     },
-    [domainId],
+    [domainId, fileReqConfig],
   )
 
   const deleteRemotePath = useCallback(
     async (rel: string) => {
       await api.delete(`/domains/${domainId}/files`, {
-        params: { path: rel },
+        ...fileReqConfig({ params: { path: rel } }),
         data: { path: rel },
       })
     },
-    [domainId],
+    [domainId, fileReqConfig],
   )
 
   const runUploadItems = useCallback(
     async (items: NormalizedUploadItem[]) => {
       if (items.length === 0) {
-        await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+        await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
         return
       }
       // Hedefte eksik klasörleri önce oluştur (recursive).
@@ -850,7 +888,7 @@ export default function FileManagerPage() {
       }
       for (const dir of Array.from(needDirs).sort((a, b) => a.length - b.length)) {
         try {
-          await api.post(`/domains/${domainId}/files/mkdir`, { path: dir })
+          await api.post(`/domains/${domainId}/files/mkdir`, { path: dir }, fileReqConfig())
         } catch (err: unknown) {
           const ax = err as { response?: { data?: { message?: string } } }
           const msg = String(ax.response?.data?.message ?? '')
@@ -944,7 +982,7 @@ export default function FileManagerPage() {
         }
 
         setOffset(0)
-        await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+        await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
         if (failed === 0 && ok > 0) {
           toast.success(t('files.upload_ok'))
         } else if (ok > 0 && failed > 0) {
@@ -1014,7 +1052,7 @@ export default function FileManagerPage() {
 
       setUploadBusy(true)
       try {
-        const rootListing = await fetchAllFileEntries(domainId, basePath)
+        const rootListing = await fetchAllFileEntries(domainId, basePath, subdomainId)
         for (const it of items) {
           const segs = it.relFromBase.split('/').filter(Boolean)
           const top = segs[0]
@@ -1030,7 +1068,7 @@ export default function FileManagerPage() {
         parentCache.set(basePath, rootListing)
         const loadParent = async (p: string) => {
           if (!parentCache.has(p)) {
-            parentCache.set(p, await fetchAllFileEntries(domainId, p))
+            parentCache.set(p, await fetchAllFileEntries(domainId, p, subdomainId))
           }
           return parentCache.get(p)!
         }
@@ -1064,18 +1102,18 @@ export default function FileManagerPage() {
         setUploadBusy(false)
       }
     },
-    [domainId, path, runUploadItems, t],
+    [domainId, subdomainId, path, runUploadItems, t],
   )
 
   const trashMoveM = useMutation({
     mutationFn: async (rel: string) => {
-      await api.post(`/domains/${domainId}/files/trash/move`, { path: rel })
+      await api.post(`/domains/${domainId}/files/trash/move`, { path: rel }, fileReqConfig())
     },
     onSuccess: () => {
       toast.success(t('files.moved_to_trash'))
       setSelected(null)
       setOffset(0)
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -1085,10 +1123,10 @@ export default function FileManagerPage() {
 
   const renameM = useMutation({
     mutationFn: async (vars: { from: string; to: string }) =>
-      api.post(`/domains/${domainId}/files/rename`, vars),
+      api.post(`/domains/${domainId}/files/rename`, vars, fileReqConfig()),
     onSuccess: () => {
       toast.success('Ad değiştirildi')
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setSelected(null)
       setOffset(0)
       setRenameDialog(null)
@@ -1101,10 +1139,10 @@ export default function FileManagerPage() {
 
   const moveM = useMutation({
     mutationFn: async (vars: { from: string; to: string }) =>
-      api.post(`/domains/${domainId}/files/move`, vars),
+      api.post(`/domains/${domainId}/files/move`, vars, fileReqConfig()),
     onSuccess: () => {
       toast.success('Taşındı')
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setSelected(null)
       setOffset(0)
       setMoveDialog(null)
@@ -1117,10 +1155,10 @@ export default function FileManagerPage() {
 
   const copyM = useMutation({
     mutationFn: async (vars: { from: string; to: string }) =>
-      api.post(`/domains/${domainId}/files/copy`, vars),
+      api.post(`/domains/${domainId}/files/copy`, vars, fileReqConfig()),
     onSuccess: () => {
       toast.success(t('files.copied'))
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setOffset(0)
     },
     onError: (err: unknown) => {
@@ -1131,10 +1169,10 @@ export default function FileManagerPage() {
 
   const chmodM = useMutation({
     mutationFn: async (vars: { path: string; mode: string }) =>
-      api.post(`/domains/${domainId}/files/chmod`, vars),
+      api.post(`/domains/${domainId}/files/chmod`, vars, fileReqConfig()),
     onSuccess: () => {
       toast.success(t('files.chmod_ok'))
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setChmodDialog(null)
     },
     onError: (err: unknown) => {
@@ -1146,7 +1184,9 @@ export default function FileManagerPage() {
   const bulkChmodM = useMutation({
     mutationFn: async (vars: { paths: string[]; mode: string }) => {
       const settled = await Promise.allSettled(
-        vars.paths.map((p) => api.post(`/domains/${domainId}/files/chmod`, { path: p, mode: vars.mode })),
+        vars.paths.map((p) =>
+          api.post(`/domains/${domainId}/files/chmod`, { path: p, mode: vars.mode }, fileReqConfig()),
+        ),
       )
       const failed = settled.filter((x) => x.status === 'rejected').length
       return { total: vars.paths.length, failed }
@@ -1154,7 +1194,7 @@ export default function FileManagerPage() {
     onSuccess: ({ total, failed }) => {
       if (failed === 0) toast.success(t('files.bulk_chmod_ok', { total }))
       else toast.error(t('files.bulk_chmod_fail', { failed, total }))
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -1167,6 +1207,7 @@ export default function FileManagerPage() {
       const { data } = await api.post<{ ok?: number; failed?: { path: string; message: string }[]; total?: number }>(
         `/domains/${domainId}/files/trash/move-bulk`,
         { paths },
+        fileReqConfig(),
       )
       const failed = data?.failed?.length ?? 0
       const totalCount = data?.total ?? paths.length
@@ -1178,7 +1219,7 @@ export default function FileManagerPage() {
       setSelectedIds(new Set())
       setSelected(null)
       setOffset(0)
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -1187,20 +1228,24 @@ export default function FileManagerPage() {
   })
 
   const trashQ = useQuery({
-    queryKey: ['files-trash', domainId],
+    queryKey: ['files-trash', domainId, subdomainId],
     enabled: Boolean(domainId) && trashOpen,
     queryFn: async () => {
-      const { data } = await api.get<{ items: TrashItem[] }>(`/domains/${domainId}/files/trash`)
+      const { data } = await api.get<{ items: TrashItem[] }>(
+        `/domains/${domainId}/files/trash`,
+        fileReqConfig(),
+      )
       return data?.items ?? []
     },
   })
 
   const trashRestoreM = useMutation({
-    mutationFn: async (id: string) => api.post(`/domains/${domainId}/files/trash/restore`, { id }),
+    mutationFn: async (id: string) =>
+      api.post(`/domains/${domainId}/files/trash/restore`, { id }, fileReqConfig()),
     onSuccess: async () => {
       toast.success(t('files.trash_restored'))
-      await qc.invalidateQueries({ queryKey: ['files-trash', domainId] })
-      await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      await qc.invalidateQueries({ queryKey: ['files-trash', domainId, subdomainId] })
+      await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -1210,10 +1255,10 @@ export default function FileManagerPage() {
 
   const trashDeleteM = useMutation({
     mutationFn: async (id: string) =>
-      api.delete(`/domains/${domainId}/files/trash/item`, { params: { id } }),
+      api.delete(`/domains/${domainId}/files/trash/item`, fileReqConfig({ params: { id } })),
     onSuccess: async () => {
       toast.success(t('files.trash_deleted'))
-      await qc.invalidateQueries({ queryKey: ['files-trash', domainId] })
+      await qc.invalidateQueries({ queryKey: ['files-trash', domainId, subdomainId] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -1222,10 +1267,10 @@ export default function FileManagerPage() {
   })
 
   const trashEmptyM = useMutation({
-    mutationFn: async () => api.delete(`/domains/${domainId}/files/trash/empty`),
+    mutationFn: async () => api.delete(`/domains/${domainId}/files/trash/empty`, fileReqConfig()),
     onSuccess: async () => {
       toast.success(t('files.trash_emptied'))
-      await qc.invalidateQueries({ queryKey: ['files-trash', domainId] })
+      await qc.invalidateQueries({ queryKey: ['files-trash', domainId, subdomainId] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -1235,10 +1280,10 @@ export default function FileManagerPage() {
 
   const zipM = useMutation({
     mutationFn: async (vars: { source: string; target: string }) =>
-      api.post(`/domains/${domainId}/files/zip`, vars),
+      api.post(`/domains/${domainId}/files/zip`, vars, fileReqConfig()),
     onSuccess: () => {
       toast.success(t('files.zip_ok'))
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setOffset(0)
     },
     onError: (err: unknown) => {
@@ -1249,12 +1294,16 @@ export default function FileManagerPage() {
 
   const unzipM = useMutation({
     mutationFn: async (vars: { archive: string; target_dir: string; if_exists?: 'fail' | 'overwrite' | 'skip' }) =>
-      api.post(`/domains/${domainId}/files/unzip`, {
-        archive: vars.archive,
-        target_dir: vars.target_dir,
-        targetDir: vars.target_dir,
-        if_exists: vars.if_exists ?? 'fail',
-      }),
+      api.post(
+        `/domains/${domainId}/files/unzip`,
+        {
+          archive: vars.archive,
+          target_dir: vars.target_dir,
+          targetDir: vars.target_dir,
+          if_exists: vars.if_exists ?? 'fail',
+        },
+        fileReqConfig(),
+      ),
     onSuccess: (res) => {
       toast.success(t('files.unzip_ok'))
       const autoProfile = (res.data as { auto_web?: { applied?: boolean; profile?: string } } | undefined)?.auto_web?.profile
@@ -1290,7 +1339,7 @@ export default function FileManagerPage() {
                                     : t('domains.auto_profile_standard')
         toast.success(t('domains.auto_web_applied', { profile: profileText }))
       }
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setOffset(0)
     },
     onError: (err: unknown) => {
@@ -1344,7 +1393,7 @@ export default function FileManagerPage() {
       const basePath = searchIncludeSubdirs ? '' : path
       const { data } = await api.get<{ hits: { path: string; line: number; preview: string }[] }>(
         `/domains/${domainId}/files/search`,
-        { params: { path: basePath, q } },
+        fileReqConfig({ params: { path: basePath, q } }),
       )
       return data?.hits ?? []
     },
@@ -1362,19 +1411,23 @@ export default function FileManagerPage() {
     async (idx: number) => {
       const tab = tabs[idx]
       if (!tab || tab.loading || !domainId) return
-      await api.post(`/domains/${domainId}/files/write`, {
-        path: tab.path,
-        content: tab.content,
-      })
+      await api.post(
+        `/domains/${domainId}/files/write`,
+        {
+          path: tab.path,
+          content: tab.content,
+        },
+        fileReqConfig(),
+      )
       setTabs((prev) => {
         const n = [...prev]
         if (n[idx]) n[idx] = { ...n[idx], original: n[idx].content }
         return n
       })
       toast.success(t('files.saved_file', { path: tab.path }))
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
-    [tabs, domainId, path, qc, t],
+    [tabs, domainId, subdomainId, path, qc, t, fileReqConfig],
   )
 
   const saveAllM = useMutation({
@@ -1383,17 +1436,21 @@ export default function FileManagerPage() {
         .map((tab, i) => ({ tab, i }))
         .filter(({ tab }) => !tab.loading && tab.content !== tab.original)
       for (const { tab } of dirty) {
-        await api.post(`/domains/${domainId}/files/write`, {
-          path: tab.path,
-          content: tab.content,
-        })
+        await api.post(
+          `/domains/${domainId}/files/write`,
+          {
+            path: tab.path,
+            content: tab.content,
+          },
+          fileReqConfig(),
+        )
       }
       return dirty.length
     },
     onSuccess: (n) => {
       setTabs((prev) => prev.map((tab) => ({ ...tab, original: tab.content })))
       toast.success(t('files.saved_all', { count: n }))
-      qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
       toast.error(String(err))
@@ -1492,9 +1549,9 @@ export default function FileManagerPage() {
     const baseTarget = joinRel(destDir, name)
     const op = async (from: string, to: string) => {
       if (clipboardMode === 'cut') {
-        await api.post(`/domains/${domainId}/files/move`, { from, to })
+        await api.post(`/domains/${domainId}/files/move`, { from, to }, fileReqConfig())
       } else {
-        await api.post(`/domains/${domainId}/files/copy`, { from, to })
+        await api.post(`/domains/${domainId}/files/copy`, { from, to }, fileReqConfig())
       }
     }
 
@@ -1505,7 +1562,7 @@ export default function FileManagerPage() {
 
     if (strategy === 'overwrite') {
       await api.delete(`/domains/${domainId}/files`, {
-        params: { path: baseTarget },
+        ...fileReqConfig({ params: { path: baseTarget } }),
         data: { path: baseTarget },
       })
       await op(sourcePath, baseTarget)
@@ -1533,9 +1590,9 @@ export default function FileManagerPage() {
     const baseTarget = joinRel(destDir, name)
     const op = async (from: string, to: string) => {
       if (clipboardMode === 'cut') {
-        await api.post(`/domains/${domainId}/files/move`, { from, to })
+        await api.post(`/domains/${domainId}/files/move`, { from, to }, fileReqConfig())
       } else {
-        await api.post(`/domains/${domainId}/files/copy`, { from, to })
+        await api.post(`/domains/${domainId}/files/copy`, { from, to }, fileReqConfig())
       }
     }
     try {
@@ -1554,7 +1611,7 @@ export default function FileManagerPage() {
     if (clipboardMode === 'cut') {
       setClipboardPath(null)
     }
-    await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+    await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     toast.success(t('files.paste_done'))
   }
   const contextMenuPos = useMemo(() => {
@@ -2386,17 +2443,17 @@ export default function FileManagerPage() {
             <select
               id="file-manager-domain"
               className="input w-full min-w-0 text-sm"
-              value={domainId === '' ? '' : String(domainId)}
+              value={targetSelectValueCurrent}
               onChange={(e) => {
-                onDomainSelectChange(e.target.value)
+                onTargetSelectChange(e.target.value)
                 setSelected(null)
                 setSearchHits([])
               }}
             >
               <option value="">{t('common.select')}</option>
-              {domainOptions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
+              {hostingTargets.map((ht) => (
+                <option key={ht.key} value={targetSelectValue(ht)}>
+                  {ht.kind === 'subdomain' ? `↳ ${ht.hostname}` : ht.hostname}
                 </option>
               ))}
             </select>
@@ -2455,7 +2512,7 @@ export default function FileManagerPage() {
               type="button"
               className="btn-secondary inline-flex flex-1 items-center justify-center gap-2 py-2 text-sm"
               onClick={() => {
-                void domainsQ.refetch()
+                void targetsQ.refetch()
                 void filesQ.refetch()
               }}
               title={t('common.refresh')}
@@ -2951,10 +3008,10 @@ export default function FileManagerPage() {
               if (name?.trim()) {
                 const rel = joinRel(contextBaseDir, name.trim())
                 api
-                  .post(`/domains/${domainId}/files/mkdir`, { path: rel })
+                  .post(`/domains/${domainId}/files/mkdir`, { path: rel }, fileReqConfig())
                   .then(() => {
                     toast.success(t('files.folder_created'))
-                    qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+                    qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
                   })
                   .catch((err: unknown) => {
                     const ax = err as { response?: { data?: { message?: string } } }
@@ -2979,10 +3036,10 @@ export default function FileManagerPage() {
               }
               const rel = joinRel(contextBaseDir, base)
               api
-                .post(`/domains/${domainId}/files/create`, { path: rel, content: '' })
+                .post(`/domains/${domainId}/files/create`, { path: rel, content: '' }, fileReqConfig())
                 .then(() => {
                   toast.success(t('files.file_created'))
-                  qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+                  qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
                 })
                 .catch((err: unknown) => {
                   const ax = err as { response?: { data?: { message?: string } } }
@@ -3335,7 +3392,7 @@ export default function FileManagerPage() {
                   try {
                     await executePasteWithStrategy(next.sourcePath, next.destDir, 'rename')
                     if (clipboardMode === 'cut') setClipboardPath(null)
-                    await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+                    await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
                     toast.success(t('files.paste_done'))
                   } catch (err: unknown) {
                     const ax = err as { response?: { data?: { message?: string } } }
@@ -3355,7 +3412,7 @@ export default function FileManagerPage() {
                   try {
                     await executePasteWithStrategy(next.sourcePath, next.destDir, 'overwrite')
                     if (clipboardMode === 'cut') setClipboardPath(null)
-                    await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
+                    await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
                     toast.success(t('files.paste_done'))
                   } catch (err: unknown) {
                     const ax = err as { response?: { data?: { message?: string } } }

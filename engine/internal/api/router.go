@@ -666,19 +666,47 @@ func tailFileElevated(path string, lines int) (string, error) {
 func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Domain string `json:"domain" binding:"required"`
-			Email  string `json:"email"`
+			Domain       string `json:"domain" binding:"required"`
+			Hostname     string `json:"hostname"`
+			ParentDomain string `json:"parent_domain"`
+			PathSegment  string `json:"path_segment"`
+			Email        string `json:"email"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
-		if err != nil || meta == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
-			return
+		parent := strings.ToLower(strings.TrimSpace(req.ParentDomain))
+		seg := strings.TrimSpace(req.PathSegment)
+		certName := strings.ToLower(strings.TrimSpace(req.Domain))
+		if h := strings.ToLower(strings.TrimSpace(req.Hostname)); h != "" {
+			certName = h
 		}
-		if err := ssl.Issue(cfg, req.Domain, meta.DocumentRoot, req.Email); err != nil {
+		var meta *sites.SiteMeta
+		var isSub bool
+		if parent != "" && seg != "" {
+			subMeta, err := sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, seg)
+			if err != nil || subMeta == nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "subdomain not found"})
+				return
+			}
+			meta = subMeta
+			isSub = true
+			if certName == "" && strings.TrimSpace(meta.Hostname) != "" {
+				certName = strings.ToLower(strings.TrimSpace(meta.Hostname))
+			}
+		} else {
+			var err error
+			meta, err = sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
+			if err != nil || meta == nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+				return
+			}
+			if certName == "" {
+				certName = strings.ToLower(strings.TrimSpace(req.Domain))
+			}
+		}
+		if err := ssl.Issue(cfg, certName, meta.DocumentRoot, req.Email); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -687,19 +715,31 @@ func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 		meta.ForceHTTPS = &force
 		phpSock := ""
 		if cfg.Hosting.PHPFPMmanagePools {
-			phpSock = phpfpmSettings(cfg).SocketForDomain(req.Domain)
+			poolKey := parent
+			if poolKey == "" {
+				poolKey = req.Domain
+			}
+			phpSock = phpfpmSettings(cfg).SocketForDomain(poolKey)
 		} else {
 			phpSock = nginx.EffectivePHPSocket(meta.PHPVersion, cfg.Hosting.PHPFPMsocket)
 		}
-		if err := hosting.ApplyWebServer(cfg, req.Domain, meta.DocumentRoot, meta, phpSock); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		var applyErr error
+		if isSub {
+			applyErr = hosting.ApplySubdomainVhost(cfg, parent, certName, meta.DocumentRoot, meta)
+			if applyErr == nil {
+				applyErr = sites.WriteSubdomainMeta(cfg.Paths.WebRoot, parent, seg, meta)
+			}
+		} else {
+			applyErr = hosting.ApplyWebServer(cfg, req.Domain, meta.DocumentRoot, meta, phpSock)
+			if applyErr == nil {
+				applyErr = sites.WriteSiteMeta(cfg.Paths.WebRoot, req.Domain, meta)
+			}
+		}
+		if applyErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": applyErr.Error()})
 			return
 		}
-		if err := sites.WriteSiteMeta(cfg.Paths.WebRoot, req.Domain, meta); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "SSL certificate issued", "domain": req.Domain, "ssl_enabled": true})
+		c.JSON(http.StatusOK, gin.H{"message": "SSL certificate issued", "domain": certName, "ssl_enabled": true})
 	}
 }
 

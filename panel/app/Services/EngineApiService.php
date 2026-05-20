@@ -178,14 +178,17 @@ class EngineApiService
         ]);
     }
 
-    public function issueSSL(string $domain, ?string $email = null): array
+    public function issueSSL(string $hostname, ?string $email = null, ?string $parentDomain = null, ?string $pathSegment = null): array
     {
-        $data = ['domain' => $domain];
+        $data = ['domain' => $hostname, 'hostname' => $hostname];
         if ($email !== null && $email !== '') {
             $data['email'] = $email;
         }
+        if ($parentDomain !== null && $parentDomain !== '' && $pathSegment !== null && $pathSegment !== '') {
+            $data['parent_domain'] = $parentDomain;
+            $data['path_segment'] = $pathSegment;
+        }
 
-        // certbot + ACME doğrulaması 45 sn’yi aşabilir; kısa timeout yanlış 502/timeout üretir.
         return $this->postLongChecked('/api/v1/ssl/issue', $data, 900);
     }
 

@@ -9,6 +9,7 @@ import {
   BarChart2,
   ExternalLink,
   FileText,
+  FolderOpen,
   Globe,
   Loader2,
   Layers,
@@ -30,7 +31,9 @@ import {
   YAxis,
 } from 'recharts'
 import DomainDeleteConfirmModal from '../components/domains/DomainDeleteConfirmModal'
-import DomainQuickSettingsModal from '../components/domains/DomainQuickSettingsModal'
+import DomainQuickSettingsModal, {
+  type DomainQuickRow,
+} from '../components/domains/DomainQuickSettingsModal'
 import { safeDomainUrl } from '../lib/urlSafety'
 
 const PHP_OPTIONS = ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'] as const
@@ -56,6 +59,9 @@ type SiteSubdomainRow = {
   hostname: string
   path_segment: string
   document_root?: string
+  php_version?: string
+  server_type?: string
+  ssl_enabled?: boolean
 }
 
 function buildSubdomainHostname(parent: string, prefix: string): string {
@@ -130,7 +136,7 @@ export default function DomainsPage() {
   const [aliasHostname, setAliasHostname] = useState('')
   const [issueLeOnCreate, setIssueLeOnCreate] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<DomainRow | null>(null)
-  const [quickTarget, setQuickTarget] = useState<DomainRow | null>(null)
+  const [quickTarget, setQuickTarget] = useState<DomainQuickRow | null>(null)
   const [busy, setBusy] = useState<Record<number, Busy>>({})
   const [sslProgress, setSslProgress] = useState<Record<number, SslProgress>>({})
   const [logTarget, setLogTarget] = useState<DomainRow | null>(null)
@@ -1232,9 +1238,22 @@ export default function DomainsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-3 text-sm text-gray-500">{domain.php_version}</td>
-                      <td className="px-6 py-3 text-sm text-gray-400">—</td>
-                      <td className="px-6 py-3 text-sm text-gray-500">{domain.server_type}</td>
+                      <td className="px-6 py-3 text-sm text-gray-500">
+                        {sub.php_version ?? domain.php_version}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-400">
+                        {sub.ssl_enabled ? (
+                          <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            {t('domains.ssl_active')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">{t('domains.ssl_none')}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-500">
+                        {sub.server_type ?? domain.server_type}
+                      </td>
                       <td className="px-6 py-3">
                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                           {t('domains.subdomain_badge')}
@@ -1242,6 +1261,38 @@ export default function DomainsPage() {
                       </td>
                       <td className="px-6 py-3 text-right">
                         <div className="inline-flex items-center justify-end gap-1">
+                          <Link
+                            to={`/files?domain=${domain.id}&subdomain_id=${sub.id}`}
+                            title={t('domains.subdomain_files')}
+                            className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                          >
+                            <FolderOpen className="h-4 w-4" />
+                          </Link>
+                          <Link
+                            to="/ssl"
+                            title={t('domains.subdomain_ssl')}
+                            className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/40 text-green-600 dark:text-green-400"
+                          >
+                            <Shield className="h-4 w-4" />
+                          </Link>
+                          <button
+                            type="button"
+                            title={t('domains.quick_settings')}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                            onClick={() =>
+                              setQuickTarget({
+                                id: domain.id,
+                                subdomain_id: sub.id,
+                                name: sub.hostname,
+                                php_version: sub.php_version ?? domain.php_version,
+                                server_type: sub.server_type ?? domain.server_type,
+                                status: domain.status,
+                                ssl_enabled: sub.ssl_enabled,
+                              })
+                            }
+                          >
+                            <Settings className="h-4 w-4" />
+                          </button>
                           <button
                             type="button"
                             title={t('domains.open_site')}

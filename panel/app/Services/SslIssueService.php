@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Models\Domain;
+use App\Models\SiteSubdomain;
 use App\Models\SslCertificate;
 use App\Models\User;
+use App\Support\HostingSiteTarget;
+use App\Services\HostingSiteTargetResolver;
 use Illuminate\Support\Str;
 
 class SslIssueService
@@ -31,6 +34,7 @@ class SslIssueService
     public function __construct(
         private EngineApiService $engine,
         private HostingQuotaService $quota,
+        private HostingSiteTargetResolver $targets,
     ) {}
 
     /**
@@ -44,11 +48,21 @@ class SslIssueService
      *     engine?: array<string, mixed>
      * }
      */
-    public function issue(User $user, Domain $domain, ?string $emailFromRequest, ?string $configFallbackEmail): array
+    public function issue(User $user, Domain $domain, ?string $emailFromRequest, ?string $configFallbackEmail, ?int $subdomainId = null): array
     {
         $this->quota->ensureSslAllowed($user);
 
-        $diagnostics = $this->preflightDiagnostics($domain);
+        $target = $this->targets->forDomain($domain, $subdomainId);
+
+        return $this->issueForTarget($user, $target, $emailFromRequest, $configFallbackEmail);
+    }
+
+    /**
+     * @return array{ok: bool, http_status: int, message?: string, certificate?: SslCertificate|null, engine?: array<string, mixed>, diagnostics?: list<array<string, mixed>>}
+     */
+    public function issueForTarget(User $user, HostingSiteTarget $target, ?string $emailFromRequest, ?string $configFallbackEmail): array
+    {
+        $diagnostics = $this->preflightDiagnostics($target->hostname, $target->documentRoot);
 
         $email = $emailFromRequest;
         if ($email === null || $email === '') {
@@ -74,7 +88,10 @@ class SslIssueService
         }
 
         $cert = SslCertificate::updateOrCreate(
-            ['domain_id' => $domain->id],
+            [
+                'domain_id' => $target->domain->id,
+                'site_subdomain_id' => $target->subdomain?->id,
+            ],
             [
                 'provider' => 'letsencrypt',
                 'type' => 'dv',
@@ -83,24 +100,31 @@ class SslIssueService
             ]
         );
 
-        // Eski vhost şablonları ACME yolunu engelliyor olabilir; issue öncesi conf'u tekrar uygula.
-        $activate = $this->engine->activateSite($domain->name);
-        if (! empty($activate['error'])) {
-            $cert->update(['status' => 'failed']);
-            return [
-                'ok' => false,
-                'http_status' => 503,
-                'message' => (string) $activate['error'],
-                'certificate' => $cert->fresh(),
-                'engine' => $activate,
-                'diagnostics' => $diagnostics,
-            ];
+        if (! $target->isSubdomain()) {
+            $activate = $this->engine->activateSite($target->engineSiteName);
+            if (! empty($activate['error'])) {
+                $cert->update(['status' => 'failed']);
+
+                return [
+                    'ok' => false,
+                    'http_status' => 503,
+                    'message' => (string) $activate['error'],
+                    'certificate' => $cert->fresh(),
+                    'engine' => $activate,
+                    'diagnostics' => $diagnostics,
+                ];
+            }
         }
 
-        $engine = $this->engine->issueSSL($domain->name, is_string($email) ? $email : null);
+        $engine = $this->engine->issueSSL(
+            $target->hostname,
+            is_string($email) ? $email : null,
+            $target->isSubdomain() ? $target->engineSiteName : null,
+            $target->subdomain?->path_segment,
+        );
         if (! empty($engine['error'])) {
             $cert->update(['status' => 'failed']);
-            $domain->update(['ssl_enabled' => false, 'ssl_expiry' => null]);
+            $this->clearSslFlags($target);
 
             return [
                 'ok' => false,
@@ -113,11 +137,7 @@ class SslIssueService
         }
 
         $cert->update(['status' => 'active', 'issued_at' => now(), 'expires_at' => now()->addDays(90)]);
-        $domain->update([
-            'ssl_enabled' => true,
-            'ssl_expiry' => $cert->expires_at,
-            'force_https' => true,
-        ]);
+        $this->applySslFlags($target, $cert);
 
         return [
             'ok' => true,
@@ -125,7 +145,37 @@ class SslIssueService
             'message' => (string) __('ssl.issued'),
             'certificate' => $cert->fresh(),
             'engine' => $engine,
+            'hostname' => $target->hostname,
         ];
+    }
+
+    private function applySslFlags(HostingSiteTarget $target, SslCertificate $cert): void
+    {
+        if ($target->isSubdomain() && $target->subdomain) {
+            $target->subdomain->update([
+                'ssl_enabled' => true,
+                'ssl_expiry' => $cert->expires_at,
+            ]);
+
+            return;
+        }
+
+        $target->domain->update([
+            'ssl_enabled' => true,
+            'ssl_expiry' => $cert->expires_at,
+            'force_https' => true,
+        ]);
+    }
+
+    private function clearSslFlags(HostingSiteTarget $target): void
+    {
+        if ($target->isSubdomain() && $target->subdomain) {
+            $target->subdomain->update(['ssl_enabled' => false, 'ssl_expiry' => null]);
+
+            return;
+        }
+
+        $target->domain->update(['ssl_enabled' => false, 'ssl_expiry' => null]);
     }
 
     /**
@@ -133,12 +183,15 @@ class SslIssueService
      *
      * @return list<array{key: string, ok: bool, message: string}>
      */
-    private function preflightDiagnostics(Domain $domain): array
+    /**
+     * @return list<array{key: string, ok: bool, message: string}>
+     */
+    private function preflightDiagnostics(string $hostname, string $documentRoot): array
     {
         $rows = [];
 
-        $host = trim((string) $domain->name);
-        $docroot = trim((string) ($domain->document_root ?? ''));
+        $host = trim($hostname);
+        $docroot = trim($documentRoot);
 
         // DNS resolve
         $ip = $host !== '' ? gethostbyname($host) : '';

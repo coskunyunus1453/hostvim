@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\AuthorizesUserDomain;
+use App\Http\Controllers\Concerns\ResolvesHostingSiteTarget;
 use App\Http\Controllers\Controller;
 use App\Models\Domain;
+use App\Support\HostingSiteTarget;
 use App\Models\PanelSetting;
 use App\Services\AutoWebConfigurator;
 use App\Services\EngineApiService;
@@ -17,6 +19,7 @@ use Illuminate\Support\Str;
 class FileManagerController extends Controller
 {
     use AuthorizesUserDomain;
+    use ResolvesHostingSiteTarget;
 
     private const TRASH_DIR = '.hostvim-trash';
 
@@ -34,13 +37,12 @@ class FileManagerController extends Controller
      * Panelin “site document_root altına göreli path” gönderdiği varsayımıyla,
      * engine'in “engine web_root/domain altına göreli path” beklediği çeviriyi yapar.
      */
-    private function panelRelToEngineRel(Domain $domain, string $panelRel): string
+    private function panelRelToEngineRel(HostingSiteTarget $target, string $panelRel): string
     {
         $hostingRoot = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
-        $engineRoot = $hostingRoot.DIRECTORY_SEPARATOR.$domain->name;
+        $engineRoot = $hostingRoot.DIRECTORY_SEPARATOR.$hostingTarget->engineSiteName;
 
-        // Domain.document_root panelde tam path (örn. /var/www/example.com/public_html)
-        $docRoot = $this->fileManagerBasePath($domain);
+        $docRoot = $this->fileManagerBasePath($target);
 
         $panelRelNorm = str_replace('\\', '/', trim($panelRel));
         $panelRelNorm = ltrim($panelRelNorm, '/'); // engine tarafı leading slash'ları temizliyor ama biz net olsun diye
@@ -55,7 +57,7 @@ class FileManagerController extends Controller
             $baseRel = substr($docRootNorm, strlen($engineRootNorm) + 1);
         } else {
             // Fallback: document_root hostingRoot/domain altında mı?
-            $expectedPrefix = $hostingRoot.'/'.$domain->name.'/';
+            $expectedPrefix = $hostingRoot.'/'.$hostingTarget->engineSiteName.'/';
             if ($hostingRoot !== '' && str_starts_with($docRootNorm, $expectedPrefix)) {
                 $baseRel = substr($docRootNorm, strlen($expectedPrefix));
             }
@@ -78,25 +80,32 @@ class FileManagerController extends Controller
      * - Laravel/Symfony gibi "public" giriş noktasında: bir üst dizin (kod kökü)
      *   Böylece kullanıcı public_html/public'a sabitlenmez.
      */
-    private function fileManagerBasePath(Domain $domain): string
+    private function fileManagerBasePath(HostingSiteTarget $target): string
     {
-        $docRoot = str_replace('\\', '/', (string) $domain->document_root);
-        $docRoot = rtrim($docRoot, '/');
+        $docRoot = str_replace('\\', '/', rtrim($target->documentRoot, '/'));
         if ($docRoot === '') {
-            return (string) $domain->document_root;
+            return $target->documentRoot;
+        }
+
+        if ($target->isSubdomain()) {
+            $siteRoot = dirname($docRoot);
+            if (str_ends_with(strtolower($docRoot), '/public')) {
+                if (is_file($siteRoot.'/artisan') || is_file($siteRoot.'/composer.json') || is_file($siteRoot.'/spark')) {
+                    return $siteRoot;
+                }
+            }
+
+            return $siteRoot !== '.' && $siteRoot !== '/' ? $siteRoot : $docRoot;
         }
 
         if (str_ends_with(strtolower($docRoot), '/public')) {
             $parent = dirname($docRoot);
-            $artisan = $parent.'/artisan';
-            $composer = $parent.'/composer.json';
-            // Laravel/Symfony olasılığında file manager'ı kod köküne taşı.
-            if (is_file($artisan) || is_file($composer)) {
+            if (is_file($parent.'/artisan') || is_file($parent.'/composer.json')) {
                 return $parent;
             }
         }
 
-        return (string) $domain->document_root;
+        return $docRoot;
     }
 
     public function index(Request $request, Domain $domain): JsonResponse
@@ -104,9 +113,9 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
-        // Dizin listesi: read/delete/download ile aynı çözümleme (bazı proxy/SAPI’lerde query('path') boş kalabiliyor).
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $path = $this->resolveFileManagerPath($request);
-        $engineRelPath = $this->panelRelToEngineRel($domain, $path);
+        $engineRelPath = $this->panelRelToEngineRel($hostingTarget, $path);
 
         $limit = (int) $request->query('limit', 200);
         $offset = (int) $request->query('offset', 0);
@@ -118,12 +127,14 @@ class FileManagerController extends Controller
         $sort = in_array($sort, ['name', 'size', 'mtime'], true) ? $sort : 'name';
         $order = strtolower($order) === 'desc' ? 'desc' : 'asc';
 
-        $list = $this->engine->listFilesResult($domain->name, $engineRelPath, $limit, $offset, $sort, $order);
+        $list = $this->engine->listFilesResult($hostingTarget->engineSiteName, $engineRelPath, $limit, $offset, $sort, $order);
         if ($list['error'] !== null) {
             return response()->json([
                 'message' => $list['error'],
                 'entries' => [],
-                'document_root_hint' => $domain->document_root,
+                'document_root_hint' => $hostingTarget->documentRoot,
+                'hostname' => $hostingTarget->hostname,
+                'subdomain_id' => $hostingTarget->subdomain?->id,
                 'total' => 0,
                 'offset' => $offset,
                 'limit' => $limit,
@@ -132,7 +143,10 @@ class FileManagerController extends Controller
 
         return response()->json([
             'entries' => $list['entries'],
-            'document_root_hint' => $domain->document_root,
+            'document_root_hint' => $hostingTarget->documentRoot,
+            'file_manager_root' => $this->fileManagerBasePath($hostingTarget),
+            'hostname' => $hostingTarget->hostname,
+            'subdomain_id' => $hostingTarget->subdomain?->id,
             'total' => $list['total'] ?? 0,
             'offset' => $list['offset'] ?? $offset,
             'limit' => $list['limit'] ?? $limit,
@@ -144,6 +158,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate([
             'path' => 'nullable|string|max:2048',
             'q' => 'required|string|min:2|max:256',
@@ -151,8 +166,8 @@ class FileManagerController extends Controller
 
         return response()->json([
             'hits' => $this->engine->searchFiles(
-                $domain->name,
-                $this->panelRelToEngineRel($domain, (string) ($validated['path'] ?? '')),
+                $hostingTarget->engineSiteName,
+                $this->panelRelToEngineRel($hostingTarget, (string) ($validated['path'] ?? '')),
                 $validated['q']
             ),
         ]);
@@ -163,16 +178,17 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate(['path' => 'required|string']);
 
-        $enginePath = $this->panelRelToEngineRel($domain, $validated['path']);
-        $templateMode = $this->inferSiblingMode($domain, $enginePath, true);
-        $result = $this->engine->mkdirFile($domain->name, $enginePath);
+        $enginePath = $this->panelRelToEngineRel($hostingTarget, $validated['path']);
+        $templateMode = $this->inferSiblingMode($hostingTarget, $enginePath, true);
+        $result = $this->engine->mkdirFile($hostingTarget->engineSiteName, $enginePath);
         if (! empty($result['error'])) {
             return response()->json(['message' => $result['error']], 422);
         }
         if ($templateMode !== null) {
-            $this->engine->chmodFile($domain->name, $enginePath, $templateMode);
+            $this->engine->chmodFile($hostingTarget->engineSiteName, $enginePath, $templateMode);
         }
 
         return response()->json($result);
@@ -183,13 +199,14 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $from = $this->resolveFileManagerPath($request);
         if ($from === '') {
             return response()->json(['message' => 'The path field is required.'], 422);
         }
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
         try {
-            $result = $this->engine->deleteFile($domain->name, $engineFrom);
+            $result = $this->engine->deleteFile($hostingTarget->engineSiteName, $engineFrom);
             if (! empty($result['error'])) {
                 $this->logFileAction($request, $domain, 'delete', $from, null, false, $result['error']);
 
@@ -209,11 +226,12 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $limit = (int) $request->query('limit', 200);
         $limit = max(1, min(200, $limit));
 
-        $metaList = $this->engine->listFilesResult($domain->name, self::TRASH_META_DIR, $limit, 0, 'mtime', 'desc');
+        $metaList = $this->engine->listFilesResult($hostingTarget->engineSiteName, self::TRASH_META_DIR, $limit, 0, 'mtime', 'desc');
         if ($metaList['error'] !== null) {
             // Trash hiç yoksa boş dön.
             return response()->json(['items' => []]);
@@ -236,7 +254,7 @@ class FileManagerController extends Controller
             }
 
             try {
-                $raw = $this->engine->readFile($domain->name, self::TRASH_META_DIR.'/'.$name);
+                $raw = $this->engine->readFile($hostingTarget->engineSiteName, self::TRASH_META_DIR.'/'.$name);
                 $meta = json_decode($raw, true);
                 if (! is_array($meta)) {
                     continue;
@@ -262,6 +280,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
             'path' => 'required|string|max:2048',
@@ -285,6 +304,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
             'paths' => 'required|array|min:1|max:500',
@@ -327,16 +347,16 @@ class FileManagerController extends Controller
     private function trashMovePath(Request $request, Domain $domain, string $from): array
     {
         $id = now()->format('YmdHis').'-'.Str::lower(Str::random(10));
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
         $engineItem = self::TRASH_ITEMS_DIR.'/'.$id;
         $engineMeta = self::TRASH_META_DIR.'/'.$id.'.json';
 
         try {
-            $this->engine->mkdirFile($domain->name, self::TRASH_DIR);
-            $this->engine->mkdirFile($domain->name, self::TRASH_ITEMS_DIR);
-            $this->engine->mkdirFile($domain->name, self::TRASH_META_DIR);
+            $this->engine->mkdirFile($hostingTarget->engineSiteName, self::TRASH_DIR);
+            $this->engine->mkdirFile($hostingTarget->engineSiteName, self::TRASH_ITEMS_DIR);
+            $this->engine->mkdirFile($hostingTarget->engineSiteName, self::TRASH_META_DIR);
 
-            $mv = $this->engine->moveFile($domain->name, $engineFrom, $engineItem);
+            $mv = $this->engine->moveFile($hostingTarget->engineSiteName, $engineFrom, $engineItem);
             if (! empty($mv['error'])) {
                 $this->logFileAction($request, $domain, 'trash_move', $from, null, false, $mv['error']);
 
@@ -349,7 +369,7 @@ class FileManagerController extends Controller
                 'deleted_at' => now()->toIso8601String(),
                 'name' => basename($from),
             ];
-            $wr = $this->engine->writeFile($domain->name, $engineMeta, json_encode($metaPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $wr = $this->engine->writeFile($hostingTarget->engineSiteName, $engineMeta, json_encode($metaPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             if (! empty($wr['error'])) {
                 $this->logFileAction($request, $domain, 'trash_meta_write', $from, null, false, $wr['error']);
             }
@@ -368,6 +388,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
             'id' => 'required|string|max:64',
@@ -381,20 +402,20 @@ class FileManagerController extends Controller
         $engineItem = self::TRASH_ITEMS_DIR.'/'.$id;
 
         try {
-            $raw = $this->engine->readFile($domain->name, $engineMeta);
+            $raw = $this->engine->readFile($hostingTarget->engineSiteName, $engineMeta);
             $meta = json_decode($raw, true);
             $origPanel = is_array($meta) ? (string) ($meta['original_path'] ?? '') : '';
             if (trim($origPanel) === '') {
                 return response()->json(['message' => 'Restore bilgisi bulunamadı.'], 404);
             }
 
-            $engineTo = $this->panelRelToEngineRel($domain, $origPanel);
-            $mv = $this->engine->moveFile($domain->name, $engineItem, $engineTo);
+            $engineTo = $this->panelRelToEngineRel($hostingTarget, $origPanel);
+            $mv = $this->engine->moveFile($hostingTarget->engineSiteName, $engineItem, $engineTo);
             if (! empty($mv['error'])) {
                 // Çakışma varsa alternatif isme restore et.
                 $altPanel = $origPanel.'.restored-'.now()->format('YmdHis');
-                $altEngine = $this->panelRelToEngineRel($domain, $altPanel);
-                $mv2 = $this->engine->moveFile($domain->name, $engineItem, $altEngine);
+                $altEngine = $this->panelRelToEngineRel($hostingTarget, $altPanel);
+                $mv2 = $this->engine->moveFile($hostingTarget->engineSiteName, $engineItem, $altEngine);
                 if (! empty($mv2['error'])) {
                     $this->logFileAction($request, $domain, 'trash_restore', $origPanel, null, false, $mv2['error']);
 
@@ -403,7 +424,7 @@ class FileManagerController extends Controller
             }
 
             // Meta'yı sil.
-            $this->engine->deleteFile($domain->name, $engineMeta);
+            $this->engine->deleteFile($hostingTarget->engineSiteName, $engineMeta);
 
             $this->logFileAction($request, $domain, 'trash_restore', $origPanel, null, true, null);
 
@@ -419,6 +440,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $id = (string) $request->query('id', '');
         $id = trim($id);
@@ -430,8 +452,8 @@ class FileManagerController extends Controller
         $engineItem = self::TRASH_ITEMS_DIR.'/'.$id;
 
         try {
-            $r1 = $this->engine->deleteFile($domain->name, $engineItem);
-            $this->engine->deleteFile($domain->name, $engineMeta);
+            $r1 = $this->engine->deleteFile($hostingTarget->engineSiteName, $engineItem);
+            $this->engine->deleteFile($hostingTarget->engineSiteName, $engineMeta);
             if (! empty($r1['error'])) {
                 $this->logFileAction($request, $domain, 'trash_delete', $id, null, false, $r1['error']);
 
@@ -451,9 +473,10 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         try {
-            $r = $this->engine->deleteFile($domain->name, self::TRASH_DIR);
+            $r = $this->engine->deleteFile($hostingTarget->engineSiteName, self::TRASH_DIR);
             if (! empty($r['error'])) {
                 $this->logFileAction($request, $domain, 'trash_empty', null, null, false, $r['error']);
 
@@ -473,14 +496,15 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $path = $this->resolveFileManagerPath($request);
         if ($path === '') {
             return response()->json(['message' => 'The path field is required.'], 422);
         }
-        $enginePath = $this->panelRelToEngineRel($domain, $path);
+        $enginePath = $this->panelRelToEngineRel($hostingTarget, $path);
 
         return response()->json([
-            'content' => $this->engine->readFile($domain->name, $enginePath),
+            'content' => $this->engine->readFile($hostingTarget->engineSiteName, $enginePath),
         ]);
     }
 
@@ -489,16 +513,17 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate([
             'path' => 'required|string',
             'content' => 'nullable|string',
         ]);
 
         $from = $validated['path'];
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
         $this->quota->ensureDiskHeadroom($request->user(), strlen((string) ($validated['content'] ?? '')));
         try {
-            $result = $this->engine->writeFile($domain->name, $engineFrom, $validated['content'] ?? '');
+            $result = $this->engine->writeFile($hostingTarget->engineSiteName, $engineFrom, $validated['content'] ?? '');
             if (! empty($result['error'])) {
                 $this->logFileAction($request, $domain, 'edit', $from, null, false, $result['error']);
 
@@ -518,6 +543,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
             'path' => 'required|string',
@@ -525,10 +551,10 @@ class FileManagerController extends Controller
         ]);
 
         $from = $validated['path'];
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
         $this->quota->ensureDiskHeadroom($request->user(), strlen((string) ($validated['content'] ?? '')));
         try {
-            $result = $this->engine->createFile($domain->name, $engineFrom, $validated['content'] ?? '');
+            $result = $this->engine->createFile($hostingTarget->engineSiteName, $engineFrom, $validated['content'] ?? '');
             if (! empty($result['error'])) {
                 $this->logFileAction($request, $domain, 'create', $from, null, false, $result['error']);
 
@@ -549,16 +575,17 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $maxKb = $this->fileManagerMaxUploadKb();
         $validated = $request->validate([
             'path' => 'nullable|string',
             'file' => 'required|file|max:'.$maxKb,
         ]);
         $relPath = (string) ($validated['path'] ?? '');
-        $engineRelPath = $this->panelRelToEngineRel($domain, $relPath);
+        $engineRelPath = $this->panelRelToEngineRel($hostingTarget, $relPath);
         // Klasör sürükle-bırakta derin/yeni dizinler gelebilir; upload öncesi dizini server tarafında garanti et.
         if (trim($engineRelPath) !== '') {
-            $mk = $this->engine->mkdirFile($domain->name, $engineRelPath);
+            $mk = $this->engine->mkdirFile($hostingTarget->engineSiteName, $engineRelPath);
             if (! empty($mk['error']) && ! str_contains(strtolower((string) $mk['error']), 'exist')) {
                 return response()->json(['message' => $mk['error']], 422);
             }
@@ -566,20 +593,20 @@ class FileManagerController extends Controller
         $up = $request->file('file');
         $baseName = basename((string) $up->getClientOriginalName());
         $engineTargetPath = trim($engineRelPath !== '' ? $engineRelPath.'/'.$baseName : $baseName, '/');
-        $templateMode = $this->inferSiblingMode($domain, $engineTargetPath, false);
+        $templateMode = $this->inferSiblingMode($hostingTarget, $engineTargetPath, false);
         $this->quota->ensureDiskHeadroom($request->user(), (int) $up->getSize());
         try {
-            $result = $this->engine->uploadFile($domain->name, $engineRelPath, $up);
+            $result = $this->engine->uploadFile($hostingTarget->engineSiteName, $engineRelPath, $up);
             $ok = empty($result['error']);
             $auto = null;
             if ($ok && $templateMode !== null) {
-                $this->engine->chmodFile($domain->name, $engineTargetPath, $templateMode);
+                $this->engine->chmodFile($hostingTarget->engineSiteName, $engineTargetPath, $templateMode);
             }
             if ($ok && $this->shouldAutoConfigureAfterUpload($baseName)) {
                 $auto = $this->autoWebConfigurator->detectAndApply($domain->fresh());
                 if (! ($auto['applied'] ?? false)) {
                     SafeAuditLogger::warning('hostvim.file_audit', [
-                        'domain' => $domain->name,
+                        'domain' => $hostingTarget->engineSiteName,
                         'action' => 'auto_web_config_after_upload_failed',
                         'error' => (string) ($auto['error'] ?? 'unknown'),
                         'profile' => (string) ($auto['profile'] ?? ''),
@@ -613,7 +640,7 @@ class FileManagerController extends Controller
     /**
      * Hedef dizindeki kardeş dosya/klasörlerden mode şablonu bulur (örn 644/755).
      */
-    private function inferSiblingMode(Domain $domain, string $engineTargetPath, bool $wantDir): ?string
+    private function inferSiblingMode(HostingSiteTarget $hostingTarget, string $engineTargetPath, bool $wantDir): ?string
     {
         $target = trim(str_replace('\\', '/', $engineTargetPath), '/');
         if ($target === '') {
@@ -624,7 +651,7 @@ class FileManagerController extends Controller
         $pos = strrpos($target, '/');
         $parent = $pos === false ? '' : substr($target, 0, $pos);
 
-        $list = $this->engine->listFilesResult($domain->name, $parent, 500, 0, 'name', 'asc');
+        $list = $this->engine->listFilesResult($hostingTarget->engineSiteName, $parent, 500, 0, 'name', 'asc');
         if (($list['error'] ?? null) !== null) {
             return null;
         }
@@ -714,6 +741,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
             'from' => 'required|string',
@@ -722,10 +750,10 @@ class FileManagerController extends Controller
 
         $from = $validated['from'];
         $to = $validated['to'];
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
-        $engineTo = $this->panelRelToEngineRel($domain, $to);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
+        $engineTo = $this->panelRelToEngineRel($hostingTarget, $to);
         try {
-            $result = $this->engine->renameFile($domain->name, $engineFrom, $engineTo);
+            $result = $this->engine->renameFile($hostingTarget->engineSiteName, $engineFrom, $engineTo);
             if (! empty($result['error'])) {
                 $this->logFileAction($request, $domain, 'rename', $from, $to, false, $result['error']);
 
@@ -745,6 +773,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
             'from' => 'required|string',
@@ -753,10 +782,10 @@ class FileManagerController extends Controller
 
         $from = $validated['from'];
         $to = $validated['to'];
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
-        $engineTo = $this->panelRelToEngineRel($domain, $to);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
+        $engineTo = $this->panelRelToEngineRel($hostingTarget, $to);
         try {
-            $result = $this->engine->moveFile($domain->name, $engineFrom, $engineTo);
+            $result = $this->engine->moveFile($hostingTarget->engineSiteName, $engineFrom, $engineTo);
             if (! empty($result['error'])) {
                 $this->logFileAction($request, $domain, 'move', $from, $to, false, $result['error']);
 
@@ -776,16 +805,17 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate([
             'from' => 'required|string',
             'to' => 'required|string',
         ]);
         $from = $validated['from'];
         $to = $validated['to'];
-        $engineFrom = $this->panelRelToEngineRel($domain, $from);
-        $engineTo = $this->panelRelToEngineRel($domain, $to);
-        $this->quota->ensureDiskHeadroom($request->user(), $this->quota->engineFileSizeBytes($domain->name, $engineFrom));
-        $result = $this->engine->copyFile($domain->name, $engineFrom, $engineTo);
+        $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
+        $engineTo = $this->panelRelToEngineRel($hostingTarget, $to);
+        $this->quota->ensureDiskHeadroom($request->user(), $this->quota->engineFileSizeBytes($hostingTarget->engineSiteName, $engineFrom));
+        $result = $this->engine->copyFile($hostingTarget->engineSiteName, $engineFrom, $engineTo);
         if (! empty($result['error'])) {
             $this->logFileAction($request, $domain, 'copy', $from, $to, false, $result['error']);
 
@@ -801,14 +831,15 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate([
             'path' => 'required|string',
             'mode' => 'required|string|regex:/^[0-7]{3,4}$/',
         ]);
         $path = $validated['path'];
         $mode = $validated['mode'];
-        $enginePath = $this->panelRelToEngineRel($domain, $path);
-        $result = $this->engine->chmodFile($domain->name, $enginePath, $mode);
+        $enginePath = $this->panelRelToEngineRel($hostingTarget, $path);
+        $result = $this->engine->chmodFile($hostingTarget->engineSiteName, $enginePath, $mode);
         if (! empty($result['error'])) {
             $this->logFileAction($request, $domain, 'chmod', $path, null, false, $result['error']);
 
@@ -824,29 +855,30 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate([
             'source' => 'required|string',
             'target' => 'required|string',
         ]);
         $source = $validated['source'];
-        $target = $validated['target'];
+        $zipDest = $validated['target'];
         $result = $this->engine->zipPath(
-            $domain->name,
-            $this->panelRelToEngineRel($domain, $source),
-            $this->panelRelToEngineRel($domain, $target)
+            $hostingTarget->engineSiteName,
+            $this->panelRelToEngineRel($hostingTarget, $source),
+            $this->panelRelToEngineRel($hostingTarget, $zipDest)
         );
         if (! empty($result['error'])) {
             // Aynı isimde zip varsa otomatik olarak benzersiz isimle bir kez daha dene.
             if (str_contains(strtolower((string) $result['error']), 'target already exists')) {
-                $dot = strrpos($target, '.');
-                $base = $dot !== false ? substr($target, 0, $dot) : $target;
-                $ext = $dot !== false ? substr($target, $dot) : '.zip';
+                $dot = strrpos($zipDest, '.');
+                $base = $dot !== false ? substr($zipDest, 0, $dot) : $zipDest;
+                $ext = $dot !== false ? substr($zipDest, $dot) : '.zip';
                 $retryTarget = $base.'-'.now()->format('YmdHis').$ext;
 
                 $retry = $this->engine->zipPath(
-                    $domain->name,
-                    $this->panelRelToEngineRel($domain, $source),
-                    $this->panelRelToEngineRel($domain, $retryTarget)
+                    $hostingTarget->engineSiteName,
+                    $this->panelRelToEngineRel($hostingTarget, $source),
+                    $this->panelRelToEngineRel($hostingTarget, $retryTarget)
                 );
                 if (empty($retry['error'])) {
                     $this->logFileAction($request, $domain, 'zip', $source, $retryTarget, true, null);
@@ -859,11 +891,11 @@ class FileManagerController extends Controller
                 $result = $retry;
             }
 
-            $this->logFileAction($request, $domain, 'zip', $source, $target, false, $result['error']);
+            $this->logFileAction($request, $domain, 'zip', $source, $zipDest, false, $result['error']);
 
             return response()->json(['message' => $result['error']], 422);
         }
-        $this->logFileAction($request, $domain, 'zip', $source, $target, true, null);
+        $this->logFileAction($request, $domain, 'zip', $source, $zipDest, true, null);
 
         return response()->json($result);
     }
@@ -873,6 +905,7 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate([
             'archive' => 'required|string',
             'target_dir' => 'nullable|string',
@@ -882,12 +915,12 @@ class FileManagerController extends Controller
         $archive = $validated['archive'];
         $targetDir = (string) ($validated['target_dir'] ?? $validated['targetDir'] ?? '');
         $ifExists = (string) ($validated['if_exists'] ?? 'fail');
-        $engineArchive = $this->panelRelToEngineRel($domain, $archive);
-        $this->quota->ensureDiskHeadroom($request->user(), $this->quota->estimatedUnzipHeadroomBytes($domain->name, $engineArchive));
+        $engineArchive = $this->panelRelToEngineRel($hostingTarget, $archive);
+        $this->quota->ensureDiskHeadroom($request->user(), $this->quota->estimatedUnzipHeadroomBytes($hostingTarget->engineSiteName, $engineArchive));
         $result = $this->engine->unzipPath(
-            $domain->name,
+            $hostingTarget->engineSiteName,
             $engineArchive,
-            $this->panelRelToEngineRel($domain, $targetDir),
+            $this->panelRelToEngineRel($hostingTarget, $targetDir),
             $ifExists
         );
         if (! empty($result['error'])) {
@@ -898,7 +931,7 @@ class FileManagerController extends Controller
         $auto = $this->autoWebConfigurator->detectAndApply($domain->fresh());
         if (! ($auto['applied'] ?? false)) {
             SafeAuditLogger::warning('hostvim.file_audit', [
-                'domain' => $domain->name,
+                'domain' => $hostingTarget->engineSiteName,
                 'action' => 'auto_web_config_after_unzip_failed',
                 'error' => (string) ($auto['error'] ?? 'unknown'),
                 'profile' => (string) ($auto['profile'] ?? ''),
@@ -916,14 +949,15 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $path = $this->resolveFileManagerPath($request);
         if ($path === '') {
             return response()->json(['message' => 'The path field is required.'], 422);
         }
-        $enginePath = $this->panelRelToEngineRel($domain, $path);
+        $enginePath = $this->panelRelToEngineRel($hostingTarget, $path);
 
-        $result = $this->engine->downloadFile($domain->name, $enginePath);
+        $result = $this->engine->downloadFile($hostingTarget->engineSiteName, $enginePath);
         if (! empty($result['error'])) {
             $this->logFileAction($request, $domain, 'download', $path, null, false, $result['error']);
 
@@ -998,11 +1032,11 @@ class FileManagerController extends Controller
         ?string $error,
     ): void {
         SafeAuditLogger::info('hostvim.file_audit', [
-            'domain' => $domain->name,
+            'domain' => $hostingTarget->engineSiteName,
             'action' => $action,
-            'from_fp' => SafeAuditLogger::pathFingerprint($domain->name, $from),
+            'from_fp' => SafeAuditLogger::pathFingerprint($hostingTarget->engineSiteName, $from),
             'from_base' => SafeAuditLogger::pathBasename($from),
-            'to_fp' => SafeAuditLogger::pathFingerprint($domain->name, $to),
+            'to_fp' => SafeAuditLogger::pathFingerprint($hostingTarget->engineSiteName, $to),
             'to_base' => SafeAuditLogger::pathBasename($to),
             'success' => $success,
             'error' => $error,
