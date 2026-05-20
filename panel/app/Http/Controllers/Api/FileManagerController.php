@@ -272,13 +272,66 @@ class FileManagerController extends Controller
             return response()->json(['message' => 'The path field is required.'], 422);
         }
 
+        $result = $this->trashMovePath($request, $domain, $from);
+        if (! $result['ok']) {
+            return response()->json(['message' => $result['message'] ?? 'trash_move_failed'], 422);
+        }
+
+        return response()->json(['id' => $result['id'], 'message' => 'moved_to_trash']);
+    }
+
+    public function trashMoveBulk(Request $request, Domain $domain): JsonResponse
+    {
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'paths' => 'required|array|min:1|max:500',
+            'paths.*' => 'required|string|max:2048',
+        ]);
+
+        $paths = array_values(array_filter(array_map(
+            static fn ($p) => trim((string) $p),
+            $validated['paths']
+        ), static fn ($p) => $p !== ''));
+
+        if ($paths === []) {
+            return response()->json(['message' => 'The paths field is required.'], 422);
+        }
+
+        $ok = 0;
+        $failed = [];
+        foreach ($paths as $from) {
+            $result = $this->trashMovePath($request, $domain, $from);
+            if ($result['ok']) {
+                $ok++;
+            } else {
+                $failed[] = [
+                    'path' => $from,
+                    'message' => (string) ($result['message'] ?? 'trash_move_failed'),
+                ];
+            }
+        }
+
+        return response()->json([
+            'ok' => $ok,
+            'failed' => $failed,
+            'total' => count($paths),
+        ]);
+    }
+
+    /**
+     * @return array{ok: bool, id?: string, message?: string}
+     */
+    private function trashMovePath(Request $request, Domain $domain, string $from): array
+    {
         $id = now()->format('YmdHis').'-'.Str::lower(Str::random(10));
         $engineFrom = $this->panelRelToEngineRel($domain, $from);
         $engineItem = self::TRASH_ITEMS_DIR.'/'.$id;
         $engineMeta = self::TRASH_META_DIR.'/'.$id.'.json';
 
         try {
-            // Trash klasörlerini garanti et.
             $this->engine->mkdirFile($domain->name, self::TRASH_DIR);
             $this->engine->mkdirFile($domain->name, self::TRASH_ITEMS_DIR);
             $this->engine->mkdirFile($domain->name, self::TRASH_META_DIR);
@@ -287,7 +340,7 @@ class FileManagerController extends Controller
             if (! empty($mv['error'])) {
                 $this->logFileAction($request, $domain, 'trash_move', $from, null, false, $mv['error']);
 
-                return response()->json(['message' => $mv['error']], 422);
+                return ['ok' => false, 'message' => $mv['error']];
             }
 
             $metaPayload = [
@@ -295,17 +348,15 @@ class FileManagerController extends Controller
                 'original_path' => $from,
                 'deleted_at' => now()->toIso8601String(),
                 'name' => basename($from),
-                // dosya/klasör ayrımı engine tarafında list ile net; burada best-effort
             ];
             $wr = $this->engine->writeFile($domain->name, $engineMeta, json_encode($metaPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             if (! empty($wr['error'])) {
-                // Meta yazılamadıysa bile dosya trash’e taşındı; kullanıcı restore edemeyebilir.
                 $this->logFileAction($request, $domain, 'trash_meta_write', $from, null, false, $wr['error']);
             }
 
             $this->logFileAction($request, $domain, 'trash_move', $from, null, true, null);
 
-            return response()->json(['id' => $id, 'message' => 'moved_to_trash']);
+            return ['ok' => true, 'id' => $id];
         } catch (\Throwable $e) {
             $this->logFileAction($request, $domain, 'trash_move', $from, null, false, $e->getMessage());
             throw $e;

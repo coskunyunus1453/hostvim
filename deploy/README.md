@@ -204,6 +204,7 @@ sudo hostvim-post-install
 | API 500, `1045 Access denied` (hostvim) | Panel DB şifresi uyuşmuyor | `sudo hostvim-repair-mysql` |
 | MySQL DB oluşturulamıyor (hostvim_provision) | Provision şifresi uyuşmuyor | `sudo hostvim-repair-mysql` |
 | Dosya düzenleme `permission denied` | SSH ile root sahipli dosyalar | `sudo hostvim-fix-hosting-perms` |
+| Dosya yöneticisi `Too Many Attempts` | API rate limit | `.env`: `HOSTVIM_FILES_READ_PER_MINUTE=360` + `config:clear` |
 | `php artisan tinker` PsySH hatası | www-data HOME yazılamıyor | `HOME=/var/www/hostvim/panel php artisan ...` |
 
 MySQL root şifresi gerekiyorsa:

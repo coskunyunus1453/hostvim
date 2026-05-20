@@ -120,6 +120,14 @@ return [
         'disk_unzip_expand_multiplier' => max(2, (int) env('HOSTVIM_DISK_UNZIP_EXPAND_MULT', 4)),
     ],
 
+    /** API throttle (dosya yöneticisi vb.) — .env ile artırılabilir */
+    'rate_limits' => [
+        'files_read_per_minute' => max(60, (int) env('HOSTVIM_FILES_READ_PER_MINUTE', 360)),
+        'files_write_per_minute' => max(30, (int) env('HOSTVIM_FILES_WRITE_PER_MINUTE', 180)),
+        'files_upload_per_minute' => max(10, (int) env('HOSTVIM_FILES_UPLOAD_PER_MINUTE', 40)),
+        'databases_import_per_hour' => max(4, (int) env('HOSTVIM_DB_IMPORT_PER_HOUR', 30)),
+    ],
+
     /** mysqldump / mysql / pg_dump / psql — PATH’te yoksa tam yol verin */
     'database_tools' => [
         'mysqldump_path' => env('MYSQLDUMP_PATH', 'mysqldump'),

@@ -44,19 +44,25 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(600)->by($request->ip());
         });
 
-        // Dosya yöneticisi: okuma (listele/oku/indir) daha yüksek limit
+        // Dosya yöneticisi: okuma (listele/oku/indir)
         RateLimiter::for('files-read', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            $perMinute = max(60, (int) config('hostvim.rate_limits.files_read_per_minute', 360));
+
+            return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
 
         // Dosya yöneticisi: yazma/silme/taşıma/yeniden adlandırma
         RateLimiter::for('files-write', function (Request $request) {
-            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
+            $perMinute = max(30, (int) config('hostvim.rate_limits.files_write_per_minute', 180));
+
+            return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
 
-        // Upload daha kısıtlı
+        // Upload
         RateLimiter::for('files-upload', function (Request $request) {
-            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+            $perMinute = max(10, (int) config('hostvim.rate_limits.files_upload_per_minute', 40));
+
+            return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
 
         // Deploy tetikleri daha sıkı limitlenir.
@@ -75,7 +81,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('databases-import', function (Request $request) {
-            return Limit::perHour(8)->by($request->user()?->id ?: $request->ip());
+            $perHour = max(4, (int) config('hostvim.rate_limits.databases_import_per_hour', 30));
+
+            return Limit::perHour($perHour)->by($request->user()?->id ?: $request->ip());
         });
 
         RateLimiter::for('vendor-api', function (Request $request) {

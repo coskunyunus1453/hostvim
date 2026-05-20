@@ -570,8 +570,8 @@ export default function FileManagerPage() {
   const filesQ = useQuery({
     queryKey: ['files', domainId, path, pageSize, offset, sortKey, sortOrder],
     enabled: domainId !== '',
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 5000,
+    placeholderData: (prev) => prev,
     queryFn: async ({ queryKey }) => {
       const [, domId, pathSeg, lim, off, sk, so] = queryKey as [
         string,
@@ -723,7 +723,6 @@ export default function FileManagerPage() {
       toast.success(t('files.folder_created'))
       setOffset(0)
       await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
-      await qc.refetchQueries({ queryKey: ['files', domainId, path] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -741,7 +740,6 @@ export default function FileManagerPage() {
       toast.success(t('files.file_created'))
       setOffset(0)
       await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
-      await qc.refetchQueries({ queryKey: ['files', domainId, path] })
       const base = relPath.split('/').pop() || relPath
       if (isEditableFile(base)) {
         void openFileWrapped(relPath)
@@ -895,7 +893,6 @@ export default function FileManagerPage() {
 
         setOffset(0)
         await qc.invalidateQueries({ queryKey: ['files', domainId, path] })
-        await qc.refetchQueries({ queryKey: ['files', domainId, path] })
         if (failed === 0 && ok > 0) {
           toast.success(t('files.upload_ok'))
         } else if (ok > 0 && failed > 0) {
@@ -1115,11 +1112,13 @@ export default function FileManagerPage() {
 
   const bulkTrashMoveM = useMutation({
     mutationFn: async (paths: string[]) => {
-      const settled = await Promise.allSettled(
-        paths.map((p) => api.post(`/domains/${domainId}/files/trash/move`, { path: p })),
+      const { data } = await api.post<{ ok?: number; failed?: { path: string; message: string }[]; total?: number }>(
+        `/domains/${domainId}/files/trash/move-bulk`,
+        { paths },
       )
-      const failed = settled.filter((x) => x.status === 'rejected').length
-      return { total: paths.length, failed }
+      const failed = data?.failed?.length ?? 0
+      const totalCount = data?.total ?? paths.length
+      return { total: totalCount, failed }
     },
     onSuccess: ({ total, failed }) => {
       if (failed === 0) toast.success(t('files.bulk_trash_ok', { total }))
@@ -1366,6 +1365,17 @@ export default function FileManagerPage() {
 
   const entries = filesQ.data?.entries ?? []
   const total = filesQ.data?.total ?? 0
+
+  useEffect(() => {
+    if (total <= 0) {
+      if (offset !== 0) setOffset(0)
+      return
+    }
+    if (offset >= total) {
+      setOffset(Math.max(0, (Math.ceil(total / pageSize) - 1) * pageSize))
+    }
+  }, [total, offset, pageSize])
+
   const crumbs = splitBreadcrumbs(path)
   const currentTab = tabs[activeTab]
 
@@ -2266,6 +2276,7 @@ export default function FileManagerPage() {
                     setOffset(0)
                   }}
                 >
+                  <option value={10}>10</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
