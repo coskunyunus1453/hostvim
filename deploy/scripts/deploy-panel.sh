@@ -6,7 +6,12 @@ set -euo pipefail
 PANEL_ROOT="${PANEL_ROOT:?PANEL_ROOT tanımlayın (örn. /var/www/hostvim/panel)}"
 FRONTEND_ROOT="${FRONTEND_ROOT:-$(dirname "$PANEL_ROOT")/frontend}"
 REPO_ROOT="$(cd "$(dirname "$PANEL_ROOT")" && pwd)"
+export HOSTVIM_HOME="${HOSTVIM_HOME:-$REPO_ROOT}"
 RUN_USER="${RUN_USER:-www-data}"
+DEPLOY_SCRIPTS="$REPO_ROOT/deploy/scripts"
+# shellcheck source=lib/hostvim-deploy-common.sh
+source "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh"
+export PANEL_ROOT
 
 echo "==> Panel: $PANEL_ROOT"
 
@@ -40,6 +45,18 @@ if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
   echo "==> /usr/local/sbin/hostvim-panel-update (repo ile güncelle)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
 fi
+for helper in hostvim-post-install.sh repair-mysql-users.sh fix-hosting-permissions.sh; do
+  if [[ -f "$DEPLOY_SCRIPTS/$helper" ]]; then
+    base="${helper%.sh}"
+    base="${base/hostvim-/hostvim-}"
+    case "$helper" in
+      hostvim-post-install.sh) dest=hostvim-post-install ;;
+      repair-mysql-users.sh) dest=hostvim-repair-mysql ;;
+      fix-hosting-permissions.sh) dest=hostvim-fix-hosting-perms ;;
+    esac
+    sudo install -m 755 "$DEPLOY_SCRIPTS/$helper" "/usr/local/sbin/$dest"
+  fi
+done
 
 cd "$PANEL_ROOT"
 
@@ -50,14 +67,23 @@ else
   sudo -u "$RUN_USER" composer install --no-dev --optimize-autoloader --no-interaction
 fi
 
+if grep -q '^DB_CONNECTION=mysql' "$PANEL_ROOT/.env" 2>/dev/null; then
+  echo "==> MySQL kullanıcıları eşitleniyor"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    bash "$DEPLOY_SCRIPTS/repair-mysql-users.sh"
+  else
+    sudo bash "$DEPLOY_SCRIPTS/repair-mysql-users.sh"
+  fi
+fi
+
 echo "==> migrate"
-sudo -u "$RUN_USER" php artisan migrate --force
-sudo -u "$RUN_USER" php artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || sudo -u "$RUN_USER" php artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
+hostvim_run_artisan migrate --force
+hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
 
 echo "==> optimize"
-sudo -u "$RUN_USER" php artisan config:cache
-sudo -u "$RUN_USER" php artisan route:cache
-sudo -u "$RUN_USER" php artisan view:cache
+hostvim_run_artisan config:cache
+hostvim_run_artisan route:cache
+hostvim_run_artisan view:cache
 
 if [[ -d "$FRONTEND_ROOT" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]]; then
   if ! command -v npm >/dev/null 2>&1; then
@@ -77,15 +103,26 @@ if [[ -d "$FRONTEND_ROOT" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]]; then
     "$FRONTEND_ROOT/dist/" "$PANEL_ROOT/public/"
 fi
 
-FIX_SCRIPT="$REPO_ROOT/deploy/scripts/fix-panel-permissions.sh"
+FIX_SCRIPT="$DEPLOY_SCRIPTS/fix-panel-permissions.sh"
 if [[ -f "$FIX_SCRIPT" ]] && [[ -f "$PANEL_ROOT/artisan" ]]; then
   echo "==> hostvim:fix-permissions"
-  sudo -u "$RUN_USER" php "$PANEL_ROOT/artisan" hostvim:fix-permissions || true
+  hostvim_run_artisan hostvim:fix-permissions || true
   echo "==> panel storage/bootstrap izinleri ($RUN_USER)"
-  sudo env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
+  else
+    sudo env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
+  fi
+fi
+
+echo "==> site dosya izinleri (data/www)"
+if [[ "$(id -u)" -eq 0 ]]; then
+  bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
+else
+  sudo bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
 fi
 
 echo "==> hostvim:install-check"
-sudo -u "$RUN_USER" php artisan hostvim:install-check || true
+hostvim_run_artisan hostvim:install-check --ping || true
 
 echo "Tamam."

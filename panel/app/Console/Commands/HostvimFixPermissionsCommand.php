@@ -42,10 +42,15 @@ class HostvimFixPermissionsCommand extends Command
         }
 
         $script = dirname($panelRoot).DIRECTORY_SEPARATOR.'deploy'.DIRECTORY_SEPARATOR.'scripts'.DIRECTORY_SEPARATOR.'fix-panel-permissions.sh';
+        $hostingScript = dirname($panelRoot).DIRECTORY_SEPARATOR.'deploy'.DIRECTORY_SEPARATOR.'scripts'.DIRECTORY_SEPARATOR.'fix-hosting-permissions.sh';
         if (is_file($script)) {
             $this->newLine();
             $this->comment('Web sunucusu yazabilsin diye sahiplik (bir kez, sudo):');
             $this->line('  sudo bash '.escapeshellarg($script).' '.escapeshellarg($panelRoot));
+            if (is_file($hostingScript)) {
+                $this->line('  sudo bash '.escapeshellarg($hostingScript).'  # site dosyaları (SSH sonrası)');
+                $this->line('  sudo hostvim-post-install  # MySQL + izinler tek komut');
+            }
             if (\PHP_OS_FAMILY === 'Darwin' && is_dir('/Applications/XAMPP/xamppfiles')) {
                 $this->line('  (XAMPP Apache genelde daemon kullanır; script bunu otomatik seçer.)');
             }

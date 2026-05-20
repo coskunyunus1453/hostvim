@@ -189,6 +189,30 @@ Barındırma **müşterisi** Git veya SSH görmez; tek adres panel arayüzüdür
 - Engine **loopback**; panel ile aynı makinede çalışır, `.env` içindeki `ENGINE_INTERNAL_KEY` `/etc/hostvim/engine.yaml` ile eşleşir.
 - Nginx’te temel başlıklar (`X-Frame-Options`, `nosniff`, …) ve gzip.
 - Panel şifreleri `/root/hostvim-panel-mysql.secret` (MariaDB kurulduysa; eski kurulumlar `panelsar-panel-mysql.secret`).
+- MySQL provizyon: `/root/hostvim-mysql-provision.secret` — panelden site veritabanı oluşturmak için.
+
+## Sorun giderme (müşteri sunucusu)
+
+Kurulum veya güncelleme sonrası tek komut onarım:
+
+```bash
+sudo hostvim-post-install
+```
+
+| Belirti | Muhtemel neden | Komut |
+|--------|----------------|-------|
+| API 500, `1045 Access denied` (hostvim) | Panel DB şifresi uyuşmuyor | `sudo hostvim-repair-mysql` |
+| MySQL DB oluşturulamıyor (hostvim_provision) | Provision şifresi uyuşmuyor | `sudo hostvim-repair-mysql` |
+| Dosya düzenleme `permission denied` | SSH ile root sahipli dosyalar | `sudo hostvim-fix-hosting-perms` |
+| `php artisan tinker` PsySH hatası | www-data HOME yazılamıyor | `HOME=/var/www/hostvim/panel php artisan ...` |
+
+MySQL root şifresi gerekiyorsa:
+
+```bash
+MYSQL_ROOT_PASS='root_sifreniz' sudo hostvim-repair-mysql
+```
+
+Secret dosyaları: `/root/hostvim-panel-mysql.secret`, `/root/hostvim-mysql-provision.secret`
 
 ## Güncelleme (Git’ten kod çekme)
 

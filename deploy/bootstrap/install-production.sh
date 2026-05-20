@@ -477,6 +477,18 @@ fi
 if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
 fi
+if [[ -f "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" /usr/local/sbin/hostvim-post-install
+  ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelsar-post-install
+fi
+if [[ -f "$REPO_ROOT/deploy/scripts/repair-mysql-users.sh" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/scripts/repair-mysql-users.sh" /usr/local/sbin/hostvim-repair-mysql
+  ln -sfn /usr/local/sbin/hostvim-repair-mysql /usr/local/sbin/panelsar-repair-mysql
+fi
+if [[ -f "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/hostvim-fix-hosting-perms
+  ln -sfn /usr/local/sbin/hostvim-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
+fi
 cat > /etc/sudoers.d/hostvim-engine <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
@@ -495,6 +507,10 @@ visudo -cf /etc/sudoers.d/hostvim-engine
 
 # Panel .env
 PANEL_ROOT="$REPO_ROOT/panel"
+export PANEL_ROOT HOSTVIM_HOME
+DEPLOY_SCRIPTS="$REPO_ROOT/deploy/scripts"
+# shellcheck source=../scripts/lib/hostvim-deploy-common.sh
+source "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh"
 ENV_EXAMPLE="$PANEL_ROOT/.env.production.example"
 ENV_FILE="$PANEL_ROOT/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -611,56 +627,11 @@ if [[ -d /usr/share/phpmyadmin ]]; then
   [[ -n "$_APP_URL_VAL" ]] && update_env "PHPMYADMIN_URL" "${_APP_URL_VAL%/}/phpmyadmin"
 fi
 
-# MariaDB panel DB
+# MariaDB panel DB + provision kullanıcıları (.env, secret, @localhost + @127.0.0.1)
 if [[ "${WITH_MARIADB}" == "1" ]] || [[ "${WITH_MARIADB}" == "yes" ]]; then
-  # Yeniden kurulumda her seferinde yeni şifre üretmek, CREATE USER IF NOT EXISTS ile uyumsuzluk (1045) yaratır
-  if [[ -s /root/hostvim-panel-mysql.secret ]]; then
-    PANEL_DB_PASS="$(cat /root/hostvim-panel-mysql.secret)"
-  elif [[ -s /root/panelsar-panel-mysql.secret ]]; then
-    PANEL_DB_PASS="$(cat /root/panelsar-panel-mysql.secret)"
-  else
-    PANEL_DB_PASS="$(openssl rand -hex 16)"
-  fi
-  MARIADB_CMD=(mariadb)
-  command -v mariadb >/dev/null 2>&1 || MARIADB_CMD=(mysql)
-  "${MARIADB_CMD[@]}" -e "CREATE DATABASE IF NOT EXISTS hostvim CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" || true
-  "${MARIADB_CMD[@]}" -e "CREATE USER IF NOT EXISTS 'hostvim'@'localhost' IDENTIFIED BY '$PANEL_DB_PASS';" || true
-  "${MARIADB_CMD[@]}" -e "ALTER USER 'hostvim'@'localhost' IDENTIFIED BY '$PANEL_DB_PASS';" || true
-  "${MARIADB_CMD[@]}" -e "GRANT ALL PRIVILEGES ON hostvim.* TO 'hostvim'@'localhost'; FLUSH PRIVILEGES;" || true
-  update_env "DB_CONNECTION" "mysql"
-  update_env "DB_HOST" "127.0.0.1"
-  update_env "DB_PORT" "3306"
-  update_env "DB_DATABASE" "hostvim"
-  update_env "DB_USERNAME" "hostvim"
-  update_env "DB_PASSWORD" "$PANEL_DB_PASS"
-
-  # Hosting panelinden DB oluşturma için root yerine ayrı bir servis kullanıcısı.
-  if [[ -s /root/hostvim-mysql-provision.secret ]]; then
-    MYSQL_PROVISION_PASS="$(cat /root/hostvim-mysql-provision.secret)"
-  elif [[ -s /root/panelsar-mysql-provision.secret ]]; then
-    MYSQL_PROVISION_PASS="$(cat /root/panelsar-mysql-provision.secret)"
-  else
-    MYSQL_PROVISION_PASS="$(openssl rand -hex 18)"
-  fi
-  "${MARIADB_CMD[@]}" -e "CREATE USER IF NOT EXISTS 'hostvim_provision'@'localhost' IDENTIFIED BY '$MYSQL_PROVISION_PASS';" || true
-  "${MARIADB_CMD[@]}" -e "CREATE USER IF NOT EXISTS 'hostvim_provision'@'127.0.0.1' IDENTIFIED BY '$MYSQL_PROVISION_PASS';" || true
-  "${MARIADB_CMD[@]}" -e "ALTER USER 'hostvim_provision'@'localhost' IDENTIFIED BY '$MYSQL_PROVISION_PASS';" || true
-  "${MARIADB_CMD[@]}" -e "ALTER USER 'hostvim_provision'@'127.0.0.1' IDENTIFIED BY '$MYSQL_PROVISION_PASS';" || true
-  "${MARIADB_CMD[@]}" -e "GRANT ALL PRIVILEGES ON *.* TO 'hostvim_provision'@'localhost' WITH GRANT OPTION;" || true
-  "${MARIADB_CMD[@]}" -e "GRANT ALL PRIVILEGES ON *.* TO 'hostvim_provision'@'127.0.0.1' WITH GRANT OPTION;" || true
-  "${MARIADB_CMD[@]}" -e "FLUSH PRIVILEGES;" || true
-  update_env "MYSQL_PROVISION_ENABLED" "true"
-  update_env "MYSQL_PROVISION_HOST" "localhost"
-  update_env "MYSQL_PROVISION_PORT" "3306"
-  update_env "MYSQL_PROVISION_USERNAME" "hostvim_provision"
-  update_env "MYSQL_PROVISION_PASSWORD" "$MYSQL_PROVISION_PASS"
-  echo "$MYSQL_PROVISION_PASS" > /root/hostvim-mysql-provision.secret
-  chmod 600 /root/hostvim-mysql-provision.secret
-  echo "MySQL provision şifresi: /root/hostvim-mysql-provision.secret"
-
-  echo "$PANEL_DB_PASS" > /root/hostvim-panel-mysql.secret
-  chmod 600 /root/hostvim-panel-mysql.secret
+  bash "$DEPLOY_SCRIPTS/repair-mysql-users.sh"
   echo "Panel MySQL şifresi: /root/hostvim-panel-mysql.secret"
+  echo "MySQL provision şifresi: /root/hostvim-mysql-provision.secret"
 fi
 
 # Composer www-data ile çalışır; panel/ yalnızca storage/cache www-data ise vendor/ oluşturulamaz
@@ -674,7 +645,7 @@ sudo -u www-data composer --working-dir="$PANEL_ROOT" install --no-dev --optimiz
 
 if ! grep -qE '^APP_KEY=base64:.+' "$ENV_FILE" 2>/dev/null; then
   echo "==> Laravel APP_KEY üretiliyor (.env)…"
-  sudo -u www-data php "$PANEL_ROOT/artisan" key:generate --force --no-interaction || {
+  hostvim_run_artisan key:generate --force --no-interaction || {
     echo "Hata: php artisan key:generate başarısız; .env veya composer kurulumunu kontrol edin." >&2
     exit 1
   }
@@ -708,12 +679,12 @@ fi
 
 if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then
   echo "==> RESET_PANEL_DB=1: Panel veritabanı sıfırlanıyor (migrate:fresh)."
-  sudo -u www-data php "$PANEL_ROOT/artisan" migrate:fresh --force
+  hostvim_run_artisan migrate:fresh --force
 else
   echo "==> Panel veritabanı korunuyor: migrate --force (yeniden kurulum / güncelleme; kullanıcı ve site kayıtları silinmez)."
-  sudo -u www-data php "$PANEL_ROOT/artisan" migrate --force
+  hostvim_run_artisan migrate --force
 fi
-sudo -u www-data php "$PANEL_ROOT/artisan" panelze:init-outbound-mail --no-interaction 2>/dev/null || sudo -u www-data php "$PANEL_ROOT/artisan" hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
+hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
 
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   RESET_DB_MODE=0
@@ -795,29 +766,33 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
 
   if [[ -n "$ADMIN_PASSWORD" ]]; then
     sudo -u www-data env \
+      HOME="$(hostvim_www_data_home "$PANEL_ROOT")" \
+      XDG_CONFIG_HOME="$(hostvim_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
       HOSTVIM_ADMIN_EMAIL="$ADMIN_EMAIL" \
       HOSTVIM_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
       HOSTVIM_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
       php "$PANEL_ROOT/artisan" db:seed --force
   else
     sudo -u www-data env \
+      HOME="$(hostvim_www_data_home "$PANEL_ROOT")" \
+      XDG_CONFIG_HOME="$(hostvim_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
       HOSTVIM_ADMIN_EMAIL="$ADMIN_EMAIL" \
       HOSTVIM_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
       php "$PANEL_ROOT/artisan" db:seed --force
   fi
 fi
 
-sudo -u www-data php "$PANEL_ROOT/artisan" config:cache
-sudo -u www-data php "$PANEL_ROOT/artisan" route:cache
-sudo -u www-data php "$PANEL_ROOT/artisan" view:cache
-sudo -u www-data php "$PANEL_ROOT/artisan" hostvim:ensure-system-cron || true
+hostvim_run_artisan config:cache
+hostvim_run_artisan route:cache
+hostvim_run_artisan view:cache
+hostvim_run_artisan hostvim:ensure-system-cron || true
 
 # OS-level scheduler: Laravel schedule:run her dakika tetiklensin.
 rm -f /etc/cron.d/panelsar-panel-scheduler 2>/dev/null || true
 cat > /etc/cron.d/hostvim-panel-scheduler <<EOF
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-* * * * * www-data cd "$PANEL_ROOT" && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+* * * * * www-data cd "$PANEL_ROOT" && env HOME="$PANEL_ROOT" XDG_CONFIG_HOME="$PANEL_ROOT/storage/framework/.config" /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 EOF
 chmod 644 /etc/cron.d/hostvim-panel-scheduler
 systemctl enable --now cron 2>/dev/null || systemctl enable --now crond 2>/dev/null || true
@@ -847,6 +822,8 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=$PANEL_ROOT
+Environment=HOME=$PANEL_ROOT
+Environment=XDG_CONFIG_HOME=$PANEL_ROOT/storage/framework/.config
 ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --timeout=120
 Restart=always
 RestartSec=5
@@ -958,10 +935,11 @@ if [[ -x /usr/local/sbin/hostvim-security ]]; then
 fi
 
 echo "==> Laravel onbellek + kurulum kontrolu (musterinin manuel komut calistirmasi gerekmez)"
-sudo -u www-data php "$PANEL_ROOT/artisan" config:cache
-sudo -u www-data php "$PANEL_ROOT/artisan" route:cache
-sudo -u www-data php "$PANEL_ROOT/artisan" view:cache || true
-if sudo -u www-data php "$PANEL_ROOT/artisan" hostvim:install-check --ping; then
+bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
+hostvim_run_artisan config:cache
+hostvim_run_artisan route:cache
+hostvim_run_artisan view:cache || true
+if hostvim_run_artisan hostvim:install-check --ping; then
   echo "==> hostvim:install-check: tamam"
 else
   echo "==> hostvim:install-check: uyari — yukaridaki ciktiyi inceleyin (kurulum tamamlandi)."
@@ -1014,5 +992,6 @@ else
   echo "       HOSTVIM_PUBLIC_HOST=panel.ornek.com LETS_ENCRYPT_EMAIL=size@ornek.com sudo -E bash deploy/bootstrap/install-production.sh"
   echo "     (veya HOSTVIM_APP_URL=https://panel.ornek.com — FQDN otomatik algilanir.)"
 fi
-echo "  2) Otomatik yapildi: APP_URL / PHPMYADMIN_URL (phpMyAdmin kuruluysa), config:cache, hostvim:install-check."
+echo "  2) Otomatik yapildi: MySQL kullanicilari, site izinleri, APP_URL / PHPMYADMIN_URL, config:cache, hostvim:install-check."
+echo "     Sorun olursa (1045, permission denied): sudo hostvim-post-install"
 echo ""

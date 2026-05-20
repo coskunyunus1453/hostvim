@@ -7,9 +7,12 @@ use App\Models\Domain;
 use App\Models\User;
 use App\Services\EngineApiService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use PDO;
+use Throwable;
 
 class SystemController extends Controller
 {
@@ -240,6 +243,8 @@ class SystemController extends Controller
             'message' => ! empty($engine) ? 'Engine reachable' : 'Engine stats unavailable',
         ];
 
+        $checks = array_merge($checks, $this->databaseHealthChecks(), $this->hostingWebRootHealthChecks());
+
         $passed = count(array_filter($checks, fn (array $c): bool => (bool) ($c['ok'] ?? false)));
         $total = count($checks);
 
@@ -365,5 +370,73 @@ class SystemController extends Controller
         }
 
         return (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
+    }
+
+    /**
+     * @return array<int, array{id:string, ok:bool, message:string}>
+     */
+    private function databaseHealthChecks(): array
+    {
+        $checks = [];
+        if (! in_array((string) config('database.default'), ['mysql', 'mariadb'], true)) {
+            return $checks;
+        }
+
+        try {
+            DB::connection()->getPdo()->query('SELECT 1');
+            $checks[] = ['id' => 'mysql_panel_db', 'ok' => true, 'message' => 'Panel database connection OK'];
+        } catch (Throwable $e) {
+            $checks[] = ['id' => 'mysql_panel_db', 'ok' => false, 'message' => 'Panel database: '.$e->getMessage()];
+        }
+
+        if (! (bool) config('hostvim.mysql_provision.enabled', false)) {
+            $checks[] = ['id' => 'mysql_provision', 'ok' => false, 'message' => 'MYSQL_PROVISION_ENABLED is off'];
+
+            return $checks;
+        }
+
+        $host = (string) config('hostvim.mysql_provision.host', '127.0.0.1');
+        $port = (int) config('hostvim.mysql_provision.port', 3306);
+        $user = (string) config('hostvim.mysql_provision.username', '');
+        $pass = (string) config('hostvim.mysql_provision.password', '');
+
+        try {
+            $dsn = sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port);
+            $pdo = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_TIMEOUT => 4,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ]);
+            $pdo->query('SELECT 1');
+            $checks[] = ['id' => 'mysql_provision', 'ok' => true, 'message' => 'MySQL provision account OK'];
+        } catch (Throwable $e) {
+            $checks[] = ['id' => 'mysql_provision', 'ok' => false, 'message' => 'MySQL provision: '.$e->getMessage()];
+        }
+
+        return $checks;
+    }
+
+    /**
+     * @return array<int, array{id:string, ok:bool, message:string}>
+     */
+    private function hostingWebRootHealthChecks(): array
+    {
+        $webRoot = (string) config('hostvim.hosting_web_root', '');
+        if ($webRoot === '') {
+            return [];
+        }
+
+        if (! is_dir($webRoot)) {
+            return [['id' => 'hosting_web_root', 'ok' => false, 'message' => 'Hosting web root missing']];
+        }
+
+        $writable = is_writable($webRoot);
+
+        return [[
+            'id' => 'hosting_web_root',
+            'ok' => $writable,
+            'message' => $writable
+                ? 'Hosting web root writable by panel engine'
+                : 'Hosting web root not writable — run: sudo hostvim-fix-hosting-perms',
+        ]];
     }
 }
