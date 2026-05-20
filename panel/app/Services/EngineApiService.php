@@ -222,12 +222,49 @@ class EngineApiService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function getSiteRedirects(string $domain): array
+    {
+        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/redirects');
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rules
+     * @return array<string, mixed>
+     */
+    public function setSiteRedirects(string $domain, array $rules): array
+    {
+        return $this->putChecked('/api/v1/sites/'.rawurlencode($domain).'/redirects', [
+            'rules' => $rules,
+        ]);
+    }
+
+    /**
      * @return array{domain?: string, performance_mode?: string, ok?: bool, error?: string}
      */
     public function setSitePerformance(string $domain, string $mode): array
     {
         return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/performance', [
             'mode' => $mode,
+        ]);
+    }
+
+    /**
+     * @return array{domain?: string, ssl_enabled?: bool, force_https?: bool, server_type?: string, error?: string}
+     */
+    public function getSiteSslSettings(string $domain): array
+    {
+        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/ssl-settings');
+    }
+
+    /**
+     * @return array{domain?: string, force_https?: bool, ok?: bool, error?: string}
+     */
+    public function setSiteSslSettings(string $domain, bool $forceHttps): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/ssl-settings', [
+            'force_https' => $forceHttps,
         ]);
     }
 
@@ -541,6 +578,49 @@ class EngineApiService
     public function killProcess(int $pid): array
     {
         return $this->post('/api/v1/system/processes/kill', ['pid' => $pid]);
+    }
+
+    /**
+     * @return array{settings?: array<string, mixed>, interfaces?: array<int, mixed>, error?: string}
+     */
+    public function getServerSettings(): array
+    {
+        return $this->getChecked('/api/v1/system/server-settings');
+    }
+
+    /**
+     * @param  array{hostname?: string, timezone?: string}  $payload
+     * @return array<string, mixed>
+     */
+    public function updateServerSettings(array $payload): array
+    {
+        return $this->patchJson('/api/v1/system/server-settings', $payload);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function refreshNetwork(): array
+    {
+        return $this->postChecked('/api/v1/system/network/refresh', []);
+    }
+
+    /**
+     * @param  array{interface: string, address: string, label?: string}  $payload
+     * @return array<string, mixed>
+     */
+    public function addNetworkAddress(array $payload): array
+    {
+        return $this->postChecked('/api/v1/system/network/addresses', $payload);
+    }
+
+    /**
+     * @param  array{interface: string, address: string}  $payload
+     * @return array<string, mixed>
+     */
+    public function removeNetworkAddress(array $payload): array
+    {
+        return $this->deleteJsonChecked('/api/v1/system/network/addresses', $payload);
     }
 
     public function getPhpVersions(): array
@@ -986,9 +1066,14 @@ class EngineApiService
         return $this->get('/api/v1/security/overview');
     }
 
+    public function securityAdvisor(): array
+    {
+        return $this->get('/api/v1/security/advisor');
+    }
+
     public function applyFirewallRule(array $payload): array
     {
-        return $this->post('/api/v1/security/firewall/rule', $payload);
+        return $this->postChecked('/api/v1/security/firewall/rule', $payload);
     }
 
     public function toggleFail2ban(bool $enabled): array
@@ -1023,6 +1108,11 @@ class EngineApiService
     public function toggleClamav(bool $enabled): array
     {
         return $this->post('/api/v1/security/clamav/toggle', ['enabled' => $enabled]);
+    }
+
+    public function installClamav(): array
+    {
+        return $this->postChecked('/api/v1/security/clamav/install');
     }
 
     public function runClamavScan(?string $target = null, ?string $domain = null): array
@@ -1189,6 +1279,70 @@ class EngineApiService
         ]);
     }
 
+    public function getNodeApp(string $domain): array
+    {
+        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function detectNodeApp(string $domain, ?string $workDir = null): array
+    {
+        $payload = [];
+        if (is_string($workDir) && trim($workDir) !== '') {
+            $payload['work_dir'] = trim($workDir);
+        }
+
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/detect', $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function updateNodeApp(string $domain, array $payload): array
+    {
+        return $this->putChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app', $payload);
+    }
+
+    public function autoConfigureNodeApp(string $domain, ?string $appProfile = null): array
+    {
+        $payload = [];
+        if (is_string($appProfile) && trim($appProfile) !== '') {
+            $payload['app_profile'] = trim($appProfile);
+        }
+
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/auto-configure', $payload, 300);
+    }
+
+    public function startNodeApp(string $domain): array
+    {
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/start', [], 120);
+    }
+
+    public function stopNodeApp(string $domain): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/stop', []);
+    }
+
+    public function restartNodeApp(string $domain): array
+    {
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/restart', [], 120);
+    }
+
+    public function installNodeApp(string $domain, bool $useCi = false): array
+    {
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/install', [
+            'use_ci' => $useCi,
+        ], 900);
+    }
+
+    public function buildNodeApp(string $domain): array
+    {
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/build', [], 900);
+    }
+
     public function validateLicense(string $key): array
     {
         return $this->post('/api/v1/license/validate', ['key' => $key]);
@@ -1266,6 +1420,52 @@ class EngineApiService
     private function postChecked(string $path, array $data = []): array
     {
         return $this->postLongChecked($path, $data, 45);
+    }
+
+    private function getChecked(string $path): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return $this->missingEngineCredentialsPayload();
+        }
+
+        try {
+            $response = $this->client()->get($this->baseUrl.$path);
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                return ['error' => $this->formatEngineHttpError($response, $json)];
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::error("Engine API GET {$path} failed: {$e->getMessage()}");
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function putChecked(string $path, array $data): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return $this->missingEngineCredentialsPayload();
+        }
+
+        try {
+            $response = $this->client()->put($this->baseUrl.$path, $data);
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                return ['error' => $this->formatEngineHttpError($response, $json)];
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::error("Engine API PUT {$path} failed: {$e->getMessage()}");
+
+            return ['error' => $e->getMessage()];
+        }
     }
 
     private function postLongChecked(string $path, array $data = [], int $timeout = 600): array

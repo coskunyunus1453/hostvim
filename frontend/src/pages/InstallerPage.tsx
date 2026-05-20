@@ -5,6 +5,7 @@ import api from '../services/api'
 import { Download, Loader2 } from 'lucide-react'
 import { useDomainsList } from '../hooks/useDomains'
 import { notify } from '../lib/notify'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { Link } from 'react-router-dom'
 
 type AppCategory = 'kobi' | 'agency' | 'modern' | 'other'
@@ -30,13 +31,13 @@ type InstallerDiagnostics = { ok: boolean; checks: { key: string; ok: boolean; m
 const FALLBACK_APPS: AppRow[] = [
   { id: 'wordpress', name: 'WordPress', version: 'latest', automated: true, category: 'kobi', supports_woocommerce: true },
   { id: 'opencart', name: 'OpenCart', version: '4.0.x', automated: true, category: 'kobi' },
-  { id: 'nodejs', name: 'Node.js', version: '', automated: false, category: 'agency', route: '/deploy' },
+  { id: 'nodejs', name: 'Node.js', version: '', automated: true, category: 'agency', route: '/node-apps' },
   { id: 'laravel', name: 'Laravel', version: '11.x', automated: false, category: 'agency', route: '/deploy' },
   { id: 'docker', name: 'Docker', version: '', automated: false, category: 'agency', route: '/site-tools' },
   { id: 'git_deploy', name: 'Git deploy', version: '', automated: false, category: 'agency', route: '/deploy' },
-  { id: 'nextjs', name: 'Next.js starter', version: '', automated: false, category: 'modern', route: '/deploy' },
-  { id: 'strapi', name: 'Strapi', version: '', automated: false, category: 'modern', route: '/deploy' },
-  { id: 'n8n', name: 'n8n', version: '', automated: false, category: 'modern', route: '/site-tools' },
+  { id: 'nextjs', name: 'Next.js starter', version: '', automated: true, category: 'modern', route: '/node-apps' },
+  { id: 'strapi', name: 'Strapi', version: '', automated: true, category: 'modern', route: '/node-apps' },
+  { id: 'n8n', name: 'n8n', version: '', automated: true, category: 'modern', route: '/node-apps' },
   { id: 'joomla', name: 'Joomla', version: 'latest', automated: false, category: 'other' },
   { id: 'drupal', name: 'Drupal', version: '10.x', automated: false, category: 'other' },
   { id: 'prestashop', name: 'PrestaShop', version: '8.x', automated: false, category: 'other' },
@@ -84,7 +85,7 @@ export default function InstallerPage() {
   const runsQ = useQuery({
     queryKey: ['installer-runs'],
     queryFn: async () => (await api.get('/installer/runs')).data as { runs: InstallerRun[] },
-    refetchInterval: 3000,
+    refetchInterval: () => pollWhenVisible(8_000),
   })
   const runDetailQ = useQuery({
     queryKey: ['installer-run-detail', detailRunId],

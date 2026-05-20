@@ -11,10 +11,13 @@ use App\Http\Controllers\Admin\ServerMysqlSettingsController;
 use App\Http\Controllers\Admin\WebServerSettingsController;
 use App\Http\Controllers\Admin\WhmcsModuleController;
 use App\Http\Controllers\Api\AiAdvisorController;
+use App\Http\Controllers\Api\AiAssistantController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\BackupGoogleDriveController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\BrandingController;
+use App\Http\Controllers\Api\CloudflarePluginController;
 use App\Http\Controllers\Api\CronJobController;
 use App\Http\Controllers\Api\DatabaseController;
 use App\Http\Controllers\Api\DeploymentController;
@@ -31,10 +34,12 @@ use App\Http\Controllers\Api\Integrations\WhmcsResourcesController;
 use App\Http\Controllers\Api\InstallerController;
 use App\Http\Controllers\Api\LicenseController;
 use App\Http\Controllers\Api\MonitoringController;
+use App\Http\Controllers\Api\NodeAppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PanelUpdateController;
 use App\Http\Controllers\Api\PerformanceController;
 use App\Http\Controllers\Api\PluginStoreController;
+use App\Http\Controllers\Api\RedirectController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SecurityController;
 use App\Http\Controllers\Api\SiteController;
@@ -106,6 +111,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     });
 
     Route::middleware('ability:domains:read')->group(function () {
+        Route::get('domains/options', [DomainController::class, 'options']);
         Route::get('domains', [DomainController::class, 'index']);
         Route::get('domains/{domain}', [DomainController::class, 'show']);
         Route::get('domains/{domain}/logs', [DomainController::class, 'logs']);
@@ -117,9 +123,15 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('domains/{domain}/php', [DomainController::class, 'switchPhp']);
         Route::post('domains/{domain}/status', [DomainController::class, 'setStatus']);
         Route::post('domains/{domain}/server', [DomainController::class, 'switchServer']);
+        Route::post('domains/{domain}/subdomains', [DomainController::class, 'storeSubdomain']);
+        Route::delete('domains/{domain}/subdomains', [DomainController::class, 'destroySubdomain']);
+        Route::post('domains/{domain}/aliases', [DomainController::class, 'storeAlias']);
+        Route::delete('domains/{domain}/aliases', [DomainController::class, 'destroyAlias']);
         Route::post('domains/{domain}/document-root', [DocumentRootController::class, 'update']);
         Route::get('domains/{domain}/performance', [PerformanceController::class, 'show']);
         Route::post('domains/{domain}/performance', [PerformanceController::class, 'update']);
+        Route::get('domains/{domain}/redirects', [RedirectController::class, 'index']);
+        Route::put('domains/{domain}/redirects', [RedirectController::class, 'update']);
         Route::get('domains/{domain}/nginx-vhost', [DomainNginxVhostController::class, 'show']);
         Route::put('domains/{domain}/nginx-vhost', [DomainNginxVhostController::class, 'update']);
         Route::post('domains/{domain}/nginx-vhost/revert', [DomainNginxVhostController::class, 'revert']);
@@ -174,9 +186,14 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('backups/engine/snapshot', [BackupController::class, 'engineSnapshot']);
         Route::get('backups/destinations', [BackupController::class, 'destinations']);
         Route::get('backups/schedules', [BackupController::class, 'schedules']);
+        Route::get('backups/google-drive/status', [BackupGoogleDriveController::class, 'status']);
+        Route::get('backups/{backup}/download', [BackupController::class, 'download']);
+        Route::get('backups/destinations/{backupDestination}/remote-files', [BackupGoogleDriveController::class, 'listFiles']);
     });
     Route::middleware('ability:backups:write')->group(function () {
         Route::post('backups', [BackupController::class, 'store'])->middleware('throttle:backups-write');
+        Route::post('backups/restore-upload', [BackupController::class, 'uploadRestore'])->middleware('throttle:backups-write');
+        Route::post('backups/restore-remote', [BackupController::class, 'restoreRemote'])->middleware('throttle:backups-write');
         Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->middleware('throttle:backups-write');
         Route::post('backups/{backup}/restore', [BackupController::class, 'restore'])->middleware('throttle:backups-write');
         Route::post('backups/{backup}/sync', [BackupController::class, 'sync'])->middleware('throttle:backups-write');
@@ -187,6 +204,9 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::patch('backups/schedules/{backupSchedule}', [BackupController::class, 'updateSchedule'])->middleware('throttle:backups-write');
         Route::delete('backups/schedules/{backupSchedule}', [BackupController::class, 'destroySchedule'])->middleware('throttle:backups-write');
         Route::post('backups/schedules/{backupSchedule}/run', [BackupController::class, 'runSchedule'])->middleware('throttle:backups-write');
+        Route::get('backups/google-drive/auth-url', [BackupGoogleDriveController::class, 'authUrl']);
+        Route::post('backups/google-drive/complete', [BackupGoogleDriveController::class, 'complete']);
+        Route::delete('backups/google-drive/disconnect', [BackupGoogleDriveController::class, 'disconnect']);
     });
 
     Route::middleware('ability:ftp:read')->get('domains/{domain}/ftp', [FtpController::class, 'index']);
@@ -217,6 +237,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('domains/{domain}/ssl/renew', [SslController::class, 'renew']);
         Route::post('domains/{domain}/ssl/revoke', [SslController::class, 'revoke']);
         Route::post('domains/{domain}/ssl/manual', [SslController::class, 'manual']);
+        Route::patch('domains/{domain}/ssl/settings', [SslController::class, 'updateSettings']);
     });
 
     Route::middleware('ability:cron:read')->group(function () {
@@ -241,12 +262,26 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('ai/monitoring', [AiAdvisorController::class, 'monitoring']);
         Route::get('ai/access', [AiAdvisorController::class, 'access']);
         Route::get('notifications/feed', [NotificationController::class, 'feed']);
+
+        Route::prefix('ai-assistant')->group(function () {
+            Route::get('settings', [AiAssistantController::class, 'settings']);
+            Route::put('settings', [AiAssistantController::class, 'updateSettings']);
+            Route::post('settings/test', [AiAssistantController::class, 'testProvider']);
+            Route::get('usage', [AiAssistantController::class, 'usage']);
+            Route::get('sessions', [AiAssistantController::class, 'sessions']);
+            Route::post('sessions', [AiAssistantController::class, 'createSession']);
+            Route::delete('sessions/{aiChatSession}', [AiAssistantController::class, 'destroySession']);
+            Route::get('sessions/{aiChatSession}/messages', [AiAssistantController::class, 'messages']);
+            Route::post('chat', [AiAssistantController::class, 'chat'])->middleware('throttle:30,1');
+        });
     });
+    Route::middleware('ability:files:write')->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);
     Route::middleware('ability:files:read')->post('domains/{domain}/ai/file-editor', [AiAdvisorController::class, 'fileEditor']);
     Route::middleware('ability:tools:run')->get('domains/{domain}/ai/deploy', [AiAdvisorController::class, 'deploy']);
     Route::middleware('ability:dashboard:read')->get('domains/{domain}/ai/slow-site', [AiAdvisorController::class, 'slowSite']);
 
     Route::middleware('ability:security:read')->get('security/overview', [SecurityController::class, 'overview']);
+    Route::middleware('ability:security:read')->get('security/advisor', [SecurityController::class, 'advisor']);
     Route::middleware('ability:security:read')->get('security/rate-limit/profile', [SecurityController::class, 'getRateLimitProfile']);
     Route::middleware('ability:security:read')->get('security/modsecurity/site-rules', [SecurityController::class, 'getModSecuritySiteRules']);
     Route::middleware('ability:security:read')->get('security/intel/policy', [SecurityController::class, 'intelPolicy']);
@@ -261,6 +296,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('security/modsecurity/toggle', [SecurityController::class, 'toggleModSecurity']);
         Route::post('security/modsecurity/install', [SecurityController::class, 'installModSecurity']);
         Route::post('security/clamav/toggle', [SecurityController::class, 'toggleClamav']);
+        Route::post('security/clamav/install', [SecurityController::class, 'installClamav']);
         Route::post('security/clamav/scan', [SecurityController::class, 'scanClamav']);
         Route::post('security/clamav/quarantine', [SecurityController::class, 'quarantineClamav']);
         Route::post('security/clamav/maldet-scan', [SecurityController::class, 'scanMaldet']);
@@ -280,6 +316,32 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:installer:write')->post('domains/{domain}/installer', [InstallerController::class, 'install']);
 
     Route::middleware('ability:tools:run')->post('domains/{domain}/tools', [SiteToolsController::class, 'run']);
+    Route::middleware('ability:tools:run')->group(function () {
+        Route::get('plugins/cloudflare/status', [CloudflarePluginController::class, 'status']);
+        Route::post('plugins/cloudflare/connect', [CloudflarePluginController::class, 'connect']);
+        Route::delete('plugins/cloudflare/disconnect', [CloudflarePluginController::class, 'disconnect']);
+        Route::get('plugins/cloudflare/zones', [CloudflarePluginController::class, 'zones']);
+        Route::get('domains/{domain}/cloudflare', [CloudflarePluginController::class, 'domainShow']);
+        Route::post('domains/{domain}/cloudflare/link', [CloudflarePluginController::class, 'domainLink']);
+        Route::delete('domains/{domain}/cloudflare/unlink', [CloudflarePluginController::class, 'domainUnlink']);
+        Route::post('domains/{domain}/cloudflare/ssl', [CloudflarePluginController::class, 'domainSsl']);
+        Route::post('domains/{domain}/cloudflare/dns/push', [CloudflarePluginController::class, 'domainDnsPush']);
+        Route::post('domains/{domain}/cloudflare/dns/pull', [CloudflarePluginController::class, 'domainDnsPull']);
+        Route::post('domains/{domain}/cloudflare/dns/proxied', [CloudflarePluginController::class, 'domainDnsProxied']);
+        Route::post('domains/{domain}/cloudflare/purge', [CloudflarePluginController::class, 'domainPurge']);
+    });
+
+    Route::middleware('ability:tools:run')->group(function () {
+        Route::get('domains/{domain}/node-app', [NodeAppController::class, 'show']);
+        Route::post('domains/{domain}/node-app/detect', [NodeAppController::class, 'detect']);
+        Route::put('domains/{domain}/node-app', [NodeAppController::class, 'update']);
+        Route::post('domains/{domain}/node-app/auto-configure', [NodeAppController::class, 'autoConfigure']);
+        Route::post('domains/{domain}/node-app/start', [NodeAppController::class, 'start']);
+        Route::post('domains/{domain}/node-app/stop', [NodeAppController::class, 'stop']);
+        Route::post('domains/{domain}/node-app/restart', [NodeAppController::class, 'restart']);
+        Route::post('domains/{domain}/node-app/install', [NodeAppController::class, 'install']);
+        Route::post('domains/{domain}/node-app/build', [NodeAppController::class, 'build']);
+    });
     Route::middleware('ability:tools:run')->group(function () {
         Route::get('domains/{domain}/deployment', [DeploymentController::class, 'show']);
         Route::put('domains/{domain}/deployment', [DeploymentController::class, 'update'])->middleware('throttle:deploy-run');
@@ -328,6 +390,11 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('processes/kill', [SystemController::class, 'killProcess']);
         Route::post('services/{name}', [SystemController::class, 'serviceAction']);
         Route::post('reboot', [SystemController::class, 'reboot']);
+        Route::get('server-settings', [SystemController::class, 'serverSettings']);
+        Route::patch('server-settings', [SystemController::class, 'updateServerSettings']);
+        Route::post('network/refresh', [SystemController::class, 'refreshNetwork']);
+        Route::post('network/addresses', [SystemController::class, 'addNetworkAddress']);
+        Route::delete('network/addresses', [SystemController::class, 'removeNetworkAddress']);
         Route::post('nginx/reload', function (EngineApiService $engine) {
             return response()->json($engine->reloadNginx());
         });

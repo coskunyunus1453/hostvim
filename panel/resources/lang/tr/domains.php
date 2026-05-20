@@ -10,4 +10,6 @@ return [
     'server_switched' => 'Web sunucu türü güncellendi.',
     'delete_confirm_expected' => 'SILMEKİSTİYORUM',
     'delete_confirm_mismatch' => 'Onay metni eşleşmiyor. Dil dosyanızdaki ifadeyi aynen yazın.',
+    'subdomain_prefix_required' => 'Alt alan adı ön eki gerekli (ör. blog).',
+    'subdomain_prefix_invalid' => 'Geçersiz alt alan adı ön eki. Harf, rakam, tire ve nokta kullanılabilir.',
 ];

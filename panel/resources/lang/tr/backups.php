@@ -13,4 +13,12 @@ return [
     'destination_saved' => 'Backup hedefi kaydedildi',
     'schedule_saved' => 'Backup planı kaydedildi',
     'synced' => 'Yedek remote hedefe senkronlandı',
+    'download_unavailable' => 'İndirilebilir yedek dosyası bulunamadı.',
+    'upload_required' => 'Yedek arşivi (.tar.gz) gerekli.',
+    'upload_failed' => 'Dosya yüklenemedi.',
+    'google_drive_not_configured' => 'Google Drive OAuth yapılandırılmamış (GOOGLE_DRIVE_CLIENT_ID / SECRET).',
+    'google_drive_state_invalid' => 'OAuth oturumu geçersiz veya süresi doldu. Tekrar deneyin.',
+    'google_drive_connected' => 'Google Drive bağlandı.',
+    'google_drive_disconnected' => 'Google Drive bağlantısı kaldırıldı.',
+    'google_drive_token_expired' => 'Google Drive oturumu süresi doldu. Yeniden bağlanın.',
 ];

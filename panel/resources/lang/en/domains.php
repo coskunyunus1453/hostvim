@@ -10,4 +10,6 @@ return [
     'server_switched' => 'Web server type updated.',
     'delete_confirm_expected' => 'DELETEALLDATA',
     'delete_confirm_mismatch' => 'Confirmation phrase does not match. Type the exact phrase shown in your language.',
+    'subdomain_prefix_required' => 'Subdomain prefix is required (e.g. blog).',
+    'subdomain_prefix_invalid' => 'Invalid subdomain prefix. Use letters, numbers, hyphens and dots.',
 ];

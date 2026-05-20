@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Rocket, Copy, Play } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { useDomainsList } from '../hooks/useDomains'
 import { useSearchParams } from 'react-router-dom'
 
@@ -60,7 +61,7 @@ export default function DeployPage() {
     queryKey: ['deploy-runs', domainId],
     enabled: domainId !== '',
     queryFn: async () => (await api.get(`/domains/${domainId}/deployment/runs`)).data as { runs: DeployRun[] },
-    refetchInterval: 8000,
+    refetchInterval: () => pollWhenVisible(15_000),
   })
 
   const cfg = cfgQ.data?.config

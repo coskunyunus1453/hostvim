@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\TwoFactorBackupCode;
 use App\Models\User;
+use App\Models\UserPluginModule;
 use App\Services\TotpService;
 use App\Services\WhiteLabelBrandingService;
 use Illuminate\Http\JsonResponse;
@@ -144,6 +145,7 @@ class AuthController extends Controller
             'enforce_admin_2fa' => (bool) config('hostvim.enforce_admin_2fa', false),
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
+            'active_plugin_slugs' => $this->activePluginSlugs($user),
         ]);
     }
 
@@ -159,9 +161,11 @@ class AuthController extends Controller
         $user = $request->user();
         $userPayload = $user->load(['roles', 'hostingPackage'])->toArray();
         $userPayload['abilities'] = $user->sanctumAbilities();
+        $activePlugins = $this->activePluginSlugs($user);
 
         return response()->json([
             'user' => $userPayload,
+            'active_plugin_slugs' => $activePlugins,
             'enforce_admin_2fa' => (bool) config('hostvim.enforce_admin_2fa', false),
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
@@ -240,5 +244,21 @@ class AuthController extends Controller
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function activePluginSlugs(User $user): array
+    {
+        return UserPluginModule::query()
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->with('plugin:id,slug')
+            ->get()
+            ->map(fn ($row) => $row->plugin?->slug)
+            ->filter()
+            ->values()
+            ->all();
     }
 }

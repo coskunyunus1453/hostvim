@@ -113,8 +113,13 @@ type HostingConfig struct {
 	LetsEncryptIncludeWww bool `mapstructure:"lets_encrypt_include_www"`
 
 	ManageSiteTools bool   `mapstructure:"manage_site_tools"`
+	ManageNodeApps  bool   `mapstructure:"manage_node_apps"`
 	ComposerPath    string `mapstructure:"composer_path"`
 	NpmPath         string `mapstructure:"npm_path"`
+	NodeBin         string `mapstructure:"node_bin"`
+	Pm2Path         string `mapstructure:"pm2_path"`
+	Pm2Home         string `mapstructure:"pm2_home"`
+	Pm2RunUser      string `mapstructure:"pm2_run_user"`
 	ToolsMaxSeconds int    `mapstructure:"tools_max_seconds"`
 	WordPressZipURL  string `mapstructure:"wordpress_zip_url"`
 	OpenCartZipURL   string `mapstructure:"opencart_zip_url"`
@@ -262,8 +267,13 @@ func setDefaults() {
 	viper.SetDefault("hosting.lets_encrypt_include_www", true)
 
 	viper.SetDefault("hosting.manage_site_tools", false)
+	viper.SetDefault("hosting.manage_node_apps", false)
 	viper.SetDefault("hosting.composer_path", "composer")
 	viper.SetDefault("hosting.npm_path", "npm")
+	viper.SetDefault("hosting.node_bin", "node")
+	viper.SetDefault("hosting.pm2_path", "pm2")
+	viper.SetDefault("hosting.pm2_home", "")
+	viper.SetDefault("hosting.pm2_run_user", "www-data")
 	viper.SetDefault("hosting.tools_max_seconds", 300)
 	viper.SetDefault("hosting.wordpress_zip_url", "https://wordpress.org/latest.zip")
 	viper.SetDefault("hosting.nginx_vhost_helper", "/usr/local/sbin/hostvim-nginx-vhost")

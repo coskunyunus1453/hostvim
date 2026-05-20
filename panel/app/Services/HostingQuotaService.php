@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\HostingPackage;
+use App\Models\SiteSubdomain;
 use App\Models\User;
 use Illuminate\Support\Str;
 
@@ -47,6 +48,21 @@ class HostingQuotaService
         }
         if ($user->domains()->count() >= $max) {
             abort(422, __('quota.max_domains', ['max' => $max]));
+        }
+    }
+
+    public function ensureCanCreateSubdomain(User $user): void
+    {
+        $pkg = $this->packageFor($user);
+        $max = $this->cap($pkg, 'max_subdomains');
+        if ($max === null) {
+            return;
+        }
+        $used = SiteSubdomain::query()
+            ->whereIn('domain_id', $user->domains()->select('id'))
+            ->count();
+        if ($used >= $max) {
+            abort(422, __('quota.max_subdomains', ['max' => $max]));
         }
     }
 

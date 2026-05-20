@@ -87,8 +87,11 @@ hosting:
   lets_encrypt_email: "__LETS_ENCRYPT_EMAIL__"
   lets_encrypt_staging: false
   manage_site_tools: true
+  manage_node_apps: true
   composer_path: "/usr/bin/composer"
   npm_path: "/usr/bin/npm"
+  pm2_path: "/usr/bin/pm2"
+  pm2_run_user: "www-data"
   tools_max_seconds: 600
   wordpress_zip_url: "https://wordpress.org/latest.zip"
   # Faz 6 — site dizini tar.gz (panel yedeği); restore varsayılan kapalı (üzerine yazar)

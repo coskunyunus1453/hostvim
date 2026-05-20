@@ -7,16 +7,61 @@ import (
 	"strings"
 )
 
+// NodeAppConfig — Node.js uygulaması (PM2 + nginx reverse proxy).
+type NodeAppConfig struct {
+	Enabled     bool   `json:"enabled,omitempty"`
+	Profile     string `json:"profile,omitempty"`      // nextjs, nuxt, strapi, n8n, node
+	WorkDir     string `json:"work_dir,omitempty"`     // public_html göreli (varsayılan ".")
+	StartScript string `json:"start_script,omitempty"` // package.json scripts anahtarı
+	ListenPort  int    `json:"listen_port,omitempty"`
+	AutoStart   bool   `json:"auto_start,omitempty"`
+	EnvFile     string `json:"env_file,omitempty"` // public_html göreli, örn. .env
+}
+
 // SiteMeta — alan adı başına engine tarafından saklanan küçük durum (silme / PHP değişimi / SSL için).
 type SiteMeta struct {
 	PHPVersion   string   `json:"php_version"`
 	DocumentRoot string   `json:"document_root"`
 	ServerType   string   `json:"server_type"`
 	SSLEnabled   bool     `json:"ssl_enabled"`
+	// ForceHTTPS — SSL aktifken HTTP→HTTPS yönlendirmesi; nil = true (geriye dönük uyumluluk).
+	ForceHTTPS   *bool    `json:"force_https,omitempty"`
 	// PerformanceMode: boş = kapalı; "standard" = gzip + statik cache header preset (nginx vhost).
 	PerformanceMode string `json:"performance_mode,omitempty"`
 	Aliases      []string `json:"aliases,omitempty"` // Örn. example.net — aynı belge kökü, vhost server_name
 	Hostname     string   `json:"hostname,omitempty"` // Alt site meta dosyalarında FQDN (silme / vhost için)
+	AppProfile   string         `json:"app_profile,omitempty"` // laravel, nextjs, node, ...
+	NodeApp      *NodeAppConfig `json:"node_app,omitempty"`
+	RedirectRules []RedirectRule `json:"redirect_rules,omitempty"`
+}
+
+// ForceHTTPSRedirect SSL etkin sitelerde HTTP→HTTPS yönlendirmesi isteniyor mu (varsayılan: true).
+func (m *SiteMeta) ForceHTTPSRedirect() bool {
+	if m == nil || !m.SSLEnabled {
+		return false
+	}
+	if m.ForceHTTPS == nil {
+		return true
+	}
+	return *m.ForceHTTPS
+}
+
+// NodeProxyPort etkin Node uygulaması için nginx upstream portunu döndürür; yoksa 0.
+func (m *SiteMeta) NodeProxyPort() int {
+	if m == nil || m.NodeApp == nil || !m.NodeApp.Enabled || m.NodeApp.ListenPort <= 0 {
+		return 0
+	}
+	return m.NodeApp.ListenPort
+}
+
+// IsNodeProfile uygulama profili Node tabanlı mı.
+func IsNodeProfile(profile string) bool {
+	switch strings.ToLower(strings.TrimSpace(profile)) {
+	case "nextjs", "nuxt", "strapi", "n8n", "node":
+		return true
+	default:
+		return false
+	}
 }
 
 const metaDirName = ".hostvim"

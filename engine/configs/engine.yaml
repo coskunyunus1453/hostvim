@@ -89,6 +89,7 @@ hosting:
   lets_encrypt_include_www: true
   # Faz 2.4 — site belge kökünde composer / npm (prod: true + güvenilir PATH)
   manage_site_tools: false
+  manage_node_apps: false
   composer_path: "composer"
   npm_path: "npm"
   tools_max_seconds: 300

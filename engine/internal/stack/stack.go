@@ -38,6 +38,11 @@ type Module struct {
 func Catalog() []Module {
 	return []Module{
 		{
+			ID: "nodejs-lts-pm2", Category: "runtime",
+			Title: "Node.js LTS + PM2", Description: "Node.js, npm ve global PM2 — site başına Node uygulama yöneticisi",
+			CheckPkg: "nodejs",
+		},
+		{
 			ID: "php-8-3-fpm-extra", Category: "php",
 			Title: "PHP 8.3 FPM + uzantılar", Description: "FPM, MySQL, mbstring, xml, zip, curl, intl, bcmath, sqlite",
 			CheckPkg: "php8.3-fpm",

@@ -347,7 +347,7 @@ const fragTpl = `virtualhost {{.VhostID}} {
 `
 
 // ApplyVhost vhconf + virtualhost parçası + map + include indeksini yazar; istenirse lswsctrl configtest/reload.
-func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string) error {
+func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS bool) error {
 	if !cfg.Hosting.OLSManageVhosts {
 		return nil
 	}
@@ -388,7 +388,7 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 		DocRoot:      docRoot,
 		AliasLine:    aliasLine,
 		UDS:          olsUDS(sock),
-		RewriteHTTPS: useSSL,
+		RewriteHTTPS: useSSL && forceHTTPS,
 		SSLBlock:     useSSL,
 		SSLKey:       key,
 		SSLCert:      chain,

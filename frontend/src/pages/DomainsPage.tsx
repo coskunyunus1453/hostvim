@@ -11,6 +11,7 @@ import {
   FileText,
   Globe,
   Loader2,
+  Layers,
   Plus,
   Search,
   ServerCog,
@@ -41,6 +42,28 @@ type DomainRow = {
   server_type: string
   status: string
   ssl_enabled?: boolean
+  site_subdomains?: SiteSubdomainRow[]
+  site_domain_aliases?: SiteDomainAliasRow[]
+}
+
+type SiteDomainAliasRow = {
+  id: number
+  hostname: string
+}
+
+type SiteSubdomainRow = {
+  id: number
+  hostname: string
+  path_segment: string
+  document_root?: string
+}
+
+function buildSubdomainHostname(parent: string, prefix: string): string {
+  const p = prefix.trim().toLowerCase()
+  const par = parent.trim().toLowerCase()
+  if (!p || !par) return ''
+  if (p.endsWith(`.${par}`)) return p
+  return `${p}.${par}`
 }
 
 type DomainLogEntry = {
@@ -99,6 +122,12 @@ export default function DomainsPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [addMode, setAddMode] = useState<'domain' | 'subdomain' | 'alias'>('domain')
+  const [subParentId, setSubParentId] = useState<number | ''>('')
+  const [subPrefix, setSubPrefix] = useState('')
+  const [subPhpVersion, setSubPhpVersion] = useState('8.2')
+  const [aliasParentId, setAliasParentId] = useState<number | ''>('')
+  const [aliasHostname, setAliasHostname] = useState('')
   const [issueLeOnCreate, setIssueLeOnCreate] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<DomainRow | null>(null)
   const [quickTarget, setQuickTarget] = useState<DomainRow | null>(null)
@@ -174,6 +203,79 @@ export default function DomainsPage() {
       diagnostics?: { key: string; ok: boolean; message: string }[]
     } | null
   }
+
+  const openAddModal = (mode: 'domain' | 'subdomain' | 'alias' = 'domain', parentId?: number) => {
+    setAddMode(mode)
+    setSubParentId(parentId ?? '')
+    setSubPrefix('')
+    setSubPhpVersion('8.2')
+    setAliasParentId(parentId ?? '')
+    setAliasHostname('')
+    if (mode === 'subdomain' && parentId) {
+      const parent = list.find((d) => d.id === parentId)
+      if (parent) setSubPhpVersion(parent.php_version || '8.2')
+    }
+    setShowAdd(true)
+  }
+
+  const createSubM = useMutation({
+    mutationFn: async (payload: { parentId: number; prefix: string; php_version: string }) => {
+      const { data } = await api.post(`/domains/${payload.parentId}/subdomains`, {
+        prefix: payload.prefix,
+        php_version: payload.php_version,
+      })
+      return data
+    },
+    onSuccess: () => {
+      toast.success(t('domains.subdomain_created'))
+      qc.invalidateQueries({ queryKey: ['domains'] })
+      setShowAdd(false)
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const deleteSubM = useMutation({
+    mutationFn: async (vars: { parentId: number; path_segment: string }) =>
+      api.delete(`/domains/${vars.parentId}/subdomains`, { data: { path_segment: vars.path_segment } }),
+    onSuccess: () => {
+      toast.success(t('domains.subdomain_deleted'))
+      qc.invalidateQueries({ queryKey: ['domains'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const createAliasM = useMutation({
+    mutationFn: async (payload: { parentId: number; hostname: string }) =>
+      api.post(`/domains/${payload.parentId}/aliases`, { hostname: payload.hostname }),
+    onSuccess: () => {
+      toast.success(t('domains.alias_created'))
+      qc.invalidateQueries({ queryKey: ['domains'] })
+      setShowAdd(false)
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const deleteAliasM = useMutation({
+    mutationFn: async (vars: { parentId: number; hostname: string }) =>
+      api.delete(`/domains/${vars.parentId}/aliases`, { data: { hostname: vars.hostname } }),
+    onSuccess: () => {
+      toast.success(t('domains.alias_deleted'))
+      qc.invalidateQueries({ queryKey: ['domains'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
 
   const createM = useMutation({
     mutationFn: async (payload: {
@@ -275,7 +377,17 @@ export default function DomainsPage() {
 
   const list: DomainRow[] = domainsQ.data?.data ?? []
   const total = (domainsQ.data?.total as number | undefined) ?? list.length
-  const filtered = list.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+  const searchQ = search.toLowerCase()
+  const filtered = list.filter((d) => {
+    if (d.name.toLowerCase().includes(searchQ)) return true
+    return (d.site_subdomains ?? []).some((s) => s.hostname.toLowerCase().includes(searchQ))
+      || (d.site_domain_aliases ?? []).some((a) => a.hostname.toLowerCase().includes(searchQ))
+  })
+  const subParentDomain = list.find((d) => d.id === subParentId)
+  const subPreview =
+    subParentDomain && subPrefix.trim()
+      ? buildSubdomainHostname(subParentDomain.name, subPrefix)
+      : ''
   const healthByDomain = new Map<number, DomainHealthRow>(
     (healthSitesQ.data?.items ?? []).map((it) => [it.domain_id, it]),
   )
@@ -313,7 +425,7 @@ export default function DomainsPage() {
         <button
           type="button"
           className="btn-primary flex items-center gap-2"
-          onClick={() => setShowAdd(true)}
+          onClick={() => openAddModal('domain')}
         >
           <Plus className="h-4 w-4" />
           {t('domains.add')}
@@ -499,7 +611,54 @@ export default function DomainsPage() {
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card max-w-md w-full space-y-4 p-6 bg-white dark:bg-gray-900">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('domains.new_title')}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {addMode === 'domain'
+                ? t('domains.new_title')
+                : addMode === 'subdomain'
+                  ? t('domains.subdomain_new_title')
+                  : t('domains.alias_new_title')}
+            </h2>
+
+            <div className="flex gap-1 rounded-lg border border-gray-200 p-1 dark:border-gray-700">
+              <button
+                type="button"
+                className={clsx(
+                  'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm',
+                  addMode === 'domain'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                )}
+                onClick={() => setAddMode('domain')}
+              >
+                {t('domains.add_mode_domain')}
+              </button>
+              <button
+                type="button"
+                className={clsx(
+                  'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm',
+                  addMode === 'subdomain'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                )}
+                onClick={() => setAddMode('subdomain')}
+              >
+                {t('domains.add_mode_subdomain')}
+              </button>
+              <button
+                type="button"
+                className={clsx(
+                  'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm',
+                  addMode === 'alias'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                )}
+                onClick={() => setAddMode('alias')}
+              >
+                {t('domains.add_mode_alias')}
+              </button>
+            </div>
+
+            {addMode === 'domain' ? (
             <form
               className="space-y-3"
               onSubmit={(ev) => {
@@ -578,6 +737,139 @@ export default function DomainsPage() {
                 </button>
               </div>
             </form>
+            ) : addMode === 'subdomain' ? (
+            <form
+              className="space-y-3"
+              onSubmit={(ev) => {
+                ev.preventDefault()
+                if (subParentId === '' || !subPrefix.trim()) return
+                createSubM.mutate({
+                  parentId: subParentId,
+                  prefix: subPrefix.trim(),
+                  php_version: subPhpVersion,
+                })
+              }}
+            >
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('domains.subdomain_hint')}</p>
+              <div>
+                <label className="label">{t('domains.subdomain_parent')}</label>
+                <select
+                  className="input w-full"
+                  required
+                  value={subParentId}
+                  onChange={(e) => {
+                    const id = e.target.value ? Number(e.target.value) : ''
+                    setSubParentId(id)
+                    if (id !== '') {
+                      const parent = list.find((d) => d.id === id)
+                      if (parent) setSubPhpVersion(parent.php_version || '8.2')
+                    }
+                  }}
+                >
+                  <option value="">{t('common.select')}</option>
+                  {list.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t('domains.subdomain_prefix')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="input w-full font-mono"
+                    required
+                    value={subPrefix}
+                    onChange={(e) => setSubPrefix(e.target.value)}
+                    placeholder="blog"
+                    autoComplete="off"
+                  />
+                  {subParentDomain && (
+                    <span className="shrink-0 text-sm text-gray-500">.{subParentDomain.name}</span>
+                  )}
+                </div>
+                {subPreview && (
+                  <p className="mt-1 text-xs text-primary-600 dark:text-primary-400">
+                    {t('domains.subdomain_preview')}: <span className="font-mono">{subPreview}</span>
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="label">{t('domains.php_version')}</label>
+                <select
+                  className="input w-full"
+                  value={subPhpVersion}
+                  onChange={(e) => setSubPhpVersion(e.target.value)}
+                >
+                  {PHP_OPTIONS.map((v) => (
+                    <option key={v} value={v}>PHP {v}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={createSubM.isPending || subParentId === '' || !subPrefix.trim()}
+                >
+                  {createSubM.isPending ? t('domains.subdomain_creating') : t('domains.subdomain_add')}
+                </button>
+              </div>
+            </form>
+            ) : (
+            <form
+              className="space-y-3"
+              onSubmit={(ev) => {
+                ev.preventDefault()
+                if (aliasParentId === '' || !aliasHostname.trim()) return
+                createAliasM.mutate({
+                  parentId: aliasParentId,
+                  hostname: aliasHostname.trim().toLowerCase(),
+                })
+              }}
+            >
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('domains.alias_hint')}</p>
+              <div>
+                <label className="label">{t('domains.alias_parent')}</label>
+                <select
+                  className="input w-full"
+                  required
+                  value={aliasParentId}
+                  onChange={(e) => setAliasParentId(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">{t('common.select')}</option>
+                  {list.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t('domains.alias_hostname')}</label>
+                <input
+                  className="input w-full font-mono"
+                  required
+                  value={aliasHostname}
+                  onChange={(e) => setAliasHostname(e.target.value)}
+                  placeholder="www.ornek.com"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={createAliasM.isPending || aliasParentId === '' || !aliasHostname.trim()}
+                >
+                  {createAliasM.isPending ? t('domains.alias_creating') : t('domains.alias_add')}
+                </button>
+              </div>
+            </form>
+            )}
           </div>
         </div>
       )}
@@ -630,7 +922,7 @@ export default function DomainsPage() {
               )}
 
               {!domainsQ.isLoading &&
-                filtered.map((domain) => {
+                filtered.flatMap((domain) => {
                   const b = busy[domain.id] ?? {}
                   const sslEnabled = !!domain.ssl_enabled
                   const canToggle = domain.status === 'active' || domain.status === 'suspended'
@@ -664,7 +956,7 @@ export default function DomainsPage() {
                   const nextStatusLabel =
                     nextStatus === 'suspended' ? t('domains.suspended') : t('common.active')
 
-                  return (
+                  const parentRow = (
                     <tr
                       key={domain.id}
                       className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -858,6 +1150,22 @@ export default function DomainsPage() {
                         <div className="inline-flex items-center justify-end gap-1">
                           <button
                             type="button"
+                            title={t('domains.subdomain_add')}
+                            className="p-1.5 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-950/40 text-primary-600 dark:text-primary-400"
+                            onClick={() => openAddModal('subdomain', domain.id)}
+                          >
+                            <Layers className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title={t('domains.alias_add')}
+                            className="p-1.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/40 text-teal-600 dark:text-teal-400"
+                            onClick={() => openAddModal('alias', domain.id)}
+                          >
+                            <Globe className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             title={t('domains.quick_settings')}
                             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                             onClick={() => setQuickTarget(domain)}
@@ -907,6 +1215,128 @@ export default function DomainsPage() {
                       </td>
                     </tr>
                   )
+
+                  const subRows = (domain.site_subdomains ?? []).map((sub) => (
+                    <tr
+                      key={`sub-${sub.id}`}
+                      className="bg-gray-50/60 transition-colors hover:bg-gray-100/80 dark:bg-gray-800/30 dark:hover:bg-gray-800/50"
+                    >
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3 pl-8">
+                          <Layers className="h-4 w-4 shrink-0 text-indigo-400" />
+                          <div className="min-w-0">
+                            <span className="truncate font-medium text-gray-800 dark:text-gray-200 font-mono text-sm">
+                              {sub.hostname}
+                            </span>
+                            <p className="text-[11px] text-gray-500">{t('domains.subdomain_of', { domain: domain.name })}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{domain.php_version}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">—</td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{domain.server_type}</td>
+                      <td className="px-6 py-3">
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                          {t('domains.subdomain_badge')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            title={t('domains.open_site')}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                            onClick={() => {
+                              const url = safeDomainUrl(sub.hostname)
+                              if (!url) {
+                                toast.error('Geçersiz domain URL')
+                                return
+                              }
+                              window.open(url, '_blank', 'noopener,noreferrer')
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title={t('domains.subdomain_delete')}
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
+                            disabled={deleteSubM.isPending}
+                            onClick={() => {
+                              if (!window.confirm(t('domains.subdomain_delete_confirm', { hostname: sub.hostname }))) {
+                                return
+                              }
+                              deleteSubM.mutate({ parentId: domain.id, path_segment: sub.path_segment })
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+
+                  const aliasRows = (domain.site_domain_aliases ?? []).map((alias) => (
+                    <tr
+                      key={`alias-${alias.id}`}
+                      className="bg-teal-50/40 transition-colors hover:bg-teal-50/70 dark:bg-teal-950/10 dark:hover:bg-teal-950/20"
+                    >
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3 pl-8">
+                          <Globe className="h-4 w-4 shrink-0 text-teal-500" />
+                          <div className="min-w-0">
+                            <span className="truncate font-medium text-gray-800 dark:text-gray-200 font-mono text-sm">
+                              {alias.hostname}
+                            </span>
+                            <p className="text-[11px] text-gray-500">{t('domains.alias_of', { domain: domain.name })}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{domain.php_version}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">—</td>
+                      <td className="px-6 py-3 text-sm text-gray-500">{domain.server_type}</td>
+                      <td className="px-6 py-3">
+                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+                          {t('domains.alias_badge')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            title={t('domains.open_site')}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                            onClick={() => {
+                              const url = safeDomainUrl(alias.hostname)
+                              if (!url) {
+                                toast.error('Geçersiz domain URL')
+                                return
+                              }
+                              window.open(url, '_blank', 'noopener,noreferrer')
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title={t('domains.alias_delete')}
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
+                            disabled={deleteAliasM.isPending}
+                            onClick={() => {
+                              if (!window.confirm(t('domains.alias_delete_confirm', { hostname: alias.hostname }))) {
+                                return
+                              }
+                              deleteAliasM.mutate({ parentId: domain.id, hostname: alias.hostname })
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+
+                  return [parentRow, ...subRows, ...aliasRows]
                 })}
             </tbody>
           </table>

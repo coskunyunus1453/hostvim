@@ -13,6 +13,7 @@ use App\Services\HostingQuotaService;
 use App\Services\HostnameReservationService;
 use App\Services\SafeAuditLogger;
 use App\Services\SslIssueService;
+use App\Services\SubdomainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,6 +30,7 @@ class SiteController extends Controller
         private HostnameReservationService $hostnames,
         private HostingQuotaService $quota,
         private SslIssueService $sslIssue,
+        private SubdomainService $subdomains,
     ) {}
 
     public function list(Request $request): JsonResponse
@@ -135,74 +137,38 @@ class SiteController extends Controller
     {
         $validated = $request->validate([
             'site_id' => 'required|integer|exists:domains,id',
-            'hostname' => 'required|string|max:253',
+            'hostname' => 'nullable|string|max:253',
+            'prefix' => 'nullable|string|max:253',
             'path_segment' => 'nullable|string|max:255',
             'php_version' => 'nullable|string|in:7.4,8.0,8.1,8.2,8.3,8.4',
         ]);
 
+        if (trim((string) ($validated['hostname'] ?? '')) === '' && trim((string) ($validated['prefix'] ?? '')) === '') {
+            return response()->json(['message' => __('domains.subdomain_prefix_required')], 422);
+        }
+
         $site = Domain::query()->findOrFail($validated['site_id']);
         $this->authorize('update', $site);
 
-        $this->hostnames->assertEngineSafeFqdn($validated['hostname'], 'hostname');
-        $pathSegment = $this->hostnames->resolveSubdomainPathSegment(
-            $site->name,
-            $validated['hostname'],
-            $validated['path_segment'] ?? null
-        );
-
-        $hostLc = strtolower(trim($validated['hostname']));
-        if ($this->hostnames->isGloballyTaken($hostLc)) {
-            return response()->json(['message' => __('sites.hostname_already_taken')], 422);
-        }
-
-        if ($site->siteSubdomains()->where('path_segment', $pathSegment)->exists()) {
-            return response()->json(['message' => __('sites.path_segment_in_use')], 422);
-        }
-
-        $payload = [
-            'hostname' => $hostLc,
-            'path_segment' => $pathSegment,
-            'php_version' => $validated['php_version'] ?? $site->php_version ?? '8.2',
-        ];
-
-        $resp = $this->engine->siteAddSubdomain($site->name, $payload);
-        if (! empty($resp['error'])) {
-            SafeAuditLogger::warning('sites.subdomain_engine_failed', [
-                'user_id' => $request->user()->id,
-                'site_id' => $site->id,
-                'error' => $resp['error'],
-            ], $request);
-
-            return response()->json(['message' => $resp['error']], 422);
-        }
-
         try {
-            SiteSubdomain::create([
-                'domain_id' => $site->id,
-                'hostname' => $hostLc,
-                'path_segment' => $pathSegment,
-                'document_root' => $resp['document_root'] ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-            $this->engine->siteRemoveSubdomain($site->name, $pathSegment);
-
-            return response()->json(['message' => __('sites.subdomain_db_rollback')], 503);
+            $sub = $this->subdomains->add($site, $validated);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?? $e->getMessage(),
+                'errors' => $e->errors(),
+            ], 422);
         }
 
         SafeAuditLogger::info('sites.subdomain_added', [
             'user_id' => $request->user()->id,
             'site_id' => $site->id,
-            'hostname' => $hostLc,
-            'path_segment' => $pathSegment,
+            'hostname' => $sub->hostname,
+            'path_segment' => $sub->path_segment,
         ], $request);
 
         return response()->json([
             'message' => __('sites.subdomain_added'),
-            'subdomain' => SiteSubdomain::query()
-                ->where('domain_id', $site->id)
-                ->where('path_segment', $pathSegment)
-                ->first(),
+            'subdomain' => $sub,
         ], 201);
     }
 
@@ -216,17 +182,13 @@ class SiteController extends Controller
         $site = Domain::query()->findOrFail($validated['site_id']);
         $this->authorize('update', $site);
 
-        $sub = $site->siteSubdomains()->where('path_segment', $validated['path_segment'])->first();
-        if ($sub === null) {
-            return response()->json(['message' => __('sites.subdomain_not_found')], 404);
+        try {
+            $this->subdomains->remove($site, $validated['path_segment']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?? $e->getMessage(),
+            ], 422);
         }
-
-        $resp = $this->engine->siteRemoveSubdomain($site->name, $sub->path_segment);
-        if (! empty($resp['error']) && ! $this->ignorableEngineNotFound($resp['error'])) {
-            return response()->json(['message' => $resp['error']], 422);
-        }
-
-        $sub->delete();
 
         SafeAuditLogger::info('sites.subdomain_removed', [
             'user_id' => $request->user()->id,

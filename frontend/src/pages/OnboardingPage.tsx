@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import { Globe, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { sanitizeOnboardingHtml } from '../lib/sanitizeHtml'
 
 export default function OnboardingPage() {
   const { t } = useTranslation()
@@ -25,6 +26,8 @@ export default function OnboardingPage() {
   })
 
   const customHtml = whiteLabel?.onboarding_html?.trim()
+    ? sanitizeOnboardingHtml(whiteLabel.onboarding_html.trim())
+    : undefined
 
   return (
     <div className="mx-auto max-w-2xl py-8 px-4">

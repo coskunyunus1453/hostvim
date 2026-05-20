@@ -25,7 +25,9 @@ class SslController extends Controller
     public function index(Request $request): JsonResponse
     {
         $domainIds = $request->user()->domains()->pluck('id');
-        $certs = SslCertificate::whereIn('domain_id', $domainIds)->with('domain')->get();
+        $certs = SslCertificate::whereIn('domain_id', $domainIds)
+            ->with('domain:id,name,force_https,ssl_enabled')
+            ->get();
 
         return response()->json(['certificates' => $certs]);
     }
@@ -157,12 +159,53 @@ class SslController extends Controller
         $domain->update([
             'ssl_enabled' => true,
             'ssl_expiry' => $cert->expires_at,
+            'force_https' => true,
         ]);
 
         return response()->json([
             'message' => __('ssl.manual_uploaded'),
             'certificate' => $cert->fresh(),
             'engine' => $engine,
+        ]);
+    }
+
+    public function updateSettings(Request $request, Domain $domain): JsonResponse
+    {
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'auto_renew' => ['sometimes', 'boolean'],
+            'force_https' => ['sometimes', 'boolean'],
+        ]);
+
+        if ($validated === []) {
+            return response()->json(['message' => __('ssl.nothing_to_update')], 422);
+        }
+
+        if (array_key_exists('force_https', $validated)) {
+            $force = (bool) $validated['force_https'];
+            $domain->update(['force_https' => $force]);
+            if ($domain->ssl_enabled) {
+                $engine = $this->engine->setSiteSslSettings($domain->name, $force);
+                if (! empty($engine['error'])) {
+                    return response()->json(['message' => (string) $engine['error']], 422);
+                }
+            }
+        }
+
+        if (array_key_exists('auto_renew', $validated)) {
+            $cert = $domain->sslCertificate;
+            if (! $cert) {
+                return response()->json(['message' => __('ssl.missing')], 404);
+            }
+            $cert->update(['auto_renew' => (bool) $validated['auto_renew']]);
+        }
+
+        return response()->json([
+            'message' => __('ssl.settings_saved'),
+            'domain' => $domain->fresh()->load('sslCertificate'),
         ]);
     }
 }

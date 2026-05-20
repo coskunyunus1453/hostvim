@@ -2,8 +2,12 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Store, Search, Sparkles, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import api from '../services/api'
+import { authService } from '../services/authService'
+import { useAuthStore } from '../store/authStore'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 
 type ModuleRow = {
   id: number
@@ -17,7 +21,7 @@ type ModuleRow = {
   currency: string
   installed: boolean
   active: boolean
-  config?: { source?: string }
+  config?: { source?: string; route?: string }
 }
 
 type MigrationRun = {
@@ -44,8 +48,20 @@ type DiscoverResponse = {
 export default function PluginsStorePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const setActivePluginSlugs = useAuthStore((s) => s.setActivePluginSlugs)
+
+  const refreshActivePluginSlugs = async () => {
+    try {
+      const me = await authService.me()
+      if (Array.isArray(me.active_plugin_slugs)) {
+        setActivePluginSlugs(me.active_plugin_slugs)
+      }
+    } catch {
+      // ignore
+    }
+  }
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState<'all' | 'migration'>('all')
+  const [category, setCategory] = useState<'all' | 'migration' | 'integration'>('all')
   const [configModule, setConfigModule] = useState<ModuleRow | null>(null)
   const [sourceHost, setSourceHost] = useState('')
   const [sourcePort, setSourcePort] = useState('22')
@@ -75,15 +91,17 @@ export default function PluginsStorePage() {
   const q = useQuery({
     queryKey: ['plugins-store'],
     queryFn: async () => (await api.get('/plugins/store')).data as { modules: ModuleRow[] },
+    staleTime: 60_000,
   })
   const runsQ = useQuery({
     queryKey: ['plugins-migration-runs'],
     queryFn: async () => (await api.get('/plugins/migrations/runs')).data as { runs: MigrationRun[] },
-    refetchInterval: 5000,
+    refetchInterval: () => pollWhenVisible(15_000),
   })
   const domainsQ = useQuery({
     queryKey: ['domains-lite'],
-    queryFn: async () => (await api.get('/domains')).data.data as DomainRow[],
+    queryFn: async () => (await api.get('/domains/options')).data.data as DomainRow[],
+    staleTime: 120_000,
   })
 
   const targetDomainName = useMemo(() => {
@@ -132,17 +150,19 @@ export default function PluginsStorePage() {
 
   const activateM = useMutation({
     mutationFn: async (id: number) => api.post(`/plugins/${id}/activate`),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(t('plugins.activated'))
       qc.invalidateQueries({ queryKey: ['plugins-store'] })
+      await refreshActivePluginSlugs()
     },
   })
 
   const deactivateM = useMutation({
     mutationFn: async (id: number) => api.post(`/plugins/${id}/deactivate`),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(t('plugins.deactivated'))
       qc.invalidateQueries({ queryKey: ['plugins-store'] })
+      await refreshActivePluginSlugs()
     },
   })
   const startMigrationM = useMutation({
@@ -334,6 +354,13 @@ export default function PluginsStorePage() {
           >
             {t('plugins.category_migration')}
           </button>
+          <button
+            type="button"
+            className={`px-3 py-2 text-sm border-l border-gray-200 dark:border-gray-700 ${category === 'integration' ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200' : 'bg-white dark:bg-gray-900'}`}
+            onClick={() => setCategory('integration')}
+          >
+            {t('plugins.category_integration')}
+          </button>
         </div>
       </div>
       <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200">
@@ -362,6 +389,9 @@ export default function PluginsStorePage() {
             <p className="text-sm text-gray-600 dark:text-gray-300">{m.summary}</p>
             {m.category === 'migration' && (
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('plugins.migration_card_hint')}</p>
+            )}
+            {m.category === 'integration' && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('plugins.integration_card_hint')}</p>
             )}
             <div className="mt-auto flex items-center gap-2">
               {m.active ? (
@@ -413,6 +443,11 @@ export default function PluginsStorePage() {
                       >
                         {t('plugins.configure')}
                       </button>
+                    )}
+                    {m.category === 'integration' && m.config?.route && (
+                      <Link className="btn-primary py-1.5 text-xs text-center" to={m.config.route}>
+                        {t('plugins.open')}
+                      </Link>
                     )}
                     <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => deactivateM.mutate(m.id)}>
                       {t('plugins.deactivate')}

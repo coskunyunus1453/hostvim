@@ -50,11 +50,13 @@ const tplHTTP = `# Hostvim — {{.Domain}} (Apache HTTP)
 `
 
 const tplHTTPS = `# Hostvim — {{.Domain}} (Apache HTTPS)
+{{if .ForceHTTPS}}
 <VirtualHost *:{{.HTTPPort}}>
     ServerName {{.Domain}}
     ServerAlias {{.ServerAliasLine}}
     Redirect permanent / https://%{HTTP_HOST}%{REQUEST_URI}
 </VirtualHost>
+{{end}}
 
 <VirtualHost *:443>
     ServerName {{.Domain}}
@@ -91,6 +93,68 @@ const tplHTTPS = `# Hostvim — {{.Domain}} (Apache HTTPS)
 </VirtualHost>
 `
 
+const tplHTTPSDual = `# Hostvim — {{.Domain}} (Apache HTTP + HTTPS)
+<VirtualHost *:{{.HTTPPort}}>
+    ServerName {{.Domain}}
+    ServerAlias {{.ServerAliasLine}}
+    DocumentRoot {{.DocRoot}}
+    RewriteEngine On
+    RewriteRule ^/admin/assets/(.*)$ /assets/$1 [L]
+
+    <Directory {{.DocRoot}}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <LocationMatch "(^|/)\.(?!well-known(?:/|$))">
+        Require all denied
+    </LocationMatch>
+
+    SetEnvIfNoCase Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+    <FilesMatch "\.php$">
+        SetHandler "proxy:unix:{{.PHPSocket}}|fcgi://localhost"
+    </FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-error.log
+    CustomLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-access.log combined
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName {{.Domain}}
+    ServerAlias {{.ServerAliasLine}}
+    DocumentRoot {{.DocRoot}}
+    RewriteEngine On
+    RewriteRule ^/admin/assets/(.*)$ /assets/$1 [L]
+
+    SSLEngine on
+    SSLCertificateFile {{.SSLFullChain}}
+    SSLCertificateKeyFile {{.SSLPrivKey}}
+
+    Header always set Strict-Transport-Security "max-age=31536000"
+
+    <Directory {{.DocRoot}}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <LocationMatch "(^|/)\.(?!well-known(?:/|$))">
+        Require all denied
+    </LocationMatch>
+
+    SetEnvIfNoCase Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+    <FilesMatch "\.php$">
+        SetHandler "proxy:unix:{{.PHPSocket}}|fcgi://localhost"
+    </FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-ssl-access.log combined
+</VirtualHost>
+`
+
 type vhostVars struct {
 	HTTPPort       int
 	Domain         string
@@ -99,6 +163,7 @@ type vhostVars struct {
 	PHPSocket      string
 	SSLFullChain   string
 	SSLPrivKey     string
+	ForceHTTPS     bool
 }
 
 func buildApacheServerAliasLine(primary string, aliases []string) string {
@@ -157,7 +222,7 @@ func sitesEnabled(cfg *config.Config) string {
 }
 
 // ApplyVhost Debian/Ubuntu sites-available + sites-enabled sembolik bağ.
-func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string) error {
+func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS bool) error {
 	if !cfg.Hosting.ApacheManageVhosts {
 		return nil
 	}
@@ -189,7 +254,11 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 
 	tplStr := tplHTTP
 	if useSSL {
-		tplStr = tplHTTPS
+		if forceHTTPS {
+			tplStr = tplHTTPS
+		} else {
+			tplStr = tplHTTPSDual
+		}
 	}
 	tpl, err := template.New("apache").Parse(tplStr)
 	if err != nil {
@@ -211,6 +280,7 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 		PHPSocket:       sock,
 		SSLFullChain:    chain,
 		SSLPrivKey:      key,
+		ForceHTTPS:      forceHTTPS,
 	}
 	var buf bytes.Buffer
 	if err := tpl.Execute(&buf, vars); err != nil {

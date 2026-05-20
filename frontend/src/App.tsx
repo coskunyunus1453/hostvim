@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
@@ -10,37 +10,55 @@ import DashboardPage from './pages/DashboardPage'
 import DomainsPage from './pages/DomainsPage'
 import DatabasesPage from './pages/DatabasesPage'
 import DnsPage from './pages/DnsPage'
-import FileManagerPage from './pages/FileManagerPage'
+import RedirectsPage from './pages/RedirectsPage'
 import FtpPage from './pages/FtpPage'
 import EmailPage from './pages/EmailPage'
 import SslPage from './pages/SslPage'
 import BackupsPage from './pages/BackupsPage'
 import CronPage from './pages/CronPage'
-import MonitoringPage from './pages/MonitoringPage'
-import SecurityPage from './pages/SecurityPage'
 import InstallerPage from './pages/InstallerPage'
 import SiteToolsPage from './pages/SiteToolsPage'
+import NodeAppPage from './pages/NodeAppPage'
+import CloudflarePage from './pages/CloudflarePage'
 import DeployPage from './pages/DeployPage'
 import BillingPage from './pages/BillingPage'
 import SettingsPage from './pages/SettingsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminPackagesPage from './pages/AdminPackagesPage'
 import AdminWhmcsPage from './pages/AdminWhmcsPage'
-import AdminSystemPage from './pages/AdminSystemPage'
 import AdminLicensePage from './pages/AdminLicensePage'
-import TerminalPage from './pages/TerminalPage'
 import AdminStackPage from './pages/AdminStackPage'
 import AdminMailSettingsPage from './pages/AdminMailSettingsPage'
 import AdminRolesPage from './pages/AdminRolesPage'
 import AdminWebServerSettingsPage from './pages/AdminWebServerSettingsPage'
-import AdminPhpSettingsPage from './pages/AdminPhpSettingsPage'
+import AdminServerSettingsPage from './pages/AdminServerSettingsPage'
 import AdminLogsPage from './pages/AdminLogsPage'
 import ResellerPage from './pages/ResellerPage'
 import ResellerBrandingPage from './pages/ResellerBrandingPage'
 import OnboardingPage from './pages/OnboardingPage'
-import AiAdvisorPage from './pages/AiAdvisorPage'
 import PluginsStorePage from './pages/PluginsStorePage'
 import WhmcsSsoBootstrap from './components/WhmcsSsoBootstrap'
+
+const FileManagerPage = lazy(() => import('./pages/FileManagerPage'))
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
+const SecurityPage = lazy(() => import('./pages/SecurityPage'))
+const TerminalPage = lazy(() => import('./pages/TerminalPage'))
+const AdminSystemPage = lazy(() => import('./pages/AdminSystemPage'))
+const AdminPhpSettingsPage = lazy(() => import('./pages/AdminPhpSettingsPage'))
+const AiAdvisorPage = lazy(() => import('./pages/AiAdvisorPage'))
+
+function PageLoader() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+      {t('common.loading')}
+    </div>
+  )
+}
+
+function LazyPage({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -98,35 +116,40 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="domains" element={<DomainsPage />} />
         <Route path="dns" element={<DnsPage />} />
+        <Route path="redirects" element={<AdvancedRoute><RedirectsPage /></AdvancedRoute>} />
         <Route path="databases" element={<DatabasesPage />} />
         <Route path="email" element={<EmailPage />} />
-        <Route path="files" element={<FileManagerPage />} />
+        <Route path="files" element={<LazyPage><FileManagerPage /></LazyPage>} />
         <Route path="ftp" element={<FtpPage />} />
         <Route path="ssl" element={<SslPage />} />
+        <Route path="backups/google-callback" element={<BackupsPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="cron" element={<AdvancedRoute><CronPage /></AdvancedRoute>} />
-        <Route path="monitoring" element={<AdvancedRoute><MonitoringPage /></AdvancedRoute>} />
-        <Route path="security" element={<AdvancedRoute><SecurityPage /></AdvancedRoute>} />
+        <Route path="monitoring" element={<AdvancedRoute><LazyPage><MonitoringPage /></LazyPage></AdvancedRoute>} />
+        <Route path="security" element={<AdvancedRoute><LazyPage><SecurityPage /></LazyPage></AdvancedRoute>} />
         <Route path="installer" element={<InstallerPage />} />
         <Route path="site-tools" element={<AdvancedRoute><SiteToolsPage /></AdvancedRoute>} />
+        <Route path="node-apps" element={<AdvancedRoute><NodeAppPage /></AdvancedRoute>} />
+        <Route path="cloudflare" element={<AdvancedRoute><CloudflarePage /></AdvancedRoute>} />
         <Route path="deploy" element={<AdvancedRoute><DeployPage /></AdvancedRoute>} />
         <Route path="billing" element={<AdvancedRoute><BillingPage /></AdvancedRoute>} />
         <Route path="reseller" element={<AdvancedRoute><ResellerPage /></AdvancedRoute>} />
         <Route path="reseller/branding" element={<AdvancedRoute><ResellerBrandingPage /></AdvancedRoute>} />
         <Route path="onboarding" element={<OnboardingPage />} />
-        <Route path="ai-advisor" element={<AdvancedRoute><AiAdvisorPage /></AdvancedRoute>} />
+        <Route path="ai-advisor" element={<AdvancedRoute><LazyPage><AiAdvisorPage /></LazyPage></AdvancedRoute>} />
         <Route path="plugins" element={<AdvancedRoute><PluginsStorePage /></AdvancedRoute>} />
         <Route path="admin/users" element={<AdvancedRoute><AdminUsersPage /></AdvancedRoute>} />
         <Route path="admin/roles" element={<AdvancedRoute><AdminRolesPage /></AdvancedRoute>} />
         <Route path="admin/packages" element={<AdvancedRoute><AdminPackagesPage /></AdvancedRoute>} />
         <Route path="admin/whmcs" element={<AdvancedRoute><AdminWhmcsPage /></AdvancedRoute>} />
-        <Route path="admin/system" element={<AdvancedRoute><AdminSystemPage /></AdvancedRoute>} />
+        <Route path="admin/system" element={<AdvancedRoute><LazyPage><AdminSystemPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/server-settings" element={<AdvancedRoute><AdminServerSettingsPage /></AdvancedRoute>} />
         <Route path="admin/license" element={<AdvancedRoute><AdminLicensePage /></AdvancedRoute>} />
-        <Route path="admin/terminal" element={<AdvancedRoute><TerminalPage /></AdvancedRoute>} />
+        <Route path="admin/terminal" element={<AdvancedRoute><LazyPage><TerminalPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/stack" element={<AdvancedRoute><AdminStackPage /></AdvancedRoute>} />
         <Route path="admin/mail-settings" element={<AdvancedRoute><AdminMailSettingsPage /></AdvancedRoute>} />
         <Route path="admin/webserver" element={<AdvancedRoute><AdminWebServerSettingsPage /></AdvancedRoute>} />
-        <Route path="admin/php-settings" element={<AdvancedRoute><AdminPhpSettingsPage /></AdvancedRoute>} />
+        <Route path="admin/php-settings" element={<AdvancedRoute><LazyPage><AdminPhpSettingsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/logs" element={<AdvancedRoute><AdminLogsPage /></AdvancedRoute>} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

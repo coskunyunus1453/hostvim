@@ -2,6 +2,7 @@
 
 return [
     'max_domains' => 'Alan adı kotası doldu (:max). Paketinizi yükseltin.',
+    'max_subdomains' => 'Alt alan adı kotası doldu (:max). Paketinizi yükseltin.',
     'max_databases' => 'Veritabanı kotası doldu (:max).',
     'max_email_accounts' => 'E-posta hesabı kotası doldu (:max).',
     'max_ftp_accounts' => 'FTP hesabı kotası doldu (:max).',

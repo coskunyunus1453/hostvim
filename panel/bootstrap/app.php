@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('sanctum:prune-expired --hours=24')->daily();
         $schedule->command('backups:run-due')->everyMinute();
+        $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
         $schedule->command('hostvim:self-heal')->everyMinute()->withoutOverlapping();
         $schedule->command('hostvim:check-panel-update')->everySixHours()->withoutOverlapping();
     })

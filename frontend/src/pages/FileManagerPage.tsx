@@ -41,6 +41,15 @@ type ListEntry = {
   group?: string
 }
 
+type FilesListResponse = {
+  entries: ListEntry[]
+  document_root_hint?: string
+  total?: number
+  limit?: number
+  offset?: number
+  message?: string
+}
+
 type TrashItem = {
   id: string
   original_path: string
@@ -567,7 +576,7 @@ export default function FileManagerPage() {
     )
   }
 
-  const filesQ = useQuery({
+  const filesQ = useQuery<FilesListResponse>({
     queryKey: ['files', domainId, path, pageSize, offset, sortKey, sortOrder],
     enabled: domainId !== '',
     staleTime: 5000,
@@ -591,14 +600,7 @@ export default function FileManagerPage() {
         u.set('path', pathSeg)
       }
       const { data } = await api.get(`/domains/${domId}/files?${u.toString()}`)
-      return data as {
-        entries: ListEntry[]
-        document_root_hint?: string
-        total?: number
-        limit?: number
-        offset?: number
-        message?: string
-      }
+      return data as FilesListResponse
     },
   })
 

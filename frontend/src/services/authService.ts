@@ -8,6 +8,7 @@ export interface LoginResponse {
   enforce_admin_2fa?: boolean
   force_password_change?: boolean
   white_label?: WhiteLabelUi | null
+  active_plugin_slugs?: string[]
 }
 
 export type LoginResult =
@@ -52,6 +53,7 @@ export const authService = {
     enforce_admin_2fa?: boolean
     force_password_change?: boolean
     white_label?: WhiteLabelUi | null
+    active_plugin_slugs?: string[]
   }> => {
     const { data } = await api.get('/auth/me')
     return data

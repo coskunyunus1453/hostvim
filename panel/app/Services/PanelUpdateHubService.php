@@ -45,6 +45,16 @@ class PanelUpdateHubService
             }
 
             if (! $response->successful()) {
+                if (in_array($response->status(), [401, 403], true)) {
+                    Log::warning('panel_update_hub_auth_rejected', ['status' => $response->status()]);
+
+                    return [
+                        'ok' => false,
+                        'code' => 'hub_unauthorized',
+                        'message' => 'Update hub rejected API token. Match HOSTVIM_PANEL_UPDATES_API_SECRET / HOSTVIM_LICENSE_API_SECRET between landing and panel.',
+                        'http_status' => $response->status(),
+                    ];
+                }
                 Log::warning('panel_update_hub_error', ['status' => $response->status()]);
 
                 return null;
@@ -57,6 +67,23 @@ class PanelUpdateHubService
 
             return $body;
         });
+    }
+
+    /**
+     * @return array<string, mixed>|null null = hub erişilemedi; ok:false = yapılandırma hatası
+     */
+    public function checkForUpdateRaw(?string $currentVersion = null): ?array
+    {
+        return $this->checkForUpdate($currentVersion);
+    }
+
+    public function hubAuthError(?array $hubPayload): ?string
+    {
+        if (is_array($hubPayload) && ($hubPayload['code'] ?? '') === 'hub_unauthorized') {
+            return (string) ($hubPayload['message'] ?? 'Update hub unauthorized');
+        }
+
+        return null;
     }
 
     public function panelProfile(): string
@@ -72,8 +99,14 @@ class PanelUpdateHubService
     public function updateAvailable(?array $hubPayload = null): bool
     {
         $payload = $hubPayload ?? $this->checkForUpdate();
+        if (! is_array($payload)) {
+            return false;
+        }
+        if (($payload['code'] ?? '') === 'hub_unauthorized') {
+            return false;
+        }
 
-        return is_array($payload) && ! empty($payload['update_available']) && is_array($payload['latest'] ?? null);
+        return ! empty($payload['update_available']) && is_array($payload['latest'] ?? null);
     }
 
     /**

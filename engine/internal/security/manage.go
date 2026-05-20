@@ -281,6 +281,11 @@ func InstallModSecurity() error {
 	return err
 }
 
+func InstallClamav() error {
+	_, err := run("clamav-install")
+	return err
+}
+
 func NginxRateLimitProfileGet() (NginxRateLimitProfile, error) {
 	out, err := run("nginx-rate-limit-get")
 	if err != nil {

@@ -44,6 +44,8 @@ class PanelUpdateService
             'updating' => $this->isUpdating(),
             'active_run_id' => $activeRun?->id,
             'dismissed_version' => Cache::get($this->dismissCacheKey()),
+            'hub_error' => $this->hub->hubAuthError($hub),
+            'hub_configured' => rtrim((string) config('hostvim.updates.hub_url', config('hostvim.license_server', '')), '/') !== '',
         ];
     }
 

@@ -12,12 +12,12 @@ class Domain extends Model
     use HasFactory, LogsActivity;
 
     protected $fillable = [
-        'user_id',
         'name',
         'document_root',
         'php_version',
         'ssl_enabled',
         'ssl_expiry',
+        'force_https',
         'status',
         'is_primary',
         'server_type',
@@ -28,6 +28,7 @@ class Domain extends Model
         return [
             'ssl_enabled' => 'boolean',
             'ssl_expiry' => 'datetime',
+            'force_https' => 'boolean',
             'is_primary' => 'boolean',
         ];
     }
@@ -62,6 +63,11 @@ class Domain extends Model
     public function dnsRecords()
     {
         return $this->hasMany(DnsRecord::class);
+    }
+
+    public function cloudflareZone()
+    {
+        return $this->hasOne(DomainCloudflareZone::class);
     }
 
     public function backups()

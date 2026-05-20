@@ -35,6 +35,7 @@ import {
 } from 'recharts'
 import clsx from 'clsx'
 import api from '../services/api'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
 import { tokenHasAbility } from '../lib/abilities'
@@ -183,7 +184,8 @@ export default function MonitoringPage() {
   const summaryQ = useQuery({
     queryKey: ['monitoring-summary'],
     queryFn: async () => (await api.get('/monitoring/summary')).data,
-    refetchInterval: 45_000,
+    refetchInterval: () => pollWhenVisible(60_000),
+    staleTime: 45_000,
   })
   const healthQ = useQuery({
     queryKey: ['monitoring-health', healthDomainId || 'global'],
@@ -205,7 +207,8 @@ export default function MonitoringPage() {
         snapshot: { cpu: number; ram: number; disk: number; error_rate: number }
         reasons: Array<{ key: string; ok: boolean; unknown?: boolean; label: string; detail: string }>
       },
-    refetchInterval: 20_000,
+    refetchInterval: () => pollWhenVisible(45_000),
+    staleTime: 30_000,
   })
   const healthSitesQ = useQuery({
     queryKey: ['monitoring-health-sites'],
@@ -219,14 +222,16 @@ export default function MonitoringPage() {
           reasons: string[]
         }>
       },
-    refetchInterval: 30_000,
+    refetchInterval: () => pollWhenVisible(60_000),
+    staleTime: 45_000,
   })
 
   const serverQ = useQuery({
     queryKey: ['monitoring-server'],
     enabled: canServer,
     queryFn: async () => (await api.get('/monitoring/server')).data,
-    refetchInterval: canServer ? 10_000 : false,
+    refetchInterval: canServer ? () => pollWhenVisible(20_000) : false,
+    staleTime: 15_000,
   })
 
   const stats = serverQ.data?.stats as ServerStats | undefined

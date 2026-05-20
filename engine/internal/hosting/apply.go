@@ -55,6 +55,17 @@ func sslPathsIfEnabled(cfg *config.Config, domain string, meta *sites.SiteMeta) 
 	return chain, key
 }
 
+func nginxRedirectArgs(meta *sites.SiteMeta) (blocks, fullReturn string, err error) {
+	if meta == nil || len(meta.RedirectRules) == 0 {
+		return "", "", nil
+	}
+	render, err := sites.BuildNginxRedirectRender(meta.RedirectRules)
+	if err != nil {
+		return "", "", err
+	}
+	return render.Blocks, sites.FullSiteReturnDirective(render), nil
+}
+
 // ApplyWebServer site meta’sına göre nginx, apache veya openlitespeed sanal host yazar; SSL PEM varsa HTTPS + 301 (nginx/ols).
 func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.SiteMeta, phpSocket string) error {
 	st := serverTypeOf(meta)
@@ -77,7 +88,13 @@ func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.Site
 		if meta != nil {
 			aliases = append([]string(nil), meta.Aliases...)
 		}
-		return apache.ApplyVhost(cfg, domain, docRoot, sock, chain, key, aliases)
+		return apache.ApplyVhost(cfg, domain, docRoot, sock, chain, key, aliases, meta != nil && meta.ForceHTTPSRedirect())
+	case "openlitespeed":
+		var aliases []string
+		if meta != nil {
+			aliases = append([]string(nil), meta.Aliases...)
+		}
+		return openlitespeed.ApplyVhost(cfg, domain, docRoot, sock, chain, key, aliases, meta != nil && meta.ForceHTTPSRedirect())
 	default:
 		var extras []string
 		if meta != nil {
@@ -85,16 +102,20 @@ func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.Site
 		}
 		sn := nginx.BuildServerNamesLine(domain, extras)
 		perf := ""
+		proxyPort := 0
 		if meta != nil {
 			perf = meta.PerformanceMode
+			proxyPort = meta.NodeProxyPort()
 		}
-		return nginx.ApplyVhost(cfg, domain, docRoot, sock, chain, key, sn, perf)
-	case "openlitespeed":
-		var aliases []string
+		redirBlocks, fullRet, rerr := nginxRedirectArgs(meta)
+		if rerr != nil {
+			return rerr
+		}
+		forceHTTPS := false
 		if meta != nil {
-			aliases = append([]string(nil), meta.Aliases...)
+			forceHTTPS = meta.ForceHTTPSRedirect()
 		}
-		return openlitespeed.ApplyVhost(cfg, domain, docRoot, sock, chain, key, aliases)
+		return nginx.ApplyVhost(cfg, domain, docRoot, sock, chain, key, sn, perf, proxyPort, redirBlocks, fullRet, forceHTTPS)
 	}
 }
 
@@ -104,18 +125,24 @@ func ApplySubdomainVhost(cfg *config.Config, parentPrimary, hostname, docRoot st
 	sock := resolvePHPSocket(cfg, parentPrimary, parentMeta, "")
 	st := serverTypeOf(subMeta)
 	if st == "apache" {
-		return apache.ApplyVhost(cfg, hostname, docRoot, sock, "", "", nil)
+		return apache.ApplyVhost(cfg, hostname, docRoot, sock, "", "", nil, false)
 	}
 	if st == "openlitespeed" {
 		h := strings.ToLower(strings.TrimSpace(hostname))
-		return openlitespeed.ApplyVhost(cfg, h, docRoot, sock, "", "", nil)
+		return openlitespeed.ApplyVhost(cfg, h, docRoot, sock, "", "", nil, false)
 	}
 	h := strings.ToLower(strings.TrimSpace(hostname))
 	perf := ""
+	proxyPort := 0
 	if subMeta != nil {
 		perf = subMeta.PerformanceMode
+		proxyPort = subMeta.NodeProxyPort()
 	}
-	return nginx.ApplyVhost(cfg, h, docRoot, sock, "", "", h, perf)
+	redirBlocks, fullRet, rerr := nginxRedirectArgs(subMeta)
+	if rerr != nil {
+		return rerr
+	}
+	return nginx.ApplyVhost(cfg, h, docRoot, sock, "", "", h, perf, proxyPort, redirBlocks, fullRet, false)
 }
 
 // RemoveWebServer meta’daki server_type’a göre ilgili vhost’u kaldırır.

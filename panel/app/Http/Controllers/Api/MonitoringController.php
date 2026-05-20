@@ -34,10 +34,14 @@ class MonitoringController extends Controller
 
     public function server(Request $request): JsonResponse
     {
-        return response()->json([
-            'stats' => $this->engine->getSystemStats(),
-            'services' => $this->engine->getServices(),
-        ]);
+        $payload = Cache::remember('monitoring:server:stats', 15, function (): array {
+            return [
+                'stats' => $this->engine->getSystemStats(),
+                'services' => $this->engine->getServices(),
+            ];
+        });
+
+        return response()->json($payload);
     }
 
     public function health(Request $request): JsonResponse
@@ -270,64 +274,120 @@ class MonitoringController extends Controller
         ]);
         $limit = (int) ($validated['limit'] ?? 20);
 
-        $baseQ = Domain::query()->select(['id', 'name', 'status', 'user_id'])->orderBy('id', 'desc');
-        if (! $user->isAdmin()) {
-            $baseQ->where('user_id', (int) $user->id);
-        }
-        $domains = $baseQ->limit($limit)->get();
+        $scope = $user->isAdmin() ? 'admin' : 'u'.$user->id;
+        $cacheKey = 'monitoring:health_sites:'.$scope.':'.$limit;
 
-        $items = $domains->map(function (Domain $d) {
-            $score = 100.0;
-            $reasons = [];
-
-            if (strtolower((string) $d->status) !== 'active') {
-                $score -= 30;
-                $reasons[] = 'Domain aktif degil';
+        $payload = Cache::remember($cacheKey, 30, function () use ($user, $limit): array {
+            $baseQ = Domain::query()->select(['id', 'name', 'status', 'user_id'])->orderBy('id', 'desc');
+            if (! $user->isAdmin()) {
+                $baseQ->where('user_id', (int) $user->id);
             }
+            $domains = $baseQ->limit($limit)->get();
+            $domainIds = $domains->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-            $ssl = SslCertificate::query()->where('domain_id', (int) $d->id)->latest('id')->first();
-            if (! $ssl) {
-                $score -= 10;
-                $reasons[] = 'SSL kaydi yok';
-            } elseif ((string) $ssl->status !== 'active') {
-                $score -= 20;
-                $reasons[] = 'SSL aktif degil';
-            } elseif ($ssl->expires_at !== null && $ssl->expires_at->lt(now()->addDays(7))) {
-                $score -= 15;
-                $reasons[] = 'SSL yakinda bitiyor';
-            }
+            $sslByDomain = [];
+            $installerByDomain = [];
+            $deployByDomain = [];
+            $backupByDomain = [];
 
-            $runs = InstallerRun::query()->where('domain_id', (int) $d->id)->latest('id')->limit(8)->pluck('status')
-                ->concat(DeploymentRun::query()->where('domain_id', (int) $d->id)->latest('id')->limit(8)->pluck('status'))
-                ->concat(Backup::query()->where('domain_id', (int) $d->id)->latest('id')->limit(8)->pluck('status'));
-
-            $total = $runs->count();
-            $failed = $runs->filter(fn ($s) => in_array(strtolower((string) $s), ['failed', 'error'], true))->count();
-            if ($total > 0) {
-                $errRate = ($failed / $total) * 100.0;
-                $pen = min(30.0, $errRate * 0.5);
-                $score -= $pen;
-                if ($pen >= 6) {
-                    $reasons[] = sprintf('Islem hatasi: %d/%d', $failed, $total);
+            if ($domainIds !== []) {
+                foreach (SslCertificate::query()
+                    ->whereIn('domain_id', $domainIds)
+                    ->orderByDesc('id')
+                    ->get(['domain_id', 'status', 'expires_at']) as $ssl) {
+                    $did = (int) $ssl->domain_id;
+                    if (! isset($sslByDomain[$did])) {
+                        $sslByDomain[$did] = $ssl;
+                    }
                 }
+
+                $installerByDomain = $this->latestRunStatusesByDomain(InstallerRun::class, $domainIds, 8);
+                $deployByDomain = $this->latestRunStatusesByDomain(DeploymentRun::class, $domainIds, 8);
+                $backupByDomain = $this->latestRunStatusesByDomain(Backup::class, $domainIds, 8);
             }
 
-            $score = max(0, min(100, (int) round($score)));
-            $grade = $score >= 90 ? 'excellent' : ($score >= 75 ? 'good' : ($score >= 60 ? 'warning' : 'critical'));
+            $items = $domains->map(function (Domain $d) use ($sslByDomain, $installerByDomain, $deployByDomain, $backupByDomain) {
+                $score = 100.0;
+                $reasons = [];
+                $did = (int) $d->id;
+
+                if (strtolower((string) $d->status) !== 'active') {
+                    $score -= 30;
+                    $reasons[] = 'Domain aktif degil';
+                }
+
+                $ssl = $sslByDomain[$did] ?? null;
+                if (! $ssl) {
+                    $score -= 10;
+                    $reasons[] = 'SSL kaydi yok';
+                } elseif ((string) $ssl->status !== 'active') {
+                    $score -= 20;
+                    $reasons[] = 'SSL aktif degil';
+                } elseif ($ssl->expires_at !== null && $ssl->expires_at->lt(now()->addDays(7))) {
+                    $score -= 15;
+                    $reasons[] = 'SSL yakinda bitiyor';
+                }
+
+                $runs = collect($installerByDomain[$did] ?? [])
+                    ->concat($deployByDomain[$did] ?? [])
+                    ->concat($backupByDomain[$did] ?? []);
+
+                $total = $runs->count();
+                $failed = $runs->filter(fn ($s) => in_array(strtolower((string) $s), ['failed', 'error'], true))->count();
+                if ($total > 0) {
+                    $errRate = ($failed / $total) * 100.0;
+                    $pen = min(30.0, $errRate * 0.5);
+                    $score -= $pen;
+                    if ($pen >= 6) {
+                        $reasons[] = sprintf('Islem hatasi: %d/%d', $failed, $total);
+                    }
+                }
+
+                $score = max(0, min(100, (int) round($score)));
+                $grade = $score >= 90 ? 'excellent' : ($score >= 75 ? 'good' : ($score >= 60 ? 'warning' : 'critical'));
+
+                return [
+                    'domain_id' => $did,
+                    'name' => (string) $d->name,
+                    'score' => $score,
+                    'grade' => $grade,
+                    'reasons' => array_slice($reasons, 0, 3),
+                ];
+            })->values();
 
             return [
-                'domain_id' => (int) $d->id,
-                'name' => (string) $d->name,
-                'score' => $score,
-                'grade' => $grade,
-                'reasons' => array_slice($reasons, 0, 3),
+                'items' => $items,
+                'limit' => $limit,
             ];
-        })->values();
+        });
 
-        return response()->json([
-            'items' => $items,
-            'limit' => $limit,
-        ]);
+        return response()->json($payload);
+    }
+
+    /**
+     * @param  class-string  $modelClass
+     * @param  array<int, int>  $domainIds
+     * @return array<int, list<string>>
+     */
+    private function latestRunStatusesByDomain(string $modelClass, array $domainIds, int $perDomain): array
+    {
+        $grouped = [];
+        $rows = $modelClass::query()
+            ->whereIn('domain_id', $domainIds)
+            ->orderByDesc('id')
+            ->get(['domain_id', 'status']);
+
+        foreach ($rows as $row) {
+            $did = (int) $row->domain_id;
+            if (! isset($grouped[$did])) {
+                $grouped[$did] = [];
+            }
+            if (count($grouped[$did]) < $perDomain) {
+                $grouped[$did][] = (string) $row->status;
+            }
+        }
+
+        return $grouped;
     }
 
     private function probeDomainResponseMs(string $domain): ?int

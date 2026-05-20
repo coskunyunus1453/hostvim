@@ -360,8 +360,15 @@ EOF
   clamav-set)
     [[ "$ARG1" == "on" || "$ARG1" == "off" ]] || { echo "invalid state" >&2; exit 1; }
     if ! service_exists "clamav-daemon" && ! service_exists "clamav-freshclam"; then
-      echo "clamav services not installed" >&2
-      exit 1
+      if [[ "$ARG1" == "off" ]]; then
+        echo "disabled"
+        exit 0
+      fi
+      apt_noninteractive update -y
+      apt_noninteractive install -y clamav clamav-daemon clamav-freshclam
+      systemctl enable --now clamav-freshclam >/dev/null 2>&1 || true
+      systemctl enable --now clamav-daemon >/dev/null 2>&1 || true
+      service_exists "clamav-daemon" || service_exists "clamav-freshclam" || { echo "clamav install failed" >&2; exit 1; }
     fi
     if [[ "$ARG1" == "on" ]]; then
       systemctl enable --now clamav-freshclam || true
@@ -420,6 +427,53 @@ EOF
       exit 1
     fi
     maldet -a "$canon"
+    ;;
+  clamav-install)
+    apt_noninteractive update -y
+    apt_noninteractive install -y clamav clamav-daemon clamav-freshclam
+    systemctl enable --now clamav-freshclam >/dev/null 2>&1 || true
+    systemctl enable --now clamav-daemon >/dev/null 2>&1 || true
+    service_exists "clamav-daemon" || service_exists "clamav-freshclam" || { echo "clamav install failed" >&2; exit 1; }
+    echo "installed"
+    ;;
+  firewall-rule-apply)
+    FW_ACTION="${ARG1:-}"
+    FW_PROTO="${ARG2:-tcp}"
+    FW_PORT="${ARG3:-any}"
+    FW_SOURCE="${ARG4:-any}"
+    [[ "$FW_ACTION" == "allow" || "$FW_ACTION" == "deny" ]] || { echo "invalid action" >&2; exit 1; }
+    case "$FW_PROTO" in
+      tcp|udp|icmp|any) ;;
+      *) echo "invalid protocol" >&2; exit 1 ;;
+    esac
+    IPT="$(command -v iptables || true)"
+    [[ -n "$IPT" ]] || { echo "iptables not found" >&2; exit 1; }
+    if ! "$IPT" -L HOSTVIM-FW -n >/dev/null 2>&1; then
+      "$IPT" -N HOSTVIM-FW 2>/dev/null || true
+      if ! "$IPT" -C INPUT -j HOSTVIM-FW >/dev/null 2>&1; then
+        "$IPT" -I INPUT 1 -j HOSTVIM-FW
+      fi
+    fi
+    TARGET="ACCEPT"
+    [[ "$FW_ACTION" == "deny" ]] && TARGET="DROP"
+    RULE=( -A HOSTVIM-FW )
+    if [[ -n "$FW_SOURCE" && "$FW_SOURCE" != "any" ]]; then
+      RULE+=( -s "$FW_SOURCE" )
+    fi
+    if [[ "$FW_PROTO" != "any" ]]; then
+      RULE+=( -p "$FW_PROTO" )
+    fi
+    if [[ -n "$FW_PORT" && "$FW_PORT" != "any" && "$FW_PROTO" =~ ^(tcp|udp)$ ]]; then
+      RULE+=( --dport "$FW_PORT" )
+    fi
+    RULE+=( -j "$TARGET" )
+    if ! "${IPT}" "${RULE[@]}"; then
+      echo "iptables apply failed" >&2
+      exit 1
+    fi
+    install -d -m 750 /etc/hostvim/security
+    printf '%s action=%s proto=%s port=%s source=%s target=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$FW_ACTION" "$FW_PROTO" "$FW_PORT" "$FW_SOURCE" "$TARGET" >> /etc/hostvim/security/firewall-applied.log
+    echo "ok"
     ;;
   modsec-status)
     CONF=""
@@ -782,7 +836,7 @@ EOF
     echo "ok"
     ;;
   *)
-    echo "usage: hostvim-security reboot|fail2ban-status|fail2ban-set <on|off>|fail2ban-install|fail2ban-jail-get|fail2ban-jail-set <bantime> <findtime> <maxretry>|clamav-status|clamav-set <on|off>|clamav-scan <abs-dir>|clamav-quarantine <abs-file>|maldet-scan <abs-dir>|modsec-status|modsec-set <on|off>|modsec-install|apache-modules-list|apache-module-set <module> <on|off>|nginx-config-get <main|panel>|nginx-config-set <main|panel> <tmpfile> <reload:0|1>|nginx-rate-limit-set <wordpress|laravel|api>|nginx-rate-limit-get|modsec-site-rule-add <domain> <allow|deny|exception> [target]|modsec-site-rule-list|modsec-site-rule-remove <id>|mail-stack-setup <domain>|self-test" >&2
+    echo "usage: hostvim-security reboot|fail2ban-status|fail2ban-set <on|off>|fail2ban-install|fail2ban-jail-get|fail2ban-jail-set <bantime> <findtime> <maxretry>|clamav-status|clamav-set <on|off>|clamav-install|clamav-scan <abs-dir>|clamav-quarantine <abs-file>|maldet-scan <abs-dir>|firewall-rule-apply <allow|deny> <tcp|udp|icmp|any> <port|any> <source|any>|modsec-status|modsec-set <on|off>|modsec-install|apache-modules-list|apache-module-set <module> <on|off>|nginx-config-get <main|panel>|nginx-config-set <main|panel> <tmpfile> <reload:0|1>|nginx-rate-limit-set <wordpress|laravel|api>|nginx-rate-limit-get|modsec-site-rule-add <domain> <allow|deny|exception> [target]|modsec-site-rule-list|modsec-site-rule-remove <id>|mail-stack-setup <domain>|self-test" >&2
     exit 1
     ;;
 esac

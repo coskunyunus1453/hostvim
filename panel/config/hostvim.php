@@ -84,8 +84,11 @@ return [
         'LICENSE_SERVER_URL',
         env('HOSTVIM_LICENSE_HUB_URL', 'https://hostvim.com')
     )), '/'),
-    /** Panel → hub isteğinde Bearer (isteğe bağlı; boşsa yalnızca anahtar + rate limit) */
-    'license_server_api_secret' => trim((string) env('LICENSE_SERVER_API_SECRET', '')),
+    /** Panel → hub isteğinde Bearer (landing HOSTVIM_LICENSE_API_SECRET ile aynı olmalı) */
+    'license_server_api_secret' => trim((string) env(
+        'LICENSE_SERVER_API_SECRET',
+        env('HOSTVIM_LICENSE_API_SECRET', '')
+    )),
     /** Otomasyon / eski kurulum: doluysa veritabanındaki anahtardan önceliklidir */
     'license_key' => trim((string) env('LICENSE_KEY', '')),
 
@@ -109,6 +112,13 @@ return [
     'backup' => [
         'retention_days' => 30,
         'max_backups_per_user' => 5,
+    ],
+
+    'google_drive' => [
+        'client_id' => env('GOOGLE_DRIVE_CLIENT_ID', ''),
+        'client_secret' => env('GOOGLE_DRIVE_CLIENT_SECRET', ''),
+        'redirect_uri' => env('GOOGLE_DRIVE_REDIRECT_URI', ''),
+        'folder_name' => env('GOOGLE_DRIVE_FOLDER_NAME', 'Hostvim Backups'),
     ],
 
     'limits' => [

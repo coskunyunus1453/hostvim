@@ -43,10 +43,23 @@ class AutoWebConfigurator
             }
         }
 
+        $nodeConfigured = false;
+        if (in_array($profile, ['nextjs', 'nuxt', 'strapi', 'n8n', 'node'], true)) {
+            $node = $this->engine->autoConfigureNodeApp($domain->name, $profile);
+            $nodeConfigured = empty($node['error']);
+            if (! $nodeConfigured) {
+                Log::warning('Auto web config: node auto-configure failed', [
+                    'domain' => $domain->name,
+                    'error' => $node['error'] ?? 'unknown',
+                ]);
+            }
+        }
+
         return [
             'profile' => $profile,
             'variant' => $variant,
             'applied' => true,
+            'node_configured' => $nodeConfigured,
         ];
     }
 

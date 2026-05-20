@@ -20,6 +20,7 @@ import (
 	"hostvim/engine/internal/metrics"
 	"hostvim/engine/internal/middleware"
 	"hostvim/engine/internal/nginx"
+	"hostvim/engine/internal/nodeapp"
 	"hostvim/engine/internal/phpfpm"
 	"hostvim/engine/internal/sites"
 	"hostvim/engine/internal/ssl"
@@ -84,6 +85,8 @@ func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.En
 			site.DELETE("/:domain/subdomains", handleRemoveSubdomain(cfg, d))
 			site.POST("/:domain/aliases", handleAddSiteAlias(cfg, d))
 			site.DELETE("/:domain/aliases", handleRemoveSiteAlias(cfg, d))
+			registerNodeAppRoutes(cfg, site)
+			registerRedirectRoutes(cfg, site)
 		}
 
 		ssl := api.Group("/ssl")
@@ -426,6 +429,9 @@ func handleSetDocumentRoot(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc
 
 		oldDoc := meta.DocumentRoot
 		meta.DocumentRoot = target
+		if req.Profile != "" {
+			meta.AppProfile = hosting.NormalizeAppProfile(req.Profile)
+		}
 		if err := hosting.ApplyWebServer(cfg, domain, meta.DocumentRoot, meta, phpSocket); err != nil {
 			// rollback pool if needed
 			if cfg.Hosting.PHPFPMmanagePools {
@@ -463,6 +469,7 @@ func handleDeleteSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 		meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
 		ps := phpfpmSettings(cfg)
 
+		nodeapp.RemoveSite(cfg, domain)
 		_ = ssl.Delete(cfg, domain)
 		hosting.RemoveWebServerForSiteDeletion(cfg, domain)
 		if cfg.Hosting.PHPFPMmanagePools {
@@ -675,6 +682,8 @@ func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		meta.SSLEnabled = true
+		force := true
+		meta.ForceHTTPS = &force
 		phpSock := ""
 		if cfg.Hosting.PHPFPMmanagePools {
 			phpSock = phpfpmSettings(cfg).SocketForDomain(req.Domain)
@@ -777,6 +786,8 @@ func handleManualSSL(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		meta.SSLEnabled = true
+		force := true
+		meta.ForceHTTPS = &force
 		phpSock := ""
 		if cfg.Hosting.PHPFPMmanagePools {
 			phpSock = phpfpmSettings(cfg).SocketForDomain(req.Domain)

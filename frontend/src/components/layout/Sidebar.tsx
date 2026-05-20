@@ -6,6 +6,7 @@ import { useUiModeStore } from '../../store/uiModeStore'
 import { useAuthStore } from '../../store/authStore'
 import { tokenHasAbility } from '../../lib/abilities'
 import { useBranding } from '../../hooks/useBranding'
+import { useActivePluginSlugs } from '../../hooks/useActivePlugins'
 import { safeBrandingImageUrl } from '../../lib/urlSafety'
 import {
   LayoutDashboard,
@@ -44,6 +45,9 @@ import {
   Store,
   Palette,
   Link2,
+  Cpu,
+  Cloud,
+  ArrowRightLeft,
 } from 'lucide-react'
 
 type NavLeaf = {
@@ -98,6 +102,8 @@ export default function Sidebar() {
     return tokenHasAbility(abilities, ability)
   }
 
+  const activePlugins = useActivePluginSlugs()
+
   const customerGroups: NavGroup[] = [
     {
       id: 'overview',
@@ -110,6 +116,7 @@ export default function Sidebar() {
       items: [
         { path: '/domains', icon: Globe, label: 'nav.domains', ability: 'domains:read' },
         { path: '/dns', icon: Network, label: 'nav.dns', ability: 'dns:read' },
+        { path: '/redirects', icon: ArrowRightLeft, label: 'nav.redirects', ability: 'domains:write' },
         { path: '/databases', icon: Database, label: 'nav.databases', ability: 'databases:read' },
         { path: '/email', icon: Mail, label: 'nav.email', ability: 'email:read' },
         { path: '/files', icon: FolderOpen, label: 'nav.files', ability: 'files:read' },
@@ -127,6 +134,7 @@ export default function Sidebar() {
         { path: '/security', icon: Shield, label: 'nav.security', ability: 'security:read' },
         { path: '/installer', icon: Download, label: 'nav.installer', ability: 'installer:read' },
         { path: '/site-tools', icon: Terminal, label: 'nav.site_tools', ability: 'tools:run' },
+        { path: '/node-apps', icon: Cpu, label: 'nav.node_apps', ability: 'tools:run' },
         { path: '/deploy', icon: Rocket, label: 'nav.deploy', ability: 'tools:run' },
         { path: '/plugins', icon: Store, label: 'nav.plugins_store', ability: 'dashboard:read' },
         { path: '/ai-advisor', icon: Sparkles, label: 'nav.ai_advisor', ability: 'dashboard:read' },
@@ -151,6 +159,7 @@ export default function Sidebar() {
       icon: Gauge,
       items: [
         { path: '/admin/system', icon: Gauge, label: 'nav.system', allow: isAdmin },
+        { path: '/admin/server-settings', icon: Network, label: 'nav.server_settings', allow: isAdmin },
         { path: '/admin/webserver', icon: ServerCog, label: 'nav.webserver_settings', allow: isAdmin || canWebserverSettings },
         { path: '/admin/php-settings', icon: FileCode, label: 'nav.php_settings', allow: isAdmin || canPhpSettings },
         { path: '/admin/logs', icon: FileText, label: 'nav.logs', allow: isAdmin },
@@ -180,11 +189,14 @@ export default function Sidebar() {
 
   const easyHiddenPaths = new Set([
     '/dns',
+    '/redirects',
     '/ftp',
     '/monitoring',
     '/security',
     '/cron',
     '/site-tools',
+    '/node-apps',
+    '/cloudflare',
     '/deploy',
     '/plugins',
     '/ai-advisor',
@@ -194,14 +206,24 @@ export default function Sidebar() {
   ])
 
   const visibleCustomerGroups = customerGroups
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((item) => {
+    .map((g) => {
+      let items = g.items.filter((item) => {
         if (!navOk(item.ability, item.path)) return false
         if (mode === 'easy' && easyHiddenPaths.has(item.path)) return false
         return true
-      }),
-    }))
+      })
+      if (g.id === 'operations' && activePlugins.includes('integration-cloudflare')) {
+        const pluginsIdx = items.findIndex((i) => i.path === '/plugins')
+        if (pluginsIdx >= 0 && !items.some((i) => i.path === '/cloudflare')) {
+          items = [
+            ...items.slice(0, pluginsIdx),
+            { path: '/cloudflare', icon: Cloud, label: 'nav.cloudflare', ability: 'tools:run' },
+            ...items.slice(pluginsIdx),
+          ]
+        }
+      }
+      return { ...g, items }
+    })
     .filter((g) => g.items.length > 0)
 
   const visibleAdminMenus = useMemo(

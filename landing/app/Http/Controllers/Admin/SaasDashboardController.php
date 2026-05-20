@@ -19,6 +19,7 @@ class SaasDashboardController extends Controller
             'products' => SaasLicenseProduct::query()->where('is_active', true)->count(),
             'modules' => SaasProductModule::query()->where('is_active', true)->count(),
             'api_endpoint' => url('/api/v1/license/validate'),
+            'updates_endpoint' => url('/api/v1/panel-updates/check'),
         ]);
     }
 }

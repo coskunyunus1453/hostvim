@@ -9,16 +9,23 @@ interface AuthState {
   isAuthenticated: boolean
   /** Bayi white-label tema verisi (giriş /auth/me). */
   whiteLabel: WhiteLabelUi | null
+  /** Aktif eklenti slug listesi (/auth/me). */
+  activePluginSlugs: string[]
   /** Sunucu politikası: admin/vendor operatörlerde 2FA zorunlu (null = henüz /auth/me ile bilinmiyor). */
   enforceAdmin2fa: boolean | null
   setAuth: (
     user: User,
     token: string,
     portal: 'customer' | 'vendor',
-    extras?: { enforce_admin_2fa?: boolean; white_label?: WhiteLabelUi | null },
+    extras?: {
+      enforce_admin_2fa?: boolean
+      white_label?: WhiteLabelUi | null
+      active_plugin_slugs?: string[]
+    },
   ) => void
   setEnforceAdmin2fa: (v: boolean | null) => void
   setWhiteLabelUi: (w: WhiteLabelUi | null) => void
+  setActivePluginSlugs: (slugs: string[]) => void
   logout: () => void
   updateUser: (user: Partial<User>) => void
 }
@@ -31,6 +38,7 @@ export const useAuthStore = create<AuthState>()(
       portal: 'customer',
       isAuthenticated: false,
       whiteLabel: null,
+      activePluginSlugs: [],
       enforceAdmin2fa: null,
       setAuth: (user, token, portal, extras) =>
         set({
@@ -39,11 +47,13 @@ export const useAuthStore = create<AuthState>()(
           portal,
           isAuthenticated: true,
           whiteLabel: extras?.white_label !== undefined ? extras.white_label ?? null : null,
+          activePluginSlugs: extras?.active_plugin_slugs ?? [],
           enforceAdmin2fa:
             extras?.enforce_admin_2fa !== undefined ? extras.enforce_admin_2fa : null,
         }),
       setEnforceAdmin2fa: (v) => set({ enforceAdmin2fa: v }),
       setWhiteLabelUi: (w) => set({ whiteLabel: w }),
+      setActivePluginSlugs: (slugs) => set({ activePluginSlugs: slugs }),
       logout: () =>
         set({
           user: null,
@@ -51,6 +61,7 @@ export const useAuthStore = create<AuthState>()(
           portal: 'customer',
           isAuthenticated: false,
           whiteLabel: null,
+          activePluginSlugs: [],
           enforceAdmin2fa: null,
         }),
       updateUser: (updates) =>
@@ -67,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
         portal: state.portal,
         isAuthenticated: state.isAuthenticated,
         whiteLabel: state.whiteLabel,
+        activePluginSlugs: state.activePluginSlugs,
         enforceAdmin2fa: state.enforceAdmin2fa,
       }),
     },

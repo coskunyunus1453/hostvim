@@ -10,8 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
-use Throwable;
+use App\Support\HtmlSanitizer;
 
 class ResellerWhiteLabelController extends Controller
 {
@@ -93,7 +92,7 @@ class ResellerWhiteLabelController extends Controller
             $row->mail_footer_plain = $validated['mail_footer_plain'] ?: null;
         }
         if (array_key_exists('onboarding_html', $validated)) {
-            $row->onboarding_html = $validated['onboarding_html'] ?: null;
+            $row->onboarding_html = HtmlSanitizer::onboarding($validated['onboarding_html']);
         }
 
         if ($row->slug) {

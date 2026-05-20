@@ -16,7 +16,8 @@ function normalizeDomainOptions(raw: unknown): DomainOption[] {
 export function useDomainsList() {
   return useQuery({
     queryKey: ['domains', 'options'],
-    queryFn: async () => (await api.get('/domains')).data,
+    queryFn: async () => (await api.get('/domains/options')).data,
     select: (raw) => normalizeDomainOptions(raw),
+    staleTime: 120_000,
   })
 }

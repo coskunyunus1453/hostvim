@@ -2,6 +2,7 @@
 
 return [
     'max_domains' => 'Domain limit reached (:max). Upgrade your hosting package.',
+    'max_subdomains' => 'Subdomain limit reached (:max). Upgrade your hosting package.',
     'max_databases' => 'Database limit reached (:max).',
     'max_email_accounts' => 'Email account limit reached (:max).',
     'max_ftp_accounts' => 'FTP account limit reached (:max).',

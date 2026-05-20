@@ -20,6 +20,16 @@ class SecurityController extends Controller
         return response()->json(['overview' => $overview]);
     }
 
+    public function advisor(): JsonResponse
+    {
+        $report = $this->engine->securityAdvisor();
+        if (! empty($report['error'])) {
+            return $this->securityErrorResponse($report['error'], $report);
+        }
+
+        return response()->json($report, 200);
+    }
+
     public function firewall(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -29,9 +39,12 @@ class SecurityController extends Controller
             'source' => 'nullable|string|max:64',
         ]);
 
-        return response()->json([
-            'result' => $this->engine->applyFirewallRule($validated),
-        ]);
+        $result = $this->engine->applyFirewallRule($validated);
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+
+        return response()->json(['result' => $result], 200);
     }
 
     public function toggleFail2ban(Request $request): JsonResponse
@@ -80,6 +93,16 @@ class SecurityController extends Controller
     {
         $validated = $request->validate(['enabled' => 'required|boolean']);
         $result = $this->engine->toggleClamav((bool) $validated['enabled']);
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+
+        return response()->json(['result' => $result], 200);
+    }
+
+    public function installClamav(): JsonResponse
+    {
+        $result = $this->engine->installClamav();
         if (! empty($result['error'])) {
             return $this->securityErrorResponse($result['error'], $result);
         }
@@ -355,6 +378,9 @@ class SecurityController extends Controller
         } elseif (str_contains($lower, 'maldet not installed')) {
             $code = 422;
             $hint = 'Linux Malware Detect (maldet) sunucuda kurulu değil. İsterseniz LMD kurun veya yalnızca ClamAV taramasını kullanın.';
+        } elseif (str_contains($lower, 'iptables') || str_contains($lower, 'firewall-rule')) {
+            $code = 422;
+            $hint = 'Güvenlik duvarı kuralı iptables üzerinden uygulanamadı. Sunucuda iptables kurulu olduğundan ve hostvim-security scriptinin güncel olduğundan emin olun.';
         } elseif (str_contains($lower, 'invalid profile') || str_contains($lower, 'invalid mode') || str_contains($lower, 'invalid domain') || str_contains($lower, 'invalid target')) {
             $code = 422;
             $hint = 'Geçersiz güvenlik kuralı girdisi. Profil/mod/domain/target alanlarını kontrol edip tekrar deneyin.';

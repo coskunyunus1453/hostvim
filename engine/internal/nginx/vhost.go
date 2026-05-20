@@ -114,9 +114,31 @@ server {
 
     client_max_body_size 128m;
 
+{{if .RedirectBlocks}}
+{{.RedirectBlocks}}
+
+{{end}}
+{{if .FullSiteReturn}}
+    location / {
+        {{.FullSiteReturn}}
+    }
+{{else if gt .ProxyPort 0}}
+    location / {
+        proxy_pass http://127.0.0.1:{{.ProxyPort}};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+{{else}}
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
+{{end}}
 
     # Wrong VITE base + /admin URL → browser requests /admin/admin/assets/* ; map to real /assets/*
     location ^~ /admin/admin/assets/ {
@@ -138,10 +160,203 @@ server {
         access_log off;
     }
 
+{{if eq .ProxyPort 0}}
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{{.PHPSocket}};
     }
+{{end}}
+
+    location ~ /\. {
+        deny all;
+    }
+}
+`
+
+// vhostTemplateSSLDual — HTTP içerik servisi + HTTPS (zorla yönlendirme kapalı).
+const vhostTemplateSSLDual = `# Hostvim — {{.PrimaryLabel}} (HTTP + HTTPS)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{.ServerNames}};
+{{if eq .PerfMode "standard"}}
+    # Hostvim Performance Mode (standard)
+    gzip on;
+    gzip_static on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml application/xml+rss text/javascript image/svg+xml;
+    etag on;
+    if_modified_since exact;
+
+    location ~* \.(?:css|js|mjs|map|json|xml|txt|ico|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|eot)$ {
+        expires modified 30d;
+        add_header Cache-Control "public, max-age=2592000, immutable" always;
+        access_log off;
+        try_files $uri =404;
+    }
+    add_header X-Hostvim-Perf "standard" always;
+{{end}}
+    root {{.DocRoot}};
+    index index.php index.html;
+
+    access_log {{.AccessLog}};
+    error_log {{.ErrorLog}};
+
+    client_max_body_size 128m;
+
+{{if .RedirectBlocks}}
+{{.RedirectBlocks}}
+
+{{end}}
+{{if .FullSiteReturn}}
+    location / {
+        {{.FullSiteReturn}}
+    }
+{{else if gt .ProxyPort 0}}
+    location / {
+        proxy_pass http://127.0.0.1:{{.ProxyPort}};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+{{else}}
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+{{end}}
+
+    location ^~ /admin/admin/assets/ {
+        rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
+        try_files $uri =404;
+        access_log off;
+    }
+
+    location ^~ /admin/assets/ {
+        rewrite ^/admin/assets/(.*)$ /assets/$1 break;
+        try_files $uri =404;
+        access_log off;
+    }
+
+    location ^~ /assets/ {
+        try_files $uri =404;
+        access_log off;
+    }
+
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        root {{.DocRoot}};
+        try_files $uri =404;
+        allow all;
+    }
+
+{{if eq .ProxyPort 0}}
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:{{.PHPSocket}};
+    }
+{{end}}
+
+    location ~ /\. {
+        deny all;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{.ServerNames}};
+
+    ssl_certificate {{.SSLFullChain}};
+    ssl_certificate_key {{.SSLPrivKey}};
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:HostvimSSL:10m;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+{{if eq .PerfMode "standard"}}
+    gzip on;
+    gzip_static on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml application/xml+rss text/javascript image/svg+xml;
+    etag on;
+    if_modified_since exact;
+
+    location ~* \.(?:css|js|mjs|map|json|xml|txt|ico|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|eot)$ {
+        expires modified 30d;
+        add_header Cache-Control "public, max-age=2592000, immutable" always;
+        access_log off;
+        try_files $uri =404;
+    }
+    add_header X-Hostvim-Perf "standard" always;
+{{end}}
+
+    root {{.DocRoot}};
+    index index.php index.html;
+
+    access_log {{.AccessLog}};
+    error_log {{.ErrorLog}};
+
+    client_max_body_size 128m;
+
+{{if .RedirectBlocks}}
+{{.RedirectBlocks}}
+
+{{end}}
+{{if .FullSiteReturn}}
+    location / {
+        {{.FullSiteReturn}}
+    }
+{{else if gt .ProxyPort 0}}
+    location / {
+        proxy_pass http://127.0.0.1:{{.ProxyPort}};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+{{else}}
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+{{end}}
+
+    location ^~ /admin/admin/assets/ {
+        rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
+        try_files $uri =404;
+        access_log off;
+    }
+
+    location ^~ /admin/assets/ {
+        rewrite ^/admin/assets/(.*)$ /assets/$1 break;
+        try_files $uri =404;
+        access_log off;
+    }
+
+    location ^~ /assets/ {
+        try_files $uri =404;
+        access_log off;
+    }
+
+{{if eq .ProxyPort 0}}
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:{{.PHPSocket}};
+    }
+{{end}}
 
     location ~ /\. {
         deny all;
@@ -182,9 +397,31 @@ server {
 
     client_max_body_size 128m;
 
+{{if .RedirectBlocks}}
+{{.RedirectBlocks}}
+
+{{end}}
+{{if .FullSiteReturn}}
+    location / {
+        {{.FullSiteReturn}}
+    }
+{{else if gt .ProxyPort 0}}
+    location / {
+        proxy_pass http://127.0.0.1:{{.ProxyPort}};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+{{else}}
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
+{{end}}
 
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
@@ -213,10 +450,12 @@ server {
         allow all;
     }
 
+{{if eq .ProxyPort 0}}
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{{.PHPSocket}};
     }
+{{end}}
 
     location ~ /\. {
         deny all;
@@ -234,6 +473,10 @@ type vhostVars struct {
 	SSLFullChain string
 	SSLPrivKey   string
 	PerfMode     string
+	ProxyPort    int
+	RedirectBlocks string
+	FullSiteReturn string
+	ForceHTTPS     bool
 }
 
 // PHPSocketPath üretir: override doluysa onu; değilse /run/php/php{version}-fpm.sock (örn. 8.2).
@@ -274,8 +517,10 @@ func confBaseName(domain string) string {
 // ApplyVhost sites-available altına conf yazar ve istenirse sites-enabled’a sembolik bağ oluşturur.
 // confName: dosya adı / log öneki (örn. example.com veya blog.example.com).
 // serverNamesLine boşsa confName + www.confName kullanılır.
-// sslFullchain ve sslPrivkey doluysa 443 + 80’de HTTPS yönlendirmesi üretilir.
-func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, sslPrivkey, serverNamesLine, perfMode string) error {
+// sslFullchain ve sslPrivkey doluysa 443 + isteğe bağlı 80’de HTTPS yönlendirmesi üretilir.
+// forceHTTPS false ise HTTP ve HTTPS birlikte servis edilir (yönlendirme yok).
+// proxyPort > 0 ise location / reverse proxy (Node.js uygulaması).
+func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, sslPrivkey, serverNamesLine, perfMode string, proxyPort int, redirectBlocks, fullSiteReturn string, forceHTTPS bool) error {
 	if !cfg.Hosting.NginxManageVhosts {
 		return nil
 	}
@@ -314,7 +559,11 @@ func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, 
 
 	tplStr := vhostTemplateHTTP
 	if useSSL {
-		tplStr = vhostTemplateSSL
+		if forceHTTPS {
+			tplStr = vhostTemplateSSL
+		} else {
+			tplStr = vhostTemplateSSLDual
+		}
 	}
 	tpl, err := template.New("vhost").Parse(tplStr)
 	if err != nil {
@@ -330,7 +579,11 @@ func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, 
 		PHPSocket:    sock,
 		SSLFullChain: chain,
 		SSLPrivKey:   key,
-		PerfMode:     strings.TrimSpace(perfMode),
+		PerfMode:       strings.TrimSpace(perfMode),
+		ProxyPort:      proxyPort,
+		RedirectBlocks: redirectBlocks,
+		FullSiteReturn: fullSiteReturn,
+		ForceHTTPS:     forceHTTPS,
 	}
 
 	var buf bytes.Buffer

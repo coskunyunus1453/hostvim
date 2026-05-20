@@ -67,6 +67,7 @@ export default function LoginPage() {
     setAuth(data.user, data.token, portal, {
       enforce_admin_2fa: data.enforce_admin_2fa,
       white_label: data.white_label,
+      active_plugin_slugs: data.active_plugin_slugs,
     })
     if (data.force_password_change || data.user.force_password_change) {
       toast('İlk giriş: Şifrenizi şimdi değiştirin.', { icon: '🔒' })

@@ -16,6 +16,21 @@ run_apt() {
 }
 
 case "$BUNDLE" in
+  nodejs-lts-pm2)
+    run_apt curl ca-certificates gnupg
+    if ! command -v node >/dev/null 2>&1; then
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      run_apt nodejs
+    else
+      run_apt nodejs npm || true
+    fi
+    if ! command -v pm2 >/dev/null 2>&1; then
+      npm install -g pm2
+    fi
+    PM2_HOME="${HOSTVIM_HOME:-/var/www/hostvim}/data/pm2"
+    mkdir -p "$PM2_HOME"
+    chown -R www-data:www-data "$PM2_HOME" 2>/dev/null || true
+    ;;
   php-8-3-fpm-extra)
     run_apt \
       php8.3-fpm php8.3-cli php8.3-common php8.3-mysql php8.3-mbstring php8.3-xml \

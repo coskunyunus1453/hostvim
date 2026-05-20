@@ -577,6 +577,10 @@ class PluginStoreController extends Controller
 
     private function ensureCatalog(): void
     {
+        if (PluginModule::query()->where('is_public', true)->count() >= 4) {
+            return;
+        }
+
         $defaults = [
             [
                 'slug' => 'migration-plesk',
@@ -601,6 +605,14 @@ class PluginStoreController extends Controller
                 'category' => 'migration',
                 'version' => '1.0.0',
                 'config' => ['source' => 'aapanel', 'wizard_steps' => 4],
+            ],
+            [
+                'slug' => 'integration-cloudflare',
+                'name' => 'Cloudflare',
+                'summary' => 'API token ile zone baglama, DNS senkronu, proxy (turuncu bulut) ve SSL modu yonetimi.',
+                'category' => 'integration',
+                'version' => '1.0.0',
+                'config' => ['route' => '/cloudflare', 'requires_token' => true],
             ],
         ];
         foreach ($defaults as $d) {

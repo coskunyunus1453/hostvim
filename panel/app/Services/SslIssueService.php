@@ -116,6 +116,7 @@ class SslIssueService
         $domain->update([
             'ssl_enabled' => true,
             'ssl_expiry' => $cert->expires_at,
+            'force_https' => true,
         ]);
 
         return [

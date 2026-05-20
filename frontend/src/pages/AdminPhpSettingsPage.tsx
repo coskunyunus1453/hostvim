@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import toast from 'react-hot-toast'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 import clsx from 'clsx'
 import { FileCode, Puzzle, Save, AlertTriangle, SlidersHorizontal } from 'lucide-react'
 import { tokenHasAbility } from '../lib/abilities'
@@ -256,7 +257,7 @@ export default function AdminPhpSettingsPage() {
       (
         await api.get(`/admin/settings/php/sync-nginx-upload-limit/${encodeURIComponent(String(nginxSyncRunId))}`)
       ).data as NginxSyncStatusResponse,
-    refetchInterval: 1000,
+    refetchInterval: () => pollWhenVisible(2_000),
   })
 
   useEffect(() => {

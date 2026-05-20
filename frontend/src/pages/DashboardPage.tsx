@@ -9,6 +9,7 @@ import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, Rotat
 import toast from 'react-hot-toast'
 import ResourceChartsSection from '../components/dashboard/ResourceChartsSection'
 import PanelUpdateCard from '../components/panel/PanelUpdateCard'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 
 function fmtGb(nBytes?: number | null): string {
   if (nBytes == null || !Number.isFinite(nBytes)) return '—'
@@ -25,7 +26,8 @@ export default function DashboardPage() {
   const dashQ = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => (await api.get('/dashboard')).data.dashboard as DashboardData,
-    refetchInterval: serverUI ? 8_000 : false,
+    refetchInterval: serverUI ? () => pollWhenVisible(20_000) : false,
+    staleTime: 15_000,
   })
 
   const d = dashQ.data
@@ -36,7 +38,8 @@ export default function DashboardPage() {
     queryKey: ['dashboard-services'],
     queryFn: async () => (await api.get('/system/services')).data.services as ServiceInfo[],
     enabled: !!serverUI,
-    refetchInterval: serverUI ? 15_000 : false,
+    refetchInterval: serverUI ? () => pollWhenVisible(30_000) : false,
+    staleTime: 20_000,
   })
 
   const parseApiErrorMessage = (err: unknown, fallback: string): string => {

@@ -8,13 +8,14 @@ use App\Models\Backup;
 use App\Models\BackupDestination;
 use App\Models\BackupSchedule;
 use App\Models\Domain;
+use App\Services\BackupStorageService;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
 use App\Services\SafeAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BackupController extends Controller
 {
@@ -23,13 +24,17 @@ class BackupController extends Controller
     public function __construct(
         private EngineApiService $engine,
         private HostingQuotaService $quota,
+        private BackupStorageService $storage,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
-        $backups = $request->user()->backups()->with('domain')->latest()->paginate(20);
+        $query = $request->user()->backups()->with(['domain', 'destination'])->latest();
+        if ($request->filled('domain_id')) {
+            $query->where('domain_id', (int) $request->integer('domain_id'));
+        }
 
-        return response()->json($backups);
+        return response()->json($query->paginate(20));
     }
 
     public function store(Request $request): JsonResponse
@@ -125,7 +130,7 @@ class BackupController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'driver' => ['required', 'string', Rule::in(['local', 's3', 'ftp'])],
+            'driver' => ['required', 'string', Rule::in(['local', 's3', 'ftp', 'google_drive'])],
             'is_default' => 'sometimes|boolean',
             'is_active' => 'sometimes|boolean',
             'config' => 'nullable|array',
@@ -153,7 +158,7 @@ class BackupController extends Controller
         }
         $validated = $request->validate([
             'name' => 'sometimes|string|max:100',
-            'driver' => ['sometimes', 'string', Rule::in(['local', 's3', 'ftp'])],
+            'driver' => ['sometimes', 'string', Rule::in(['local', 's3', 'ftp', 'google_drive'])],
             'is_default' => 'sometimes|boolean',
             'is_active' => 'sometimes|boolean',
             'config' => 'nullable|array',
@@ -355,7 +360,7 @@ class BackupController extends Controller
 
             $tmpPath = null;
             try {
-                $dl = $this->fetchRemoteBackupToTemp($dest, $remoteKey);
+                $dl = $this->storage->fetchRemoteToTemp($dest, $remoteKey, $dest->driver === 'google_drive' ? $this->storage->parseGoogleFileId($remoteKey) : null);
                 if (! $dl['ok']) {
                     $this->audit($request, 'backup_restore_remote', false, $dl['error'] ?? 'download failed', [
                         'backup_id' => $backup->id,
@@ -464,42 +469,148 @@ class BackupController extends Controller
         return response()->json(['message' => __('backups.synced'), 'remote_path' => $result['remote_path'] ?? null]);
     }
 
-    /**
-     * @return array{ok: bool, error?: string, remote_path?: string}
-     */
     public function syncToDestination(Backup $backup): array
     {
-        if (! $backup->destination_id) {
-            return ['ok' => false, 'error' => 'destination not selected'];
+        $result = $this->storage->syncBackup($backup);
+        if ($result['ok'] ?? false) {
+            $backup->update([
+                'remote_path' => $result['remote_path'] ?? null,
+                'remote_file_id' => $result['remote_file_id'] ?? null,
+            ]);
         }
-        $dest = BackupDestination::query()->find($backup->destination_id);
+
+        return $result;
+    }
+
+    public function download(Request $request, Backup $backup): StreamedResponse|JsonResponse
+    {
+        if ($backup->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $localPath = trim((string) $backup->file_path);
+        if ($localPath !== '' && is_file($localPath)) {
+            return response()->streamDownload(static function () use ($localPath): void {
+                $stream = fopen($localPath, 'rb');
+                if ($stream !== false) {
+                    fpassthru($stream);
+                    fclose($stream);
+                }
+            }, basename($localPath), ['Content-Type' => 'application/gzip']);
+        }
+
+        if ($backup->destination_id && ($backup->remote_path || $backup->remote_file_id)) {
+            $dest = BackupDestination::query()->find($backup->destination_id);
+            if ($dest && $dest->is_active) {
+                $dl = $this->storage->fetchRemoteToTemp(
+                    $dest,
+                    (string) ($backup->remote_path ?? ''),
+                    $backup->remote_file_id,
+                );
+                if ($dl['ok'] ?? false) {
+                    $tmp = $dl['path'];
+                    $name = basename((string) ($backup->remote_path ?: 'backup.tar.gz'));
+
+                    return response()->streamDownload(static function () use ($tmp): void {
+                        $stream = fopen($tmp, 'rb');
+                        if ($stream !== false) {
+                            fpassthru($stream);
+                            fclose($stream);
+                        }
+                        @unlink($tmp);
+                    }, $name, ['Content-Type' => 'application/gzip']);
+                }
+
+                return response()->json(['message' => $dl['error'] ?? __('backups.download_unavailable')], 422);
+            }
+        }
+
+        return response()->json(['message' => __('backups.download_unavailable')], 422);
+    }
+
+    public function uploadRestore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'domain_id' => 'required|integer|exists:domains,id',
+            'archive' => 'required|file|max:'.((int) config('hostvim.limits.max_upload_size_mb', 256) * 1024),
+        ]);
+        $domain = Domain::findOrFail($validated['domain_id']);
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+
+        $file = $request->file('archive');
+        if ($file === null) {
+            return response()->json(['message' => __('backups.upload_required')], 422);
+        }
+        $tmp = $file->getRealPath();
+        if ($tmp === false) {
+            return response()->json(['message' => __('backups.upload_failed')], 422);
+        }
+
+        $result = $this->engine->restoreBackupUpload($tmp, $file->getClientOriginalName());
+        if (! empty($result['error'])) {
+            $this->audit($request, 'backup_upload_restore', false, (string) $result['error'], [
+                'domain_id' => $domain->id,
+            ]);
+
+            return response()->json(['message' => (string) $result['error']], 502);
+        }
+
+        $this->audit($request, 'backup_upload_restore', true, null, ['domain_id' => $domain->id]);
+
+        return response()->json(['message' => __('backups.restore_started'), 'engine' => $result]);
+    }
+
+    public function restoreRemote(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'domain_id' => 'required|integer|exists:domains,id',
+            'destination_id' => 'required|integer|exists:backup_destinations,id',
+            'remote_file_id' => 'nullable|string|max:128',
+            'backup_set' => 'nullable|string|max:512',
+        ]);
+        $domain = Domain::findOrFail($validated['domain_id']);
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+        $dest = BackupDestination::query()
+            ->where('id', (int) $validated['destination_id'])
+            ->where('user_id', $request->user()->id)
+            ->first();
         if (! $dest || ! $dest->is_active) {
-            return ['ok' => false, 'error' => 'destination not active'];
+            return response()->json(['message' => __('backups.remote_restore_destination_inactive')], 422);
         }
-        $sourcePath = trim((string) $backup->file_path);
-        if ($sourcePath === '' || ! is_file($sourcePath)) {
-            return ['ok' => false, 'error' => 'backup file not found'];
-        }
-        $baseName = basename($sourcePath);
-        $cfg = (array) ($dest->config ?? []);
-        $remotePath = trim((string) ($cfg['path'] ?? 'backups')).'/'.$baseName;
-        $remotePath = ltrim(str_replace('\\', '/', $remotePath), '/');
 
+        $remoteKey = '';
+        $fileId = trim((string) ($validated['remote_file_id'] ?? ''));
+        if ($fileId !== '') {
+            $remoteKey = 'google_drive:'.$fileId;
+        } else {
+            $setRaw = trim((string) ($validated['backup_set'] ?? ''));
+            $remoteKey = $this->sanitizeRemoteBackupSet($setRaw) ?? '';
+        }
+        if ($remoteKey === '') {
+            return response()->json(['message' => __('backups.remote_restore_missing')], 422);
+        }
+
+        $tmpPath = null;
         try {
-            $disk = $this->buildDestinationDisk($dest);
-            $stream = fopen($sourcePath, 'rb');
-            if ($stream === false) {
-                return ['ok' => false, 'error' => 'backup stream open failed'];
+            $dl = $this->storage->fetchRemoteToTemp($dest, $remoteKey, $fileId !== '' ? $fileId : null);
+            if (! ($dl['ok'] ?? false)) {
+                return response()->json(['message' => $dl['error'] ?? __('backups.remote_restore_download_failed')], 422);
             }
-            $ok = $disk->put($remotePath, $stream);
-            fclose($stream);
-            if (! $ok) {
-                return ['ok' => false, 'error' => 'remote write failed'];
+            $tmpPath = $dl['path'];
+            $result = $this->engine->restoreBackupUpload($tmpPath, basename($remoteKey) ?: 'backup.tar.gz');
+            if (! empty($result['error'])) {
+                return response()->json(['message' => (string) $result['error']], 502);
             }
 
-            return ['ok' => true, 'remote_path' => $remotePath];
-        } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => $e->getMessage()];
+            return response()->json(['message' => __('backups.restore_started'), 'engine' => $result]);
+        } finally {
+            if (is_string($tmpPath) && $tmpPath !== '' && is_file($tmpPath)) {
+                @unlink($tmpPath);
+            }
         }
     }
 
@@ -515,80 +626,6 @@ class BackupController extends Controller
         }
 
         return $set;
-    }
-
-    /**
-     * @return array{ok: bool, path?: string, error?: string}
-     */
-    private function fetchRemoteBackupToTemp(BackupDestination $dest, string $remoteKey): array
-    {
-        try {
-            $disk = $this->buildDestinationDisk($dest);
-            if (! $disk->exists($remoteKey)) {
-                return ['ok' => false, 'error' => __('backups.remote_restore_not_found')];
-            }
-            $in = $disk->readStream($remoteKey);
-            if ($in === false) {
-                return ['ok' => false, 'error' => __('backups.remote_restore_download_failed')];
-            }
-            $tmp = tempnam(sys_get_temp_dir(), 'hv_restore_');
-            if ($tmp === false) {
-                if (is_resource($in)) {
-                    fclose($in);
-                }
-
-                return ['ok' => false, 'error' => __('backups.remote_restore_download_failed')];
-            }
-            $out = fopen($tmp, 'wb');
-            if ($out === false) {
-                if (is_resource($in)) {
-                    fclose($in);
-                }
-                @unlink($tmp);
-
-                return ['ok' => false, 'error' => __('backups.remote_restore_download_failed')];
-            }
-            stream_copy_to_stream($in, $out);
-            if (is_resource($in)) {
-                fclose($in);
-            }
-            fclose($out);
-
-            return ['ok' => true, 'path' => $tmp];
-        } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    private function buildDestinationDisk(BackupDestination $dest)
-    {
-        $cfg = (array) ($dest->config ?? []);
-        if ($dest->driver === 's3') {
-            return Storage::build([
-                'driver' => 's3',
-                'key' => (string) ($cfg['access_key'] ?? ''),
-                'secret' => (string) ($cfg['secret_key'] ?? ''),
-                'region' => (string) ($cfg['region'] ?? 'us-east-1'),
-                'bucket' => (string) ($cfg['bucket'] ?? ''),
-                'throw' => true,
-            ]);
-        }
-        if ($dest->driver === 'ftp') {
-            return Storage::build([
-                'driver' => 'ftp',
-                'host' => (string) ($cfg['host'] ?? ''),
-                'username' => (string) ($cfg['username'] ?? ''),
-                'password' => (string) ($cfg['password'] ?? ''),
-                'root' => (string) ($cfg['path'] ?? '/'),
-                'throw' => true,
-            ]);
-        }
-
-        return Storage::build([
-            'driver' => 'local',
-            'root' => (string) ($cfg['path'] ?? storage_path('app/backups')),
-            'throw' => true,
-        ]);
     }
 
     private function audit(Request $request, string $action, bool $success, ?string $error = null, array $extra = []): void

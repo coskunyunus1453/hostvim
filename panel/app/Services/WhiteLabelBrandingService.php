@@ -6,7 +6,7 @@ use App\Models\PanelSetting;
 use App\Models\ResellerWhiteLabel;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Support\HtmlSanitizer;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -123,7 +123,7 @@ class WhiteLabelBrandingService
             'login_title' => $wl->login_title,
             'login_subtitle' => $wl->login_subtitle,
             'mail_footer_plain' => $wl->mail_footer_plain,
-            'onboarding_html' => $wl->onboarding_html,
+            'onboarding_html' => HtmlSanitizer::onboarding($wl->onboarding_html),
         ];
     }
 

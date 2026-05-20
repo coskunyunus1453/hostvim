@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Domain;
+use App\Models\SiteDomainAlias;
 use App\Services\DomainService;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
+use App\Services\HostnameReservationService;
 use App\Services\SafeAuditLogger;
 use App\Services\SslIssueService;
+use App\Services\SubdomainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,16 +22,28 @@ class DomainController extends Controller
         private HostingQuotaService $quota,
         private EngineApiService $engine,
         private SslIssueService $sslIssue,
+        private SubdomainService $subdomains,
+        private HostnameReservationService $hostnames,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
         $domains = $request->user()->domains()
-            ->with(['sslCertificate', 'databases'])
+            ->with(['sslCertificate', 'databases', 'siteSubdomains', 'siteDomainAliases'])
             ->latest()
             ->paginate(20);
 
         return response()->json($domains);
+    }
+
+    public function options(Request $request): JsonResponse
+    {
+        $rows = $request->user()->domains()
+            ->select(['id', 'name'])
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json(['data' => $rows]);
     }
 
     public function store(Request $request): JsonResponse
@@ -238,5 +253,124 @@ class DomainController extends Controller
             'message' => __('domains.php_switched'),
             'domain' => $domain->fresh(),
         ]);
+    }
+
+    public function storeSubdomain(Request $request, Domain $domain): JsonResponse
+    {
+        $this->authorize('update', $domain);
+
+        $validated = $request->validate([
+            'prefix' => 'required_without:hostname|nullable|string|max:253',
+            'hostname' => 'required_without:prefix|nullable|string|max:253',
+            'path_segment' => 'nullable|string|max:255',
+            'php_version' => 'nullable|string|in:7.4,8.0,8.1,8.2,8.3,8.4',
+        ]);
+
+        $sub = $this->subdomains->add($domain, $validated);
+
+        SafeAuditLogger::info('domains.subdomain_added', [
+            'user_id' => $request->user()->id,
+            'domain_id' => $domain->id,
+            'hostname' => $sub->hostname,
+            'path_segment' => $sub->path_segment,
+        ], $request);
+
+        return response()->json([
+            'message' => __('sites.subdomain_added'),
+            'subdomain' => $sub,
+        ], 201);
+    }
+
+    public function destroySubdomain(Request $request, Domain $domain): JsonResponse
+    {
+        $this->authorize('update', $domain);
+
+        $validated = $request->validate([
+            'path_segment' => 'required|string|max:255',
+        ]);
+
+        $this->subdomains->remove($domain, $validated['path_segment']);
+
+        SafeAuditLogger::info('domains.subdomain_removed', [
+            'user_id' => $request->user()->id,
+            'domain_id' => $domain->id,
+            'path_segment' => $validated['path_segment'],
+        ], $request);
+
+        return response()->json(['message' => __('sites.subdomain_removed')]);
+    }
+
+    public function storeAlias(Request $request, Domain $domain): JsonResponse
+    {
+        $this->authorize('update', $domain);
+
+        $validated = $request->validate([
+            'hostname' => 'required|string|max:253',
+        ]);
+
+        $hostLc = strtolower(trim($validated['hostname']));
+        $this->hostnames->assertAliasAllowed($domain, $hostLc);
+
+        $resp = $this->engine->siteAddAlias($domain->name, $hostLc);
+        if (! empty($resp['error'])) {
+            return response()->json(['message' => $resp['error']], 422);
+        }
+
+        try {
+            $alias = SiteDomainAlias::create([
+                'domain_id' => $domain->id,
+                'hostname' => $hostLc,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->engine->siteRemoveAlias($domain->name, $hostLc);
+
+            return response()->json(['message' => __('sites.alias_db_rollback')], 503);
+        }
+
+        SafeAuditLogger::info('domains.alias_added', [
+            'user_id' => $request->user()->id,
+            'domain_id' => $domain->id,
+            'hostname' => $hostLc,
+        ], $request);
+
+        return response()->json([
+            'message' => __('sites.alias_added'),
+            'alias' => $alias,
+        ], 201);
+    }
+
+    public function destroyAlias(Request $request, Domain $domain): JsonResponse
+    {
+        $this->authorize('update', $domain);
+
+        $validated = $request->validate([
+            'hostname' => 'required|string|max:253',
+        ]);
+
+        $hostLc = strtolower(trim($validated['hostname']));
+        $alias = $domain->siteDomainAliases()->where('hostname', $hostLc)->first();
+        if ($alias === null) {
+            return response()->json(['message' => __('sites.alias_not_found')], 404);
+        }
+
+        $resp = $this->engine->siteRemoveAlias($domain->name, $hostLc);
+        if (! empty($resp['error'])) {
+            $err = strtolower(trim((string) $resp['error']));
+            $ignorable = $err !== '' && (str_contains($err, 'not found') || str_contains($err, 'does not exist'));
+            if (! $ignorable) {
+                return response()->json(['message' => $resp['error']], 422);
+            }
+        }
+
+        $alias->delete();
+
+        SafeAuditLogger::info('domains.alias_removed', [
+            'user_id' => $request->user()->id,
+            'domain_id' => $domain->id,
+            'hostname' => $hostLc,
+        ], $request);
+
+        return response()->json(['message' => __('sites.alias_removed')]);
     }
 }

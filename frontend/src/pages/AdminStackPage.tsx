@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import { Layers, Download, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 import clsx from 'clsx'
 import { useState } from 'react'
 
@@ -75,13 +76,13 @@ export default function AdminStackPage() {
     queryKey: ['admin-stack-runs'],
     queryFn: async () => (await api.get('/admin/stack/runs')).data as { runs: StackRun[] },
     enabled: !!isAdmin,
-    refetchInterval: 3000,
+    refetchInterval: () => pollWhenVisible(8_000),
   })
   const runDetailQ = useQuery({
     queryKey: ['admin-stack-run', activeRunId],
     queryFn: async () => (await api.get(`/admin/stack/runs/${activeRunId}`)).data as { run: StackRun },
     enabled: activeRunId !== null,
-    refetchInterval: 3000,
+    refetchInterval: () => pollWhenVisible(8_000),
   })
   const cancelRunM = useMutation({
     mutationFn: async (id: number) => (await api.post(`/admin/stack/runs/${id}/cancel`)).data as { message?: string },

@@ -25,6 +25,7 @@ export default function WhmcsSsoBootstrap() {
         useAuthStore.getState().setAuth(data.user, data.token, 'customer', {
           enforce_admin_2fa: data.enforce_admin_2fa,
           white_label: data.white_label,
+          active_plugin_slugs: data.active_plugin_slugs,
         })
         params.delete('sso')
         const q = params.toString()

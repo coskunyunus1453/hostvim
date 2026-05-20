@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, Plus, Trash2 } from 'lucide-react'
+import { Globe, Plus, Trash2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import { useDomainsList } from '../hooks/useDomains'
@@ -59,6 +59,26 @@ export default function DnsPage() {
     },
   })
 
+  const exportZone = async () => {
+    if (domainId === '') return
+    try {
+      const { data } = await api.get(`/domains/${domainId}/dns/zone`)
+      const domainName = String(data.domain ?? 'zone')
+      const zoneText = String(data.zone ?? '')
+      const blob = new Blob([zoneText], { type: 'text/plain;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${domainName}.zone`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast.success(t('dns.export_done'))
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? t('dns.export_failed'))
+    }
+  }
+
   const records: DnsRow[] = recordsQ.data?.records ?? []
 
   return (
@@ -71,15 +91,26 @@ export default function DnsPage() {
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('dns.subtitle')}</p>
           </div>
         </div>
-        <button
-          type="button"
-          className="btn-primary flex items-center gap-2"
-          disabled={!domainId}
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus className="h-4 w-4" />
-          {t('common.create')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-2"
+            disabled={!domainId}
+            onClick={() => void exportZone()}
+          >
+            <Download className="h-4 w-4" />
+            {t('dns.export_zone')}
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex items-center gap-2"
+            disabled={!domainId}
+            onClick={() => setShowAdd(true)}
+          >
+            <Plus className="h-4 w-4" />
+            {t('common.create')}
+          </button>
+        </div>
       </div>
 
       <div className="card p-4 flex flex-wrap gap-4 items-end">

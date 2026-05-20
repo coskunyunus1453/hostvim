@@ -9,4 +9,6 @@ return [
     'revoked' => 'SSL sertifikası iptal edildi',
     'missing' => 'Bu alan adı için SSL kaydı yok',
     'manual_uploaded' => 'Manuel SSL sertifikası yüklendi',
+    'settings_saved' => 'SSL ayarları kaydedildi',
+    'nothing_to_update' => 'Güncellenecek SSL ayarı belirtilmedi',
 ];

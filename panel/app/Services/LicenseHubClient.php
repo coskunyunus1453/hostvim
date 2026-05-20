@@ -38,9 +38,23 @@ class LicenseHubClient
                 if (is_array($json) && array_key_exists('valid', $json)) {
                     return $json;
                 }
-            } else {
-                Log::warning('License hub HTTP '.$response->status(), ['url' => $base]);
+                Log::warning('License hub unexpected JSON', ['url' => $base]);
+
+                return [];
             }
+
+            if (in_array($response->status(), [401, 403], true)) {
+                Log::warning('License hub auth rejected', ['status' => $response->status(), 'url' => $base]);
+
+                return [
+                    'valid' => false,
+                    'code' => 'hub_unauthorized',
+                    'message' => 'License hub rejected API token. Set LICENSE_SERVER_API_SECRET on the panel to match HOSTVIM_LICENSE_API_SECRET on the landing server.',
+                    'http_status' => $response->status(),
+                ];
+            }
+
+            Log::warning('License hub HTTP '.$response->status(), ['url' => $base]);
         } catch (\Throwable $e) {
             Log::warning('License hub error: '.$e->getMessage());
         }

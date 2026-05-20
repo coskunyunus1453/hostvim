@@ -468,6 +468,15 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
         changed.push(`perf=${targetPerf}`)
       }
 
+      if (['nextjs', 'nuxt', 'strapi', 'n8n', 'node'].includes(profile)) {
+        try {
+          await api.post(`/domains/${domain.id}/node-app/auto-configure`, { app_profile: profile })
+          changed.push('node=auto')
+        } catch {
+          // Node yapılandırması isteğe bağlı; docroot yine uygulanmış olur
+        }
+      }
+
       const confidence: 'high' | 'medium' | 'low' =
         profile === 'laravel' || profile === 'symfony' || profile === 'wordpress'
           ? 'high'

@@ -23,6 +23,8 @@ type UpdateStatus = {
   updating: boolean
   active_run_id?: number | null
   dismissed_version?: string | null
+  hub_error?: string | null
+  hub_configured?: boolean
 }
 
 type UpdateRun = {
@@ -146,6 +148,9 @@ export default function PanelUpdateCard({ compact = false }: { compact?: boolean
               </>
             )}
           </p>
+          {status?.hub_error && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">{status.hub_error}</p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button

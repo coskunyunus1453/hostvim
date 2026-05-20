@@ -20,6 +20,7 @@ export default function Layout() {
   const updateUser = useAuthStore((s) => s.updateUser)
   const setEnforceAdmin2fa = useAuthStore((s) => s.setEnforceAdmin2fa)
   const setWhiteLabelUi = useAuthStore((s) => s.setWhiteLabelUi)
+  const setActivePluginSlugs = useAuthStore((s) => s.setActivePluginSlugs)
   const whiteLabel = useAuthStore((s) => s.whiteLabel)
   const location = useLocation()
   const onboardingSeen = useUiModeStore((s) => s.onboardingSeen)
@@ -35,12 +36,15 @@ export default function Layout() {
       .then((d) => {
         updateUser(d.user)
         setWhiteLabelUi(d.white_label ?? null)
+        if (Array.isArray(d.active_plugin_slugs)) {
+          setActivePluginSlugs(d.active_plugin_slugs)
+        }
         if (typeof d.enforce_admin_2fa === 'boolean') {
           setEnforceAdmin2fa(d.enforce_admin_2fa)
         }
       })
       .catch(() => {})
-  }, [token, updateUser, setEnforceAdmin2fa, setWhiteLabelUi])
+  }, [token, updateUser, setEnforceAdmin2fa, setWhiteLabelUi, setActivePluginSlugs])
 
   useEffect(() => {
     const root = document.documentElement

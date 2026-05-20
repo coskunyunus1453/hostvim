@@ -81,8 +81,15 @@ class LicenseController extends Controller
         $hub = $this->licenseHub->validate($key);
         if ($hub === []) {
             return response()->json([
-                'message' => 'Could not reach the license server. Check network, firewall, or try again later.',
+                'message' => 'Could not reach the license server. Check LICENSE_SERVER_URL, network, firewall, or try again later.',
             ], 503);
+        }
+
+        if (($hub['code'] ?? '') === 'hub_unauthorized') {
+            return response()->json([
+                'message' => (string) ($hub['message'] ?? 'License hub API token mismatch'),
+                'code' => 'hub_unauthorized',
+            ], 502);
         }
 
         if (! ($hub['valid'] ?? false)) {

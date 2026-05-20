@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
+import { pollWhenVisible } from '../lib/pollWhenVisible'
 import {
   AlertTriangle,
   Binary,
@@ -38,7 +39,17 @@ import {
   XAxis,
 } from 'recharts'
 
-type SecurityTabId = 'firewall' | 'ssh' | 'server' | 'website' | 'brute' | 'compiler' | 'attack'
+type SecurityTabId = 'advisor' | 'firewall' | 'ssh' | 'server' | 'website' | 'brute' | 'compiler' | 'attack'
+
+type AdvisorItem = {
+  key: string
+  severity: string
+  title: string
+  detail: string
+  tab?: string
+  action_key?: string
+  ok: boolean
+}
 
 function ProPill() {
   return (
@@ -92,7 +103,7 @@ export default function SecurityPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
-  const [tab, setTab] = useState<SecurityTabId>('firewall')
+  const [tab, setTab] = useState<SecurityTabId>('advisor')
   const [scanTarget, setScanTarget] = useState('/var/www')
   const [scanClamDomain, setScanClamDomain] = useState('')
   const [scanOutput, setScanOutput] = useState('')
@@ -119,7 +130,7 @@ export default function SecurityPage() {
   const [fimDiffs, setFimDiffs] = useState<Array<{ path?: string; type?: string; severity?: string }>>([])
   const [installModal, setInstallModal] = useState<{
     open: boolean
-    key: 'fail2ban' | 'modsecurity' | null
+    key: 'fail2ban' | 'modsecurity' | 'clamav' | null
     status: 'idle' | 'running' | 'success' | 'error'
     logs: string[]
     startedAt: number | null
@@ -165,6 +176,7 @@ export default function SecurityPage() {
   const tabs = useMemo(
     () =>
       [
+        { id: 'advisor' as const, icon: ShieldCheck, label: t('security.tabs.advisor') },
         { id: 'firewall' as const, icon: Flame, label: t('security.tabs.firewall') },
         { id: 'ssh' as const, icon: Terminal, label: t('security.tabs.ssh') },
         { id: 'server' as const, icon: Cpu, label: t('security.tabs.server') },
@@ -179,27 +191,32 @@ export default function SecurityPage() {
   const q = useQuery({
     queryKey: ['security-overview'],
     queryFn: async () => (await api.get('/security/overview')).data,
-    refetchInterval: 45_000,
+    refetchInterval: () => pollWhenVisible(90_000),
+  })
+  const advisorQ = useQuery({
+    queryKey: ['security-advisor'],
+    queryFn: async () => (await api.get('/security/advisor')).data,
+    refetchInterval: () => pollWhenVisible(120_000),
   })
   const intelPolicyQ = useQuery({
     queryKey: ['security-intel-policy'],
     queryFn: async () => (await api.get('/security/intel/policy')).data,
-    refetchInterval: 60_000,
+    refetchInterval: () => pollWhenVisible(120_000),
   })
   const intelStatusQ = useQuery({
     queryKey: ['security-intel-status'],
     queryFn: async () => (await api.get('/security/intel/status')).data,
-    refetchInterval: 60_000,
+    refetchInterval: () => pollWhenVisible(120_000),
   })
   const rateLimitQ = useQuery({
     queryKey: ['security-rate-limit-profile'],
     queryFn: async () => (await api.get('/security/rate-limit/profile')).data,
-    refetchInterval: 45_000,
+    refetchInterval: () => pollWhenVisible(90_000),
   })
   const siteRulesQ = useQuery({
     queryKey: ['security-modsecurity-site-rules'],
     queryFn: async () => (await api.get('/security/modsecurity/site-rules')).data,
-    refetchInterval: 45_000,
+    refetchInterval: () => pollWhenVisible(90_000),
   })
 
   const fwM = useMutation({
@@ -212,6 +229,7 @@ export default function SecurityPage() {
     onSuccess: () => {
       toast.success(t('security.toast.rule_sent'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
+      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; hint?: string }; status?: number } }
@@ -232,7 +250,7 @@ export default function SecurityPage() {
         key: payload.key,
         running: true,
         pct: 12,
-        text: 'Islem baslatiliyor...',
+        text: t('security.toggle_progress.starting'),
         status: 'running',
       })
     },
@@ -242,7 +260,7 @@ export default function SecurityPage() {
           key: vars.key,
           running: false,
           pct: 100,
-          text: 'Tamamlandi',
+          text: t('security.toggle_progress.done'),
           status: 'success',
         })
         setTimeout(() => {
@@ -251,6 +269,7 @@ export default function SecurityPage() {
       }
       toast.success(t('security.toast.setting_updated'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
+      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown, vars) => {
       if (vars.key !== 'clamav') {
@@ -258,7 +277,7 @@ export default function SecurityPage() {
           key: vars.key,
           running: false,
           pct: 100,
-          text: 'Basarisiz',
+          text: t('security.toggle_progress.failed'),
           status: 'error',
         })
         setTimeout(() => {
@@ -272,9 +291,10 @@ export default function SecurityPage() {
   })
 
   const installM = useMutation({
-    mutationFn: async (key: 'fail2ban' | 'modsecurity') => {
+    mutationFn: async (key: 'fail2ban' | 'modsecurity' | 'clamav') => {
       if (key === 'fail2ban') return api.post('/security/fail2ban/install')
-      return api.post('/security/modsecurity/install')
+      if (key === 'modsecurity') return api.post('/security/modsecurity/install')
+      return api.post('/security/clamav/install')
     },
     onSuccess: () => {
       setInstallModal((s) => ({
@@ -285,6 +305,7 @@ export default function SecurityPage() {
       }))
       toast.success(t('security.toast.install_done'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
+      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; hint?: string }; status?: number } }
@@ -302,8 +323,9 @@ export default function SecurityPage() {
     },
   })
 
-  const runInstall = (key: 'fail2ban' | 'modsecurity') => {
-    const title = key === 'fail2ban' ? 'Fail2ban' : 'ModSecurity'
+  const runInstall = (key: 'fail2ban' | 'modsecurity' | 'clamav') => {
+    const title =
+      key === 'fail2ban' ? 'Fail2ban' : key === 'modsecurity' ? 'ModSecurity' : 'ClamAV'
     setInstallModal({
       open: true,
       key,
@@ -327,7 +349,7 @@ export default function SecurityPage() {
         return {
           ...s,
           pct: Math.min(88, s.pct + 6),
-          text: 'Uygulaniyor...',
+          text: t('security.toggle_progress.applying'),
         }
       })
     }, 450)
@@ -470,7 +492,7 @@ export default function SecurityPage() {
   const fimStatusQ = useQuery({
     queryKey: ['security-fim-status'],
     queryFn: async () => (await api.get('/security/fim/status')).data,
-    refetchInterval: 45_000,
+    refetchInterval: () => pollWhenVisible(90_000),
   })
   const fimBaselineM = useMutation({
     mutationFn: async () => (await api.post('/security/fim/baseline')).data,
@@ -596,6 +618,10 @@ export default function SecurityPage() {
     overview?.modsecurity?.installed === false ||
     (overview?.modsecurity?.installed !== true &&
       String(overview?.modsecurity?.error ?? '').toLowerCase().includes('missing modsecurity'))
+  const clamavNeedsInstall =
+    overview?.clamav?.installed === false ||
+    (overview?.clamav?.installed !== true &&
+      String(overview?.clamav?.error ?? '').toLowerCase().includes('not installed'))
   const fwRules = overview?.firewall?.recent_rules ?? []
   const fimStatus = (fimStatusQ.data?.result?.status ?? {}) as FimStatus
   const fimReady = !!fimStatus.baseline_exists
@@ -634,6 +660,31 @@ export default function SecurityPage() {
     const pct = Math.round((enabledCount / total) * 100)
     return { enabledCount, total, pct, fail2banOk, firewallOk, modsecOk, clamavOk }
   }, [overview])
+
+  const advisorScore = typeof advisorQ.data?.score === 'number' ? advisorQ.data.score : null
+  const advisorItems = (advisorQ.data?.items ?? []) as AdvisorItem[]
+  const advisorOpenCount = advisorItems.filter((i) => !i.ok).length
+
+  const advisorScoreLabel = (score: number) => {
+    if (score >= 90) return t('security.advisor.score_excellent')
+    if (score >= 75) return t('security.advisor.score_good')
+    if (score >= 50) return t('security.advisor.score_fair')
+    return t('security.advisor.score_poor')
+  }
+
+  const advisorScoreColor = (score: number) => {
+    if (score >= 90) return 'text-emerald-600 dark:text-emerald-400'
+    if (score >= 75) return 'text-sky-600 dark:text-sky-400'
+    if (score >= 50) return 'text-amber-600 dark:text-amber-400'
+    return 'text-red-600 dark:text-red-400'
+  }
+
+  const goToAdvisorTab = (tabId?: string) => {
+    const allowed: SecurityTabId[] = ['advisor', 'firewall', 'ssh', 'server', 'website', 'brute', 'compiler', 'attack']
+    if (tabId && allowed.includes(tabId as SecurityTabId)) {
+      setTab(tabId as SecurityTabId)
+    }
+  }
 
   const actionDist = useMemo(() => {
     const out: Record<string, number> = {}
@@ -809,6 +860,89 @@ export default function SecurityPage() {
           </div>
         </div>
       </div>
+
+      {tab === 'advisor' && (
+        <div className="space-y-6">
+          {advisorQ.isLoading ? (
+            <p className="text-gray-500">{t('common.loading')}</p>
+          ) : advisorQ.isError ? (
+            <p className="text-sm text-amber-600">{t('security.advisor.load_error')}</p>
+          ) : (
+            <>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-slate-50 to-white p-6 dark:border-gray-700 dark:from-gray-900/80 dark:to-gray-900 lg:col-span-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {t('security.advisor.score')}
+                  </p>
+                  {advisorScore != null ? (
+                    <>
+                      <p className={clsx('mt-3 text-5xl font-bold', advisorScoreColor(advisorScore))}>{advisorScore}</p>
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{advisorScoreLabel(advisorScore)}</p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-2xl font-semibold text-gray-400">—</p>
+                  )}
+                  <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{t('security.advisor.subtitle')}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 p-6 dark:border-gray-700 dark:bg-gray-900/40 lg:col-span-2">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('security.advisor.title')}</h3>
+                  {advisorOpenCount === 0 ? (
+                    <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-200">
+                      <CheckCircle2 className="h-5 w-5 shrink-0" />
+                      {t('security.advisor.all_ok')}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      {advisorOpenCount} {t('security.product.setup_needed').toLowerCase()}
+                    </p>
+                  )}
+                  <div className="mt-4 space-y-3">
+                    {advisorItems.map((item) => (
+                      <div
+                        key={item.key}
+                        className={clsx(
+                          'rounded-xl border p-4',
+                          item.ok
+                            ? 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/15'
+                            : 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/15',
+                        )}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {item.ok ? (
+                                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                              ) : (
+                                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                              )}
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.title}</p>
+                              {!item.ok && (
+                                <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                  {t(`security.advisor.severity.${item.severity}`, { defaultValue: item.severity })}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">{item.detail}</p>
+                          </div>
+                          {item.tab && !item.ok && (
+                            <button
+                              type="button"
+                              className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium dark:border-gray-600"
+                              onClick={() => goToAdvisorTab(item.tab)}
+                            >
+                              {t('security.action.go_to_tab')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {tab === 'firewall' && (
         <div className="space-y-6">
@@ -1051,14 +1185,26 @@ export default function SecurityPage() {
                     {overview?.clamav?.last_scan != null ? String(overview.clamav.last_scan) : t('security.clamav.no_scan')}
                   </p>
                   {isAdmin && (
-                    <button
-                      type="button"
-                      className="mt-3 rounded-lg border border-gray-300 px-2 py-1 text-xs dark:border-gray-600"
-                      onClick={() => toggleM.mutate({ key: 'clamav', enabled: !coverage.clamavOk })}
-                      disabled={toggleM.isPending}
-                    >
-                      {coverage.clamavOk ? t('security.action.disable') : t('security.action.enable')}
-                    </button>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-gray-300 px-2 py-1 text-xs dark:border-gray-600"
+                        onClick={() => toggleM.mutate({ key: 'clamav', enabled: !coverage.clamavOk })}
+                        disabled={toggleM.isPending}
+                      >
+                        {coverage.clamavOk ? t('security.action.disable') : t('security.action.enable')}
+                      </button>
+                      {clamavNeedsInstall && (
+                        <button
+                          type="button"
+                          className="rounded-lg bg-amber-600 px-2 py-1 text-xs text-white hover:bg-amber-700"
+                          onClick={() => runInstall('clamav')}
+                          disabled={installM.isPending}
+                        >
+                          {t('security.action.install_clamav')}
+                        </button>
+                      )}
+                    </div>
                   )}
                   {!!overview?.clamav?.error && (
                     <p className="mt-2 text-[11px] text-red-600">{String(overview.clamav.error)}</p>
@@ -1762,7 +1908,11 @@ export default function SecurityPage() {
           <div className="w-full max-w-2xl space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">
-                {installModal.key === 'fail2ban' ? t('security.install.modal_fail2ban') : t('security.install.modal_modsec')}
+                {installModal.key === 'fail2ban'
+                  ? t('security.install.modal_fail2ban')
+                  : installModal.key === 'modsecurity'
+                    ? t('security.install.modal_modsec')
+                    : t('security.install.modal_clamav')}
               </h3>
               <button
                 type="button"

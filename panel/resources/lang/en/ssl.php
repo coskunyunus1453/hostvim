@@ -9,4 +9,6 @@ return [
     'revoked' => 'SSL certificate revoked',
     'missing' => 'No SSL certificate for this domain',
     'manual_uploaded' => 'Manual SSL certificate uploaded',
+    'settings_saved' => 'SSL settings saved',
+    'nothing_to_update' => 'No SSL setting was specified to update',
 ];

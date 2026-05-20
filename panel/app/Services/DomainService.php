@@ -56,8 +56,7 @@ class DomainService
                 ? $fallbackRoot.DIRECTORY_SEPARATOR.$name.DIRECTORY_SEPARATOR.'public_html'
                 : $name.DIRECTORY_SEPARATOR.'public_html';
 
-            $domain = Domain::create([
-                'user_id' => $user->id,
+            $domain = $user->domains()->create([
                 'name' => $name,
                 'document_root' => $provisionalRoot,
                 'php_version' => $phpVersion,

@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react'
+import { pollWhenVisible } from '../../lib/pollWhenVisible'
 import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
@@ -55,7 +56,8 @@ export default function Header() {
   const feedQ = useQuery({
     queryKey: ['notifications-feed'],
     queryFn: async () => (await api.get('/notifications/feed')).data as { items: Array<{ id: string; title: string; message?: string; path?: string; level: 'info' | 'success' | 'error'; created_at?: string }> },
-    refetchInterval: 10000,
+    refetchInterval: () => pollWhenVisible(60_000),
+    staleTime: 45_000,
     enabled: !requiresPasswordChange,
     retry: false,
   })

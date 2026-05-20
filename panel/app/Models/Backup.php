@@ -15,6 +15,8 @@ class Backup extends Model
         'destination_id',
         'type',
         'file_path',
+        'remote_path',
+        'remote_file_id',
         'engine_backup_id',
         'size_mb',
         'status',

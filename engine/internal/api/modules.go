@@ -33,8 +33,16 @@ import (
 	"hostvim/engine/internal/security"
 	"hostvim/engine/internal/sites"
 	"hostvim/engine/internal/stack"
+	"hostvim/engine/internal/system"
 	"hostvim/engine/internal/tools"
 )
+
+func engineDataDir(cfg *config.Config) string {
+	if d := strings.TrimSpace(cfg.Paths.LogDir); d != "" {
+		return filepath.Join(filepath.Dir(d), "engine-data")
+	}
+	return "/var/lib/hostvim/engine-data"
+}
 
 func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterGroup, log *logrus.Logger) {
 	phpVerRe := regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
@@ -71,6 +79,104 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				"top_disk_mounts":          ext.TopDiskMounts,
 			},
 		})
+	})
+
+	api.GET("/system/server-settings", func(c *gin.Context) {
+		dataDir := engineDataDir(cfg)
+		settings := system.GetServerSettings(dataDir)
+		ifaces, primary, err := system.ListNetwork(dataDir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if primary != "" {
+			settings.PrimaryIP = primary
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"settings":   settings,
+			"interfaces": ifaces,
+		})
+	})
+
+	api.PATCH("/system/server-settings", func(c *gin.Context) {
+		var req struct {
+			Hostname *string `json:"hostname"`
+			Timezone *string `json:"timezone"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if req.Hostname == nil && req.Timezone == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "nothing to update"})
+			return
+		}
+		if err := system.UpdateServerSettings(req.Hostname, req.Timezone); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
+		dataDir := engineDataDir(cfg)
+		settings := system.GetServerSettings(dataDir)
+		c.JSON(http.StatusOK, gin.H{"settings": settings, "ok": true})
+	})
+
+	api.POST("/system/network/refresh", func(c *gin.Context) {
+		dataDir := engineDataDir(cfg)
+		if err := system.ApplyManagedAliases(dataDir); err != nil {
+			c.JSON(http.StatusOK, gin.H{"ok": false, "warning": err.Error()})
+			return
+		}
+		ifaces, primary, err := system.ListNetwork(dataDir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"interfaces": ifaces, "primary_ip": primary, "ok": true})
+	})
+
+	api.POST("/system/network/addresses", func(c *gin.Context) {
+		var req struct {
+			Interface string `json:"interface" binding:"required"`
+			Address   string `json:"address" binding:"required"`
+			Label     string `json:"label"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		dataDir := engineDataDir(cfg)
+		if err := system.AddNetworkAddress(dataDir, req.Interface, req.Address, req.Label); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
+		ifaces, primary, err := system.ListNetwork(dataDir)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"ok": true, "primary_ip": system.PrimaryIP()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"interfaces": ifaces, "primary_ip": primary, "ok": true})
+	})
+
+	api.DELETE("/system/network/addresses", func(c *gin.Context) {
+		var req struct {
+			Interface string `json:"interface" binding:"required"`
+			Address   string `json:"address" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		dataDir := engineDataDir(cfg)
+		if err := system.RemoveNetworkAddress(dataDir, req.Interface, req.Address, false); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
+		ifaces, primary, err := system.ListNetwork(dataDir)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"interfaces": ifaces, "primary_ip": primary, "ok": true})
 	})
 
 	api.GET("/files/search", handleFileSearch(cfg))
@@ -325,6 +431,34 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"message": "mailbox updated"})
 	})
 
+	api.GET("/security/advisor", func(c *gin.Context) {
+		rules, _ := panelmirror.FirewallRulesList(cfg)
+		fail2banOn, fail2banErr := security.EnabledStatus("fail2ban")
+		modsecOn, modsecErr := security.EnabledStatus("modsec")
+		clamavOn, clamavErr := security.EnabledStatus("clamav")
+		clamavLast, _ := panelmirror.SecurityGetValue(cfg, "clamav_last_scan")
+		fbInstalled, fbErrDisp := normalizeSecurityComponent(fail2banErr)
+		msInstalled, msErrDisp := normalizeSecurityComponent(modsecErr)
+		cvInstalled, cvErrDisp := normalizeSecurityComponent(clamavErr)
+		ruleItems := make([]interface{}, len(rules))
+		for i, r := range rules {
+			ruleItems[i] = r
+		}
+		score, items := security.BuildAdvisorReport(map[string]interface{}{
+			"fail2ban": gin.H{"enabled": fail2banOn, "installed": fbInstalled, "error": fbErrDisp},
+			"modsecurity": gin.H{"enabled": modsecOn, "installed": msInstalled, "error": msErrDisp},
+			"clamav": gin.H{"enabled": clamavOn, "installed": cvInstalled, "last_scan": nullIfEmpty(clamavLast), "error": cvErrDisp},
+			"firewall": gin.H{"recent_rules": ruleItems},
+		})
+		overview := gin.H{
+			"fail2ban":    gin.H{"enabled": fail2banOn, "installed": fbInstalled, "error": fbErrDisp},
+			"modsecurity": gin.H{"enabled": modsecOn, "installed": msInstalled, "error": msErrDisp},
+			"clamav":      gin.H{"enabled": clamavOn, "installed": cvInstalled, "last_scan": nullIfEmpty(clamavLast), "error": cvErrDisp},
+			"firewall":    gin.H{"recent_rules": rules},
+		}
+		c.JSON(http.StatusOK, gin.H{"score": score, "items": items, "overview": overview})
+	})
+
 	api.GET("/security/overview", func(c *gin.Context) {
 		rules, _ := panelmirror.FirewallRulesList(cfg)
 		fail2banOn, fail2banErr := security.EnabledStatus("fail2ban")
@@ -457,12 +591,29 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		autoInstalled := false
 		enabled, err := security.SetEnabled("clamav", req.Enabled)
+		if err != nil && req.Enabled {
+			low := strings.ToLower(err.Error())
+			if strings.Contains(low, "not installed") {
+				if ierr := security.InstallClamav(); ierr == nil {
+					autoInstalled = true
+					enabled, err = security.SetEnabled("clamav", req.Enabled)
+				}
+			}
+		}
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "clamav updated", "enabled": enabled})
+		c.JSON(http.StatusOK, gin.H{"message": "clamav updated", "enabled": enabled, "auto_installed": autoInstalled})
+	})
+	api.POST("/security/clamav/install", func(c *gin.Context) {
+		if err := security.InstallClamav(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "clamav installed"})
 	})
 	api.POST("/security/clamav/scan", func(c *gin.Context) {
 		var req struct {
@@ -641,16 +792,40 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"alerts": alerts})
 	})
 	api.POST("/security/firewall/rule", func(c *gin.Context) {
-		var body gin.H
+		var body struct {
+			Action   string `json:"action" binding:"required"`
+			Protocol string `json:"protocol" binding:"required"`
+			Port     string `json:"port"`
+			Source   string `json:"source"`
+		}
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := panelmirror.AppendFirewallRule(cfg, body); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		port := strings.TrimSpace(body.Port)
+		if port == "" {
+			port = "any"
+		}
+		source := strings.TrimSpace(body.Source)
+		if source == "" {
+			source = "any"
+		}
+		if err := security.ApplyFirewallRule(body.Action, body.Protocol, port, source); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusAccepted, gin.H{"message": "firewall rule recorded"})
+		rule := gin.H{
+			"action":   body.Action,
+			"protocol": body.Protocol,
+			"port":     port,
+			"source":   source,
+			"applied":  true,
+		}
+		if err := panelmirror.AppendFirewallRule(cfg, rule); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "applied": true})
+			return
+		}
+		c.JSON(http.StatusAccepted, gin.H{"message": "firewall rule applied", "rule": rule})
 	})
 	api.GET("/security/nginx/rate-limit/profile", func(c *gin.Context) {
 		prof, err := security.NginxRateLimitProfileGet()
@@ -804,14 +979,14 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				{"id": "wordpress", "name": "WordPress", "version": "latest", "automated": true, "category": "kobi", "supports_woocommerce": true},
 				{"id": "opencart", "name": "OpenCart", "version": "4.0.x", "automated": true, "category": "kobi"},
 				// App deploy — AJANS (rehber / yönlendirme)
-				{"id": "nodejs", "name": "Node.js", "version": "", "automated": false, "category": "agency", "route": "/deploy"},
+				{"id": "nodejs", "name": "Node.js", "version": "", "automated": true, "category": "agency", "route": "/node-apps"},
 				{"id": "laravel", "name": "Laravel", "version": "11.x", "automated": false, "category": "agency", "route": "/deploy"},
 				{"id": "docker", "name": "Docker", "version": "", "automated": false, "category": "agency", "route": "/site-tools"},
 				{"id": "git_deploy", "name": "Git deploy", "version": "", "automated": false, "category": "agency", "route": "/deploy"},
 				// Modern stack (rehber)
-				{"id": "nextjs", "name": "Next.js starter", "version": "", "automated": false, "category": "modern", "route": "/deploy"},
-				{"id": "strapi", "name": "Strapi", "version": "", "automated": false, "category": "modern", "route": "/deploy"},
-				{"id": "n8n", "name": "n8n", "version": "", "automated": false, "category": "modern", "route": "/site-tools"},
+				{"id": "nextjs", "name": "Next.js starter", "version": "", "automated": true, "category": "modern", "route": "/node-apps"},
+				{"id": "strapi", "name": "Strapi", "version": "", "automated": true, "category": "modern", "route": "/node-apps"},
+				{"id": "n8n", "name": "n8n", "version": "", "automated": true, "category": "modern", "route": "/node-apps"},
 				// Diğer (manuel)
 				{"id": "joomla", "name": "Joomla", "version": "latest", "automated": false, "category": "other"},
 				{"id": "drupal", "name": "Drupal", "version": "10.x", "automated": false, "category": "other"},
@@ -908,6 +1083,75 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			outMode = "off"
 		}
 		c.JSON(http.StatusOK, gin.H{"domain": d, "performance_mode": outMode, "ok": true})
+	})
+
+	// SSL ayarları (force_https — site meta + vhost yeniden uygulama)
+	api.GET("/sites/:domain/ssl-settings", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		if err != nil || meta == nil {
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "site meta not found"})
+			}
+			return
+		}
+		force := meta.ForceHTTPSRedirect()
+		c.JSON(http.StatusOK, gin.H{
+			"domain":       d,
+			"ssl_enabled":  meta.SSLEnabled,
+			"force_https":  force,
+			"server_type":  strings.TrimSpace(meta.ServerType),
+		})
+	})
+
+	api.POST("/sites/:domain/ssl-settings", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		var req struct {
+			ForceHTTPS *bool `json:"force_https"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if req.ForceHTTPS == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "force_https required"})
+			return
+		}
+		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		if err != nil || meta == nil {
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "site meta not found"})
+			}
+			return
+		}
+		v := *req.ForceHTTPS
+		meta.ForceHTTPS = &v
+		if err := sites.WriteSiteMeta(cfg.Paths.WebRoot, d, meta); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		docRoot := strings.TrimSpace(meta.DocumentRoot)
+		if docRoot == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "document_root missing in meta"})
+			return
+		}
+		if err := hosting.ApplyWebServer(cfg, d, docRoot, meta, ""); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"domain": d, "force_https": meta.ForceHTTPSRedirect(), "ok": true})
 	})
 
 	// Site bazlı nginx vhost (paths.vhosts_dir/hostvim-<domain>.conf + .hostvim-prev geri alma)

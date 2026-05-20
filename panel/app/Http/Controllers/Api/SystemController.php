@@ -81,6 +81,116 @@ class SystemController extends Controller
         return response()->json($result);
     }
 
+    public function serverSettings(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
+        $res = $this->engineApi->getServerSettings();
+        if (! empty($res['error'])) {
+            return response()->json(['message' => (string) $res['error']], 503);
+        }
+
+        return response()->json([
+            'settings' => $res['settings'] ?? [],
+            'interfaces' => $res['interfaces'] ?? [],
+            'panel_timezone' => config('app.timezone', 'UTC'),
+        ]);
+    }
+
+    public function updateServerSettings(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'hostname' => ['sometimes', 'string', 'max:253', 'regex:/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/'],
+            'timezone' => ['sometimes', 'string', 'max:64'],
+        ]);
+
+        if ($validated === []) {
+            return response()->json(['message' => __('server_settings.nothing_to_update')], 422);
+        }
+
+        $res = $this->engineApi->updateServerSettings($validated);
+        if (! empty($res['error'])) {
+            return response()->json(['message' => (string) $res['error']], 422);
+        }
+
+        return response()->json([
+            'message' => __('server_settings.saved'),
+            'settings' => $res['settings'] ?? [],
+        ]);
+    }
+
+    public function refreshNetwork(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
+        $res = $this->engineApi->refreshNetwork();
+        if (! empty($res['error'])) {
+            return response()->json(['message' => (string) $res['error']], 503);
+        }
+
+        return response()->json([
+            'message' => __('server_settings.network_refreshed'),
+            'interfaces' => $res['interfaces'] ?? [],
+            'primary_ip' => $res['primary_ip'] ?? null,
+            'warning' => $res['warning'] ?? null,
+        ]);
+    }
+
+    public function addNetworkAddress(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'interface' => ['required', 'string', 'max:32', 'regex:/^[a-zA-Z0-9._-]+$/'],
+            'address' => ['required', 'string', 'max:64'],
+            'label' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $res = $this->engineApi->addNetworkAddress($validated);
+        if (! empty($res['error'])) {
+            return response()->json(['message' => (string) $res['error']], 422);
+        }
+
+        return response()->json([
+            'message' => __('server_settings.ip_added'),
+            'interfaces' => $res['interfaces'] ?? [],
+            'primary_ip' => $res['primary_ip'] ?? null,
+        ]);
+    }
+
+    public function removeNetworkAddress(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'interface' => ['required', 'string', 'max:32', 'regex:/^[a-zA-Z0-9._-]+$/'],
+            'address' => ['required', 'string', 'max:64'],
+        ]);
+
+        $res = $this->engineApi->removeNetworkAddress($validated);
+        if (! empty($res['error'])) {
+            return response()->json(['message' => (string) $res['error']], 422);
+        }
+
+        return response()->json([
+            'message' => __('server_settings.ip_removed'),
+            'interfaces' => $res['interfaces'] ?? [],
+            'primary_ip' => $res['primary_ip'] ?? null,
+        ]);
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         $user = $request->user();
