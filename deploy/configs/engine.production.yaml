@@ -86,6 +86,8 @@ hosting:
   certbot_path: "/usr/bin/certbot"
   lets_encrypt_email: "__LETS_ENCRYPT_EMAIL__"
   lets_encrypt_staging: false
+  # false: Let's Encrypt yalnızca istenen hostname (www SAN yok)
+  lets_encrypt_include_www: false
   manage_site_tools: true
   manage_node_apps: true
   composer_path: "/usr/bin/composer"

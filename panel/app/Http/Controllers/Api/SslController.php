@@ -97,7 +97,11 @@ class SslController extends Controller
             return response()->json(['message' => __('ssl.missing')], 404);
         }
 
-        $engine = $this->engine->renewSSL($target->hostname);
+        $engine = $this->engine->renewSSL(
+            $target->hostname,
+            $target->isSubdomain() ? $target->engineSiteName : null,
+            $target->subdomain?->path_segment,
+        );
         if (! empty($engine['error'])) {
             return response()->json([
                 'message' => $engine['error'],
@@ -127,7 +131,11 @@ class SslController extends Controller
             isset($validated['subdomain_id']) ? (int) $validated['subdomain_id'] : null,
         );
 
-        $engine = $this->engine->revokeSSL($target->hostname);
+        $engine = $this->engine->revokeSSL(
+            $target->hostname,
+            $target->isSubdomain() ? $target->engineSiteName : null,
+            $target->subdomain?->path_segment,
+        );
         if (! empty($engine['error'])) {
             return response()->json(['message' => $engine['error']], 503);
         }

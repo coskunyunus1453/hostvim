@@ -713,24 +713,14 @@ func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 		meta.SSLEnabled = true
 		force := true
 		meta.ForceHTTPS = &force
-		phpSock := ""
-		if cfg.Hosting.PHPFPMmanagePools {
-			poolKey := parent
-			if poolKey == "" {
-				poolKey = req.Domain
-			}
-			phpSock = phpfpmSettings(cfg).SocketForDomain(poolKey)
-		} else {
-			phpSock = nginx.EffectivePHPSocket(meta.PHPVersion, cfg.Hosting.PHPFPMsocket)
-		}
 		var applyErr error
 		if isSub {
-			applyErr = hosting.ApplySubdomainVhost(cfg, parent, certName, meta.DocumentRoot, meta)
+			applyErr = hosting.ApplySSLVhost(cfg, parent, seg, certName, meta)
 			if applyErr == nil {
 				applyErr = sites.WriteSubdomainMeta(cfg.Paths.WebRoot, parent, seg, meta)
 			}
 		} else {
-			applyErr = hosting.ApplyWebServer(cfg, req.Domain, meta.DocumentRoot, meta, phpSock)
+			applyErr = hosting.ApplySSLVhost(cfg, "", "", certName, meta)
 			if applyErr == nil {
 				applyErr = sites.WriteSiteMeta(cfg.Paths.WebRoot, req.Domain, meta)
 			}
@@ -746,63 +736,82 @@ func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 func handleRenewSSL(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Domain string `json:"domain" binding:"required"`
+			Domain       string `json:"domain" binding:"required"`
+			ParentDomain string `json:"parent_domain"`
+			PathSegment  string `json:"path_segment"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := ssl.Renew(cfg, req.Domain); err != nil {
+		certName := strings.ToLower(strings.TrimSpace(req.Domain))
+		parent := strings.ToLower(strings.TrimSpace(req.ParentDomain))
+		seg := strings.TrimSpace(req.PathSegment)
+		if err := ssl.Renew(cfg, certName); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
-		if err != nil || meta == nil {
-			c.JSON(http.StatusOK, gin.H{"message": "SSL certificate renewed", "domain": req.Domain})
-			return
-		}
-		phpSock := ""
-		if cfg.Hosting.PHPFPMmanagePools {
-			phpSock = phpfpmSettings(cfg).SocketForDomain(req.Domain)
+		var meta *sites.SiteMeta
+		var err error
+		if parent != "" && seg != "" {
+			meta, err = sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, seg)
 		} else {
-			phpSock = nginx.EffectivePHPSocket(meta.PHPVersion, cfg.Hosting.PHPFPMsocket)
+			meta, err = sites.ReadSiteMeta(cfg.Paths.WebRoot, certName)
 		}
-		if err := hosting.ApplyWebServer(cfg, req.Domain, meta.DocumentRoot, meta, phpSock); err != nil {
+		if err != nil || meta == nil {
+			c.JSON(http.StatusOK, gin.H{"message": "SSL certificate renewed", "domain": certName})
+			return
+		}
+		meta.SSLEnabled = true
+		if err := hosting.ApplySSLVhost(cfg, parent, seg, certName, meta); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "SSL certificate renewed", "domain": req.Domain})
+		if parent != "" && seg != "" {
+			_ = sites.WriteSubdomainMeta(cfg.Paths.WebRoot, parent, seg, meta)
+		} else {
+			_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, certName, meta)
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "SSL certificate renewed", "domain": certName})
 	}
 }
 
 func handleRevokeSSL(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Domain string `json:"domain" binding:"required"`
+			Domain       string `json:"domain" binding:"required"`
+			ParentDomain string `json:"parent_domain"`
+			PathSegment  string `json:"path_segment"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		_ = ssl.Delete(cfg, req.Domain)
-		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
+		certName := strings.ToLower(strings.TrimSpace(req.Domain))
+		parent := strings.ToLower(strings.TrimSpace(req.ParentDomain))
+		seg := strings.TrimSpace(req.PathSegment)
+		_ = ssl.Delete(cfg, certName)
+		var meta *sites.SiteMeta
+		var err error
+		if parent != "" && seg != "" {
+			meta, err = sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, seg)
+		} else {
+			meta, err = sites.ReadSiteMeta(cfg.Paths.WebRoot, certName)
+		}
 		if err == nil && meta != nil {
 			meta.SSLEnabled = false
-			_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, req.Domain, meta)
-		}
-		if meta != nil {
-			phpSock := ""
-			if cfg.Hosting.PHPFPMmanagePools {
-				phpSock = phpfpmSettings(cfg).SocketForDomain(req.Domain)
+			meta.ForceHTTPS = nil
+			if parent != "" && seg != "" {
+				_ = sites.WriteSubdomainMeta(cfg.Paths.WebRoot, parent, seg, meta)
 			} else {
-				phpSock = nginx.EffectivePHPSocket(meta.PHPVersion, cfg.Hosting.PHPFPMsocket)
+				_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, certName, meta)
 			}
-			if err := hosting.ApplyWebServer(cfg, req.Domain, meta.DocumentRoot, meta, phpSock); err != nil {
+			if err := hosting.ApplySSLVhost(cfg, parent, seg, certName, meta); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "SSL removed", "domain": req.Domain})
+		c.JSON(http.StatusOK, gin.H{"message": "SSL removed", "domain": certName})
 	}
 }
 

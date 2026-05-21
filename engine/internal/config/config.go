@@ -264,7 +264,7 @@ func setDefaults() {
 	viper.SetDefault("hosting.certbot_path", "")
 	viper.SetDefault("hosting.lets_encrypt_email", "")
 	viper.SetDefault("hosting.lets_encrypt_staging", false)
-	viper.SetDefault("hosting.lets_encrypt_include_www", true)
+	viper.SetDefault("hosting.lets_encrypt_include_www", false)
 
 	viper.SetDefault("hosting.manage_site_tools", false)
 	viper.SetDefault("hosting.manage_node_apps", false)

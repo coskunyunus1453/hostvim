@@ -192,14 +192,26 @@ class EngineApiService
         return $this->postLongChecked('/api/v1/ssl/issue', $data, 900);
     }
 
-    public function renewSSL(string $domain): array
+    public function renewSSL(string $hostname, ?string $parentDomain = null, ?string $pathSegment = null): array
     {
-        return $this->postLongChecked('/api/v1/ssl/renew', ['domain' => $domain], 900);
+        $data = ['domain' => $hostname];
+        if ($parentDomain !== null && $parentDomain !== '' && $pathSegment !== null && $pathSegment !== '') {
+            $data['parent_domain'] = $parentDomain;
+            $data['path_segment'] = $pathSegment;
+        }
+
+        return $this->postLongChecked('/api/v1/ssl/renew', $data, 900);
     }
 
-    public function revokeSSL(string $domain): array
+    public function revokeSSL(string $hostname, ?string $parentDomain = null, ?string $pathSegment = null): array
     {
-        return $this->postLongChecked('/api/v1/ssl/revoke', ['domain' => $domain], 120);
+        $data = ['domain' => $hostname];
+        if ($parentDomain !== null && $parentDomain !== '' && $pathSegment !== null && $pathSegment !== '') {
+            $data['parent_domain'] = $parentDomain;
+            $data['path_segment'] = $pathSegment;
+        }
+
+        return $this->postLongChecked('/api/v1/ssl/revoke', $data, 120);
     }
 
     public function uploadManualSSL(string $domain, string $certificate, string $privateKey): array

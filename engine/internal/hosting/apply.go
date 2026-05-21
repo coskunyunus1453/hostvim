@@ -119,19 +119,21 @@ func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.Site
 	}
 }
 
-// ApplySubdomainVhost ana site FPM havuzu ile alt FQDN için sanal host (HTTP; SSL ayrı sertifika ile sonradan).
+// ApplySubdomainVhost ana site FPM havuzu ile alt FQDN için sanal host.
+// subMeta.SSLEnabled ve PEM dosyaları varsa 443 + isteğe bağlı HTTP→HTTPS yönlendirmesi uygulanır.
 func ApplySubdomainVhost(cfg *config.Config, parentPrimary, hostname, docRoot string, subMeta *sites.SiteMeta) error {
 	parentMeta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, parentPrimary)
 	sock := resolvePHPSocket(cfg, parentPrimary, parentMeta, "")
+	h := strings.ToLower(strings.TrimSpace(hostname))
+	chain, key := sslPathsIfEnabled(cfg, h, subMeta)
+	forceHTTPS := subMeta != nil && subMeta.ForceHTTPSRedirect()
 	st := serverTypeOf(subMeta)
 	if st == "apache" {
-		return apache.ApplyVhost(cfg, hostname, docRoot, sock, "", "", nil, false)
+		return apache.ApplyVhost(cfg, h, docRoot, sock, chain, key, nil, forceHTTPS)
 	}
 	if st == "openlitespeed" {
-		h := strings.ToLower(strings.TrimSpace(hostname))
-		return openlitespeed.ApplyVhost(cfg, h, docRoot, sock, "", "", nil, false)
+		return openlitespeed.ApplyVhost(cfg, h, docRoot, sock, chain, key, nil, forceHTTPS)
 	}
-	h := strings.ToLower(strings.TrimSpace(hostname))
 	perf := ""
 	proxyPort := 0
 	if subMeta != nil {
@@ -142,7 +144,22 @@ func ApplySubdomainVhost(cfg *config.Config, parentPrimary, hostname, docRoot st
 	if rerr != nil {
 		return rerr
 	}
-	return nginx.ApplyVhost(cfg, h, docRoot, sock, "", "", h, perf, proxyPort, redirBlocks, fullRet, false)
+	return nginx.ApplyVhost(cfg, h, docRoot, sock, chain, key, h, perf, proxyPort, redirBlocks, fullRet, forceHTTPS)
+}
+
+// ApplySSLVhost Let's Encrypt / manuel SSL sonrası web sunucusu yapılandırmasını günceller.
+func ApplySSLVhost(cfg *config.Config, parentPrimary, pathSegment, certHostname string, meta *sites.SiteMeta) error {
+	if meta == nil {
+		return nil
+	}
+	certHostname = strings.ToLower(strings.TrimSpace(certHostname))
+	parentPrimary = strings.ToLower(strings.TrimSpace(parentPrimary))
+	pathSegment = strings.TrimSpace(pathSegment)
+	if pathSegment != "" && parentPrimary != "" {
+		return ApplySubdomainVhost(cfg, parentPrimary, certHostname, meta.DocumentRoot, meta)
+	}
+	sock := resolvePHPSocket(cfg, certHostname, meta, "")
+	return ApplyWebServer(cfg, certHostname, meta.DocumentRoot, meta, sock)
 }
 
 // RemoveWebServer meta’daki server_type’a göre ilgili vhost’u kaldırır.

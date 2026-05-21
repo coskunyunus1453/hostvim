@@ -72,6 +72,23 @@ func runCertbot(cfg *config.Config, args []string) ([]byte, error) {
 	return out, err
 }
 
+// certbotShouldIncludeWww — SAN listesine www. eklenip eklenmeyeceği.
+// Alt alan adları (blog.site.com) ve www. ile başlayan isimler için asla eklenmez.
+func certbotShouldIncludeWww(cfg *config.Config, domain string) bool {
+	if !cfg.Hosting.LetsEncryptIncludeWww {
+		return false
+	}
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	if domain == "" || strings.HasPrefix(domain, "www.") {
+		return false
+	}
+	// En az iki nokta = alt alan adı veya çok parçalı TLD; www.blog.site.com anlamsız
+	if strings.Count(domain, ".") >= 2 {
+		return false
+	}
+	return true
+}
+
 // Issue webroot doğrulaması ile sertifika alır. İlk SAN birincil domain'dir.
 // Issue öncesi mevcut cert satırı silinir; böylece başarısız denemelerden kalan ACME durumu temizlenir.
 func Issue(cfg *config.Config, domain, webroot, email string) error {
@@ -112,7 +129,7 @@ func Issue(cfg *config.Config, domain, webroot, email string) error {
 		"--config-dir", cd, "--work-dir", wd, "--logs-dir", ld,
 	}
 	args = append(args, "-d", domain)
-	if cfg.Hosting.LetsEncryptIncludeWww {
+	if certbotShouldIncludeWww(cfg, domain) {
 		args = append(args, "-d", "www."+domain)
 	}
 	if cfg.Hosting.LetsEncryptStaging {
