@@ -45,7 +45,6 @@ import {
   Link2,
   Cpu,
   ArrowRightLeft,
-  Lock,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useProFeatures } from '../../hooks/useProFeatures'
