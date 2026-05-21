@@ -127,7 +127,7 @@ class SaasLicenseProductController extends Controller
     private function resolveDefaultModules(Request $request): ?array
     {
         $checked = $request->input('modules');
-        if (is_array($checked) && $checked !== []) {
+        if ($request->has('modules') && is_array($checked)) {
             $registry = SaasProductModule::query()->where('is_active', true)->pluck('key');
             $out = [];
             foreach ($registry as $key) {

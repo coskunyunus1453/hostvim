@@ -361,6 +361,10 @@
     "test_only": "Yalnızca dene (kaydetme)",
     "clear_stored": "Bu paneldeki anahtarı kaldır",
     "clear_confirm": "Kayıtlı lisans anahtarı bu panelden silinsin mi?",
+    "pro_badge": "Pro",
+    "pro_locked_title": "Pro lisans gerekli",
+    "pro_locked_hint": "Bu özellik Pro plan ile açılır. Sunucu yöneticinizden lisans anahtarı isteyin veya Lisans sayfasına gidin.",
+    "pro_locked_nav": "Pro özellik — lisans gerekli",
     "cleared_ok": "Kayıtlı lisans anahtarı kaldırıldı.",
     "validate_ok": "Doğrulama yanıtı"
   },

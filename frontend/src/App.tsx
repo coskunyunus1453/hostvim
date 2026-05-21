@@ -5,6 +5,7 @@ import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
 import { useUiModeStore } from './store/uiModeStore'
 import Layout from './components/layout/Layout'
+import ProFeatureGate from './components/ProFeatureGate'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import DomainsPage from './pages/DomainsPage'
@@ -124,17 +125,17 @@ export default function App() {
         <Route path="backups/google-callback" element={<BackupsPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="cron" element={<AdvancedRoute><CronPage /></AdvancedRoute>} />
-        <Route path="monitoring" element={<AdvancedRoute><LazyPage><MonitoringPage /></LazyPage></AdvancedRoute>} />
+        <Route path="monitoring" element={<AdvancedRoute><LazyPage><ProFeatureGate moduleKey="monitoring_advanced"><MonitoringPage /></ProFeatureGate></LazyPage></AdvancedRoute>} />
         <Route path="security" element={<AdvancedRoute><LazyPage><SecurityPage /></LazyPage></AdvancedRoute>} />
         <Route path="installer" element={<InstallerPage />} />
         <Route path="node-apps" element={<AdvancedRoute><NodeAppPage /></AdvancedRoute>} />
         <Route path="deploy" element={<AdvancedRoute><DeployPage /></AdvancedRoute>} />
-        <Route path="billing" element={<AdvancedRoute><BillingPage /></AdvancedRoute>} />
+        <Route path="billing" element={<AdvancedRoute><ProFeatureGate moduleKey="stripe_billing"><BillingPage /></ProFeatureGate></AdvancedRoute>} />
         <Route path="reseller" element={<AdvancedRoute><ResellerPage /></AdvancedRoute>} />
         <Route path="reseller/branding" element={<AdvancedRoute><ResellerBrandingPage /></AdvancedRoute>} />
         <Route path="onboarding" element={<OnboardingPage />} />
-        <Route path="ai-advisor" element={<AdvancedRoute><LazyPage><AiAdvisorPage /></LazyPage></AdvancedRoute>} />
-        <Route path="curious" element={<LazyPage><CuriousPage /></LazyPage>} />
+        <Route path="ai-advisor" element={<AdvancedRoute><LazyPage><ProFeatureGate moduleKey="ai_advisor"><AiAdvisorPage /></ProFeatureGate></LazyPage></AdvancedRoute>} />
+        <Route path="curious" element={<LazyPage><ProFeatureGate moduleKey="curious_tools"><CuriousPage /></ProFeatureGate></LazyPage>} />
         <Route path="plugins" element={<AdvancedRoute><PluginsStorePage /></AdvancedRoute>} />
         <Route path="admin/users" element={<AdvancedRoute><AdminUsersPage /></AdvancedRoute>} />
         <Route path="admin/roles" element={<AdvancedRoute><AdminRolesPage /></AdvancedRoute>} />

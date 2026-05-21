@@ -9,15 +9,15 @@
 # aksi halde kabuk * ile mevcut dizindeki dosya adlarını genişletir (ör. go, hostvim-admin-login.txt)
 # ve komut "go hostvim-admin-login.txt …" gibi patlar. Güvenli: cd /tmp && curl … | bash
 #
-# İki giriş noktası (önerilen):
-#   • Community / freemium:  deploy/host/install-community.sh
-#   • Pro (lisanslı):          deploy/host/install-pro.sh  (+ HOSTVIM_LICENSE_KEY=... isteğe bağlı)
+# Müşteri kurulumu (önerilen — tek komut, freemium + Pro aynı paket):
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-hostvim.sh" | bash
+# İsteğe bağlı lisans: HOSTVIM_LICENSE_KEY="hv_..." curl … | bash
+# Geriye dönük: install-community.sh / install-pro.sh → install-hostvim.sh yönlendirir.
 # Bu dosya (install.sh) ortak motor; doğrudan çağrılırsa APP_PROFILE varsayılanı customer’dır.
 #
 # Müşteri komutu (Linux VPS — SSL doğrulaması AÇIK):
 #   • Tek satır (kısa domain): curl -fsSL https://get.panelze.sh | bash
-#   • Root SSH: ssh root@SUNUCU_IP → curl -fsSL "…/install-community.sh" | bash
-#   • Pro: HOSTVIM_LICENSE_KEY="..." curl -fsSL "…/install-pro.sh" | bash
+#   • Root SSH: curl -fsSL "…/install-hostvim.sh" | bash
 #   • Eski adlar (yönlendirme): install-customer.sh → community, install-vendor.sh → pro
 #   • İlk admin: /root/hostvim-admin-login.txt
 #   macOS/Windows’ta çalıştırmayın; boş Debian/Ubuntu sunucuda çalışır.

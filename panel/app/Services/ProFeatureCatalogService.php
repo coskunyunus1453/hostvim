@@ -58,10 +58,12 @@ class ProFeatureCatalogService
         $out = [];
         foreach ($merged as $key => $meta) {
             $hubMeta = $this->hubModuleMeta($key);
+            $hubUi = $this->stringList($hubMeta['ui_paths'] ?? []);
+            $hubApi = $this->stringList($hubMeta['api_route_prefixes'] ?? []);
             $out[$key] = [
                 'label' => (string) ($hubMeta['label'] ?? $meta['label']),
-                'ui_paths' => $meta['ui_paths'] !== [] ? $meta['ui_paths'] : $this->stringList($hubMeta['ui_paths'] ?? []),
-                'api_route_prefixes' => $meta['api_route_prefixes'] !== [] ? $meta['api_route_prefixes'] : $this->stringList($hubMeta['api_route_prefixes'] ?? []),
+                'ui_paths' => $hubUi !== [] ? $hubUi : $meta['ui_paths'],
+                'api_route_prefixes' => $hubApi !== [] ? $hubApi : $meta['api_route_prefixes'],
                 'enabled' => $license->hasFeature($key),
                 'requires_pro' => true,
             ];

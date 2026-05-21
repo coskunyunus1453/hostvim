@@ -362,6 +362,10 @@
     "test_only": "Test only (do not save)",
     "clear_stored": "Remove key from this panel",
     "clear_confirm": "Remove the stored license key from this panel?",
+    "pro_badge": "Pro",
+    "pro_locked_title": "Pro license required",
+    "pro_locked_hint": "This feature requires a Pro plan. Ask your server administrator for a license key or open the License page.",
+    "pro_locked_nav": "Pro feature — license required",
     "cleared_ok": "Stored license key removed.",
     "validate_ok": "Validation response"
   },

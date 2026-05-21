@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useThemeStore } from '../../store/themeStore'
 import { useUiModeStore } from '../../store/uiModeStore'
@@ -45,13 +45,18 @@ import {
   Link2,
   Cpu,
   ArrowRightLeft,
+  Lock,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { useProFeatures } from '../../hooks/useProFeatures'
 
 type NavLeaf = {
   path: string
   icon: typeof LayoutDashboard
   label: string
   ability: string | null
+  /** Landing modül anahtarı (Pro kilidi) */
+  proModule?: string
 }
 
 type NavGroup = {
@@ -69,7 +74,9 @@ export default function Sidebar() {
     closeMobileSidebar,
   } = useThemeStore()
   const location = useLocation()
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const { isModuleEnabled } = useProFeatures()
   const mode = useUiModeStore((s) => s.mode)
   const abilities = user?.abilities
   const isAdmin = user?.roles?.some((r) => r.name === 'admin')
@@ -126,15 +133,15 @@ export default function Sidebar() {
       items: [
         { path: '/backups', icon: Shield, label: 'nav.backups', ability: 'backups:read' },
         { path: '/cron', icon: Clock, label: 'nav.cron', ability: 'cron:read' },
-        { path: '/monitoring', icon: Activity, label: 'nav.monitoring', ability: 'monitoring:read' },
+        { path: '/monitoring', icon: Activity, label: 'nav.monitoring', ability: 'monitoring:read', proModule: 'monitoring_advanced' },
         { path: '/security', icon: Shield, label: 'nav.security', ability: 'security:read' },
         { path: '/installer', icon: Download, label: 'nav.installer', ability: 'installer:read' },
         { path: '/node-apps', icon: Cpu, label: 'nav.node_apps', ability: 'tools:run' },
         { path: '/deploy', icon: Rocket, label: 'nav.deploy', ability: 'tools:run' },
         { path: '/plugins', icon: Store, label: 'nav.plugins_store', ability: 'dashboard:read' },
-        { path: '/ai-advisor', icon: Sparkles, label: 'nav.ai_advisor', ability: 'dashboard:read' },
-        { path: '/curious', icon: Gauge, label: 'nav.curious', ability: 'curious:read' },
-        { path: '/billing', icon: CreditCard, label: 'nav.billing', ability: 'billing:read' },
+        { path: '/ai-advisor', icon: Sparkles, label: 'nav.ai_advisor', ability: 'dashboard:read', proModule: 'ai_advisor' },
+        { path: '/curious', icon: Gauge, label: 'nav.curious', ability: 'curious:read', proModule: 'curious_tools' },
+        { path: '/billing', icon: CreditCard, label: 'nav.billing', ability: 'billing:read', proModule: 'stripe_billing' },
       ],
     },
     {
@@ -295,26 +302,47 @@ export default function Sidebar() {
               {t(group.title)}
             </p>
             <ul className="space-y-1">
-              {group.items.map((item) => (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-                      }`
-                    }
-                    title={t(item.label)}
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    <span className={showNavText ? '' : 'max-md:inline md:hidden'}>
-                      {t(item.label)}
-                    </span>
-                  </NavLink>
-                </li>
-              ))}
+              {group.items.map((item) => {
+                const proLocked =
+                  item.proModule != null && item.proModule !== '' && !isModuleEnabled(item.proModule)
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      onClick={(e) => {
+                        if (!proLocked) return
+                        e.preventDefault()
+                        if (isAdmin) {
+                          navigate('/admin/license', { state: { from: item.path } })
+                        } else {
+                          toast.error(t('license.pro_locked_nav'))
+                        }
+                      }}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          proLocked
+                            ? 'text-gray-500 dark:text-gray-500'
+                            : isActive
+                              ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                        }`
+                      }
+                      title={proLocked ? t('license.pro_locked_nav') : t(item.label)}
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <span className={`flex-1 ${showNavText ? '' : 'max-md:inline md:hidden'}`}>
+                        {t(item.label)}
+                      </span>
+                      {proLocked && (
+                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                          <Lock className="h-3 w-3" />
+                          {showNavText ? t('license.pro_badge') : ''}
+                        </span>
+                      )}
+                    </NavLink>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         ))}
