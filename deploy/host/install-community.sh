@@ -5,7 +5,8 @@
 # Markdown'dan kopyalarken satır başına "* " EKLEMEYİN; kabuk * ile dosya adı genişletmesi komutu bozar.
 # Güvenli: cd /tmp && curl -fsSL "…/install-community.sh" | bash
 #
-# İlk kurulum:
+# Önerilen tek komut: deploy/host/install-hostvim.sh
+# Geriye dönük:
 #   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-community.sh" | bash
 #
 # Güncelleme (siteler + DB korunur — önerilen tekrar çalıştırma):
@@ -45,21 +46,4 @@ if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
 fi
 hostvim_source_install_mode_lib
 
-if [[ "$(hostvim_resolve_install_mode)" == "update" ]] && [[ "${HOSTVIM_FORCE_FULL_INSTALL:-0}" != "1" ]]; then
-  echo "==> Mevcut kurulum algılandı; güvenli güncelleme modu (install-update-community.sh)"
-  UPDATE_URL="${HOSTVIM_INSTALL_UPDATE_COMMUNITY_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-community.sh}"
-  UPDATE_URL="${UPDATE_URL}?ts=$(date +%s)"
-  _tmp_up="$(mktemp)"
-  curl -fsSL "$UPDATE_URL" -o "$_tmp_up"
-  bash "$_tmp_up"
-  rm -f "$_tmp_up"
-  exit 0
-fi
-
-HOSTVIM_INSTALL_SCRIPT_URL="${HOSTVIM_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install.sh}"
-HOSTVIM_INSTALL_SCRIPT_URL="${HOSTVIM_INSTALL_SCRIPT_URL}?ts=$(date +%s)"
-export PANELSAR_INSTALL_SCRIPT_URL="$HOSTVIM_INSTALL_SCRIPT_URL"
-export PANELSAR_REPO_URL="$HOSTVIM_REPO_URL"
-export PANELSAR_BRANCH="$HOSTVIM_BRANCH"
-
-curl -fsSL "$HOSTVIM_INSTALL_SCRIPT_URL" | bash
+exec bash -c 'curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-hostvim.sh" | bash'

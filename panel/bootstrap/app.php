@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateWhmcsIntegration;
 use App\Http\Middleware\EnforceVendorHost;
 use App\Http\Middleware\EnsureTokenAbility;
+use App\Http\Middleware\RequireProFeature;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Http\Middleware\RequireTwoFactorForAdmin;
 use App\Http\Middleware\SecureHeaders;
@@ -55,6 +56,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'require_password_change' => RequirePasswordChange::class,
             'vendor_host' => EnforceVendorHost::class,
             'whmcs.integration' => AuthenticateWhmcsIntegration::class,
+            'pro.feature' => RequireProFeature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

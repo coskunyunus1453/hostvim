@@ -195,14 +195,15 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('backups/engine/snapshot', [BackupController::class, 'engineSnapshot']);
         Route::get('backups/destinations', [BackupController::class, 'destinations']);
         Route::get('backups/schedules', [BackupController::class, 'schedules']);
-        Route::get('backups/google-drive/status', [BackupGoogleDriveController::class, 'status']);
         Route::get('backups/{backup}/download', [BackupController::class, 'download']);
+    });
+    Route::middleware(['ability:backups:read', 'pro.feature:backups_pro'])->group(function () {
+        Route::get('backups/google-drive/status', [BackupGoogleDriveController::class, 'status']);
         Route::get('backups/destinations/{backupDestination}/remote-files', [BackupGoogleDriveController::class, 'listFiles']);
     });
     Route::middleware('ability:backups:write')->group(function () {
         Route::post('backups', [BackupController::class, 'store'])->middleware('throttle:backups-write');
         Route::post('backups/restore-upload', [BackupController::class, 'uploadRestore'])->middleware('throttle:backups-write');
-        Route::post('backups/restore-remote', [BackupController::class, 'restoreRemote'])->middleware('throttle:backups-write');
         Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->middleware('throttle:backups-write');
         Route::post('backups/{backup}/restore', [BackupController::class, 'restore'])->middleware('throttle:backups-write');
         Route::post('backups/{backup}/sync', [BackupController::class, 'sync'])->middleware('throttle:backups-write');
@@ -213,6 +214,9 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::patch('backups/schedules/{backupSchedule}', [BackupController::class, 'updateSchedule'])->middleware('throttle:backups-write');
         Route::delete('backups/schedules/{backupSchedule}', [BackupController::class, 'destroySchedule'])->middleware('throttle:backups-write');
         Route::post('backups/schedules/{backupSchedule}/run', [BackupController::class, 'runSchedule'])->middleware('throttle:backups-write');
+    });
+    Route::middleware(['ability:backups:write', 'pro.feature:backups_pro'])->group(function () {
+        Route::post('backups/restore-remote', [BackupController::class, 'restoreRemote'])->middleware('throttle:backups-write');
         Route::get('backups/google-drive/auth-url', [BackupGoogleDriveController::class, 'authUrl']);
         Route::post('backups/google-drive/complete', [BackupGoogleDriveController::class, 'complete']);
         Route::delete('backups/google-drive/disconnect', [BackupGoogleDriveController::class, 'disconnect']);
@@ -264,9 +268,10 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:monitoring:read')->get('monitoring/summary', [MonitoringController::class, 'userSummary']);
     Route::middleware('ability:monitoring:read')->get('monitoring/health', [MonitoringController::class, 'health']);
     Route::middleware('ability:monitoring:read')->get('monitoring/health/sites', [MonitoringController::class, 'healthSites']);
-    Route::middleware('ability:monitoring:server')->get('monitoring/server', [MonitoringController::class, 'server']);
+    Route::middleware(['ability:monitoring:server', 'pro.feature:monitoring_advanced'])
+        ->get('monitoring/server', [MonitoringController::class, 'server']);
 
-    Route::middleware('ability:dashboard:read')->group(function () {
+    Route::middleware(['ability:dashboard:read', 'pro.feature:ai_advisor'])->group(function () {
         Route::get('ai/cron-backup', [AiAdvisorController::class, 'cronBackup']);
         Route::get('ai/monitoring', [AiAdvisorController::class, 'monitoring']);
         Route::get('ai/access', [AiAdvisorController::class, 'access']);
@@ -284,12 +289,12 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
             Route::post('chat', [AiAssistantController::class, 'chat'])->middleware('throttle:30,1');
         });
     });
-    Route::middleware('ability:files:write')->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);
-    Route::middleware('ability:files:write')->post('ai-assistant/execute-actions', [AiAssistantController::class, 'executeActions']);
-    Route::middleware('ability:files:read')->post('ai-assistant/read-file', [AiAssistantController::class, 'readFile']);
-    Route::middleware('ability:files:read')->post('domains/{domain}/ai/file-editor', [AiAdvisorController::class, 'fileEditor']);
-    Route::middleware('ability:tools:run')->get('domains/{domain}/ai/deploy', [AiAdvisorController::class, 'deploy']);
-    Route::middleware('ability:dashboard:read')->get('domains/{domain}/ai/slow-site', [AiAdvisorController::class, 'slowSite']);
+    Route::middleware(['ability:files:write', 'pro.feature:ai_advisor'])->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);
+    Route::middleware(['ability:files:write', 'pro.feature:ai_advisor'])->post('ai-assistant/execute-actions', [AiAssistantController::class, 'executeActions']);
+    Route::middleware(['ability:files:read', 'pro.feature:ai_advisor'])->post('ai-assistant/read-file', [AiAssistantController::class, 'readFile']);
+    Route::middleware(['ability:files:read', 'pro.feature:ai_advisor'])->post('domains/{domain}/ai/file-editor', [AiAdvisorController::class, 'fileEditor']);
+    Route::middleware(['ability:tools:run', 'pro.feature:ai_advisor'])->get('domains/{domain}/ai/deploy', [AiAdvisorController::class, 'deploy']);
+    Route::middleware(['ability:dashboard:read', 'pro.feature:ai_advisor'])->get('domains/{domain}/ai/slow-site', [AiAdvisorController::class, 'slowSite']);
 
     Route::middleware('ability:security:read')->get('security/overview', [SecurityController::class, 'overview']);
     Route::middleware('ability:security:read')->get('security/advisor', [SecurityController::class, 'advisor']);
@@ -300,7 +305,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:security:read')->get('security/fim/status', [SecurityController::class, 'fimStatus']);
     Route::middleware('ability:security:read')->get('security/alerts', [SecurityController::class, 'alerts']);
 
-    Route::middleware(['ability:curious:read', 'throttle:60,1'])->prefix('curious')->group(function () {
+    Route::middleware(['ability:curious:read', 'pro.feature:curious_tools', 'throttle:60,1'])->prefix('curious')->group(function () {
         Route::get('speed/ping', [CuriousController::class, 'ping']);
         Route::post('speed/download/prepare', [CuriousController::class, 'prepareDownload']);
         Route::get('speed/download/{token}', [CuriousController::class, 'download'])->where('token', '[a-zA-Z0-9]{20,64}');
@@ -381,7 +386,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('billing/packages', [BillingController::class, 'packages']);
         Route::get('billing/subscriptions', [BillingController::class, 'subscriptions']);
     });
-    Route::middleware('ability:billing:write')->post('billing/checkout', [BillingController::class, 'checkout']);
+    Route::middleware(['ability:billing:write', 'pro.feature:stripe_billing'])
+        ->post('billing/checkout', [BillingController::class, 'checkout']);
 
     Route::middleware(['role:admin|vendor_admin|vendor_support|vendor_finance|vendor_devops', 'require_admin_2fa'])->post('terminal/session', [TerminalController::class, 'session']);
 

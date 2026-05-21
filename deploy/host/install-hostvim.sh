@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 #
-# Hostvim — Pro kurulum (lisanslı: tam özellik seti). Lisans ve panel müşterileri merkezi (ör. hostvim.com) üzerinden yönetilir.
+# Hostvim — tek komut kurulum (Community + Pro aynı paket; lisans panelden).
 #
-# Satın alma sonrası verilen anahtarı kurulumdan önce veya satırda verin:
-#   HOSTVIM_LICENSE_KEY="hv_...." curl -fsSL "…/install-pro.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-hostvim.sh" | bash
 #
-# Markdown'dan kopyalarken satır başına "* " eklemeyin. Güvenli: cd /tmp && curl … | bash
-#
-# Önerilen: install-hostvim.sh (+ HOSTVIM_LICENSE_KEY isteğe bağlı)
-# Geriye dönük:
-#   HOSTVIM_LICENSE_KEY="hv_...." curl -fsSL "…/install-pro.sh" | bash
-#
-# Güncelleme (veri korunur):
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-pro.sh" | bash
-#
-# Community: deploy/host/install-community.sh | install-update-community.sh
+# İsteğe bağlı lisans:
+#   HOSTVIM_LICENSE_KEY="hv_...." curl -fsSL "…/install-hostvim.sh" | bash
 #
 set -euo pipefail
 
@@ -49,8 +40,8 @@ fi
 hostvim_source_install_mode_lib
 
 if [[ "$(hostvim_resolve_install_mode)" == "update" ]] && [[ "${HOSTVIM_FORCE_FULL_INSTALL:-0}" != "1" ]]; then
-  echo "==> Mevcut kurulum algılandı; güvenli güncelleme modu (install-update-pro.sh)"
-  UPDATE_URL="${HOSTVIM_INSTALL_UPDATE_PRO_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-pro.sh}"
+  echo "==> Mevcut kurulum algılandı; güvenli güncelleme modu"
+  UPDATE_URL="${HOSTVIM_INSTALL_UPDATE_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-hostvim.sh}"
   UPDATE_URL="${UPDATE_URL}?ts=$(date +%s)"
   _tmp_up="$(mktemp)"
   curl -fsSL "$UPDATE_URL" -o "$_tmp_up"

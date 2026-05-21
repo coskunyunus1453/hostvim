@@ -101,7 +101,14 @@ return [
         'force_pro' => env('HOSTVIM_LICENSE_FORCE_PRO', false),
         'pro_plan_codes' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('HOSTVIM_PRO_PLAN_CODES', 'pro,pro-lisans,enterprise,vendor'))
+            explode(',', (string) env(
+                'HOSTVIM_PRO_PLAN_CODES',
+                'pro,pro-monthly,pro-yearly,pro-lifetime,pro-lisans,enterprise,vendor'
+            ))
+        ))),
+        'community_plan_codes' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('HOSTVIM_COMMUNITY_PLAN_CODES', 'community'))
         ))),
         'pro_default_modules' => ['phpmyadmin_sso'],
     ],

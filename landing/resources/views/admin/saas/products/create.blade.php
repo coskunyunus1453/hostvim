@@ -41,10 +41,11 @@
             <label class="block text-sm font-medium">Varsayılan limitler (JSON)</label>
             <textarea name="default_limits_raw" rows="4" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900" placeholder='{"max_sites": 10}'>{{ old('default_limits_raw', '{}') }}</textarea>
         </div>
-        <div>
-            <label class="block text-sm font-medium">Varsayılan modüller (JSON — anahtar: true/false)</label>
-            <textarea name="default_modules_raw" rows="6" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900" placeholder='{"vendor_panel": false, "backups_pro": true}'>{{ old('default_modules_raw', '{}') }}</textarea>
-        </div>
+        @include('admin.saas._product_modules', [
+            'moduleRegistry' => $moduleRegistry,
+            'enabledModules' => $enabledModules,
+            'default_modules_raw' => $default_modules_raw,
+        ])
         <button type="submit" class="admin-btn-emerald">Kaydet</button>
     </form>
 </x-admin.layout>

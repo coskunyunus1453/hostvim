@@ -27,6 +27,7 @@
             <label class="block text-sm font-medium">Sıra</label>
             <input type="number" name="sort_order" value="{{ old('sort_order', $module->sort_order) }}" min="0" class="mt-1 w-32 rounded-xl border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
         </div>
+        @include('admin.saas._module_fields', ['module' => $module])
         <button type="submit" class="admin-btn-emerald">Güncelle</button>
     </form>
 </x-admin.layout>

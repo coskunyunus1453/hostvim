@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\User;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
+
+class CreatePanelAdminCommand extends Command
+{
+    protected $signature = 'hostvim:create-admin
+                            {email : Admin e-posta}
+                            {--password= : Şifre (yoksa sorulur)}
+                            {--name=Admin : Görünen ad}';
+
+    protected $description = 'Panel admin kullanıcısı oluşturur veya şifresini günceller';
+
+    public function handle(): int
+    {
+        $email = strtolower(trim((string) $this->argument('email')));
+        $password = (string) ($this->option('password') ?: $this->secret('Şifre'));
+        if ($password === '') {
+            $this->error('Şifre boş olamaz.');
+
+            return self::FAILURE;
+        }
+
+        $user = User::query()->where('email', $email)->first();
+        if ($user === null) {
+            $user = User::query()->create([
+                'name' => (string) $this->option('name'),
+                'email' => $email,
+                'password' => Hash::make($password),
+                'email_verified_at' => now(),
+            ]);
+            $this->info("Kullanıcı oluşturuldu: {$email}");
+        } else {
+            $user->update([
+                'password' => Hash::make($password),
+                'name' => (string) $this->option('name'),
+            ]);
+            $this->info("Kullanıcı güncellendi: {$email}");
+        }
+
+        $role = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        if (! $user->hasRole('admin')) {
+            $user->assignRole($role);
+        }
+
+        $this->call('hostvim:sync-abilities', [], $this->output);
+
+        $this->info('Admin rolü atandı.');
+
+        return self::SUCCESS;
+    }
+}

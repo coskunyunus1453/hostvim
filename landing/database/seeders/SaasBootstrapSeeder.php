@@ -4,66 +4,75 @@ namespace Database\Seeders;
 
 use App\Models\SaasLicenseProduct;
 use App\Models\SaasProductModule;
+use App\Support\SaasModuleDefaults;
 use Illuminate\Database\Seeder;
 
 class SaasBootstrapSeeder extends Seeder
 {
     public function run(): void
     {
-        $modules = [
-            ['key' => 'vendor_panel', 'label' => 'Vendor kontrol düzlemi', 'is_paid' => true, 'sort_order' => 10],
-            ['key' => 'backups_pro', 'label' => 'Gelişmiş yedekleme', 'is_paid' => true, 'sort_order' => 20],
-            ['key' => 'monitoring_advanced', 'label' => 'Gelişmiş izleme', 'is_paid' => true, 'sort_order' => 30],
-            ['key' => 'ai_advisor', 'label' => 'AI danışman', 'is_paid' => true, 'sort_order' => 40],
-            ['key' => 'stripe_billing', 'label' => 'Stripe faturalama entegrasyonu', 'is_paid' => true, 'sort_order' => 50],
-            ['key' => 'phpmyadmin_sso', 'label' => 'phpMyAdmin tek tık giriş', 'is_paid' => true, 'sort_order' => 55],
+        $moduleDefs = [
+            ['key' => 'vendor_panel', 'label' => 'Vendor kontrol düzlemi', 'sort_order' => 10],
+            ['key' => 'backups_pro', 'label' => 'Gelişmiş yedekleme (Drive / uzak)', 'sort_order' => 20],
+            ['key' => 'monitoring_advanced', 'label' => 'Gelişmiş izleme', 'sort_order' => 30],
+            ['key' => 'ai_advisor', 'label' => 'PanelZeka / AI', 'sort_order' => 40],
+            ['key' => 'curious_tools', 'label' => 'Meraklısına', 'sort_order' => 45],
+            ['key' => 'stripe_billing', 'label' => 'Stripe faturalama', 'sort_order' => 50],
+            ['key' => 'phpmyadmin_sso', 'label' => 'phpMyAdmin tek tık giriş', 'sort_order' => 55],
         ];
-        foreach ($modules as $m) {
+
+        $allKeys = [];
+        foreach ($moduleDefs as $m) {
+            $allKeys[] = $m['key'];
+            $integration = SaasModuleDefaults::integration($m['key']);
             SaasProductModule::query()->updateOrCreate(
                 ['key' => $m['key']],
-                array_merge($m, ['is_active' => true, 'description' => null])
+                array_merge($m, [
+                    'is_paid' => true,
+                    'is_active' => true,
+                    'description' => null,
+                    'ui_paths' => $integration['ui_paths'],
+                    'api_route_prefixes' => $integration['api_route_prefixes'],
+                ])
             );
         }
+
+        $allOff = array_fill_keys($allKeys, false);
+        $allOn = array_fill_keys($allKeys, true);
 
         SaasLicenseProduct::query()->updateOrCreate(
             ['code' => 'community'],
             [
-                'name' => 'Panelze Community',
-                'description' => 'Freemium barındırma paneli',
+                'name' => 'Hostvim Community',
+                'description' => 'Freemium — Pro modüller görünür, lisans ile açılır',
                 'default_limits' => ['max_sites' => 5],
-                'default_modules' => [
-                    'vendor_panel' => false,
-                    'backups_pro' => false,
-                    'monitoring_advanced' => false,
-                    'ai_advisor' => false,
-                    'stripe_billing' => false,
-                ],
+                'default_modules' => $allOff,
                 'is_active' => true,
                 'sort_order' => 0,
             ]
         );
 
-        SaasLicenseProduct::query()->updateOrCreate(
-            ['code' => 'pro'],
-            [
-                'name' => 'Panelze Pro',
-                'description' => 'Tam özellik + vendor',
-                'default_limits' => ['max_sites' => 500],
-                'default_modules' => [
-                    'vendor_panel' => true,
-                    'backups_pro' => true,
-                    'monitoring_advanced' => true,
-                    'ai_advisor' => true,
-                    'stripe_billing' => true,
-                    'phpmyadmin_sso' => true,
-                ],
-                'is_active' => true,
-                'sort_order' => 10,
-                /** Örnek perakende: admin’den güncelleyin; minor birim (TL kuruş / cent) */
-                'price_try_minor' => 199900,
-                'price_usd_minor' => 19900,
-                'price_eur_minor' => 18500,
-            ]
-        );
+        $proModules = $allOn;
+        foreach (['pro', 'pro-monthly', 'pro-yearly', 'pro-lifetime'] as $i => $code) {
+            SaasLicenseProduct::query()->updateOrCreate(
+                ['code' => $code],
+                [
+                    'name' => match ($code) {
+                        'pro-monthly' => 'Hostvim Pro (Aylık)',
+                        'pro-yearly' => 'Hostvim Pro (Yıllık)',
+                        'pro-lifetime' => 'Hostvim Pro (Sınırsız)',
+                        default => 'Hostvim Pro',
+                    },
+                    'description' => 'Tüm Pro modüller',
+                    'default_limits' => ['max_sites' => 500],
+                    'default_modules' => $proModules,
+                    'is_active' => true,
+                    'sort_order' => 10 + $i,
+                    'price_try_minor' => $code === 'pro-yearly' ? 1_999_000 : ($code === 'pro-lifetime' ? 4_999_000 : 199_900),
+                    'price_usd_minor' => $code === 'pro-yearly' ? 199_000 : ($code === 'pro-lifetime' ? 499_000 : 19_900),
+                    'price_eur_minor' => $code === 'pro-yearly' ? 185_000 : ($code === 'pro-lifetime' ? 459_000 : 18_500),
+                ]
+            );
+        }
     }
 }

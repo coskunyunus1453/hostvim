@@ -70,11 +70,14 @@ class PanelLicenseService
         if (filter_var(config('hostvim.features.'.$moduleKey, false), FILTER_VALIDATE_BOOLEAN)) {
             return true;
         }
-        if (! $this->isProPlan()) {
+        if (! $this->isLicenseValid()) {
             return false;
         }
         $features = $this->hubPayload()['features'] ?? [];
         if (! is_array($features) || $features === []) {
+            if (! $this->isProPlan()) {
+                return false;
+            }
             $defaultOnPro = config('hostvim.license.pro_default_modules', ['phpmyadmin_sso']);
 
             return in_array($moduleKey, $defaultOnPro, true);
@@ -84,6 +87,22 @@ class PanelLicenseService
         }
 
         return (bool) ($features[$moduleKey]['enabled'] ?? false);
+    }
+
+    public function planCode(): ?string
+    {
+        if (! $this->isLicenseValid()) {
+            return null;
+        }
+
+        return strtolower(trim((string) ($this->hubPayload()['plan'] ?? ''))) ?: null;
+    }
+
+    public function expiresAt(): ?string
+    {
+        $hub = $this->hubPayload();
+
+        return isset($hub['expires_at']) ? (string) $hub['expires_at'] : null;
     }
 
     public function hasPhpMyAdminAutoLogin(): bool

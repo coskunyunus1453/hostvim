@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SaasLicenseProduct;
+use App\Models\SaasProductModule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class SaasLicenseProductController extends Controller
 
     public function create(): View
     {
-        return view('admin.saas.products.create');
+        return view('admin.saas.products.create', $this->productFormData());
     }
 
     public function store(Request $request): RedirectResponse
@@ -32,11 +33,39 @@ class SaasLicenseProductController extends Controller
 
     public function edit(SaasLicenseProduct $saas_license_product): View
     {
-        return view('admin.saas.products.edit', [
-            'product' => $saas_license_product,
-            'default_limits_raw' => old('default_limits_raw', json_encode($saas_license_product->default_limits ?? new \stdClass, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)),
-            'default_modules_raw' => old('default_modules_raw', json_encode($saas_license_product->default_modules ?? new \stdClass, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)),
-        ]);
+        return view('admin.saas.products.edit', array_merge(
+            $this->productFormData($saas_license_product),
+            ['product' => $saas_license_product],
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function productFormData(?SaasLicenseProduct $product = null): array
+    {
+        $registry = SaasProductModule::query()->where('is_active', true)->orderBy('sort_order')->get();
+        $mods = $product?->default_modules ?? [];
+        if (! is_array($mods)) {
+            $mods = [];
+        }
+        $enabled = [];
+        foreach ($registry as $mod) {
+            $enabled[$mod->key] = (bool) ($mods[$mod->key] ?? false);
+        }
+
+        return [
+            'moduleRegistry' => $registry,
+            'enabledModules' => $enabled,
+            'default_limits_raw' => old(
+                'default_limits_raw',
+                json_encode($product?->default_limits ?? new \stdClass, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            ),
+            'default_modules_raw' => old(
+                'default_modules_raw',
+                json_encode($product?->default_modules ?? new \stdClass, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            ),
+        ];
     }
 
     public function update(Request $request, SaasLicenseProduct $saas_license_product): RedirectResponse
@@ -75,6 +104,7 @@ class SaasLicenseProductController extends Controller
             'price_eur_minor' => ['nullable', 'integer', 'min:0'],
             'default_limits_raw' => ['nullable', 'string'],
             'default_modules_raw' => ['nullable', 'string'],
+            'modules' => ['nullable', 'array'],
         ]);
 
         return [
@@ -87,8 +117,27 @@ class SaasLicenseProductController extends Controller
             'price_usd_minor' => $request->filled('price_usd_minor') ? (int) $request->input('price_usd_minor') : null,
             'price_eur_minor' => $request->filled('price_eur_minor') ? (int) $request->input('price_eur_minor') : null,
             'default_limits' => $this->jsonField($request->input('default_limits_raw')),
-            'default_modules' => $this->jsonField($request->input('default_modules_raw')),
+            'default_modules' => $this->resolveDefaultModules($request),
         ];
+    }
+
+    /**
+     * @return array<string, bool>|null
+     */
+    private function resolveDefaultModules(Request $request): ?array
+    {
+        $checked = $request->input('modules');
+        if (is_array($checked) && $checked !== []) {
+            $registry = SaasProductModule::query()->where('is_active', true)->pluck('key');
+            $out = [];
+            foreach ($registry as $key) {
+                $out[(string) $key] = array_key_exists($key, $checked);
+            }
+
+            return $out;
+        }
+
+        return $this->jsonField($request->input('default_modules_raw'));
     }
 
     /**

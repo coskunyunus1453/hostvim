@@ -148,6 +148,9 @@ class SaasLicenseValidationService
             $out[$key] = [
                 'enabled' => $enabled,
                 'quota' => null,
+                'label' => $mod->label,
+                'ui_paths' => $mod->ui_paths ?? [],
+                'api_route_prefixes' => $mod->api_route_prefixes ?? [],
             ];
         }
 

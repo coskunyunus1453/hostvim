@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SaasProductModule;
+use App\Support\SaasModuleDefaults;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -64,15 +65,38 @@ class SaasProductModuleController extends Controller
             'is_paid' => ['boolean'],
             'is_active' => ['boolean'],
             'sort_order' => ['integer', 'min:0'],
+            'ui_paths_raw' => ['nullable', 'string', 'max:2000'],
+            'api_route_prefixes_raw' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        $key = $request->string('key')->toString();
+        $defaults = SaasModuleDefaults::integration($key);
+        $uiPaths = $this->linesToArray($request->input('ui_paths_raw'));
+        $apiPrefixes = $this->linesToArray($request->input('api_route_prefixes_raw'));
+
         return [
-            'key' => $request->string('key')->toString(),
+            'key' => $key,
             'label' => $request->string('label')->toString(),
             'description' => $request->input('description'),
+            'ui_paths' => $uiPaths !== [] ? $uiPaths : $defaults['ui_paths'],
+            'api_route_prefixes' => $apiPrefixes !== [] ? $apiPrefixes : $defaults['api_route_prefixes'],
             'is_paid' => $request->boolean('is_paid'),
             'is_active' => $request->boolean('is_active'),
             'sort_order' => (int) $request->input('sort_order', 0),
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function linesToArray(mixed $raw): array
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return [];
+        }
+        $parts = preg_split('/[\s,]+/', $raw) ?: [];
+
+        return array_values(array_filter(array_map('trim', $parts)));
     }
 }
