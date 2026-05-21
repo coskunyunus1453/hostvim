@@ -972,6 +972,10 @@ refresh_phpmysql_url_in_env() {
   update_env "PHPMYADMIN_URL" "${_au%/}/phpmyadmin"
 }
 
+hostvim_is_ip_address() {
+  [[ "${1:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
 run_certbot_if_configured() {
   if [[ "${HOSTVIM_RUN_CERTBOT:-1}" != "1" ]] && [[ "${HOSTVIM_RUN_CERTBOT:-1}" != "yes" ]]; then
     return 0
@@ -981,6 +985,10 @@ run_certbot_if_configured() {
     return 0
   fi
   [[ -n "${HOSTVIM_EFFECTIVE_PUBLIC_HOST:-}" ]] || return 0
+  if hostvim_is_ip_address "${HOSTVIM_EFFECTIVE_PUBLIC_HOST}"; then
+    echo "==> SSL: IP adresi için otomatik Let's Encrypt atlanıyor; panel HTTP ile kalır."
+    return 0
+  fi
 
   local dom="$HOSTVIM_EFFECTIVE_PUBLIC_HOST"
   local em="${LETS_ENCRYPT_EMAIL:-}"
@@ -995,6 +1003,18 @@ run_certbot_if_configured() {
   else
     echo "==> Let's Encrypt tamamlanamadi (DNS veya 80 kapali / rate limit). Panel HTTP ile calisir."
     echo "    DNS hazir oldugunda: ayni betigi tekrar calistirin veya: certbot --nginx -d ${dom} --email ${em} --agree-tos --non-interactive --redirect"
+    echo "==> Nginx panel HTTP şablonu yeniden yaziliyor (yarim HTTPS yonlendirmesi kalmasin)"
+    sed \
+      -e "s|__SERVER_NAME__|${SERVER_NAME}|g" \
+      -e "s|__PANEL_PUBLIC__|$PANEL_ROOT/public|g" \
+      -e "s|__PHP_FPM_SOCK__|$PHP_FPM_SOCK|g" \
+      "$REPO_ROOT/deploy/nginx/hostvim.conf" > "$NGX_DST"
+    if [[ "$SERVER_NAME" == "_" ]]; then
+      sed -i 's/listen 80;/listen 80 default_server;/' "$NGX_DST" || true
+      sed -i 's/listen \[::\]:80;/listen [::]:80 default_server;/' "$NGX_DST" || true
+    fi
+    ln -sf "$NGX_DST" /etc/nginx/sites-enabled/hostvim.conf
+    nginx -t && systemctl reload nginx
   fi
 }
 
