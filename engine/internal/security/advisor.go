@@ -109,13 +109,14 @@ func BuildAdvisorReport(overview map[string]interface{}) (score int, items []Adv
 		add(AdvisorItem{Key: "clamav_scan", Severity: "low", Tab: "server", Ok: true, Title: "ClamAV taraması", Detail: "Son tarama: " + lastScan})
 	}
 
+	fwOn := boolField(firewall, "enabled")
 	rules := sliceField(firewall, "recent_rules")
 	ruleCount := len(rules)
 	add(AdvisorItem{
 		Key: "firewall", Severity: "medium", Tab: "firewall", ActionKey: "review_firewall",
-		Ok: ruleCount > 0,
-		Title: "Güvenlik duvarı kuralları",
-		Detail: pick(ruleCount > 0, fmt.Sprintf("%d kayıtlı kural var; yeni kurallar iptables HOSTVIM-FW zincirine uygulanır.", ruleCount), "Henüz güvenlik duvarı kuralı yok — Firewall sekmesinden port/kaynak kuralı ekleyin."),
+		Ok: fwOn,
+		Title: "Güvenlik duvarı koruması",
+		Detail: pick(fwOn, pick(ruleCount > 0, fmt.Sprintf("HOSTVIM-FW aktif (%d kayıtlı kural).", ruleCount), "Güvenlik duvarı zinciri aktif."), "Güvenlik duvarı kapalı veya yapılandırılmamış — Güvenlik Duvarı sekmesinden etkinleştirin."),
 	})
 
 	if score < 0 {

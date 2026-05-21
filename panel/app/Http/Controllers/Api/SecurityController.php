@@ -20,6 +20,19 @@ class SecurityController extends Controller
         return response()->json(['overview' => $overview]);
     }
 
+    public function bootstrapDefaults(Request $request): JsonResponse
+    {
+        $result = $this->engine->bootstrapSecurityDefaults();
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+
+        return response()->json([
+            'message' => 'Varsayılan güvenlik katmanları uygulandı.',
+            'result' => $result['result'] ?? $result,
+        ], 200);
+    }
+
     public function advisor(): JsonResponse
     {
         $report = $this->engine->securityAdvisor();

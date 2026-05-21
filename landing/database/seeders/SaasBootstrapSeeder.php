@@ -16,6 +16,7 @@ class SaasBootstrapSeeder extends Seeder
             ['key' => 'monitoring_advanced', 'label' => 'Gelişmiş izleme', 'is_paid' => true, 'sort_order' => 30],
             ['key' => 'ai_advisor', 'label' => 'AI danışman', 'is_paid' => true, 'sort_order' => 40],
             ['key' => 'stripe_billing', 'label' => 'Stripe faturalama entegrasyonu', 'is_paid' => true, 'sort_order' => 50],
+            ['key' => 'phpmyadmin_sso', 'label' => 'phpMyAdmin tek tık giriş', 'is_paid' => true, 'sort_order' => 55],
         ];
         foreach ($modules as $m) {
             SaasProductModule::query()->updateOrCreate(
@@ -54,6 +55,7 @@ class SaasBootstrapSeeder extends Seeder
                     'monitoring_advanced' => true,
                     'ai_advisor' => true,
                     'stripe_billing' => true,
+                    'phpmyadmin_sso' => true,
                 ],
                 'is_active' => true,
                 'sort_order' => 10,

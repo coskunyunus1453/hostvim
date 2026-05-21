@@ -675,6 +675,14 @@
     "created": "Database created successfully",
     "deleted": "Database deleted successfully",
     "phpmyadmin": "Open phpMyAdmin",
+    "phpmyadmin_sso_btn": "phpMyAdmin — sign in automatically",
+    "phpmyadmin_sso_short": "phpMyAdmin",
+    "phpmyadmin_sso_opening": "Opening phpMyAdmin…",
+    "phpmyadmin_sso_pro_badge": "Pro",
+    "phpmyadmin_sso_pro_hint": "One-click phpMyAdmin sign-in requires a Pro license.",
+    "phpmyadmin_sso_go_license": "License page",
+    "phpmyadmin_sso_selected_bar": "Selected: {{name}} — open in phpMyAdmin with one click",
+    "phpmyadmin_manual": "Manual phpMyAdmin (username prefilled)",
     "adminer": "Open Adminer / web SQL",
     "ui_url_missing": "Web UI URL is not configured on the server: ",
     "no_web_ui_for_type": "No web UI is configured for this database type.",
@@ -1131,7 +1139,8 @@
     "google_connected": "Google Drive connected",
     "google_disconnected": "Google Drive disconnected",
     "google_connected_as": "Connected: {{email}}",
-    "google_not_configured": "Admin must set GOOGLE_DRIVE_CLIENT_ID",
+    "google_not_configured": "Google Drive is not enabled on this panel yet. The panel owner sets up a Google Cloud OAuth app once; then each user connects their own account via «Connect Google Drive».",
+    "google_not_configured_admin_steps": "One-time setup (panel owner): panel/.env → GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET from Google Cloud Console. Redirect URI: {redirectUri} — then php artisan config:cache",
     "google_files": "Backups on Drive",
     "google_files_empty": "No backups on Drive yet",
     "select_domain_restore": "Select a domain in the filter before restoring"
@@ -1398,7 +1407,8 @@
     "chart_net_io": "Network throughput"
   },
   "security": {
-    "subtitle": "Firewall, SSH, server hardening, WAF, and attack prevention layers",
+    "subtitle": "Panelze security center — layered protection, WAF, and malware scanning",
+    "brand": "Panelze Security",
     "refresh": "Refresh",
     "overview_error": "Could not load overview.",
     "tabs": {
@@ -1410,6 +1420,50 @@
       "brute": "IP / Fail2ban",
       "compiler": "Compiler access",
       "attack": "Attack prevention"
+    },
+    "tab_desc": {
+      "advisor": "Score, recommendations, missing layers",
+      "firewall": "iptables HOSTVIM-FW rules",
+      "ssh": "Session and access hardening",
+      "server": "Antivirus, FIM, and server scan",
+      "website": "ModSecurity WAF and per-site rules",
+      "brute": "Fail2ban and brute-force blocking",
+      "compiler": "Compiler and build tools",
+      "attack": "Rate limits and IP reputation"
+    },
+    "shields": {
+      "title": "Core protection layers",
+      "hint": "Enabled by default on install; will be turned on automatically if off.",
+      "firewall": "Firewall protection",
+      "fail2ban": "Fail2ban brute-force protection",
+      "modsec": "ModSecurity (WAF)",
+      "active": "Active",
+      "inactive": "Off",
+      "bootstrap": "Apply defaults",
+      "bootstrapping": "Enabling…"
+    },
+    "malware_scan": {
+      "title": "Malware scan",
+      "idle": "Select a target and click Start scan.",
+      "phase_init": "Preparing scan engine…",
+      "phase_virus": "Scanning virus signatures…",
+      "phase_malware": "Checking malware patterns…",
+      "phase_trojan": "Trojan heuristics…",
+      "phase_heuristic": "Suspicious file analysis…",
+      "phase_finalize": "Compiling results…",
+      "phase_done": "Scan complete",
+      "result_clean": "No threats found — path looks clean.",
+      "result_infected": "{{count}} suspicious file(s) detected",
+      "types": {
+        "virus": "Virus",
+        "malware": "Malware",
+        "trojan": "Trojan",
+        "heuristic": "Heuristic"
+      }
+    },
+    "bootstrap": {
+      "done": "Default security layers applied.",
+      "toast": "Firewall, Fail2ban, and ModSecurity enabled"
     },
     "toast": {
       "rule_sent": "Rule submitted",

@@ -41,4 +41,11 @@ return [
     'server_mysql_provision_use' => 'Use this account in phpMyAdmin instead of MySQL root — it has privileges to manage all hosting databases (provision user from install).',
     'server_mysql_root_socket' => 'On many Debian/Ubuntu MariaDB installs, the root account uses unix_socket (no password). Prefer the provision user below for web imports.',
     'server_mysql_ssh_secret' => 'SSH (root): credentials are also saved to /root/hostvim-mysql-provision.secret next to the installer output.',
+
+    'phpmyadmin_sso_mysql_only' => 'Automatic phpMyAdmin sign-in is only available for MySQL databases.',
+    'phpmyadmin_sso_pro_required' => 'This feature requires a Pro license. Activate your Pro key under Admin → License.',
+    'phpmyadmin_sso_not_configured' => 'PHPMYADMIN_URL is not set in the panel configuration.',
+    'phpmyadmin_sso_failed' => 'Could not start a phpMyAdmin session.',
+    'phpmyadmin_sso_ready' => 'Opening phpMyAdmin…',
+    'phpmyadmin_sso_token_invalid' => 'Sign-on link is invalid or expired. Try again from the panel.',
 ];

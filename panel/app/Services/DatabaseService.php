@@ -58,6 +58,26 @@ class DatabaseService
         return $h;
     }
 
+    /**
+     * phpMyAdmin signon oturumu için bağlantı bilgileri.
+     *
+     * @return array{username: string, password: string, host: string, port: int, database: string}
+     */
+    public function mysqlCredentialsForSignon(Database $database): array
+    {
+        if ($database->type !== 'mysql') {
+            throw new \InvalidArgumentException(__('databases.phpmyadmin_sso_mysql_only'));
+        }
+
+        return [
+            'username' => (string) $database->username,
+            'password' => $this->plainPasswordForOps($database),
+            'host' => $this->cliConnectHost($database),
+            'port' => (int) ($database->port ?: 3306),
+            'database' => (string) $database->name,
+        ];
+    }
+
     public function hydrateDatabaseSizesOnPaginator(LengthAwarePaginator $paginator): void
     {
         $collection = $paginator->getCollection();

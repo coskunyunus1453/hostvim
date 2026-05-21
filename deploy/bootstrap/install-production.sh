@@ -1007,6 +1007,8 @@ if [[ -x /usr/local/sbin/hostvim-security ]]; then
     echo "Hata: hostvim-security self-test basarisiz. Geri alma icin son iyi yapiyi tekrar calistirin." >&2
     exit 1
   fi
+  echo "==> Varsayilan guvenlik: guvenlik duvari, Fail2ban, ModSecurity (WAF)"
+  /usr/local/sbin/hostvim-security security-bootstrap-defaults || echo "Uyari: security-bootstrap-defaults tamamlanamadi (manuel: hostvim-security security-bootstrap-defaults)"
 fi
 
 echo "==> Laravel onbellek + kurulum kontrolu (musterinin manuel komut calistirmasi gerekmez)"

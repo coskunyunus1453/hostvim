@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\EngineApiService;
 use App\Services\LicenseHubClient;
+use App\Services\PanelLicenseService;
 use App\Services\PanelStoredLicenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class LicenseController extends Controller
         private EngineApiService $engine,
         private LicenseHubClient $licenseHub,
         private PanelStoredLicenseService $storedLicense,
+        private PanelLicenseService $panelLicense,
     ) {}
 
     public function status(Request $request): JsonResponse
@@ -101,6 +103,7 @@ class LicenseController extends Controller
 
         try {
             $this->storedLicense->store($key);
+            $this->panelLicense->forgetCache();
         } catch (\Throwable $e) {
             report($e);
 
@@ -124,6 +127,7 @@ class LicenseController extends Controller
         }
 
         $this->storedLicense->clearStored();
+        $this->panelLicense->forgetCache();
 
         return response()->json(['ok' => true]);
     }

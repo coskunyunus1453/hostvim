@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api, { apiBaseUrl } from '../services/api'
@@ -17,6 +18,8 @@ import {
   Download,
   Upload,
   Info,
+  Sparkles,
+  Crown,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
@@ -109,9 +112,11 @@ async function copyPlaintextWithToasts(text: string, messages: { ok: string; fai
 
 export default function DatabasesPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const isSuperAdmin = isHostingSuperAdmin(user)
+  const isAdmin = user?.roles?.some((r) => r.name === 'admin') ?? false
   const abilities = useAuthStore((s) => s.user?.abilities)
   const canImportDb = tokenHasAbility(abilities, 'databases:write')
   const [search, setSearch] = useState('')
@@ -129,6 +134,7 @@ export default function DatabasesPage() {
 
   const [showServerProvPassword, setShowServerProvPassword] = useState(false)
   const [showServerPanelPassword, setShowServerPanelPassword] = useState(false)
+  const [selectedDbId, setSelectedDbId] = useState<number | null>(null)
 
   const databasesQ = useQuery({
     queryKey: ['databases', 'paginated'],
@@ -141,6 +147,7 @@ export default function DatabasesPage() {
       (await api.get('/config/ui-links')).data as {
         phpmyadmin_url?: string
         adminer_url?: string
+        features?: { phpmyadmin_auto_login?: boolean }
       },
   })
 
@@ -157,6 +164,7 @@ export default function DatabasesPage() {
 
   const phpmyadminUrl = uiLinksQ.data?.phpmyadmin_url?.trim() ?? ''
   const adminerUrl = uiLinksQ.data?.adminer_url?.trim() ?? ''
+  const pmaAutoLogin = uiLinksQ.data?.features?.phpmyadmin_auto_login === true
 
   const createM = useMutation({
     mutationFn: async (payload: {
@@ -205,6 +213,33 @@ export default function DatabasesPage() {
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const pmaSsoM = useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post(`/databases/${id}/phpmyadmin-login`)
+      return data as { signon_url?: string; message?: string }
+    },
+    onSuccess: (data) => {
+      const raw = String(data.signon_url ?? '').trim()
+      const target = safeExternalHttpUrl(raw) ?? raw
+      if (!target) {
+        toast.error(t('databases.ui_url_missing'))
+        return
+      }
+      window.open(target, '_blank', 'noopener,noreferrer')
+      toast.success(data.message ?? t('databases.phpmyadmin_sso_opening'))
+    },
+    onError: (err: unknown) => {
+      const ax = err as {
+        response?: { data?: { message?: string; code?: string } }
+      }
+      const msg = ax.response?.data?.message ?? String(err)
+      toast.error(msg)
+      if (ax.response?.data?.code === 'pro_license_required' && isAdmin) {
+        navigate('/admin/license')
+      }
     },
   })
 
@@ -481,6 +516,22 @@ export default function DatabasesPage() {
   const total = (databasesQ.data?.total as number | undefined) ?? list.length
   const domainOptions: { id: number; name: string }[] = domainsQ.data?.data ?? []
   const filtered = list.filter((db) => db.name.toLowerCase().includes(search.toLowerCase()))
+  const selectedDb = selectedDbId != null ? filtered.find((d) => d.id === selectedDbId) : null
+
+  const showPmaProRequired = () => {
+    toast.error(t('databases.phpmyadmin_sso_pro_hint'), { duration: 7000 })
+    if (isAdmin) {
+      navigate('/admin/license')
+    }
+  }
+
+  const openPhpMyAdminSso = (db: DbRow) => {
+    if (!pmaAutoLogin) {
+      showPmaProRequired()
+      return
+    }
+    pmaSsoM.mutate(db.id)
+  }
 
   const openDbWebUi = (db: DbRow) => {
     const php = safeExternalHttpUrl(phpmyadminUrl)
@@ -569,7 +620,7 @@ export default function DatabasesPage() {
           </div>
 
           <div className="card">
-            <div className="p-4 border-b border-gray-200 dark:border-panel-border">
+            <div className="p-4 border-b border-gray-200 dark:border-panel-border space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -580,6 +631,43 @@ export default function DatabasesPage() {
                   className="input pl-10"
                 />
               </div>
+              {selectedDb?.type === 'mysql' && phpmyadminUrl && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 dark:border-violet-800/60 bg-violet-50/80 dark:bg-violet-950/30 px-3 py-2.5">
+                  <p className="text-sm text-violet-900 dark:text-violet-100 flex-1 min-w-[12rem]">
+                    {t('databases.phpmyadmin_sso_selected_bar', { name: selectedDb.name })}
+                  </p>
+                  {pmaAutoLogin ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                      onClick={() => openPhpMyAdminSso(selectedDb)}
+                      disabled={pmaSsoM.isPending}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {pmaSsoM.isPending
+                        ? t('databases.phpmyadmin_sso_opening')
+                        : t('databases.phpmyadmin_sso_btn')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 dark:border-violet-700 px-3 py-1.5 text-sm font-medium text-violet-800 dark:text-violet-200 hover:bg-violet-100/80 dark:hover:bg-violet-900/40"
+                      onClick={showPmaProRequired}
+                    >
+                      <Crown className="h-4 w-4" />
+                      {t('databases.phpmyadmin_sso_pro_badge')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs text-gray-600 dark:text-gray-400 hover:underline"
+                    title={t('databases.phpmyadmin_manual')}
+                    onClick={() => openDbWebUi(selectedDb)}
+                  >
+                    {t('databases.phpmyadmin_manual')}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -618,7 +706,20 @@ export default function DatabasesPage() {
                     filtered.map((db) => (
                       <tr
                         key={db.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        className={`cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+                          selectedDbId === db.id
+                            ? 'bg-violet-50/90 dark:bg-violet-950/25 ring-1 ring-inset ring-violet-300/80 dark:ring-violet-700/50'
+                            : ''
+                        }`}
+                        onClick={() => setSelectedDbId(db.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setSelectedDbId(db.id)
+                          }
+                        }}
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -666,7 +767,7 @@ export default function DatabasesPage() {
                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                           {db.size_mb != null ? `${db.size_mb} MB` : '—'}
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
                             {db.type === 'mysql' && (
                               <button
@@ -724,14 +825,42 @@ export default function DatabasesPage() {
                               </button>
                             )}
                             {db.type === 'mysql' && phpmyadminUrl && (
-                              <button
-                                type="button"
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
-                                title={t('databases.phpmyadmin')}
-                                onClick={() => openDbWebUi(db)}
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </button>
+                              <>
+                                {pmaAutoLogin ? (
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                                    title={t('databases.phpmyadmin_sso_btn')}
+                                    onClick={() => openPhpMyAdminSso(db)}
+                                    disabled={pmaSsoM.isPending}
+                                  >
+                                    <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="hidden lg:inline">
+                                      {t('databases.phpmyadmin_sso_short')}
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-0.5 rounded-lg border border-amber-300/80 dark:border-amber-700/60 px-1.5 py-1 text-xs text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                    title={t('databases.phpmyadmin_sso_pro_hint')}
+                                    onClick={showPmaProRequired}
+                                  >
+                                    <Crown className="h-3.5 w-3.5" />
+                                    <span className="sr-only lg:not-sr-only lg:inline">
+                                      {t('databases.phpmyadmin_sso_pro_badge')}
+                                    </span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                                  title={t('databases.phpmyadmin_manual')}
+                                  onClick={() => openDbWebUi(db)}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </button>
+                              </>
                             )}
 
                             {db.type === 'postgresql' && adminerUrl && (

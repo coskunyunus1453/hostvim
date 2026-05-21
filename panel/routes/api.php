@@ -150,6 +150,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('databases/import-meta', [DatabaseController::class, 'importMeta']);
         Route::get('databases/{database}/import/{import}', [DatabaseController::class, 'importStatus']);
         Route::get('databases/{database}/export', [DatabaseController::class, 'export'])->middleware('throttle:api');
+        Route::post('databases/{database}/phpmyadmin-login', [DatabaseController::class, 'phpmyadminLogin']);
     });
     Route::middleware('ability:databases:write')->group(function () {
         Route::post('databases', [DatabaseController::class, 'store']);
@@ -316,6 +317,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('security/intel/policy', [SecurityController::class, 'updateIntelPolicy']);
         Route::post('security/fim/baseline', [SecurityController::class, 'createFimBaseline']);
         Route::post('security/fim/scan', [SecurityController::class, 'runFimScan']);
+        Route::post('security/bootstrap-defaults', [SecurityController::class, 'bootstrapDefaults']);
     });
 
     Route::middleware('ability:installer:read')->get('installer/apps', [InstallerController::class, 'apps']);

@@ -458,12 +458,21 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"score": score, "items": items, "overview": overview})
 	})
 
+	api.POST("/security/bootstrap-defaults", func(c *gin.Context) {
+		res, err := security.BootstrapSecurityDefaults()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "security defaults applied", "result": res})
+	})
 	api.GET("/security/overview", func(c *gin.Context) {
 		rules, _ := panelmirror.FirewallRulesList(cfg)
 		fail2banOn, fail2banErr := security.EnabledStatus("fail2ban")
 		modsecOn, modsecErr := security.EnabledStatus("modsec")
 		clamavOn, clamavErr := security.EnabledStatus("clamav")
 		clamavLast, _ := panelmirror.SecurityGetValue(cfg, "clamav_last_scan")
+		fwOn, _ := security.FirewallActive()
 
 		fbInstalled, fbErrDisp := normalizeSecurityComponent(fail2banErr)
 		msInstalled, msErrDisp := normalizeSecurityComponent(modsecErr)
@@ -486,7 +495,12 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				}(),
 				"error": fbErrDisp,
 			},
-			"firewall": gin.H{"backend": "iptables", "default_policy": "DROP", "recent_rules": rules},
+			"firewall": gin.H{
+				"enabled":        fwOn,
+				"backend":        "iptables",
+				"default_policy": "DROP",
+				"recent_rules":   rules,
+			},
 			"modsecurity": gin.H{
 				"enabled":   modsecOn,
 				"installed": msInstalled,

@@ -674,6 +674,14 @@
     "created": "Veritabanı başarıyla oluşturuldu",
     "deleted": "Veritabanı başarıyla silindi",
     "phpmyadmin": "phpMyAdmin'i Aç",
+    "phpmyadmin_sso_btn": "phpMyAdmin — otomatik giriş",
+    "phpmyadmin_sso_short": "phpMyAdmin",
+    "phpmyadmin_sso_opening": "phpMyAdmin açılıyor…",
+    "phpmyadmin_sso_pro_badge": "Pro",
+    "phpmyadmin_sso_pro_hint": "Tek tık otomatik phpMyAdmin girişi Pro lisans gerektirir.",
+    "phpmyadmin_sso_go_license": "Lisans sayfası",
+    "phpmyadmin_sso_selected_bar": "Seçili: {{name}} — tek tıkla phpMyAdmin'de aç",
+    "phpmyadmin_manual": "Manuel phpMyAdmin (kullanıcı adı önceden doldurulur)",
     "adminer": "Adminer / web SQL",
     "ui_url_missing": "Web arayüz URL'si tanımlı değil. Sunucuda ",
     "no_web_ui_for_type": "Bu veritabanı tipi için web arayüzü yapılandırılmadı.",
@@ -1130,7 +1138,8 @@
     "google_connected": "Google Drive bağlandı",
     "google_disconnected": "Google Drive bağlantısı kaldırıldı",
     "google_connected_as": "Bağlı: {{email}}",
-    "google_not_configured": "Yönetici GOOGLE_DRIVE_CLIENT_ID ayarlamalı",
+    "google_not_configured": "Google Drive henüz bu panelde etkin değil. Panel sahibi (siz, hosting sağlayıcı) Google Cloud’da bir kez OAuth uygulaması tanımlar; sonrasında her müşteri «Google Drive bağla» ile kendi Google hesabına izin verir.",
+    "google_not_configured_admin_steps": "Kurulum (panel sahibi, bir kez): panel/.env → GOOGLE_DRIVE_CLIENT_ID ve GOOGLE_DRIVE_CLIENT_SECRET (Google Cloud Console → OAuth istemci). Yönlendirme URI: {redirectUri} — ardından php artisan config:cache",
     "google_files": "Drive'daki yedekler",
     "google_files_empty": "Henüz Drive'a yüklenmiş yedek yok",
     "select_domain_restore": "Geri yükleme için önce domain filtresinden site seçin"
@@ -1397,7 +1406,8 @@
     "chart_net_io": "Ağ aktarım hızı"
   },
   "security": {
-    "subtitle": "Güvenlik duvarı, SSH, sunucu sertleştirme, WAF ve saldırı önleme katmanları",
+    "subtitle": "Panelze güvenlik merkezi — katmanlı koruma, WAF ve zararlı yazılım taraması",
+    "brand": "Panelze Güvenlik",
     "refresh": "Yenile",
     "overview_error": "Özet alınamadı.",
     "tabs": {
@@ -1409,6 +1419,50 @@
       "brute": "IP / Fail2ban",
       "compiler": "Derleyici Erişimi",
       "attack": "Saldırı Önleme"
+    },
+    "tab_desc": {
+      "advisor": "Skor, öneriler ve eksik katmanlar",
+      "firewall": "iptables HOSTVIM-FW kuralları",
+      "ssh": "Oturum ve erişim sertleştirme",
+      "server": "Antivirüs, FIM ve sunucu taraması",
+      "website": "ModSecurity WAF ve site kuralları",
+      "brute": "Fail2ban ve kaba kuvvet engeli",
+      "compiler": "Derleyici ve build araçları",
+      "attack": "Hız sınırı ve IP itibarı"
+    },
+    "shields": {
+      "title": "Temel koruma katmanları",
+      "hint": "Kurulumda varsayılan olarak etkin; kapalıysa otomatik açılır.",
+      "firewall": "Güvenlik duvarı koruması",
+      "fail2ban": "Fail2ban kaba kuvvet koruması",
+      "modsec": "ModSecurity (WAF)",
+      "active": "Aktif",
+      "inactive": "Kapalı",
+      "bootstrap": "Varsayılanları uygula",
+      "bootstrapping": "Etkinleştiriliyor…"
+    },
+    "malware_scan": {
+      "title": "Zararlı yazılım taraması",
+      "idle": "Tarama başlatmak için hedef seçin ve «Taramayı başlat»a basın.",
+      "phase_init": "Tarama motoru hazırlanıyor…",
+      "phase_virus": "Virüs imzaları taranıyor…",
+      "phase_malware": "Malware desenleri kontrol ediliyor…",
+      "phase_trojan": "Truva atı heuristikleri…",
+      "phase_heuristic": "Şüpheli dosya analizi…",
+      "phase_finalize": "Sonuçlar derleniyor…",
+      "phase_done": "Tarama tamamlandı",
+      "result_clean": "Tehdit bulunamadı — dizin temiz görünüyor.",
+      "result_infected": "{{count}} şüpheli dosya tespit edildi",
+      "types": {
+        "virus": "Virüs",
+        "malware": "Malware",
+        "trojan": "Truva",
+        "heuristic": "Heuristik"
+      }
+    },
+    "bootstrap": {
+      "done": "Varsayılan güvenlik katmanları uygulandı.",
+      "toast": "Güvenlik duvarı, Fail2ban ve ModSecurity etkinleştirildi"
     },
     "toast": {
       "rule_sent": "Kural gönderildi",
@@ -1616,7 +1670,7 @@
       "setup_needed": "Kurulum gerekli",
       "coming_soon": "Yakında (Pro)",
       "features": {
-        "firewall": "Firewall koruması",
+        "firewall": "Güvenlik duvarı koruması",
         "fail2ban": "Fail2ban kaba kuvvet koruması",
         "modsec": "ModSecurity (WAF)",
         "clamav": "ClamAV kötü amaçlı yazılım taraması",

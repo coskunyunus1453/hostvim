@@ -368,3 +368,44 @@ func ModSecSiteRuleRemove(id string) error {
 	_, err := run("modsec-site-rule-remove", strings.TrimSpace(id))
 	return err
 }
+
+// FirewallActive HOSTVIM-FW zinciri INPUT'a bağlı mı.
+func FirewallActive() (bool, error) {
+	out, err := run("firewall-status")
+	if err != nil {
+		return false, err
+	}
+	return strings.EqualFold(strings.TrimSpace(out), "enabled"), nil
+}
+
+// BootstrapSecurityResult kurulumda varsayılan güvenlik katmanları.
+type BootstrapSecurityResult struct {
+	Firewall    bool `json:"firewall"`
+	Fail2ban    bool `json:"fail2ban"`
+	Modsecurity bool `json:"modsecurity"`
+}
+
+// BootstrapSecurityDefaults güvenlik duvarı, Fail2ban ve ModSecurity'yi etkinleştirir.
+func BootstrapSecurityDefaults() (BootstrapSecurityResult, error) {
+	out, err := run("security-bootstrap-defaults")
+	res := BootstrapSecurityResult{}
+	if err != nil {
+		return res, err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		kv := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		on := strings.EqualFold(strings.TrimSpace(kv[1]), "enabled")
+		switch strings.TrimSpace(kv[0]) {
+		case "firewall":
+			res.Firewall = on
+		case "fail2ban":
+			res.Fail2ban = on
+		case "modsecurity":
+			res.Modsecurity = on
+		}
+	}
+	return res, nil
+}

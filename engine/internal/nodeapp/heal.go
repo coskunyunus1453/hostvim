@@ -129,7 +129,7 @@ func Heal(cfg *config.Config, domain string) (*HealResult, error) {
 	if err := reapplyWebServer(cfg, domain, meta); err != nil {
 		return nil, fmt.Errorf("nginx vhost: %w", err)
 	}
-	add("nginx vhost yenilendi (Node reverse proxy)")
+	add("nginx vhost yenilendi (Node reverse proxy + OAuth başlıkları)")
 
 	if needsInstall(workAbs) {
 		if _, err := NpmInstall(cfg, domain, false); err != nil {
@@ -164,7 +164,7 @@ func Heal(cfg *config.Config, domain string) (*HealResult, error) {
 		if _, err := Restart(cfg, domain); err != nil {
 			return res, fmt.Errorf("restart: %w", err)
 		}
-		add("pm2 restart")
+		add("pm2 restart (OAuth ortam değişkenleri)")
 	}
 
 	if err := waitForListen(port, 90*time.Second); err != nil {

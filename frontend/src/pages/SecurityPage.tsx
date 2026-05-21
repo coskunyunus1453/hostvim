@@ -26,6 +26,7 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import clsx from 'clsx'
 import { useDomainsList } from '../hooks/useDomains'
+import MalwareScanVisualizer from '../components/security/MalwareScanVisualizer'
 import {
   Bar,
   BarChart,
@@ -176,14 +177,14 @@ export default function SecurityPage() {
   const tabs = useMemo(
     () =>
       [
-        { id: 'advisor' as const, icon: ShieldCheck, label: t('security.tabs.advisor') },
-        { id: 'firewall' as const, icon: Flame, label: t('security.tabs.firewall') },
-        { id: 'ssh' as const, icon: Terminal, label: t('security.tabs.ssh') },
-        { id: 'server' as const, icon: Cpu, label: t('security.tabs.server') },
-        { id: 'website' as const, icon: Globe, label: t('security.tabs.website') },
-        { id: 'brute' as const, icon: ShieldAlert, label: t('security.tabs.brute') },
-        { id: 'compiler' as const, icon: Binary, label: t('security.tabs.compiler') },
-        { id: 'attack' as const, icon: Zap, label: t('security.tabs.attack') },
+        { id: 'advisor' as const, icon: ShieldCheck, label: t('security.tabs.advisor'), desc: t('security.tab_desc.advisor') },
+        { id: 'firewall' as const, icon: Flame, label: t('security.tabs.firewall'), desc: t('security.tab_desc.firewall') },
+        { id: 'ssh' as const, icon: Terminal, label: t('security.tabs.ssh'), desc: t('security.tab_desc.ssh') },
+        { id: 'server' as const, icon: Cpu, label: t('security.tabs.server'), desc: t('security.tab_desc.server') },
+        { id: 'website' as const, icon: Globe, label: t('security.tabs.website'), desc: t('security.tab_desc.website') },
+        { id: 'brute' as const, icon: ShieldAlert, label: t('security.tabs.brute'), desc: t('security.tab_desc.brute') },
+        { id: 'compiler' as const, icon: Binary, label: t('security.tabs.compiler'), desc: t('security.tab_desc.compiler') },
+        { id: 'attack' as const, icon: Zap, label: t('security.tabs.attack'), desc: t('security.tab_desc.attack') },
       ] as const,
     [t],
   )
@@ -217,6 +218,20 @@ export default function SecurityPage() {
     queryKey: ['security-modsecurity-site-rules'],
     queryFn: async () => (await api.get('/security/modsecurity/site-rules')).data,
     refetchInterval: () => pollWhenVisible(90_000),
+  })
+
+  const bootstrapM = useMutation({
+    mutationFn: async () => (await api.post('/security/bootstrap-defaults')).data,
+    onSuccess: () => {
+      toast.success(t('security.bootstrap.toast'))
+      qc.invalidateQueries({ queryKey: ['security-overview'] })
+      qc.invalidateQueries({ queryKey: ['security-advisor'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string; hint?: string }; status?: number } }
+      if (ax.response?.status === 403) toast.error(t('security.toast.admin_only'))
+      else toast.error([ax.response?.data?.message, ax.response?.data?.hint].filter(Boolean).join(' — ') || String(err))
+    },
   })
 
   const fwM = useMutation({
@@ -587,6 +602,7 @@ export default function SecurityPage() {
       settings?: { bantime?: number; findtime?: number; maxretry?: number; error?: string }
     }
     firewall?: {
+      enabled?: boolean
       backend?: string
       default_policy?: string
       recent_rules?: Array<{
@@ -626,7 +642,7 @@ export default function SecurityPage() {
   const fimStatus = (fimStatusQ.data?.result?.status ?? {}) as FimStatus
   const fimReady = !!fimStatus.baseline_exists
   const productFeatures = useMemo(() => {
-    const hasFirewall = typeof overview?.firewall?.default_policy === 'string' && (overview?.firewall?.default_policy ?? '').length > 0
+    const hasFirewall = overview?.firewall?.enabled === true
     const hasFail2ban = !!overview?.fail2ban?.enabled
     const hasModsec = !!overview?.modsecurity?.enabled
     const hasClamav = !!overview?.clamav?.enabled
@@ -651,8 +667,7 @@ export default function SecurityPage() {
 
   const coverage = useMemo(() => {
     const fail2banOk = !!overview?.fail2ban?.enabled
-    const firewallOk =
-      typeof overview?.firewall?.default_policy === 'string' && (overview?.firewall?.default_policy ?? '') !== ''
+    const firewallOk = overview?.firewall?.enabled === true
     const modsecOk = !!overview?.modsecurity?.enabled
     const clamavOk = !!overview?.clamav?.enabled
     const enabledCount = [fail2banOk, firewallOk, modsecOk, clamavOk].filter(Boolean).length
@@ -732,6 +747,20 @@ export default function SecurityPage() {
     if (typeof s.findtime === 'number') setJailFindtime(s.findtime)
     if (typeof s.maxretry === 'number') setJailMaxretry(s.maxretry)
   }, [overview?.fail2ban?.settings])
+
+  useEffect(() => {
+    if (!isAdmin || q.isLoading || q.isError || !overview) return
+    const needBootstrap =
+      !overview.firewall?.enabled || !overview.fail2ban?.enabled || !overview.modsecurity?.enabled
+    if (!needBootstrap) return
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('hostvim-security-bootstrap-v1') === '1') {
+      return
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('hostvim-security-bootstrap-v1', '1')
+    }
+    bootstrapM.mutate()
+  }, [isAdmin, q.isLoading, q.isError, overview])
   useEffect(() => {
     const id = window.setInterval(() => {
       setRateLimitProgress((s) => {
@@ -783,7 +812,7 @@ export default function SecurityPage() {
             <Shield className="h-7 w-7 text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('nav.security')}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('security.brand')}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.subtitle')}</p>
           </div>
         </div>
@@ -792,24 +821,93 @@ export default function SecurityPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-900/60">
         <div className="-mx-1 flex gap-1 overflow-x-auto pb-1">
-          {tabs.map(({ id, icon: Icon, label }) => (
+          {tabs.map(({ id, icon: Icon, label, desc }) => (
             <button
               key={id}
               type="button"
               onClick={() => setTab(id)}
               className={clsx(
-                'flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex min-w-[9.5rem] shrink-0 flex-col items-start gap-0.5 rounded-xl px-3 py-2.5 text-left transition-colors',
                 tab === id
                   ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
                   : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
               )}
             >
-              <Icon className="h-4 w-4 shrink-0 opacity-90" />
-              <span className="whitespace-nowrap">{label}</span>
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <Icon className="h-4 w-4 shrink-0 opacity-90" />
+                <span className="whitespace-nowrap">{label}</span>
+              </span>
+              <span
+                className={clsx(
+                  'pl-6 text-[10px] leading-tight',
+                  tab === id ? 'text-white/80' : 'text-gray-500 dark:text-gray-400',
+                )}
+              >
+                {desc}
+              </span>
             </button>
           ))}
         </div>
       </div>
+
+      {!q.isLoading && !q.isError && overview && (
+        <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-4 dark:border-slate-700 dark:from-slate-900/80 dark:via-slate-900 dark:to-slate-900/60">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t('security.shields.title')}</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('security.shields.hint')}</p>
+            </div>
+            {isAdmin &&
+              (!overview.fail2ban?.enabled || !overview.modsecurity?.enabled || !overview.firewall?.enabled) && (
+                <button
+                  type="button"
+                  className="btn-primary text-xs"
+                  onClick={() => bootstrapM.mutate()}
+                  disabled={bootstrapM.isPending}
+                >
+                  {bootstrapM.isPending ? t('security.shields.bootstrapping') : t('security.shields.bootstrap')}
+                </button>
+              )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(
+              [
+                { key: 'firewall', on: overview.firewall?.enabled, icon: Flame },
+                { key: 'fail2ban', on: overview.fail2ban?.enabled, icon: ShieldAlert },
+                { key: 'modsec', on: overview.modsecurity?.enabled, icon: Globe },
+              ] as const
+            ).map(({ key, on, icon: Icon }) => (
+              <div
+                key={key}
+                className={clsx(
+                  'flex items-center gap-3 rounded-xl border px-4 py-3',
+                  on
+                    ? 'border-emerald-300/80 bg-emerald-50/80 dark:border-emerald-800/60 dark:bg-emerald-950/25'
+                    : 'border-amber-300/80 bg-amber-50/60 dark:border-amber-800/50 dark:bg-amber-950/20',
+                )}
+              >
+                <div
+                  className={clsx(
+                    'flex h-10 w-10 items-center justify-center rounded-lg',
+                    on ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {t(`security.shields.${key}`)}
+                  </p>
+                  <p className={clsx('text-xs font-semibold', on ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300')}>
+                    {on ? t('security.shields.active') : t('security.shields.inactive')}
+                  </p>
+                </div>
+                {on ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /> : <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/15">
@@ -1133,29 +1231,23 @@ export default function SecurityPage() {
       )}
 
       {tab === 'ssh' && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('security.ssh.intro')}</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <PlaceholderCard
-              pro
-              title={t('security.ssh.port_title')}
-              description={t('security.ssh.port_desc')}
-            />
-            <PlaceholderCard
-              pro
-              title={t('security.ssh.root_title')}
-              description={t('security.ssh.root_desc')}
-            />
-            <PlaceholderCard
-              pro
-              title={t('security.ssh.password_title')}
-              description={t('security.ssh.password_desc')}
-            />
-            <PlaceholderCard
-              pro
-              title={t('security.ssh.keys_title')}
-              description={t('security.ssh.keys_desc')}
-            />
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50/80 to-slate-50 p-5 dark:border-cyan-900/50 dark:from-cyan-950/20 dark:to-slate-900/40">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-700 dark:text-cyan-300">
+                <Terminal className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('security.tabs.ssh')}</h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('security.ssh.intro')}</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <PlaceholderCard pro title={t('security.ssh.port_title')} description={t('security.ssh.port_desc')} />
+            <PlaceholderCard pro title={t('security.ssh.root_title')} description={t('security.ssh.root_desc')} />
+            <PlaceholderCard pro title={t('security.ssh.password_title')} description={t('security.ssh.password_desc')} />
+            <PlaceholderCard pro title={t('security.ssh.keys_title')} description={t('security.ssh.keys_desc')} />
           </div>
         </div>
       )}
@@ -1331,6 +1423,13 @@ export default function SecurityPage() {
                       </div>
                     )}
                   </div>
+
+                  <MalwareScanVisualizer
+                    active={clamavScanM.isPending || maldetScanM.isPending}
+                    infectedCount={scanInfectedCount}
+                    infectedFiles={scanInfectedFiles}
+                    scanPath={scanResolvedPath}
+                  />
 
                   <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-700 dark:bg-gray-900/40">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('security.clamav.scan_title')}</h3>
@@ -1772,9 +1871,19 @@ export default function SecurityPage() {
       )}
 
       {tab === 'compiler' && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('security.compiler.intro')}</p>
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/80 to-slate-50 p-5 dark:border-violet-900/50 dark:from-violet-950/20 dark:to-slate-900/40">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                <Binary className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('security.tabs.compiler')}</h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('security.compiler.intro')}</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <PlaceholderCard pro title={t('security.compiler.gcc_title')} description={t('security.compiler.gcc_desc')} />
             <PlaceholderCard pro title={t('security.compiler.per_user_title')} description={t('security.compiler.per_user_desc')} />
           </div>

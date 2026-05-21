@@ -436,6 +436,18 @@ EOF
     service_exists "clamav-daemon" || service_exists "clamav-freshclam" || { echo "clamav install failed" >&2; exit 1; }
     echo "installed"
     ;;
+  firewall-status)
+    IPT="$(command -v iptables || true)"
+    if [[ -z "$IPT" ]]; then
+      echo "disabled"
+      exit 0
+    fi
+    if "$IPT" -L HOSTVIM-FW -n >/dev/null 2>&1 && "$IPT" -C INPUT -j HOSTVIM-FW >/dev/null 2>&1; then
+      echo "enabled"
+    else
+      echo "disabled"
+    fi
+    ;;
   firewall-rule-apply)
     FW_ACTION="${ARG1:-}"
     FW_PROTO="${ARG2:-tcp}"
@@ -817,6 +829,45 @@ EOF
     echo "[6/6] done"
     echo "ok"
     ;;
+  security-bootstrap-defaults)
+    install -d -m 750 /etc/hostvim/security
+    FB="disabled"
+    MS="disabled"
+    FW="disabled"
+    IPT="$(command -v iptables || true)"
+    if [[ -n "$IPT" ]]; then
+      if ! "$IPT" -L HOSTVIM-FW -n >/dev/null 2>&1; then
+        "$IPT" -N HOSTVIM-FW 2>/dev/null || true
+        if ! "$IPT" -C INPUT -j HOSTVIM-FW >/dev/null 2>&1; then
+          "$IPT" -I INPUT 1 -j HOSTVIM-FW
+        fi
+      fi
+      MARKER="/etc/hostvim/security/bootstrap-firewall.done"
+      if [[ ! -f "$MARKER" ]]; then
+        "$0" firewall-rule-apply allow tcp 22 any >/dev/null 2>&1 || true
+        "$0" firewall-rule-apply allow tcp 80 any >/dev/null 2>&1 || true
+        "$0" firewall-rule-apply allow tcp 443 any >/dev/null 2>&1 || true
+        date -u +%Y-%m-%dT%H:%M:%SZ >"$MARKER"
+      fi
+      if "$0" firewall-status | grep -qx enabled; then
+        FW="enabled"
+      fi
+    fi
+    if "$0" fail2ban-set on >/dev/null 2>&1; then
+      "$0" fail2ban-jail-set 600 600 5 >/dev/null 2>&1 || true
+      if "$0" fail2ban-status | grep -qx enabled; then
+        FB="enabled"
+      fi
+    fi
+    if "$0" modsec-set on >/dev/null 2>&1; then
+      if "$0" modsec-status | grep -qx enabled; then
+        MS="enabled"
+      fi
+    fi
+    echo "firewall=$FW"
+    echo "fail2ban=$FB"
+    echo "modsecurity=$MS"
+    ;;
   self-test)
     FAIL=0
     if command -v nginx >/dev/null 2>&1; then
@@ -836,7 +887,7 @@ EOF
     echo "ok"
     ;;
   *)
-    echo "usage: hostvim-security reboot|fail2ban-status|fail2ban-set <on|off>|fail2ban-install|fail2ban-jail-get|fail2ban-jail-set <bantime> <findtime> <maxretry>|clamav-status|clamav-set <on|off>|clamav-install|clamav-scan <abs-dir>|clamav-quarantine <abs-file>|maldet-scan <abs-dir>|firewall-rule-apply <allow|deny> <tcp|udp|icmp|any> <port|any> <source|any>|modsec-status|modsec-set <on|off>|modsec-install|apache-modules-list|apache-module-set <module> <on|off>|nginx-config-get <main|panel>|nginx-config-set <main|panel> <tmpfile> <reload:0|1>|nginx-rate-limit-set <wordpress|laravel|api>|nginx-rate-limit-get|modsec-site-rule-add <domain> <allow|deny|exception> [target]|modsec-site-rule-list|modsec-site-rule-remove <id>|mail-stack-setup <domain>|self-test" >&2
+    echo "usage: hostvim-security reboot|security-bootstrap-defaults|fail2ban-status|fail2ban-set <on|off>|fail2ban-install|fail2ban-jail-get|fail2ban-jail-set <bantime> <findtime> <maxretry>|clamav-status|clamav-set <on|off>|clamav-install|clamav-scan <abs-dir>|clamav-quarantine <abs-file>|maldet-scan <abs-dir>|firewall-status|firewall-rule-apply <allow|deny> <tcp|udp|icmp|any> <port|any> <source|any>|modsec-status|modsec-set <on|off>|modsec-install|apache-modules-list|apache-module-set <module> <on|off>|nginx-config-get <main|panel>|nginx-config-set <main|panel> <tmpfile> <reload:0|1>|nginx-rate-limit-set <wordpress|laravel|api>|nginx-rate-limit-get|modsec-site-rule-add <domain> <allow|deny|exception> [target]|modsec-site-rule-list|modsec-site-rule-remove <id>|mail-stack-setup <domain>|self-test" >&2
     exit 1
     ;;
 esac

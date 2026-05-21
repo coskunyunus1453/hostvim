@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -294,17 +293,7 @@ func Start(cfg *config.Config, domain string) (string, error) {
 		port = DefaultPortForProfile(meta.NodeApp.Profile)
 	}
 
-	env := []string{
-		"PORT=" + strconv.Itoa(port),
-		"HOST=127.0.0.1",
-		"NODE_ENV=production",
-	}
-	if ef := strings.TrimSpace(meta.NodeApp.EnvFile); ef != "" {
-		envFileAbs := filepath.Join(siteBase(cfg.Paths.WebRoot, domain), ef)
-		if st, statErr := os.Stat(envFileAbs); statErr == nil && !st.IsDir() {
-			env = append(env, "DOTENV_CONFIG_PATH="+envFileAbs)
-		}
-	}
+	env := buildStartEnv(cfg.Paths.WebRoot, domain, meta, workAbs, port)
 
 	script := meta.NodeApp.StartScript
 	args := []string{

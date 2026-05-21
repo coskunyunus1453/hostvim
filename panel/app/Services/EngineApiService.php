@@ -1089,6 +1089,11 @@ class EngineApiService
         return $this->get('/api/v1/security/overview');
     }
 
+    public function bootstrapSecurityDefaults(): array
+    {
+        return $this->postLongChecked('/api/v1/security/bootstrap-defaults', [], 600);
+    }
+
     public function securityAdvisor(): array
     {
         return $this->get('/api/v1/security/advisor');

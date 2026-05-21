@@ -34,6 +34,7 @@ export default function AdminLicensePage() {
     mutationFn: async (key: string) => api.post('/license/activate', { key }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['license-status'] })
+      qc.invalidateQueries({ queryKey: ['config-ui-links'] })
       setKeyInput('')
       const d = res.data as { hub?: { plan_name?: string } }
       const plan = d?.hub && typeof d.hub.plan_name === 'string' ? d.hub.plan_name : ''
@@ -49,6 +50,7 @@ export default function AdminLicensePage() {
     mutationFn: async () => api.post('/license/clear'),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['license-status'] })
+      qc.invalidateQueries({ queryKey: ['config-ui-links'] })
       toast.success(t('license.cleared_ok'))
     },
     onError: (err: unknown) => {

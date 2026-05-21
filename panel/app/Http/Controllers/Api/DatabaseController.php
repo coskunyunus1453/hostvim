@@ -10,6 +10,8 @@ use App\Models\Domain;
 use App\Services\DatabaseService;
 use App\Services\HostingQuotaService;
 use App\Services\MysqlProvisioner;
+use App\Services\PanelLicenseService;
+use App\Services\PhpMyAdminSignonService;
 use App\Services\PostgresProvisioner;
 use App\Support\DatabaseImportConfirmation;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +27,8 @@ class DatabaseController extends Controller
         private HostingQuotaService $quota,
         private MysqlProvisioner $mysqlProvisioner,
         private PostgresProvisioner $postgresProvisioner,
+        private PanelLicenseService $panelLicense,
+        private PhpMyAdminSignonService $phpMyAdminSignon,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -179,6 +183,45 @@ class DatabaseController extends Controller
             'message' => __('databases.password_rotated'),
             'database' => $database->fresh(),
             'password_plain' => $result['password_plain'],
+        ]);
+    }
+
+    /**
+     * Pro lisans: tek tık phpMyAdmin signon (otomatik kullanıcı/şifre).
+     */
+    public function phpmyadminLogin(Request $request, Database $database): JsonResponse
+    {
+        $this->authorize('update', $database);
+
+        if (! $this->panelLicense->hasPhpMyAdminAutoLogin()) {
+            return response()->json([
+                'message' => __('databases.phpmyadmin_sso_pro_required'),
+                'code' => 'pro_license_required',
+            ], 403);
+        }
+
+        $pmaUrl = trim((string) config('hostvim.ui.phpmyadmin_url', ''));
+        if ($pmaUrl === '') {
+            return response()->json([
+                'message' => __('databases.phpmyadmin_sso_not_configured'),
+            ], 422);
+        }
+
+        try {
+            $session = $this->phpMyAdminSignon->mintForDatabase($database);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => __('databases.phpmyadmin_sso_failed')], 500);
+        }
+
+        return response()->json([
+            'message' => __('databases.phpmyadmin_sso_ready'),
+            'signon_url' => $session['signon_url'],
+            'expires_in' => $session['expires_in'],
+            'database' => $database->name,
         ]);
     }
 

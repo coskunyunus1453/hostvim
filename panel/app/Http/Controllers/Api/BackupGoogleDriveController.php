@@ -25,6 +25,7 @@ class BackupGoogleDriveController extends Controller
 
         return response()->json([
             'configured' => $this->googleDrive->isConfigured(),
+            'redirect_uri' => $this->googleDrive->isConfigured() ? null : $this->googleDrive->redirectUri(),
             'connected' => $dest !== null,
             'destination' => $dest ? [
                 'id' => $dest->id,

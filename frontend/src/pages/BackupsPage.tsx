@@ -18,6 +18,7 @@ import {
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { useDomainsList } from '../hooks/useDomains'
+import { useAuthStore } from '../store/authStore'
 
 type BackupRow = {
   id: number
@@ -73,6 +74,7 @@ function statusClass(status: string): string {
 
 export default function BackupsPage() {
   const { t } = useTranslation()
+  const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
   const qc = useQueryClient()
   const domainsQ = useDomainsList()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -112,6 +114,7 @@ export default function BackupsPage() {
     queryKey: ['backups-gdrive'],
     queryFn: async () => (await api.get('/backups/google-drive/status')).data as {
       configured: boolean
+      redirect_uri?: string | null
       connected: boolean
       destination?: { id: number; name: string; email?: string }
     },
@@ -425,7 +428,16 @@ export default function BackupsPage() {
                 </p>
               )}
               {!gdriveQ.data?.configured && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{t('backups.google_not_configured')}</p>
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-amber-700 dark:text-amber-300">{t('backups.google_not_configured')}</p>
+                  {isAdmin && gdriveQ.data?.redirect_uri && (
+                    <p className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-2.5 py-2 text-[11px] text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-100">
+                      {t('backups.google_not_configured_admin_steps', {
+                        redirectUri: gdriveQ.data.redirect_uri,
+                      })}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>

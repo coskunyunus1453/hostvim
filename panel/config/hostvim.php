@@ -93,6 +93,30 @@ return [
     'license_key' => trim((string) env('LICENSE_KEY', '')),
 
     /**
+     * Pro lisans plan kodları (hub product code) ve premium modüller.
+     * Geliştirme: HOSTVIM_LICENSE_FORCE_PRO=1 veya HOSTVIM_FEATURE_PHPMYADMIN_SSO=1
+     */
+    'license' => [
+        'force_valid' => env('HOSTVIM_LICENSE_FORCE_VALID', false),
+        'force_pro' => env('HOSTVIM_LICENSE_FORCE_PRO', false),
+        'pro_plan_codes' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('HOSTVIM_PRO_PLAN_CODES', 'pro,pro-lisans,enterprise,vendor'))
+        ))),
+        'pro_default_modules' => ['phpmyadmin_sso'],
+    ],
+
+    'features' => [
+        'phpmyadmin_sso' => env('HOSTVIM_FEATURE_PHPMYADMIN_SSO', false),
+    ],
+
+    /** phpMyAdmin signon (Pro): tek kullanımlık panel → /pma-signon → phpMyAdmin */
+    'phpmyadmin_signon' => [
+        'session_name' => env('HOSTVIM_PMA_SIGNON_SESSION', 'SignonSession'),
+        'token_ttl' => max(30, (int) env('HOSTVIM_PMA_SIGNON_TTL', 90)),
+    ],
+
+    /**
      * İsteğe bağlı CDN önbellek temizliği (api_token + zone_id; provider: cloudflare).
      *
      * @var array{provider: string, api_token: string, zone_id: string}

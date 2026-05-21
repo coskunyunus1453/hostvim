@@ -41,4 +41,11 @@ return [
     'server_mysql_provision_use' => 'phpMyAdmin ve manuel .sql yüklemelerinde MySQL «root» yerine bu hesabı kullanın; kurulumda oluşturulan, tüm barındırma veritabanlarını yönetebilen özel kullanıcıdır.',
     'server_mysql_root_socket' => 'Debian/Ubuntu MariaDB kurulumlarında «root» sıklıkla unix_socket ile girer (şifre gerekmeyebilir). Web üzerinden güvenli seçenek: aşağıdaki provision kullanıcısı.',
     'server_mysql_ssh_secret' => 'SSH ile (root): aynı şifre kurulum betiğinin kaydettiği dosyada da yer alır — /root/hostvim-mysql-provision.secret',
+
+    'phpmyadmin_sso_mysql_only' => 'Otomatik phpMyAdmin girişi yalnızca MySQL veritabanları için.',
+    'phpmyadmin_sso_pro_required' => 'Bu özellik Pro lisans ile kullanılabilir. Yönetici → Lisans sayfasından Pro anahtarını etkinleştirin.',
+    'phpmyadmin_sso_not_configured' => 'PHPMYADMIN_URL panel yapılandırmasında tanımlı değil.',
+    'phpmyadmin_sso_failed' => 'phpMyAdmin oturumu oluşturulamadı.',
+    'phpmyadmin_sso_ready' => 'phpMyAdmin açılıyor…',
+    'phpmyadmin_sso_token_invalid' => 'Oturum bağlantısı geçersiz veya süresi doldu. Panelden tekrar deneyin.',
 ];
