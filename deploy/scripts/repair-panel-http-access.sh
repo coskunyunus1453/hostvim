@@ -66,6 +66,16 @@ ln -sf "$NGX_DST" /etc/nginx/sites-enabled/hostvim.conf
 nginx -t
 systemctl reload nginx
 
+PHP_VER=""
+if [[ "$PHP_FPM_SOCK" =~ php([0-9]+\.[0-9]+)-fpm ]]; then
+  PHP_VER="${BASH_REMATCH[1]}"
+fi
+if [[ -n "$PHP_VER" && -d "/etc/php/$PHP_VER/fpm/pool.d" ]]; then
+  echo "==> PHP-FPM uzun istek limiti (zip/unzip)"
+  cp "$REPO_ROOT/deploy/php-fpm/hostvim-long-requests.conf" "/etc/php/$PHP_VER/fpm/pool.d/zz-hostvim-long.conf"
+  systemctl reload "php${PHP_VER}-fpm" 2>/dev/null || systemctl reload php-fpm 2>/dev/null || true
+fi
+
 echo "==> Laravel config önbelleği"
 cd "$PANEL_ROOT"
 sudo -u www-data php artisan config:clear

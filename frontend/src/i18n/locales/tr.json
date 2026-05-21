@@ -974,6 +974,7 @@
     "moved_to_trash": "Geri dönüşüm kutusuna taşındı",
     "zip_ok": "Zip oluşturuldu",
     "unzip_ok": "Zip açıldı",
+    "unzip_gateway_timeout_hint": "Sunucu yanıt süresi doldu (504). Zip büyük arşivlerde arka planda tamamlanmış olabilir — klasörü yenileyip dosyaları kontrol edin.",
     "perm_backup": "İzinleri yedekle",
     "perm_backup_na": "Bu özellik henüz panelde yok.",
     "recycle_bin": "Geri dönüşüm kutusu",

@@ -903,6 +903,7 @@ class FileManagerController extends Controller
 
     public function unzip(Request $request, Domain $domain): JsonResponse
     {
+        ignore_user_abort(true);
         set_time_limit(1900);
 
         if (! $this->userOwnsDomain($request, $domain)) {
@@ -931,17 +932,27 @@ class FileManagerController extends Controller
 
             return response()->json(['message' => $result['error']], 422);
         }
-        $auto = $this->autoWebConfigurator->detectAndApply($domain->fresh());
-        if (! ($auto['applied'] ?? false)) {
-            SafeAuditLogger::warning('hostvim.file_audit', [
-                'domain' => $hostingTarget->engineSiteName,
-                'action' => 'auto_web_config_after_unzip_failed',
-                'error' => (string) ($auto['error'] ?? 'unknown'),
-                'profile' => (string) ($auto['profile'] ?? ''),
-                'variant' => (string) ($auto['variant'] ?? ''),
-            ], $request);
-        }
-        $result['auto_web'] = $auto;
+
+        $domainId = (int) $domain->id;
+        $engineSite = $hostingTarget->engineSiteName;
+        dispatch(function () use ($domainId, $engineSite): void {
+            $fresh = Domain::query()->find($domainId);
+            if ($fresh === null) {
+                return;
+            }
+            $auto = app(AutoWebConfigurator::class)->detectAndApply($fresh);
+            if (! ($auto['applied'] ?? false)) {
+                SafeAuditLogger::warning('hostvim.file_audit', [
+                    'domain' => $engineSite,
+                    'action' => 'auto_web_config_after_unzip_failed',
+                    'error' => (string) ($auto['error'] ?? 'unknown'),
+                    'profile' => (string) ($auto['profile'] ?? ''),
+                    'variant' => (string) ($auto['variant'] ?? ''),
+                ]);
+            }
+        })->afterResponse();
+
+        $result['auto_web'] = ['queued' => true];
         $this->logFileAction($request, $domain, 'unzip', $archive, $targetDir, true, null);
 
         return response()->json($result);

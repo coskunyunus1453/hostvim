@@ -1381,8 +1381,15 @@ export default function FileManagerPage() {
         setArchiveUi({ kind: 'unzip', complete: true })
         await new Promise((r) => setTimeout(r, 680))
       } catch (err: unknown) {
-        const ax = err as { response?: { data?: { message?: string } } }
+        const ax = err as { response?: { status?: number; data?: { message?: string } } }
+        const status = ax.response?.status
         const msg = String(ax.response?.data?.message ?? '')
+        if (status === 504 || status === 502 || status === 503) {
+          toast(t('files.unzip_gateway_timeout_hint'), { duration: 8000 })
+          await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
+          setOffset(0)
+          return
+        }
         if (vars.if_exists !== 'overwrite' && vars.if_exists !== 'skip' && msg.toLowerCase().includes('conflicts detected')) {
           setUnzipConflictDialog({
             archive: vars.archive,
@@ -1394,7 +1401,7 @@ export default function FileManagerPage() {
         setArchiveUi(null)
       }
     },
-    [unzipM],
+    [unzipM, domainId, subdomainId, path, qc, t],
   )
 
   const searchM = useMutation({

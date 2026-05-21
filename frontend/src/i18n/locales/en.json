@@ -975,6 +975,7 @@
     "moved_to_trash": "Moved to recycle bin",
     "zip_ok": "Zip file created",
     "unzip_ok": "Zip extracted",
+    "unzip_gateway_timeout_hint": "Gateway timed out (504). Large archives may still have finished on the server — refresh the folder and verify files.",
     "perm_backup": "Backup permissions",
     "perm_backup_na": "Not available in the panel yet.",
     "recycle_bin": "Recycle bin",
