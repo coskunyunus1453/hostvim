@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
 class CreatePanelAdminCommand extends Command
@@ -31,13 +30,14 @@ class CreatePanelAdminCommand extends Command
             $user = User::query()->create([
                 'name' => (string) $this->option('name'),
                 'email' => $email,
-                'password' => Hash::make($password),
+                // User model `password` => hashed cast — düz metin verilir, bcrypt ile tek kez hashlenir.
+                'password' => $password,
                 'email_verified_at' => now(),
             ]);
             $this->info("Kullanıcı oluşturuldu: {$email}");
         } else {
             $user->update([
-                'password' => Hash::make($password),
+                'password' => $password,
                 'name' => (string) $this->option('name'),
             ]);
             $this->info("Kullanıcı güncellendi: {$email}");
