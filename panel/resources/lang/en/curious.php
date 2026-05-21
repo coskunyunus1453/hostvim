@@ -8,6 +8,12 @@ return [
     'speed_upload_missing' => 'Upload payload missing.',
     'speed_upload_done' => 'Upload test completed.',
     'speed_cleaned' => 'Test files removed.',
+    'speed_complete_done' => 'Panel and server speed tests saved.',
+    'speed_ookla_disabled' => 'Server speedtest is disabled.',
+    'speed_ookla_busy' => 'Another speedtest is running; try again shortly.',
+    'speed_ookla_missing' => 'speedtest or speedtest-cli is not installed on the server.',
+    'speed_ookla_failed' => 'Server speedtest could not complete.',
+    'speed_ookla_parse_failed' => 'Could not parse speedtest output.',
 
     'seo_invalid_url' => 'Enter a valid site URL (e.g. https://example.com).',
     'seo_blocked_host' => 'Local or private network addresses cannot be scanned.',

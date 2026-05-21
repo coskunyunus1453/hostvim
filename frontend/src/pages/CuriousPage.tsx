@@ -38,7 +38,50 @@ type SeoReport = {
   }>
 }
 
-type SpeedPhase = 'idle' | 'ping' | 'download' | 'upload' | 'done'
+type SpeedPhase = 'idle' | 'ping' | 'download' | 'upload' | 'server' | 'done'
+
+type SpeedHistoryRow = {
+  id: number
+  client_ip: string
+  created_at: string
+  panel: {
+    ping_ms: number | null
+    download_mbps: number | null
+    upload_mbps: number | null
+  }
+  server: {
+    ping_ms: number | null
+    download_mbps: number | null
+    upload_mbps: number | null
+    label: string | null
+    from_cache: boolean
+    error: string | null
+  }
+  delta: {
+    ping_ms: number | null
+    download_mbps: number | null
+    upload_mbps: number | null
+  }
+}
+
+function fmtDelta(v: number | null | undefined, decimals = 2): string {
+  if (v == null || Number.isNaN(v)) return '—'
+  const sign = v > 0 ? '+' : ''
+
+  return `${sign}${v.toFixed(decimals)}`
+}
+
+function fmtMbps(v: number | null | undefined): string {
+  if (v == null) return '—'
+
+  return `${Number(v).toFixed(1)}`
+}
+
+function fmtMs(v: number | null | undefined): string {
+  if (v == null) return '—'
+
+  return `${Math.round(v)}`
+}
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
@@ -56,6 +99,16 @@ export default function CuriousPage() {
   const [pingMs, setPingMs] = useState<number | null>(null)
   const [downloadMbps, setDownloadMbps] = useState<number | null>(null)
   const [uploadMbps, setUploadMbps] = useState<number | null>(null)
+  const [serverPingMs, setServerPingMs] = useState<number | null>(null)
+  const [serverDownloadMbps, setServerDownloadMbps] = useState<number | null>(null)
+  const [serverUploadMbps, setServerUploadMbps] = useState<number | null>(null)
+  const [deltaPingMs, setDeltaPingMs] = useState<number | null>(null)
+  const [deltaDownloadMbps, setDeltaDownloadMbps] = useState<number | null>(null)
+  const [deltaUploadMbps, setDeltaUploadMbps] = useState<number | null>(null)
+  const [serverFromCache, setServerFromCache] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [historyIp, setHistoryIp] = useState('')
+  const [speedHistory, setSpeedHistory] = useState<SpeedHistoryRow[]>([])
   const [speedRunning, setSpeedRunning] = useState(false)
 
   const [seoUrl, setSeoUrl] = useState('')
@@ -73,6 +126,22 @@ export default function CuriousPage() {
       /* ignore */
     }
   }, [])
+
+  const loadSpeedHistory = useCallback(async () => {
+    try {
+      const { data } = await api.get('/curious/speed/history')
+      setHistoryIp(String(data?.client_ip ?? ''))
+      setSpeedHistory((data?.history ?? []) as SpeedHistoryRow[])
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'speed') {
+      void loadSpeedHistory()
+    }
+  }, [tab, loadSpeedHistory])
 
   useEffect(() => {
     return () => {
@@ -136,6 +205,14 @@ export default function CuriousPage() {
     setPingMs(null)
     setDownloadMbps(null)
     setUploadMbps(null)
+    setServerPingMs(null)
+    setServerDownloadMbps(null)
+    setServerUploadMbps(null)
+    setDeltaPingMs(null)
+    setDeltaDownloadMbps(null)
+    setDeltaUploadMbps(null)
+    setServerFromCache(false)
+    setServerError(null)
     setSpeedPhase('ping')
     try {
       const p = await measurePing()
@@ -149,9 +226,33 @@ export default function CuriousPage() {
       setSpeedPhase('upload')
       const u = await measureUpload(testBytes)
       setUploadMbps(u)
-      setSpeedPhase('done')
       cleanupRef.current = true
       await runCleanup()
+
+      setSpeedPhase('server')
+      const { data: complete } = await api.post(
+        '/curious/speed/complete',
+        {
+          panel_ping_ms: p,
+          panel_download_mbps: d,
+          panel_upload_mbps: u,
+        },
+        { timeout: 180_000 },
+      )
+      const record = complete?.record as SpeedHistoryRow | undefined
+      if (record) {
+        setServerPingMs(record.server.ping_ms)
+        setServerDownloadMbps(record.server.download_mbps)
+        setServerUploadMbps(record.server.upload_mbps)
+        setDeltaPingMs(record.delta.ping_ms)
+        setDeltaDownloadMbps(record.delta.download_mbps)
+        setDeltaUploadMbps(record.delta.upload_mbps)
+        setServerFromCache(Boolean(record.server.from_cache))
+        setServerError(record.server.error)
+      }
+      setHistoryIp(String(complete?.client_ip ?? historyIp))
+      setSpeedHistory((complete?.history ?? []) as SpeedHistoryRow[])
+      setSpeedPhase('done')
       toast.success(t('curious.speed.done'))
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -262,6 +363,9 @@ export default function CuriousPage() {
             <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">{t('curious.speed.cleanup_hint')}</p>
           </div>
 
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            {t('curious.speed.panel_section')}
+          </h3>
           <div className="grid gap-6 sm:grid-cols-3">
             <div className="card flex justify-center p-6">
               <SpeedGauge
@@ -295,12 +399,158 @@ export default function CuriousPage() {
             </div>
           </div>
 
-          {speedPhase === 'done' && (
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-200">
-              <CheckCircle2 className="h-5 w-5 shrink-0" />
-              {t('curious.speed.done')}
-            </div>
+          {(speedPhase === 'server' || serverDownloadMbps != null) && (
+            <>
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                {t('curious.speed.server_section')}
+                {speedPhase === 'server' && (
+                  <span className="ml-2 font-normal text-gray-500">{t('curious.speed.phase_server')}</span>
+                )}
+              </h3>
+              <div className="grid gap-6 sm:grid-cols-3">
+                <div className="card flex justify-center p-6">
+                  <SpeedGauge
+                    label={t('curious.speed.ping')}
+                    value={serverPingMs}
+                    unit="ms"
+                    max={200}
+                    active={speedPhase === 'server'}
+                    color="amber"
+                  />
+                </div>
+                <div className="card flex justify-center p-6">
+                  <SpeedGauge
+                    label={t('curious.speed.download')}
+                    value={serverDownloadMbps}
+                    unit="Mbps"
+                    max={2000}
+                    active={speedPhase === 'server'}
+                    color="indigo"
+                  />
+                </div>
+                <div className="card flex justify-center p-6">
+                  <SpeedGauge
+                    label={t('curious.speed.upload')}
+                    value={serverUploadMbps}
+                    unit="Mbps"
+                    max={2000}
+                    active={speedPhase === 'server'}
+                    color="emerald"
+                  />
+                </div>
+              </div>
+            </>
           )}
+
+          {speedPhase === 'done' && (
+            <>
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                {t('curious.speed.done')}
+              </div>
+              {serverFromCache && (
+                <p className="text-xs text-amber-700 dark:text-amber-300">{t('curious.speed.server_cached')}</p>
+              )}
+              {serverError && (
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  {t('curious.speed.server_error', { msg: serverError })}
+                </p>
+              )}
+              <div className="card p-4">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  {t('curious.speed.delta_section')}
+                </h3>
+                <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                  <div>
+                    <dt className="text-gray-500">{t('curious.speed.ping')}</dt>
+                    <dd className="font-mono font-medium text-gray-900 dark:text-white">
+                      {fmtDelta(deltaPingMs, 1)} ms
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">{t('curious.speed.download')}</dt>
+                    <dd className="font-mono font-medium text-gray-900 dark:text-white">
+                      {fmtDelta(deltaDownloadMbps)} Mbps
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">{t('curious.speed.upload')}</dt>
+                    <dd className="font-mono font-medium text-gray-900 dark:text-white">
+                      {fmtDelta(deltaUploadMbps)} Mbps
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </>
+          )}
+
+          <div className="card overflow-hidden p-0">
+            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                {t('curious.speed.history_title', { ip: historyIp || '—' })}
+              </h3>
+            </div>
+            {speedHistory.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-gray-500">{t('curious.speed.history_empty')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/80 dark:text-gray-400">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">{t('curious.speed.history_date')}</th>
+                      <th className="px-3 py-2 font-medium" colSpan={3}>
+                        {t('curious.speed.history_panel')}
+                      </th>
+                      <th className="px-3 py-2 font-medium" colSpan={3}>
+                        {t('curious.speed.history_server')}
+                      </th>
+                      <th className="px-3 py-2 font-medium" colSpan={3}>
+                        {t('curious.speed.history_delta')}
+                      </th>
+                    </tr>
+                    <tr className="border-t border-gray-200 dark:border-gray-700">
+                      <th className="px-3 py-1" />
+                      <th className="px-3 py-1">{t('curious.speed.col_ping')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_download')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_upload')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_ping')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_download')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_upload')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_ping')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_download')}</th>
+                      <th className="px-3 py-1">{t('curious.speed.col_upload')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {speedHistory.map((row) => (
+                      <tr key={row.id} className="text-gray-800 dark:text-gray-200">
+                        <td className="whitespace-nowrap px-3 py-2 font-mono">
+                          {row.created_at
+                            ? new Date(row.created_at).toLocaleString()
+                            : '—'}
+                        </td>
+                        <td className="px-3 py-2 font-mono">{fmtMs(row.panel.ping_ms)}</td>
+                        <td className="px-3 py-2 font-mono">{fmtMbps(row.panel.download_mbps)}</td>
+                        <td className="px-3 py-2 font-mono">{fmtMbps(row.panel.upload_mbps)}</td>
+                        <td className="px-3 py-2 font-mono">
+                          {row.server.error ? '—' : fmtMs(row.server.ping_ms)}
+                        </td>
+                        <td className="px-3 py-2 font-mono">
+                          {row.server.error ? '—' : fmtMbps(row.server.download_mbps)}
+                        </td>
+                        <td className="px-3 py-2 font-mono">
+                          {row.server.error ? '—' : fmtMbps(row.server.upload_mbps)}
+                        </td>
+                        <td className="px-3 py-2 font-mono">{fmtDelta(row.delta.ping_ms, 1)}</td>
+                        <td className="px-3 py-2 font-mono">{fmtDelta(row.delta.download_mbps)}</td>
+                        <td className="px-3 py-2 font-mono">{fmtDelta(row.delta.upload_mbps)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

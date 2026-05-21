@@ -151,6 +151,14 @@ return [
         'speed_upload_max_bytes' => (int) env('HOSTVIM_SPEED_UPLOAD_MAX_BYTES', 2_097_152),
         'speed_token_ttl' => (int) env('HOSTVIM_SPEED_TOKEN_TTL', 300),
         'seo_timeout' => (int) env('HOSTVIM_SEO_TIMEOUT', 20),
+        'ookla_enabled' => filter_var(env('HOSTVIM_OOKLA_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'ookla_binary' => env('HOSTVIM_OOKLA_BINARY', 'speedtest'),
+        'ookla_fallback_binary' => env('HOSTVIM_OOKLA_FALLBACK_BINARY', 'speedtest-cli'),
+        'ookla_timeout' => (int) env('HOSTVIM_OOKLA_TIMEOUT', 120),
+        'ookla_cache_minutes' => (int) env('HOSTVIM_OOKLA_CACHE_MINUTES', 30),
+        'ookla_history_limit' => (int) env('HOSTVIM_OOKLA_HISTORY_LIMIT', 30),
+        'ookla_history_retention_days' => (int) env('HOSTVIM_OOKLA_HISTORY_RETENTION_DAYS', 90),
+        'ookla_history_max_rows' => (int) env('HOSTVIM_OOKLA_HISTORY_MAX_ROWS', 200),
     ],
 
     'limits' => [

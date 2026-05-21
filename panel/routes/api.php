@@ -306,6 +306,9 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('speed/download/{token}', [CuriousController::class, 'download'])->where('token', '[a-zA-Z0-9]{20,64}');
         Route::post('speed/upload', [CuriousController::class, 'upload']);
         Route::post('speed/cleanup', [CuriousController::class, 'cleanup']);
+        Route::get('speed/history', [CuriousController::class, 'speedHistory']);
+        Route::post('speed/complete', [CuriousController::class, 'completeSpeed'])
+            ->middleware('throttle:3,60');
         Route::post('seo/analyze', [CuriousController::class, 'analyzeSeo'])->middleware('throttle:10,1');
     });
 

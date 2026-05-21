@@ -8,6 +8,12 @@ return [
     'speed_upload_missing' => 'Yükleme verisi alınamadı.',
     'speed_upload_done' => 'Yükleme testi tamamlandı.',
     'speed_cleaned' => 'Test dosyaları temizlendi.',
+    'speed_complete_done' => 'Panel ve sunucu hız testi kaydedildi.',
+    'speed_ookla_disabled' => 'Sunucu speedtest devre dışı.',
+    'speed_ookla_busy' => 'Başka bir speedtest çalışıyor; kısa süre sonra tekrar deneyin.',
+    'speed_ookla_missing' => 'Sunucuda speedtest veya speedtest-cli bulunamadı.',
+    'speed_ookla_failed' => 'Sunucu speedtest tamamlanamadı.',
+    'speed_ookla_parse_failed' => 'Speedtest çıktısı okunamadı.',
 
     'seo_invalid_url' => 'Geçerli bir site adresi girin (ör. https://ornek.com).',
     'seo_blocked_host' => 'Yerel veya özel ağ adresleri taranamaz.',
