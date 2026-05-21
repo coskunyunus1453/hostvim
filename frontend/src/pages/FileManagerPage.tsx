@@ -588,8 +588,11 @@ export default function FileManagerPage() {
     )
   }
 
+  /** zip/unzip engine'de dakikalar sürebilir; nginx/axios ile uyumlu */
+  const FILES_ARCHIVE_TIMEOUT_MS = 1_800_000
+
   const fileReqConfig = useCallback(
-    (extra?: { params?: Record<string, unknown> }) => ({
+    (extra?: { params?: Record<string, unknown>; timeout?: number }) => ({
       ...extra,
       params: {
         ...(extra?.params ?? {}),
@@ -597,6 +600,12 @@ export default function FileManagerPage() {
       },
     }),
     [subdomainId],
+  )
+
+  const fileArchiveReqConfig = useCallback(
+    (extra?: { params?: Record<string, unknown> }) =>
+      fileReqConfig({ ...extra, timeout: FILES_ARCHIVE_TIMEOUT_MS }),
+    [fileReqConfig],
   )
 
   const filesQ = useQuery<FilesListResponse>({
@@ -1280,7 +1289,7 @@ export default function FileManagerPage() {
 
   const zipM = useMutation({
     mutationFn: async (vars: { source: string; target: string }) =>
-      api.post(`/domains/${domainId}/files/zip`, vars, fileReqConfig()),
+      api.post(`/domains/${domainId}/files/zip`, vars, fileArchiveReqConfig()),
     onSuccess: () => {
       toast.success(t('files.zip_ok'))
       qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
@@ -1302,7 +1311,7 @@ export default function FileManagerPage() {
           targetDir: vars.target_dir,
           if_exists: vars.if_exists ?? 'fail',
         },
-        fileReqConfig(),
+        fileArchiveReqConfig(),
       ),
     onSuccess: (res) => {
       toast.success(t('files.unzip_ok'))

@@ -851,6 +851,8 @@ class FileManagerController extends Controller
 
     public function zip(Request $request, Domain $domain): JsonResponse
     {
+        set_time_limit(1900);
+
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
@@ -901,6 +903,8 @@ class FileManagerController extends Controller
 
     public function unzip(Request $request, Domain $domain): JsonResponse
     {
+        set_time_limit(1900);
+
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
