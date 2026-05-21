@@ -76,7 +76,6 @@ class CuriousController extends Controller
         ]);
 
         $userId = (int) $request->user()->id;
-        $started = microtime(true);
         $file = $request->file('payload');
         if ($file === null) {
             return response()->json(['message' => __('curious.speed_upload_missing')], 422);
@@ -93,16 +92,13 @@ class CuriousController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        $durationMs = max(1, (int) round((microtime(true) - $started) * 1000));
         $bytes = (int) $meta['bytes'];
-        $mbps = ($bytes * 8) / ($durationMs / 1000) / 1_000_000;
 
         return response()->json([
             'message' => __('curious.speed_upload_done'),
             'result' => [
                 'bytes' => $bytes,
-                'duration_ms' => $durationMs,
-                'mbps' => round($mbps, 2),
+                // Mbps tarayıcı → panel aktarım süresinden hesaplanmalı (dosya zaten yüklendikten sonra ölçüm yanıltıcıdır).
             ],
         ]);
     }

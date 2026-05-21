@@ -1091,10 +1091,11 @@
       "seo": "SEO analysis"
     },
     "speed": {
-      "intro": "Measures download, ping, and upload. Test files (up to ~2 MB) are deleted from the server when finished.",
+      "intro": "Lightweight test (~2 MB) between your browser and the Hostvim panel server. Not raw datacenter bandwidth or your hosted site speed.",
+      "disclaimer": "Ping: panel API latency (HTTP). Download/upload: round-trip speed to the panel. For comparison, use curl from the same network or an external speed test.",
       "start": "Start test",
       "running": "Testing…",
-      "ping": "Ping",
+      "ping": "Latency",
       "download": "Download",
       "upload": "Upload",
       "done": "Test complete — temporary files removed.",

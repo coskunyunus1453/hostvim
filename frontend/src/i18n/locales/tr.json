@@ -1090,10 +1090,11 @@
       "seo": "SEO analizi"
     },
     "speed": {
-      "intro": "İndirme, ping ve yükleme ölçümü yapılır. Test dosyaları (en fazla ~2 MB) işlem bitince sunucudan silinir.",
+      "intro": "Tarayıcınız ile Hostvim panel sunucusu arasında hafif bir test (~2 MB). Gerçek sunucu hat kapasitesi veya ziyaretçi sitesi hızı değildir.",
+      "disclaimer": "Ping: panel API gecikmesi (HTTP). İndirme/yükleme: panel sunucusuna gidiş-dönüş hızı. Karşılaştırma için aynı ağdan curl veya harici speedtest kullanın.",
       "start": "Testi başlat",
       "running": "Test sürüyor…",
-      "ping": "Ping",
+      "ping": "Gecikme",
       "download": "İndirme",
       "upload": "Yükleme",
       "done": "Test tamamlandı — geçici dosyalar silindi.",

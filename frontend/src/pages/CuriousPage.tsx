@@ -44,6 +44,9 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+/** ~2 MB test; yavaş bağlantılarda zaman aşımı olmasın */
+const SPEED_TEST_TIMEOUT_MS = 120_000
+
 export default function CuriousPage() {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
@@ -92,10 +95,7 @@ export default function CuriousPage() {
     return Math.round(samples[Math.floor(samples.length / 2)] ?? samples[0] ?? 0)
   }
 
-  const measureDownload = async (): Promise<number> => {
-    const { data } = await api.post('/curious/speed/download/prepare')
-    const tok = String(data?.result?.token ?? '')
-    const bytes = Number(data?.result?.bytes ?? 0)
+  const measureDownload = async (tok: string, bytes: number): Promise<number> => {
     if (!tok || bytes <= 0) throw new Error('prepare failed')
 
     const url = `${apiBaseUrl}/curious/speed/download/${encodeURIComponent(tok)}`
@@ -106,27 +106,29 @@ export default function CuriousPage() {
     })
     if (!res.ok) throw new Error('download failed')
     await res.blob()
-    const sec = (performance.now() - t0) / 1000
+    const sec = Math.max((performance.now() - t0) / 1000, 0.001)
 
     return (bytes * 8) / sec / 1_000_000
   }
 
-  const measureUpload = async (): Promise<number> => {
-    const size = Math.min(2_097_152, 1_048_576)
+  const measureUpload = async (expectedBytes: number): Promise<number> => {
+    const size = Math.max(256_000, expectedBytes)
     const blob = new Blob([new Uint8Array(size)])
     const fd = new FormData()
     fd.append('payload', blob, 'speedtest.bin')
     const t0 = performance.now()
-    const { data } = await api.post('/curious/speed/upload', fd, {
+    await api.post('/curious/speed/upload', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: SPEED_TEST_TIMEOUT_MS,
     })
-    const sec = (performance.now() - t0) / 1000
-    const serverMbps = Number(data?.result?.mbps ?? 0)
-    if (serverMbps > 0) return serverMbps
+    const sec = Math.max((performance.now() - t0) / 1000, 0.001)
+    const mbps = (size * 8) / sec / 1_000_000
+    // Sunucu tarafı süre yalnızca dosya disk'e yazıldıktan sonraki işlemdir; Mbps burada hesaplanır.
+    if (!Number.isFinite(mbps) || mbps > 10_000) {
+      throw new Error('upload measurement unreliable')
+    }
 
-    const bytes = Number(data?.result?.bytes ?? size)
-
-    return (bytes * 8) / sec / 1_000_000
+    return mbps
   }
 
   const runSpeedTest = async () => {
@@ -139,10 +141,13 @@ export default function CuriousPage() {
       const p = await measurePing()
       setPingMs(p)
       setSpeedPhase('download')
-      const d = await measureDownload()
+      const { data: prep } = await api.post('/curious/speed/download/prepare')
+      const testBytes = Number(prep?.result?.bytes ?? 2_097_152)
+      const dlTok = String(prep?.result?.token ?? '')
+      const d = await measureDownload(dlTok, testBytes)
       setDownloadMbps(d)
       setSpeedPhase('upload')
-      const u = await measureUpload()
+      const u = await measureUpload(testBytes)
       setUploadMbps(u)
       setSpeedPhase('done')
       cleanupRef.current = true
@@ -244,6 +249,7 @@ export default function CuriousPage() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/50 p-6 dark:border-indigo-900/50 dark:from-indigo-950/30 dark:via-gray-900 dark:to-violet-950/20">
             <p className="text-sm text-gray-600 dark:text-gray-400">{t('curious.speed.intro')}</p>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('curious.speed.disclaimer')}</p>
             <button
               type="button"
               className="btn-primary mt-4 inline-flex items-center gap-2"
