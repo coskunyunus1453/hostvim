@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\PluginStoreController;
 use App\Http\Controllers\Api\RedirectController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SecurityController;
+use App\Http\Controllers\Api\CuriousController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SiteStackController;
 use App\Http\Controllers\Api\SslController;
@@ -114,14 +115,15 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('hosting/targets', [HostingTargetsController::class, 'index']);
         Route::get('domains/options', [DomainController::class, 'options']);
         Route::get('domains', [DomainController::class, 'index']);
+        Route::get('domains/stack-alerts', [SiteStackController::class, 'alerts']);
         Route::get('domains/{domain}', [DomainController::class, 'show']);
         Route::get('domains/{domain}/logs', [DomainController::class, 'logs']);
         Route::get('domains/{domain}/traffic', [DomainController::class, 'traffic']);
-        Route::get('domains/stack-alerts', [SiteStackController::class, 'alerts']);
         Route::get('domains/{domain}/stack-scan', [SiteStackController::class, 'scan']);
     });
     Route::middleware('ability:domains:write')->group(function () {
         Route::post('domains', [DomainController::class, 'store']);
+        Route::post('domains/stack-alerts/{alert}/dismiss', [SiteStackController::class, 'dismissAlert']);
         Route::delete('domains/{domain}', [DomainController::class, 'destroy']);
         Route::post('domains/{domain}/php', [DomainController::class, 'switchPhp']);
         Route::post('domains/{domain}/status', [DomainController::class, 'setStatus']);
@@ -132,7 +134,6 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::delete('domains/{domain}/aliases', [DomainController::class, 'destroyAlias']);
         Route::post('domains/{domain}/document-root', [DocumentRootController::class, 'update']);
         Route::post('domains/{domain}/stack-fix', [SiteStackController::class, 'fix']);
-        Route::post('domains/stack-alerts/{alert}/dismiss', [SiteStackController::class, 'dismissAlert']);
         Route::get('domains/{domain}/performance', [PerformanceController::class, 'show']);
         Route::post('domains/{domain}/performance', [PerformanceController::class, 'update']);
         Route::get('domains/{domain}/redirects', [RedirectController::class, 'index']);
@@ -298,6 +299,16 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:security:read')->get('security/intel/status', [SecurityController::class, 'intelStatus']);
     Route::middleware('ability:security:read')->get('security/fim/status', [SecurityController::class, 'fimStatus']);
     Route::middleware('ability:security:read')->get('security/alerts', [SecurityController::class, 'alerts']);
+
+    Route::middleware(['ability:curious:read', 'throttle:60,1'])->prefix('curious')->group(function () {
+        Route::get('speed/ping', [CuriousController::class, 'ping']);
+        Route::post('speed/download/prepare', [CuriousController::class, 'prepareDownload']);
+        Route::get('speed/download/{token}', [CuriousController::class, 'download'])->where('token', '[a-zA-Z0-9]{20,64}');
+        Route::post('speed/upload', [CuriousController::class, 'upload']);
+        Route::post('speed/cleanup', [CuriousController::class, 'cleanup']);
+        Route::post('seo/analyze', [CuriousController::class, 'analyzeSeo'])->middleware('throttle:10,1');
+    });
+
     Route::middleware(['role:admin', 'ability:security:write'])->group(function () {
         Route::post('security/firewall', [SecurityController::class, 'firewall']);
         Route::post('security/fail2ban/toggle', [SecurityController::class, 'toggleFail2ban']);

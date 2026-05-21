@@ -215,7 +215,8 @@ class FileManagerController extends Controller
             $this->logFileAction($request, $domain, 'delete', $from, null, true, null);
         } catch (\Throwable $e) {
             $this->logFileAction($request, $domain, 'delete', $from, null, false, $e->getMessage());
-            throw $e;
+
+            return response()->json(['message' => $e->getMessage()], 500);
         }
 
         return response()->json($result);
@@ -280,8 +281,6 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
-        $hostingTarget = $this->resolveHostingTarget($request, $domain);
-
         $validated = $request->validate([
             'path' => 'required|string|max:2048',
         ]);
@@ -304,8 +303,6 @@ class FileManagerController extends Controller
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
-        $hostingTarget = $this->resolveHostingTarget($request, $domain);
-
         $validated = $request->validate([
             'paths' => 'required|array|min:1|max:500',
             'paths.*' => 'required|string|max:2048',
@@ -346,6 +343,7 @@ class FileManagerController extends Controller
      */
     private function trashMovePath(Request $request, Domain $domain, string $from): array
     {
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $id = now()->format('YmdHis').'-'.Str::lower(Str::random(10));
         $engineFrom = $this->panelRelToEngineRel($hostingTarget, $from);
         $engineItem = self::TRASH_ITEMS_DIR.'/'.$id;
@@ -379,7 +377,8 @@ class FileManagerController extends Controller
             return ['ok' => true, 'id' => $id];
         } catch (\Throwable $e) {
             $this->logFileAction($request, $domain, 'trash_move', $from, null, false, $e->getMessage());
-            throw $e;
+
+            return ['ok' => false, 'message' => $e->getMessage()];
         }
     }
 

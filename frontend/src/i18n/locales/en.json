@@ -27,6 +27,7 @@
     "deploy": "Deploy Manager",
     "plugins_store": "Plugin Store",
     "ai_advisor": "PanelZeka",
+    "curious": "Curious",
     "dns": "DNS",
     "redirects": "Redirects",
     "billing": "Billing",
@@ -1080,6 +1081,46 @@
     "go_page": "go",
     "total_count": "Total {{n}}",
     "select_domain_hint": "Select a domain above."
+  },
+  "curious": {
+    "title": "Curious",
+    "subtitle": "Server speed test and website SEO analysis — lightweight tests with auto cleanup",
+    "tabs": {
+      "speed": "Server speed test",
+      "seo": "SEO analysis"
+    },
+    "speed": {
+      "intro": "Measures download, ping, and upload. Test files (up to ~2 MB) are deleted from the server when finished.",
+      "start": "Start test",
+      "running": "Testing…",
+      "ping": "Ping",
+      "download": "Download",
+      "upload": "Upload",
+      "done": "Test complete — temporary files removed.",
+      "cleanup_hint": "Does not leave permanent load on the server."
+    },
+    "seo": {
+      "heading": "Website SEO analysis",
+      "intro": "Paste a URL to analyze meta tags, headings, links, and technical signals.",
+      "url_label": "Website URL",
+      "url_required": "Enter a website URL.",
+      "start": "Start analysis",
+      "score": "SEO score",
+      "overview": "Overview",
+      "meta_title": "Title",
+      "meta_desc": "Meta description",
+      "response": "Response time",
+      "words": "Word count",
+      "links_internal": "Internal links: {{n}}",
+      "links_external": "External links: {{n}}",
+      "phase_fetch": "Fetching site…",
+      "phase_parse": "Parsing HTML…",
+      "phase_meta": "Checking meta tags…",
+      "phase_links": "Counting links…",
+      "phase_score": "Calculating score…",
+      "phase_done": "Done",
+      "done_toast": "SEO report ready"
+    }
   },
   "backups": {
     "subtitle": "Per-domain full / files / database backups — download, upload, Google Drive",

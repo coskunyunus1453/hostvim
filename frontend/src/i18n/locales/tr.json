@@ -27,6 +27,7 @@
     "deploy": "Deploy Yöneticisi",
     "plugins_store": "Eklenti Mağazası",
     "ai_advisor": "PanelZeka",
+    "curious": "Meraklısına",
     "dns": "DNS",
     "redirects": "Yönlendirmeler",
     "billing": "Faturalama",
@@ -1079,6 +1080,46 @@
     "go_page": "git",
     "total_count": "Toplam {{n}}",
     "select_domain_hint": "Sol üstten alan adı seçin."
+  },
+  "curious": {
+    "title": "Meraklısına",
+    "subtitle": "Sunucu hız testi ve web sitesi SEO analizi — hafif testler, otomatik temizlik",
+    "tabs": {
+      "speed": "Sunucu hız testi",
+      "seo": "SEO analizi"
+    },
+    "speed": {
+      "intro": "İndirme, ping ve yükleme ölçümü yapılır. Test dosyaları (en fazla ~2 MB) işlem bitince sunucudan silinir.",
+      "start": "Testi başlat",
+      "running": "Test sürüyor…",
+      "ping": "Ping",
+      "download": "İndirme",
+      "upload": "Yükleme",
+      "done": "Test tamamlandı — geçici dosyalar silindi.",
+      "cleanup_hint": "Sunucuya kalıcı yük bindirmez; tek seferlik ölçüm."
+    },
+    "seo": {
+      "heading": "Web sitesi SEO analizi",
+      "intro": "Site adresini yapıştırın; meta etiketler, başlıklar, bağlantılar ve teknik sinyaller analiz edilir.",
+      "url_label": "Site adresi",
+      "url_required": "Bir site adresi girin.",
+      "start": "Analizi başlat",
+      "score": "SEO skoru",
+      "overview": "Özet",
+      "meta_title": "Başlık",
+      "meta_desc": "Meta açıklama",
+      "response": "Yanıt süresi",
+      "words": "Kelime sayısı",
+      "links_internal": "İç bağlantı: {{n}}",
+      "links_external": "Dış bağlantı: {{n}}",
+      "phase_fetch": "Site getiriliyor…",
+      "phase_parse": "HTML ayrıştırılıyor…",
+      "phase_meta": "Meta etiketler kontrol ediliyor…",
+      "phase_links": "Bağlantılar sayılıyor…",
+      "phase_score": "Skor hesaplanıyor…",
+      "phase_done": "Tamamlandı",
+      "done_toast": "SEO raporu hazır"
+    }
   },
   "backups": {
     "subtitle": "Domain bazlı tam / dosya / veritabanı yedekleri — indir, yükle, Google Drive",

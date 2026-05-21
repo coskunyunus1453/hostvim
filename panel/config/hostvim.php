@@ -145,6 +145,14 @@ return [
         'folder_name' => env('GOOGLE_DRIVE_FOLDER_NAME', 'Hostvim Backups'),
     ],
 
+    /** Meraklısına — hız testi ve SEO analizi */
+    'curious' => [
+        'speed_download_bytes' => (int) env('HOSTVIM_SPEED_DOWNLOAD_BYTES', 2_097_152),
+        'speed_upload_max_bytes' => (int) env('HOSTVIM_SPEED_UPLOAD_MAX_BYTES', 2_097_152),
+        'speed_token_ttl' => (int) env('HOSTVIM_SPEED_TOKEN_TTL', 300),
+        'seo_timeout' => (int) env('HOSTVIM_SEO_TIMEOUT', 20),
+    ],
+
     'limits' => [
         'max_upload_size_mb' => 256,
         'max_file_manager_size_mb' => (int) env('HOSTVIM_MAX_FILE_MANAGER_SIZE_MB', 50),

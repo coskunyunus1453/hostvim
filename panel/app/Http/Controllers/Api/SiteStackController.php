@@ -67,6 +67,8 @@ class SiteStackController extends Controller
         foreach ($rows as $alert) {
             $domain = Domain::query()->find($alert->domain_id);
             if (! $domain) {
+                $alert->update(['status' => 'dismissed', 'dismissed_at' => now()]);
+
                 continue;
             }
             $report = $this->advisor->scan($domain);
@@ -80,6 +82,7 @@ class SiteStackController extends Controller
                 'created_at' => optional($alert->created_at)->toIso8601String(),
                 'scan' => $report['scan'] ?? null,
                 'issues' => $report['issues'] ?? [],
+                'scan_error' => $report['error'] ?? null,
             ];
         }
 

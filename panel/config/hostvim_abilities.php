@@ -35,6 +35,7 @@ return [
     ['name' => 'installer:read', 'group' => 'installer'],
     ['name' => 'installer:write', 'group' => 'installer'],
     ['name' => 'tools:run', 'group' => 'tools'],
+    ['name' => 'curious:read', 'group' => 'tools'],
     ['name' => 'billing:read', 'group' => 'billing'],
     ['name' => 'billing:write', 'group' => 'billing'],
     ['name' => 'webserver:read', 'group' => 'webserver'],

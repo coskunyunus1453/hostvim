@@ -44,6 +44,7 @@ const TerminalPage = lazy(() => import('./pages/TerminalPage'))
 const AdminSystemPage = lazy(() => import('./pages/AdminSystemPage'))
 const AdminPhpSettingsPage = lazy(() => import('./pages/AdminPhpSettingsPage'))
 const AiAdvisorPage = lazy(() => import('./pages/AiAdvisorPage'))
+const CuriousPage = lazy(() => import('./pages/CuriousPage'))
 
 function PageLoader() {
   const { t } = useTranslation()
@@ -133,6 +134,7 @@ export default function App() {
         <Route path="reseller/branding" element={<AdvancedRoute><ResellerBrandingPage /></AdvancedRoute>} />
         <Route path="onboarding" element={<OnboardingPage />} />
         <Route path="ai-advisor" element={<AdvancedRoute><LazyPage><AiAdvisorPage /></LazyPage></AdvancedRoute>} />
+        <Route path="curious" element={<LazyPage><CuriousPage /></LazyPage>} />
         <Route path="plugins" element={<AdvancedRoute><PluginsStorePage /></AdvancedRoute>} />
         <Route path="admin/users" element={<AdvancedRoute><AdminUsersPage /></AdvancedRoute>} />
         <Route path="admin/roles" element={<AdvancedRoute><AdminRolesPage /></AdvancedRoute>} />
