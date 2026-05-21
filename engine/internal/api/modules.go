@@ -34,7 +34,6 @@ import (
 	"hostvim/engine/internal/sites"
 	"hostvim/engine/internal/stack"
 	"hostvim/engine/internal/system"
-	"hostvim/engine/internal/tools"
 )
 
 func engineDataDir(cfg *config.Config) string {
@@ -981,7 +980,6 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				// App deploy — AJANS (rehber / yönlendirme)
 				{"id": "nodejs", "name": "Node.js", "version": "", "automated": true, "category": "agency", "route": "/node-apps"},
 				{"id": "laravel", "name": "Laravel", "version": "11.x", "automated": false, "category": "agency", "route": "/deploy"},
-				{"id": "docker", "name": "Docker", "version": "", "automated": false, "category": "agency", "route": "/site-tools"},
 				{"id": "git_deploy", "name": "Git deploy", "version": "", "automated": false, "category": "agency", "route": "/deploy"},
 				// Modern stack (rehber)
 				{"id": "nextjs", "name": "Next.js starter", "version": "", "automated": true, "category": "modern", "route": "/node-apps"},
@@ -995,7 +993,6 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		})
 	})
 	api.POST("/installer/install", handleInstallerInstall(cfg))
-	api.POST("/sites/:domain/tools", handleSiteTools(cfg))
 
 	// Performance mode (per-site; stored in .hostvim/site.json)
 	api.GET("/sites/:domain/performance", func(c *gin.Context) {
@@ -2339,26 +2336,6 @@ func handleInstallerInstall(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "installation completed", "app": req.App, "domain": req.Domain})
-	}
-}
-
-func handleSiteTools(cfg *config.Config) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		var req struct {
-			Tool   string `json:"tool" binding:"required"`
-			Action string `json:"action" binding:"required"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		out, err := tools.Run(cfg, domain, req.Tool, req.Action)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "output": out})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "ok", "output": out})
 	}
 }
 

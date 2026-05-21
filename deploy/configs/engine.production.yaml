@@ -88,7 +88,7 @@ hosting:
   lets_encrypt_staging: false
   # false: Let's Encrypt yalnızca istenen hostname (www SAN yok)
   lets_encrypt_include_www: false
-  manage_site_tools: true
+  manage_site_tools: false
   manage_node_apps: true
   composer_path: "/usr/bin/composer"
   npm_path: "/usr/bin/npm"

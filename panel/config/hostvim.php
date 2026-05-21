@@ -63,7 +63,7 @@ return [
         explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
     ))),
 
-    /** Web terminal WebSocket URL’si (wss) — HTTP panelde kapalı; TLS/Cloudflare sonrası true yapın */
+    /** Web terminal WebSocket URL’si (wss) — HTTP panelde kapalı; TLS sonrası true yapın */
     'force_wss_terminal' => filter_var(env('FORCE_WSS_TERMINAL', false), FILTER_VALIDATE_BOOLEAN),
 
     /** Let’s Encrypt: istekte e-posta yoksa engine `hosting.lets_encrypt_email` ile birlikte kullanılır */
@@ -93,7 +93,7 @@ return [
     'license_key' => trim((string) env('LICENSE_KEY', '')),
 
     /**
-     * İsteğe bağlı CDN (Cloudflare: zone cache temizliği için api_token + zone_id).
+     * İsteğe bağlı CDN önbellek temizliği (api_token + zone_id; provider: cloudflare).
      *
      * @var array{provider: string, api_token: string, zone_id: string}
      */

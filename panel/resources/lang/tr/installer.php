@@ -6,7 +6,7 @@ return [
     'completed_sync' => 'Kurulum tamamlandı (arka plan worker kapalı olduğu için eşzamanlı çalıştı).',
     'completed' => 'Kurulum tamamlandı.',
     'automated_only_wordpress' => 'Bu sürümde yalnızca WordPress otomatik kurulur.',
-    'automated_apps_only' => 'Bu ekrandan yalnızca WordPress (isteğe bağlı WooCommerce) ve OpenCart tek tık kurulur. Node, Laravel, Docker, Git deploy ve modern stack için karttaki rehber veya Deploy / Site araçları bağlantılarını kullanın.',
+    'automated_apps_only' => 'Bu ekrandan yalnızca WordPress (isteğe bağlı WooCommerce) ve OpenCart tek tık kurulur. Node, Laravel, Git deploy ve modern stack için karttaki rehber veya Deploy ekranını kullanın.',
     'wordpress_requires_db' => 'WordPress için bir MySQL veritabanı seçin.',
     'opencart_requires_db' => 'OpenCart dosyaları ve kurulum ipucu için bir MySQL veritabanı seçin (şifre sihirbazda girilir).',
     'wordpress_mysql_db' => 'Hesabınıza ait bir MySQL veritabanı seçin.',

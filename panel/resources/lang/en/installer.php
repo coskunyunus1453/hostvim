@@ -6,7 +6,7 @@ return [
     'completed_sync' => 'Installation completed (ran synchronously because background worker is not active).',
     'completed' => 'Installation completed.',
     'automated_only_wordpress' => 'Only WordPress can be installed automatically in this version.',
-    'automated_apps_only' => 'From this screen only WordPress (optional WooCommerce) and OpenCart can be installed in one click. For Node, Laravel, Docker, Git deploy and the modern stack, use the guide links or Deploy / Site tools.',
+    'automated_apps_only' => 'From this screen only WordPress (optional WooCommerce) and OpenCart can be installed in one click. For Node, Laravel, Git deploy and the modern stack, use the guide links or the Deploy screen.',
     'wordpress_requires_db' => 'Select a MySQL database for WordPress.',
     'opencart_requires_db' => 'Select a MySQL database for OpenCart (files and a DB hint file are written; you enter the password in the web installer).',
     'wordpress_mysql_db' => 'Choose a MySQL database that belongs to your account.',

@@ -165,4 +165,22 @@ class NodeAppController extends Controller
 
         return response()->json($resp);
     }
+
+    public function heal(Request $request, Domain $domain): JsonResponse
+    {
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+
+        $resp = $this->engine->healNodeApp($domain->name);
+        if (! empty($resp['error'])) {
+            return response()->json([
+                'message' => $resp['error'],
+                'steps' => $resp['steps'] ?? [],
+                'healthy' => (bool) ($resp['healthy'] ?? false),
+            ], 422);
+        }
+
+        return response()->json($resp);
+    }
 }

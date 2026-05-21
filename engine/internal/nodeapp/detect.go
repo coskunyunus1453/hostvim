@@ -281,7 +281,7 @@ func pickStartScript(scripts map[string]string) string {
 	if len(scripts) == 0 {
 		return "start"
 	}
-	for _, pref := range []string{"start", "start:prod", "prod", "serve", "dev"} {
+	for _, pref := range []string{"start", "start:prod", "prod", "serve"} {
 		if _, ok := scripts[pref]; ok {
 			return pref
 		}

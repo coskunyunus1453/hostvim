@@ -26,7 +26,6 @@ class PanelZekaKnowledge
             ['path' => '/monitoring', 'title_tr' => 'İzleme', 'title_en' => 'Monitoring', 'purpose_tr' => 'Sunucu CPU/RAM/disk, sağlık skoru', 'advanced' => true],
             ['path' => '/security', 'title_tr' => 'Güvenlik', 'title_en' => 'Security', 'purpose_tr' => 'Fail2ban, ModSecurity, ClamAV, firewall', 'advanced' => true],
             ['path' => '/installer', 'title_tr' => 'Uygulama Kurucu', 'title_en' => 'App Installer', 'purpose_tr' => 'WordPress vb. tek tık kurulum'],
-            ['path' => '/site-tools', 'title_tr' => 'Site Araçları', 'title_en' => 'Site Tools', 'purpose_tr' => 'Stack advisor, site tanıma', 'advanced' => true],
             ['path' => '/node-apps', 'title_tr' => 'Node.js Uygulamaları', 'title_en' => 'Node Apps', 'purpose_tr' => 'PM2 ile Node projeleri', 'advanced' => true],
             ['path' => '/deploy', 'title_tr' => 'Deploy', 'title_en' => 'Deploy', 'purpose_tr' => 'Git deploy, sürüm geçmişi', 'advanced' => true],
             ['path' => '/ai-advisor', 'title_tr' => 'PanelZeka', 'title_en' => 'PanelZeka', 'purpose_tr' => 'AI asistan (bu sayfa)'],

@@ -22,8 +22,11 @@ class PluginStoreController extends Controller
     {
         $this->ensureCatalog();
         $user = $request->user();
+        $this->retireCloudflareModule();
+
         $mods = PluginModule::query()
             ->where('is_public', true)
+            ->where('slug', '!=', 'integration-cloudflare')
             ->orderBy('category')
             ->orderBy('name')
             ->get();
@@ -58,7 +61,7 @@ class PluginStoreController extends Controller
     public function install(Request $request, PluginModule $pluginModule): JsonResponse
     {
         $user = $request->user();
-        if (! $pluginModule->is_public) {
+        if ($pluginModule->slug === 'integration-cloudflare' || ! $pluginModule->is_public) {
             return response()->json(['message' => 'module not available'], 404);
         }
         $row = UserPluginModule::firstOrCreate(
@@ -76,6 +79,9 @@ class PluginStoreController extends Controller
 
     public function activate(Request $request, PluginModule $pluginModule): JsonResponse
     {
+        if ($pluginModule->slug === 'integration-cloudflare' || ! $pluginModule->is_public) {
+            return response()->json(['message' => 'module not available'], 404);
+        }
         $user = $request->user();
         $row = UserPluginModule::query()
             ->where('user_id', $user->id)
@@ -577,7 +583,9 @@ class PluginStoreController extends Controller
 
     private function ensureCatalog(): void
     {
-        if (PluginModule::query()->where('is_public', true)->count() >= 4) {
+        $this->retireCloudflareModule();
+
+        if (PluginModule::query()->where('is_public', true)->count() >= 3) {
             return;
         }
 
@@ -606,14 +614,6 @@ class PluginStoreController extends Controller
                 'version' => '1.0.0',
                 'config' => ['source' => 'aapanel', 'wizard_steps' => 4],
             ],
-            [
-                'slug' => 'integration-cloudflare',
-                'name' => 'Cloudflare',
-                'summary' => 'API token ile zone baglama, DNS senkronu, proxy (turuncu bulut) ve SSL modu yonetimi.',
-                'category' => 'integration',
-                'version' => '1.0.0',
-                'config' => ['route' => '/cloudflare', 'requires_token' => true],
-            ],
         ];
         foreach ($defaults as $d) {
             PluginModule::query()->updateOrCreate(
@@ -626,5 +626,22 @@ class PluginStoreController extends Controller
                 ], $d)
             );
         }
+    }
+
+    /** Cloudflare eklentisi kaldırıldı — mağazada ve aktif slug listesinde görünmesin. */
+    private function retireCloudflareModule(): void
+    {
+        $mod = PluginModule::query()->where('slug', 'integration-cloudflare')->first();
+        if ($mod === null) {
+            return;
+        }
+        if ($mod->is_public) {
+            $mod->is_public = false;
+            $mod->save();
+        }
+        UserPluginModule::query()
+            ->where('plugin_module_id', $mod->id)
+            ->where('is_active', true)
+            ->update(['is_active' => false, 'status' => 'installed']);
     }
 }

@@ -6,7 +6,6 @@ import { useUiModeStore } from '../../store/uiModeStore'
 import { useAuthStore } from '../../store/authStore'
 import { tokenHasAbility } from '../../lib/abilities'
 import { useBranding } from '../../hooks/useBranding'
-import { useActivePluginSlugs } from '../../hooks/useActivePlugins'
 import { safeBrandingImageUrl } from '../../lib/urlSafety'
 import {
   LayoutDashboard,
@@ -23,7 +22,6 @@ import {
   Users,
   Package,
   Download,
-  Terminal,
   ChevronLeft,
   ChevronRight,
   Server,
@@ -46,7 +44,6 @@ import {
   Palette,
   Link2,
   Cpu,
-  Cloud,
   ArrowRightLeft,
 } from 'lucide-react'
 
@@ -102,7 +99,6 @@ export default function Sidebar() {
     return tokenHasAbility(abilities, ability)
   }
 
-  const activePlugins = useActivePluginSlugs()
 
   const customerGroups: NavGroup[] = [
     {
@@ -133,7 +129,6 @@ export default function Sidebar() {
         { path: '/monitoring', icon: Activity, label: 'nav.monitoring', ability: 'monitoring:read' },
         { path: '/security', icon: Shield, label: 'nav.security', ability: 'security:read' },
         { path: '/installer', icon: Download, label: 'nav.installer', ability: 'installer:read' },
-        { path: '/site-tools', icon: Terminal, label: 'nav.site_tools', ability: 'tools:run' },
         { path: '/node-apps', icon: Cpu, label: 'nav.node_apps', ability: 'tools:run' },
         { path: '/deploy', icon: Rocket, label: 'nav.deploy', ability: 'tools:run' },
         { path: '/plugins', icon: Store, label: 'nav.plugins_store', ability: 'dashboard:read' },
@@ -194,9 +189,7 @@ export default function Sidebar() {
     '/monitoring',
     '/security',
     '/cron',
-    '/site-tools',
     '/node-apps',
-    '/cloudflare',
     '/deploy',
     '/plugins',
     '/ai-advisor',
@@ -212,16 +205,6 @@ export default function Sidebar() {
         if (mode === 'easy' && easyHiddenPaths.has(item.path)) return false
         return true
       })
-      if (g.id === 'operations' && activePlugins.includes('integration-cloudflare')) {
-        const pluginsIdx = items.findIndex((i) => i.path === '/plugins')
-        if (pluginsIdx >= 0 && !items.some((i) => i.path === '/cloudflare')) {
-          items = [
-            ...items.slice(0, pluginsIdx),
-            { path: '/cloudflare', icon: Cloud, label: 'nav.cloudflare', ability: 'tools:run' },
-            ...items.slice(pluginsIdx),
-          ]
-        }
-      }
       return { ...g, items }
     })
     .filter((g) => g.items.length > 0)

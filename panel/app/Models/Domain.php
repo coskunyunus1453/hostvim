@@ -65,11 +65,6 @@ class Domain extends Model
         return $this->hasMany(DnsRecord::class);
     }
 
-    public function cloudflareZone()
-    {
-        return $this->hasOne(DomainCloudflareZone::class);
-    }
-
     public function backups()
     {
         return $this->hasMany(Backup::class);

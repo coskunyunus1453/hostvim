@@ -326,6 +326,9 @@ func Start(cfg *config.Config, domain string) (string, error) {
 		return s, err
 	}
 	_, _ = pm2Output(cfg, "save")
+	if err := ensureListening(cfg, domain); err != nil {
+		return s, fmt.Errorf("started but not listening: %w", err)
+	}
 	return s, nil
 }
 
@@ -346,6 +349,11 @@ func Restart(cfg *config.Config, domain string) (string, error) {
 	out, err := pm2Output(cfg, "restart", name)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return Start(cfg, domain)
+	}
+	if err == nil {
+		if listenErr := ensureListening(cfg, domain); listenErr != nil {
+			return out, fmt.Errorf("restarted but not listening: %w", listenErr)
+		}
 	}
 	return out, err
 }
@@ -489,5 +497,12 @@ func AutoConfigureFromDetect(cfg *config.Config, domain, appProfile string) (*Co
 		ListenPort:  det.SuggestedPort,
 		AutoStart:   true,
 	}
-	return UpdateConfig(cfg, domain, patch, profile)
+	view, err := UpdateConfig(cfg, domain, patch, profile)
+	if err != nil {
+		return nil, err
+	}
+	if _, healErr := Heal(cfg, domain); healErr != nil {
+		return view, healErr
+	}
+	return GetConfig(cfg, domain)
 }

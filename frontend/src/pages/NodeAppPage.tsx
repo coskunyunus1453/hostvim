@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
-import { Cpu, Play, Square, RotateCcw, Wand2, Package, Hammer } from 'lucide-react'
+import { Cpu, Play, Square, RotateCcw, Wand2, Package, Hammer, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useDomainsList } from '../hooks/useDomains'
 
@@ -46,6 +46,7 @@ export default function NodeAppPage() {
   const domainsQ = useDomainsList()
   const [domainId, setDomainId] = useState<number | ''>('')
   const [lastOut, setLastOut] = useState('')
+  const autoHealedRef = useRef<Set<number>>(new Set())
 
   const domain = useMemo(
     () => (domainsQ.data ?? []).find((d) => d.id === domainId),
@@ -175,6 +176,42 @@ export default function NodeAppPage() {
     },
   })
 
+  const healM = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{
+        steps?: string[]
+        healthy?: boolean
+        message?: string
+        config?: NodeConfig
+        output?: string
+      }>(`/domains/${domainId}/node-app/heal`, {})
+      return data
+    },
+    onSuccess: (data) => {
+      if (data.steps?.length) setLastOut(data.steps.join('\n'))
+      if (data.config) {
+        const cfg = data.config
+        setForm((f) => ({
+          ...f,
+          enabled: Boolean(cfg.enabled),
+          profile: cfg.profile || cfg.app_profile || f.profile,
+          work_dir: cfg.work_dir || f.work_dir,
+          start_script: cfg.start_script || f.start_script,
+          listen_port: cfg.listen_port || f.listen_port,
+          auto_start: cfg.auto_start ?? f.auto_start,
+          env_file: cfg.env_file || f.env_file,
+        }))
+      }
+      toast.success(data.healthy ? t('node_apps.heal_ok') : t('node_apps.heal_partial'))
+      qc.invalidateQueries({ queryKey: ['node-app', domainId] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string; steps?: string[] } } }
+      if (ax.response?.data?.steps?.length) setLastOut(ax.response.data.steps.join('\n'))
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
   const actionM = useMutation({
     mutationFn: async (action: 'start' | 'stop' | 'restart' | 'install' | 'build') => {
       const path =
@@ -207,6 +244,14 @@ export default function NodeAppPage() {
     detectM.mutate('.')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- domain değişince otomatik algıla
   }, [domainId])
+
+  useEffect(() => {
+    if (domainId === '' || configQ.isLoading || !configQ.data?.enabled) return
+    if (autoHealedRef.current.has(domainId)) return
+    autoHealedRef.current.add(domainId)
+    healM.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- etkin Node sitesi açılınca otomatik onar
+  }, [domainId, configQ.data?.enabled, configQ.isLoading])
 
   const running = configQ.data?.status?.running
 
@@ -352,6 +397,15 @@ export default function NodeAppPage() {
               </button>
               <button type="button" className="btn-secondary" onClick={() => autoM.mutate()} disabled={autoM.isPending}>
                 {t('node_apps.auto_configure')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => healM.mutate()}
+                disabled={healM.isPending || !form.enabled}
+              >
+                <ShieldCheck className="h-4 w-4 inline mr-1" />
+                {t('node_apps.heal')}
               </button>
               <button
                 type="button"

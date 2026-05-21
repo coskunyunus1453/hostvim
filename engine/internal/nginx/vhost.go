@@ -85,7 +85,7 @@ server {
     ssl_session_cache shared:HostvimSSL:10m;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
-{{if eq .PerfMode "standard"}}
+{{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
     # Hostvim Performance Mode (standard)
     gzip on;
     gzip_static on;
@@ -132,7 +132,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
     }
 {{else}}
     location / {
@@ -140,6 +143,7 @@ server {
     }
 {{end}}
 
+{{if eq .ProxyPort 0}}
     # Wrong VITE base + /admin URL → browser requests /admin/admin/assets/* ; map to real /assets/*
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
@@ -159,6 +163,7 @@ server {
         try_files $uri =404;
         access_log off;
     }
+{{end}}
 
 {{if eq .ProxyPort 0}}
     location ~ \.php$ {
@@ -179,7 +184,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name {{.ServerNames}};
-{{if eq .PerfMode "standard"}}
+{{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
     # Hostvim Performance Mode (standard)
     gzip on;
     gzip_static on;
@@ -225,7 +230,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
     }
 {{else}}
     location / {
@@ -233,6 +241,7 @@ server {
     }
 {{end}}
 
+{{if eq .ProxyPort 0}}
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
         try_files $uri =404;
@@ -249,6 +258,7 @@ server {
         try_files $uri =404;
         access_log off;
     }
+{{end}}
 
     location ^~ /.well-known/acme-challenge/ {
         default_type "text/plain";
@@ -280,7 +290,7 @@ server {
     ssl_session_cache shared:HostvimSSL:10m;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
-{{if eq .PerfMode "standard"}}
+{{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
     gzip on;
     gzip_static on;
     gzip_vary on;
@@ -326,7 +336,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
     }
 {{else}}
     location / {
@@ -334,6 +347,7 @@ server {
     }
 {{end}}
 
+{{if eq .ProxyPort 0}}
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
         try_files $uri =404;
@@ -350,6 +364,7 @@ server {
         try_files $uri =404;
         access_log off;
     }
+{{end}}
 
 {{if eq .ProxyPort 0}}
     location ~ \.php$ {
@@ -369,7 +384,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name {{.ServerNames}};
-{{if eq .PerfMode "standard"}}
+{{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
     # Hostvim Performance Mode (standard)
     gzip on;
     gzip_static on;
@@ -415,7 +430,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
     }
 {{else}}
     location / {
@@ -423,6 +441,7 @@ server {
     }
 {{end}}
 
+{{if eq .ProxyPort 0}}
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
         try_files $uri =404;
@@ -441,6 +460,7 @@ server {
         try_files $uri =404;
         access_log off;
     }
+{{end}}
 
     # Let's Encrypt HTTP-01 challenge endpoint.
     location ^~ /.well-known/acme-challenge/ {

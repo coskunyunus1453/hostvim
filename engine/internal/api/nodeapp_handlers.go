@@ -22,6 +22,7 @@ func registerNodeAppRoutes(cfg *config.Config, site *gin.RouterGroup) {
 	site.POST("/:domain/node-app/restart", handleNodeAppRestart(cfg))
 	site.POST("/:domain/node-app/install", handleNodeAppInstall(cfg))
 	site.POST("/:domain/node-app/build", handleNodeAppBuild(cfg))
+	site.POST("/:domain/node-app/heal", handleNodeAppHeal(cfg))
 }
 
 func nodeAppDomainOK(c *gin.Context) (string, bool) {
@@ -215,6 +216,27 @@ func handleNodeAppInstall(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "ok", "output": out})
+	}
+}
+
+func handleNodeAppHeal(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		d, ok := nodeAppDomainOK(c)
+		if !ok {
+			return
+		}
+		res, err := nodeapp.Heal(cfg, d)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "result": res})
+			return
+		}
+		view, _ := nodeapp.GetConfig(cfg, d)
+		c.JSON(http.StatusOK, gin.H{
+			"message": res.Message,
+			"healthy": res.Healthy,
+			"steps":   res.Steps,
+			"config":  view,
+		})
 	}
 }
 

@@ -257,7 +257,7 @@ class AuthController extends Controller
             ->with('plugin:id,slug')
             ->get()
             ->map(fn ($row) => $row->plugin?->slug)
-            ->filter()
+            ->filter(fn ($slug) => is_string($slug) && $slug !== '' && $slug !== 'integration-cloudflare')
             ->values()
             ->all();
     }

@@ -33,7 +33,6 @@ const FALLBACK_APPS: AppRow[] = [
   { id: 'opencart', name: 'OpenCart', version: '4.0.x', automated: true, category: 'kobi' },
   { id: 'nodejs', name: 'Node.js', version: '', automated: true, category: 'agency', route: '/node-apps' },
   { id: 'laravel', name: 'Laravel', version: '11.x', automated: false, category: 'agency', route: '/deploy' },
-  { id: 'docker', name: 'Docker', version: '', automated: false, category: 'agency', route: '/site-tools' },
   { id: 'git_deploy', name: 'Git deploy', version: '', automated: false, category: 'agency', route: '/deploy' },
   { id: 'nextjs', name: 'Next.js starter', version: '', automated: true, category: 'modern', route: '/node-apps' },
   { id: 'strapi', name: 'Strapi', version: '', automated: true, category: 'modern', route: '/node-apps' },
@@ -248,8 +247,8 @@ export default function InstallerPage() {
         t('installer.guide_generic_step_2'),
       ]
     }
-    if (appId === 'docker' || appId === 'n8n') {
-      return [t('installer.guide_docker_step_1'), t('installer.guide_generic_step_2')]
+    if (appId === 'n8n') {
+      return [t('installer.guide_deploy_step_1'), t('installer.guide_deploy_step_2')]
     }
     return [t('installer.guide_generic_step_1'), t('installer.guide_generic_step_2')]
   }
@@ -571,9 +570,6 @@ export default function InstallerPage() {
                   {t('installer.guide_open_files')}
                 </Link>
               )}
-              <Link className="btn-secondary text-sm" to="/site-tools">
-                {t('installer.guide_open_tools')}
-              </Link>
               <Link className="btn-secondary text-sm" to="/deploy">
                 {t('installer.guide_open_deploy')}
               </Link>

@@ -17,7 +17,6 @@ use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\BackupGoogleDriveController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\BrandingController;
-use App\Http\Controllers\Api\CloudflarePluginController;
 use App\Http\Controllers\Api\CronJobController;
 use App\Http\Controllers\Api\DatabaseController;
 use App\Http\Controllers\Api\DeploymentController;
@@ -45,7 +44,6 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SecurityController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SiteStackController;
-use App\Http\Controllers\Api\SiteToolsController;
 use App\Http\Controllers\Api\SslController;
 use App\Http\Controllers\Api\SystemController;
 use App\Http\Controllers\Api\TerminalController;
@@ -326,22 +324,6 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:installer:read')->get('installer/runs/{installerRun}', [InstallerController::class, 'runShow']);
     Route::middleware('ability:installer:write')->post('domains/{domain}/installer', [InstallerController::class, 'install']);
 
-    Route::middleware('ability:tools:run')->post('domains/{domain}/tools', [SiteToolsController::class, 'run']);
-    Route::middleware('ability:tools:run')->group(function () {
-        Route::get('plugins/cloudflare/status', [CloudflarePluginController::class, 'status']);
-        Route::post('plugins/cloudflare/connect', [CloudflarePluginController::class, 'connect']);
-        Route::delete('plugins/cloudflare/disconnect', [CloudflarePluginController::class, 'disconnect']);
-        Route::get('plugins/cloudflare/zones', [CloudflarePluginController::class, 'zones']);
-        Route::get('domains/{domain}/cloudflare', [CloudflarePluginController::class, 'domainShow']);
-        Route::post('domains/{domain}/cloudflare/link', [CloudflarePluginController::class, 'domainLink']);
-        Route::delete('domains/{domain}/cloudflare/unlink', [CloudflarePluginController::class, 'domainUnlink']);
-        Route::post('domains/{domain}/cloudflare/ssl', [CloudflarePluginController::class, 'domainSsl']);
-        Route::post('domains/{domain}/cloudflare/dns/push', [CloudflarePluginController::class, 'domainDnsPush']);
-        Route::post('domains/{domain}/cloudflare/dns/pull', [CloudflarePluginController::class, 'domainDnsPull']);
-        Route::post('domains/{domain}/cloudflare/dns/proxied', [CloudflarePluginController::class, 'domainDnsProxied']);
-        Route::post('domains/{domain}/cloudflare/purge', [CloudflarePluginController::class, 'domainPurge']);
-    });
-
     Route::middleware('ability:tools:run')->group(function () {
         Route::get('domains/{domain}/node-app', [NodeAppController::class, 'show']);
         Route::post('domains/{domain}/node-app/detect', [NodeAppController::class, 'detect']);
@@ -352,6 +334,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('domains/{domain}/node-app/restart', [NodeAppController::class, 'restart']);
         Route::post('domains/{domain}/node-app/install', [NodeAppController::class, 'install']);
         Route::post('domains/{domain}/node-app/build', [NodeAppController::class, 'build']);
+        Route::post('domains/{domain}/node-app/heal', [NodeAppController::class, 'heal']);
     });
     Route::middleware('ability:tools:run')->group(function () {
         Route::get('domains/{domain}/deployment', [DeploymentController::class, 'show']);

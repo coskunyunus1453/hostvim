@@ -222,7 +222,7 @@ class AiAdvisorController extends Controller
         $suggestions = [];
 
         if ($bestTcp === null) {
-            $suggestions[] = 'Siteye TCP baglantisi kurulamadı (80/443). DNS kaydi, Cloudflare/proxy ve firewall kurallarini kontrol edin.';
+            $suggestions[] = 'Siteye TCP baglantisi kurulamadı (80/443). DNS kaydi, CDN/proxy ve firewall kurallarini kontrol edin.';
         } elseif ($bestTcp > 900) {
             $suggestions[] = sprintf('Baglanti gecikmesi yuksek (~%d ms). DNS/proxy rotasi ve sunucu yukunu kontrol edin.', $bestTcp);
         }

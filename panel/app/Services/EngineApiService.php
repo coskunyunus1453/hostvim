@@ -1292,16 +1292,6 @@ class EngineApiService
         ], $dbPayload));
     }
 
-    public function runSiteTool(string $domain, string $tool, string $action): array
-    {
-        $path = '/api/v1/sites/'.rawurlencode($domain).'/tools';
-
-        return $this->postLongChecked($path, [
-            'tool' => $tool,
-            'action' => $action,
-        ]);
-    }
-
     public function getNodeApp(string $domain): array
     {
         return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app');
@@ -1364,6 +1354,14 @@ class EngineApiService
     public function buildNodeApp(string $domain): array
     {
         return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/build', [], 900);
+    }
+
+    /**
+     * Nginx proxy, bağımlılık, build ve PM2 sürecini otomatik onarır.
+     */
+    public function healNodeApp(string $domain): array
+    {
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/heal', [], 900);
     }
 
     public function validateLicense(string $key): array

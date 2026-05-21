@@ -17,9 +17,7 @@ import SslPage from './pages/SslPage'
 import BackupsPage from './pages/BackupsPage'
 import CronPage from './pages/CronPage'
 import InstallerPage from './pages/InstallerPage'
-import SiteToolsPage from './pages/SiteToolsPage'
 import NodeAppPage from './pages/NodeAppPage'
-import CloudflarePage from './pages/CloudflarePage'
 import DeployPage from './pages/DeployPage'
 import BillingPage from './pages/BillingPage'
 import SettingsPage from './pages/SettingsPage'
@@ -128,9 +126,7 @@ export default function App() {
         <Route path="monitoring" element={<AdvancedRoute><LazyPage><MonitoringPage /></LazyPage></AdvancedRoute>} />
         <Route path="security" element={<AdvancedRoute><LazyPage><SecurityPage /></LazyPage></AdvancedRoute>} />
         <Route path="installer" element={<InstallerPage />} />
-        <Route path="site-tools" element={<AdvancedRoute><SiteToolsPage /></AdvancedRoute>} />
         <Route path="node-apps" element={<AdvancedRoute><NodeAppPage /></AdvancedRoute>} />
-        <Route path="cloudflare" element={<AdvancedRoute><CloudflarePage /></AdvancedRoute>} />
         <Route path="deploy" element={<AdvancedRoute><DeployPage /></AdvancedRoute>} />
         <Route path="billing" element={<AdvancedRoute><BillingPage /></AdvancedRoute>} />
         <Route path="reseller" element={<AdvancedRoute><ResellerPage /></AdvancedRoute>} />
