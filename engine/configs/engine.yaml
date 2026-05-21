@@ -102,3 +102,10 @@ hosting:
   backup_tar_path: "tar"
   backup_max_seconds: 3600
   execute_backup_restore: false
+
+# Dosya yöneticisi — zip açma (ZIP bomb koruması; büyük vendor/CMS arşivleri için entry limiti)
+files:
+  max_unzip_entries: 100000
+  max_unzip_uncompressed_bytes: 5368709120
+  max_unzip_entry_ratio: 300
+  max_unzip_archive_ratio: 200

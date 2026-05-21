@@ -17,6 +17,15 @@ type Config struct {
 	Security  SecurityConfig  `mapstructure:"security"`
 	Paths     PathsConfig     `mapstructure:"paths"`
 	Hosting   HostingConfig   `mapstructure:"hosting"`
+	Files     FilesConfig     `mapstructure:"files"`
+}
+
+// FilesConfig — dosya yöneticisi zip/unzip güvenlik sınırları.
+type FilesConfig struct {
+	MaxUnzipEntries            int   `mapstructure:"max_unzip_entries"`
+	MaxUnzipUncompressedBytes  int64 `mapstructure:"max_unzip_uncompressed_bytes"`
+	MaxUnzipEntryRatio         uint64 `mapstructure:"max_unzip_entry_ratio"`
+	MaxUnzipArchiveRatio       uint64 `mapstructure:"max_unzip_archive_ratio"`
 }
 
 type ServerConfig struct {
@@ -283,4 +292,9 @@ func setDefaults() {
 	viper.SetDefault("hosting.backup_tar_path", "tar")
 	viper.SetDefault("hosting.backup_max_seconds", 3600)
 	viper.SetDefault("hosting.execute_backup_restore", false)
+
+	viper.SetDefault("files.max_unzip_entries", 100_000)
+	viper.SetDefault("files.max_unzip_uncompressed_bytes", int64(5<<30))
+	viper.SetDefault("files.max_unzip_entry_ratio", 300)
+	viper.SetDefault("files.max_unzip_archive_ratio", 200)
 }

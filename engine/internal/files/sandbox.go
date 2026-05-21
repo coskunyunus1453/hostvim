@@ -18,12 +18,6 @@ import (
 	"time"
 )
 
-const (
-	// ZIP bomb koruması: aşırı entry ve aşırı açılmış boyut sınırı.
-	maxUnzipEntries = 20000
-	maxUnzipBytes   = int64(5 << 30) // 5 GiB
-)
-
 type ListEntry struct {
 	Name    string `json:"name"`
 	IsDir   bool   `json:"is_dir"`
@@ -475,10 +469,32 @@ func writeZipFile(zw *zip.Writer, srcPath, zipName string, info fs.FileInfo) err
 // unzipIntoDirectory zip girdilerini rootDir altına yazar (zip slip kontrolü rootDir’e göre).
 func unzipIntoDirectory(rootDir string, r *zip.Reader) error {
 	sep := string(os.PathSeparator)
-	if len(r.File) > maxUnzipEntries {
-		return fmt.Errorf("archive has too many entries (%d > %d)", len(r.File), maxUnzipEntries)
+	entryCount := len(r.File)
+	if entryCount > maxUnzipEntries {
+		return fmt.Errorf("archive has too many entries (%d > %d)", entryCount, maxUnzipEntries)
 	}
-	var totalUncompressed int64
+
+	var totalCompressed uint64
+	var totalUncompressed uint64
+	for _, f := range r.File {
+		comp := f.CompressedSize64
+		uncomp := f.UncompressedSize64
+		totalCompressed += comp
+		totalUncompressed += uncomp
+		if comp > 0 && uncomp > comp*maxUnzipEntryRatio {
+			name := filepath.ToSlash(strings.ReplaceAll(f.Name, "\\", "/"))
+			return fmt.Errorf("archive entry suspicious compression ratio: %s", name)
+		}
+	}
+	if totalCompressed > 0 && totalUncompressed > totalCompressed*maxUnzipArchiveRatio {
+		return fmt.Errorf("archive suspicious compression ratio (uncompressed %d > %d× compressed)",
+			totalUncompressed, maxUnzipArchiveRatio)
+	}
+	if int64(totalUncompressed) > maxUnzipBytes {
+		return fmt.Errorf("archive uncompressed size exceeds limit (%d bytes)", maxUnzipBytes)
+	}
+
+	var writtenUncompressed int64
 	for _, f := range r.File {
 		name := filepath.Clean(filepath.FromSlash(strings.ReplaceAll(f.Name, "\\", "/")))
 		if name == "." || name == ".." || filepath.IsAbs(name) || strings.HasPrefix(name, ".."+sep) {
@@ -503,10 +519,10 @@ func unzipIntoDirectory(rootDir string, r *zip.Reader) error {
 		if f.UncompressedSize64 > uint64(maxUnzipBytes) {
 			return fmt.Errorf("archive entry too large: %s", filepath.ToSlash(name))
 		}
-		if totalUncompressed > maxUnzipBytes-int64(f.UncompressedSize64) {
+		if writtenUncompressed > maxUnzipBytes-int64(f.UncompressedSize64) {
 			return fmt.Errorf("archive uncompressed size exceeds limit (%d bytes)", maxUnzipBytes)
 		}
-		totalUncompressed += int64(f.UncompressedSize64)
+		writtenUncompressed += int64(f.UncompressedSize64)
 		rc, err := f.Open()
 		if err != nil {
 			return err
@@ -646,6 +662,7 @@ func UnzipPath(root, archiveRel, targetDirRel, ifExists string) error {
 		if err := os.MkdirAll(finalDir, 0o755); err != nil {
 			return err
 		}
+		fi, err = os.Stat(finalDir)
 	}
 	if err != nil {
 		return err

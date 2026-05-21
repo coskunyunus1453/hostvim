@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"hostvim/engine/internal/config"
 	"hostvim/engine/internal/daemon"
+	"hostvim/engine/internal/files"
 	"hostvim/engine/internal/hosting"
 	"hostvim/engine/internal/metrics"
 	"hostvim/engine/internal/middleware"
@@ -28,6 +29,13 @@ import (
 )
 
 func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.Engine {
+	files.ConfigureUnzipLimits(
+		cfg.Files.MaxUnzipEntries,
+		cfg.Files.MaxUnzipUncompressedBytes,
+		cfg.Files.MaxUnzipEntryRatio,
+		cfg.Files.MaxUnzipArchiveRatio,
+	)
+
 	if !cfg.Server.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
