@@ -36,7 +36,7 @@ import FileUploadProgressOverlay, {
   type FileUploadProgressView,
 } from '../components/files/FileUploadProgressOverlay'
 import FileArchiveProgressOverlay from '../components/files/FileArchiveProgressOverlay'
-import FileManagerFolderTree from '../components/files/FileManagerFolderTree'
+import FileManagerFolderTree, { type FolderTreeNode } from '../components/files/FileManagerFolderTree'
 
 type ListEntry = {
   name: string
@@ -669,7 +669,7 @@ export default function FileManagerPage() {
       if (subdomainId) u.set('subdomain_id', String(subdomainId))
       const { data } = await api.get(`/domains/${domainId}/files/tree?${u.toString()}`)
       return data as {
-        tree?: { name: string; path: string; children?: { name: string; path: string; children?: unknown[] }[] }[]
+        tree?: FolderTreeNode[]
         document_root_rel?: string
         file_manager_root?: string
       }
