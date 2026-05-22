@@ -21,9 +21,10 @@ type StackScanResult struct {
 	Runtime             string       `json:"runtime"`
 	Confidence          string       `json:"confidence"`
 	Signals             []string     `json:"signals"`
-	RecommendedVariant  string       `json:"recommended_variant"`
-	RecommendedDocRoot  string       `json:"recommended_doc_root"`
-	CurrentDocRoot      string       `json:"current_doc_root"`
+	RecommendedVariant    string `json:"recommended_variant"`
+	RecommendedDocRoot    string `json:"recommended_doc_root"`
+	RecommendedCustomPath string `json:"recommended_custom_path,omitempty"` // site_base göreli: out, public, ...
+	CurrentDocRoot        string `json:"current_doc_root"`
 	DocrootAligned      bool         `json:"docroot_aligned"`
 	CurrentServerType   string       `json:"current_server_type"`
 	IndexPath           string       `json:"index_path,omitempty"`
@@ -223,11 +224,22 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 	curClean := filepath.Clean(current)
 	recClean := filepath.Clean(recommended)
 	docrootAligned := curClean == recClean
+	recommendedCustom := ""
 	if !docrootAligned {
+		if rel, err := filepath.Rel(siteBase, recClean); err == nil {
+			rel = filepath.ToSlash(rel)
+			if rel != "." && rel != ".." && !strings.HasPrefix(rel, "../") {
+				recommendedCustom = rel
+			}
+		}
+		fixID := "apply_docroot"
+		if hasOutStatic && recClean == filepath.Join(siteBase, "out") {
+			fixID = "static_out_docroot"
+		}
 		issues = append(issues, StackIssue{
 			Code: "docroot_mismatch", Severity: "critical",
 			Params: map[string]string{"recommended": recClean, "current": curClean, "profile": profile},
-			Fixable: true, FixID: "apply_docroot",
+			Fixable: true, FixID: fixID,
 		})
 	}
 
@@ -288,9 +300,10 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 		Runtime:             runtime,
 		Confidence:          confidence,
 		Signals:             signals,
-		RecommendedVariant:  variant,
-		RecommendedDocRoot:  recClean,
-		CurrentDocRoot:      curClean,
+		RecommendedVariant:    variant,
+		RecommendedDocRoot:    recClean,
+		RecommendedCustomPath: recommendedCustom,
+		CurrentDocRoot:        curClean,
 		DocrootAligned:      docrootAligned,
 		CurrentServerType:   serverType,
 		IndexPath:           indexPath,

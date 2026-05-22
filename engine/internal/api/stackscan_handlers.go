@@ -112,7 +112,7 @@ func handleStackScan(cfg *config.Config) gin.HandlerFunc {
 		}
 		if hosting.HasStaticOutExport(base) && meta.NodeProxyPort() > 0 {
 			scan.Issues = append(scan.Issues, hosting.StackIssue{
-				Code: "static_export_node_stale", Severity: "critical",
+				Code: "static_export_node_stale", Severity: "warning",
 				Fixable: true, FixID: "static_out_docroot",
 			})
 		}

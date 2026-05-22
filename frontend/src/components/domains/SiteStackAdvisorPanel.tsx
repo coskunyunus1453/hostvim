@@ -23,6 +23,7 @@ type StackScan = {
   signals: string[]
   recommended_variant: string
   recommended_doc_root: string
+  recommended_custom_path?: string
   current_doc_root: string
   docroot_aligned?: boolean
   current_server_type: string
@@ -100,6 +101,9 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
       setLastApplied(applied)
       void qc.invalidateQueries({ queryKey: ['domains'] })
       void qc.invalidateQueries({ queryKey: ['domain-stack-scan', domain.id] })
+      void qc.invalidateQueries({
+        queryKey: ['domain-vhost-editor', domain.id, domain.server_type ?? 'nginx'],
+      })
       void scanQ.refetch()
       if (Object.keys(data.errors ?? {}).length > 0) {
         toast.error(t('domains.stack_fix_partial'))

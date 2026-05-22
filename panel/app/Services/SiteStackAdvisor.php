@@ -95,6 +95,10 @@ class SiteStackAdvisor
             $needsDocroot = false;
         }
 
+        if ($needsDocroot && in_array('static_out_docroot', $applied, true)) {
+            $needsDocroot = false;
+        }
+
         if ($needsDocroot) {
             $doc = $this->applyDocumentRoot($domain, $scan);
             if (! empty($doc['error'])) {
@@ -153,11 +157,27 @@ class SiteStackAdvisor
      */
     private function applyDocumentRoot(Domain $domain, array $scan): array
     {
+        $profile = (string) ($scan['profile'] ?? 'standard');
+        $rec = rtrim((string) ($scan['recommended_doc_root'] ?? ''), '/');
+        $custom = trim((string) ($scan['recommended_custom_path'] ?? ''));
+
+        if ($custom === 'out' || ($rec !== '' && str_ends_with($rec, '/out'))) {
+            $result = $this->engine->activateStaticOutExport($domain->name);
+            if (! empty($result['document_root'])) {
+                $domain->update(['document_root' => (string) $result['document_root']]);
+            }
+
+            return $result;
+        }
+
+        if ($custom !== '') {
+            return $this->domains->setDocumentRootVariant($domain, null, $profile, $custom);
+        }
+
         $variant = (string) ($scan['recommended_variant'] ?? 'root');
         if (! in_array($variant, ['root', 'public'], true)) {
             $variant = 'root';
         }
-        $profile = (string) ($scan['profile'] ?? 'standard');
 
         $result = $this->domains->setDocumentRootVariant($domain, $variant, $profile);
 
