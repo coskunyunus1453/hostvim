@@ -24,6 +24,7 @@ type StackScanResult struct {
 	RecommendedVariant  string       `json:"recommended_variant"`
 	RecommendedDocRoot  string       `json:"recommended_doc_root"`
 	CurrentDocRoot      string       `json:"current_doc_root"`
+	DocrootAligned      bool         `json:"docroot_aligned"`
 	CurrentServerType   string       `json:"current_server_type"`
 	IndexPath           string       `json:"index_path,omitempty"`
 	GuidanceKey         string       `json:"guidance_key,omitempty"`
@@ -214,7 +215,8 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 
 	curClean := filepath.Clean(current)
 	recClean := filepath.Clean(recommended)
-	if curClean != recClean {
+	docrootAligned := curClean == recClean
+	if !docrootAligned {
 		issues = append(issues, StackIssue{
 			Code: "docroot_mismatch", Severity: "critical",
 			Params: map[string]string{"recommended": recClean, "current": curClean, "profile": profile},
@@ -275,6 +277,7 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 		RecommendedVariant:  variant,
 		RecommendedDocRoot:  recClean,
 		CurrentDocRoot:      curClean,
+		DocrootAligned:      docrootAligned,
 		CurrentServerType:   serverType,
 		IndexPath:           indexPath,
 		GuidanceKey:         guidanceKey,

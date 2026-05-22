@@ -15,11 +15,19 @@ class SiteStackTranslator
     {
         $issues = [];
         foreach ((array) ($scan['issues'] ?? []) as $issue) {
-            if (is_array($issue)) {
-                $issues[] = $this->localizeIssue($issue);
+            if (! is_array($issue)) {
+                continue;
             }
+            if ($this->shouldSkipIssue($issue, $scan)) {
+                continue;
+            }
+            $issues[] = $this->localizeIssue($issue);
         }
         $scan['issues'] = $issues;
+
+        $cur = rtrim((string) ($scan['current_doc_root'] ?? ''), '/');
+        $rec = rtrim((string) ($scan['recommended_doc_root'] ?? ''), '/');
+        $scan['docroot_aligned'] = $cur !== '' && $rec !== '' && $cur === $rec;
 
         $gk = (string) ($scan['guidance_key'] ?? '');
         if ($gk !== '') {
@@ -53,6 +61,24 @@ class SiteStackTranslator
         $issue['message'] = $message;
 
         return $issue;
+    }
+
+    /**
+     * @param  array<string, mixed>  $issue
+     * @param  array<string, mixed>  $scan
+     */
+    private function shouldSkipIssue(array $issue, array $scan): bool
+    {
+        $code = (string) ($issue['code'] ?? '');
+        if ($code === 'docroot_mismatch') {
+            $params = (array) ($issue['params'] ?? []);
+            $current = rtrim((string) ($params['current'] ?? $scan['current_doc_root'] ?? ''), '/');
+            $recommended = rtrim((string) ($params['recommended'] ?? $scan['recommended_doc_root'] ?? ''), '/');
+
+            return $current !== '' && $current === $recommended;
+        }
+
+        return false;
     }
 
     public function profileLabel(string $profile): string

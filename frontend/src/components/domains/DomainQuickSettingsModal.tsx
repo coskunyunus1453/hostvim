@@ -411,7 +411,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
-        className="card max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-6 dark:bg-gray-900"
+        className="card max-h-[90vh] w-full max-w-[41.6rem] overflow-y-auto bg-white p-6 dark:bg-gray-900"
         role="dialog"
         aria-modal="true"
       >

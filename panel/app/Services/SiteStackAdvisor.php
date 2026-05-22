@@ -32,12 +32,17 @@ class SiteStackAdvisor
         $engineDocRoot = (string) ($scan['current_doc_root'] ?? '');
         $panelDocRoot = (string) ($domain->document_root ?? '');
 
+        $docrootAligned = ! empty($scan['docroot_aligned'])
+            || ($engineDocRoot !== '' && (string) ($scan['recommended_doc_root'] ?? '') !== ''
+                && rtrim($engineDocRoot, '/') === rtrim((string) $scan['recommended_doc_root'], '/'));
+
         return [
             'domain' => $domain->name,
             'scan' => $scan,
             'issues' => $issues,
             'issue_count' => count($issues),
             'fixable_count' => count(array_filter($issues, fn ($i) => ! empty($i['fixable']))),
+            'docroot_aligned' => $docrootAligned,
             'server_type' => (string) ($domain->server_type ?? 'nginx'),
             'document_root' => $panelDocRoot,
             'engine_document_root' => $engineDocRoot,
@@ -86,6 +91,10 @@ class SiteStackAdvisor
             || in_array('full_stack', $fixIds, true)
             || $this->scanHasFixable($issues, 'apply_docroot');
 
+        if ($needsDocroot && $this->documentRootsAligned($scan)) {
+            $needsDocroot = false;
+        }
+
         if ($needsDocroot) {
             $doc = $this->applyDocumentRoot($domain, $scan);
             if (! empty($doc['error'])) {
@@ -106,6 +115,20 @@ class SiteStackAdvisor
             'after' => $after,
             'domain' => $domain->fresh(),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $issues
+     */
+    /**
+     * @param  array<string, mixed>  $scan
+     */
+    private function documentRootsAligned(array $scan): bool
+    {
+        $cur = rtrim((string) ($scan['current_doc_root'] ?? ''), '/');
+        $rec = rtrim((string) ($scan['recommended_doc_root'] ?? ''), '/');
+
+        return $cur !== '' && $rec !== '' && $cur === $rec;
     }
 
     /**

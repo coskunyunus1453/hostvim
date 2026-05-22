@@ -24,6 +24,7 @@ type StackScan = {
   recommended_variant: string
   recommended_doc_root: string
   current_doc_root: string
+  docroot_aligned?: boolean
   current_server_type: string
   index_path?: string
   guidance?: string
@@ -40,6 +41,7 @@ type ScanResponse = {
   document_root?: string
   server_type?: string
   php_version?: string
+  docroot_aligned?: boolean
 }
 
 type Props = {
@@ -122,11 +124,15 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
     return t('domains.auto_confidence_low')
   }, [scan?.confidence, t])
 
-  const docrootOk =
-    scan &&
-    scan.current_doc_root &&
-    scan.recommended_doc_root &&
-    scan.current_doc_root === scan.recommended_doc_root
+  const docrootAligned = useMemo(() => {
+    if (!scan) return false
+    if (scanQ.data?.docroot_aligned === true || scan.docroot_aligned === true) return true
+    const cur = scan.current_doc_root?.replace(/\/+$/, '') ?? ''
+    const rec = scan.recommended_doc_root?.replace(/\/+$/, '') ?? ''
+    return cur !== '' && rec !== '' && cur === rec
+  }, [scan, scanQ.data?.docroot_aligned])
+
+  const docrootMismatchIssue = issues.some((i) => i.code === 'docroot_mismatch')
 
   return (
     <div className="mb-4 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/90 to-primary-50/40 p-4 dark:border-violet-900/50 dark:from-violet-950/30 dark:to-primary-950/20">
@@ -171,12 +177,26 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
           <div className="rounded-lg border border-white/60 bg-white/60 px-3 py-2 font-mono text-[11px] dark:border-gray-700 dark:bg-gray-900/40">
             <p>
               <span className="text-gray-500">{t('domains.stack_current_root')}: </span>
-              <span className={clsx(!docrootOk && 'text-red-600 dark:text-red-400')}>{scan.current_doc_root}</span>
+              <span
+                className={clsx(
+                  docrootAligned && 'text-emerald-700 dark:text-emerald-400',
+                  !docrootAligned && docrootMismatchIssue && 'text-red-600 dark:text-red-400',
+                )}
+              >
+                {scan.current_doc_root}
+              </span>
             </p>
-            <p className="mt-1">
-              <span className="text-gray-500">{t('domains.stack_recommended_root')}: </span>
-              <span className="text-emerald-700 dark:text-emerald-400">{scan.recommended_doc_root}</span>
-            </p>
+            {docrootAligned ? (
+              <p className="mt-1 flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                {t('domains.stack_docroot_ok')}
+              </p>
+            ) : (
+              <p className="mt-1">
+                <span className="text-gray-500">{t('domains.stack_recommended_root')}: </span>
+                <span className="text-amber-700 dark:text-amber-400">{scan.recommended_doc_root}</span>
+              </p>
+            )}
             {scan.index_path ? (
               <p className="mt-1">
                 <span className="text-gray-500">{t('domains.stack_entry')}: </span>
@@ -216,7 +236,7 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
             </ul>
           )}
 
-          {issues.length === 0 && docrootOk && (
+          {issues.length === 0 && docrootAligned && (
             <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
               {t('domains.stack_all_ok')}
