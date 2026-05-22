@@ -514,6 +514,14 @@ class EngineApiService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function ensureLaravelStorageLink(string $domain): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/laravel-storage-link', []);
+    }
+
+    /**
      * @return array{
      *  nginx_manage_vhosts: bool,
      *  nginx_reload_after_vhost: bool,

@@ -195,6 +195,15 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 
 	appendIntegrityIssues(profile, fs, &issues)
 
+	if profile == "laravel" || profile == "symfony" || profile == "codeigniter4" {
+		if fs.exists("public") && !fs.exists("public/storage") && fs.exists("storage/app/public") {
+			issues = append(issues, StackIssue{
+				Code: "storage_symlink_missing", Severity: "warning",
+				Fixable: true, FixID: "storage_symlink",
+			})
+		}
+	}
+
 	if indexPath != "" && !fs.exists(indexPath) {
 		issues = append(issues, StackIssue{
 			Code: "missing_index", Severity: "critical",

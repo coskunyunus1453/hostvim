@@ -12,7 +12,7 @@ class SiteStackAdvisor
 {
     public function __construct(
         private EngineApiService $engine,
-        private AutoWebConfigurator $autoWeb,
+        private DomainService $domains,
         private SiteStackTranslator $translator,
     ) {}
 
@@ -29,6 +29,9 @@ class SiteStackAdvisor
         $scan = $this->translator->localizeScan((array) ($raw['scan'] ?? []));
         $issues = (array) ($scan['issues'] ?? []);
 
+        $engineDocRoot = (string) ($scan['current_doc_root'] ?? '');
+        $panelDocRoot = (string) ($domain->document_root ?? '');
+
         return [
             'domain' => $domain->name,
             'scan' => $scan,
@@ -36,7 +39,9 @@ class SiteStackAdvisor
             'issue_count' => count($issues),
             'fixable_count' => count(array_filter($issues, fn ($i) => ! empty($i['fixable']))),
             'server_type' => (string) ($domain->server_type ?? 'nginx'),
-            'document_root' => (string) ($domain->document_root ?? ''),
+            'document_root' => $panelDocRoot,
+            'engine_document_root' => $engineDocRoot,
+            'document_root_synced' => $panelDocRoot !== '' && $engineDocRoot !== '' && $panelDocRoot === $engineDocRoot,
             'php_version' => (string) ($domain->php_version ?? ''),
             'summary' => $this->buildSummary($scan, $domain),
         ];
@@ -64,7 +69,7 @@ class SiteStackAdvisor
                 continue;
             }
             $fixId = (string) ($issue['fix_id'] ?? '');
-            if ($fixId === '' || (! $allowAll && ! in_array($fixId, $fixIds, true))) {
+            if ($fixId === '' || $fixId === 'apply_docroot' || (! $allowAll && ! in_array($fixId, $fixIds, true))) {
                 continue;
             }
             try {
@@ -76,14 +81,18 @@ class SiteStackAdvisor
             }
         }
 
-        // Belge kökü + profil her zaman güncel tespitle hizalansın
-        if ($allowAll || in_array('apply_docroot', $fixIds, true) || in_array('full_stack', $fixIds, true)) {
-            $auto = $this->autoWeb->detectAndApply($domain->fresh());
-            if (! empty($auto['error'])) {
-                $errors['apply_docroot'] = (string) $auto['error'];
+        $needsDocroot = $allowAll
+            || in_array('apply_docroot', $fixIds, true)
+            || in_array('full_stack', $fixIds, true)
+            || $this->scanHasFixable($issues, 'apply_docroot');
+
+        if ($needsDocroot) {
+            $doc = $this->applyDocumentRoot($domain, $scan);
+            if (! empty($doc['error'])) {
+                $errors['apply_docroot'] = (string) $doc['error'];
             } else {
                 $applied[] = 'apply_docroot';
-                $report['auto_web'] = $auto;
+                $report['document_root_apply'] = $doc;
             }
         }
 
@@ -97,6 +106,37 @@ class SiteStackAdvisor
             'after' => $after,
             'domain' => $domain->fresh(),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $issues
+     */
+    private function scanHasFixable(array $issues, string $fixId): bool
+    {
+        foreach ($issues as $issue) {
+            if (is_array($issue) && ($issue['fix_id'] ?? '') === $fixId && ! empty($issue['fixable'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Engine belge kökü + vhost + panel DB kaydını hizalar.
+     *
+     * @param  array<string, mixed>  $scan
+     * @return array<string, mixed>
+     */
+    private function applyDocumentRoot(Domain $domain, array $scan): array
+    {
+        $variant = (string) ($scan['recommended_variant'] ?? 'root');
+        if (! in_array($variant, ['root', 'public'], true)) {
+            $variant = 'root';
+        }
+        $profile = (string) ($scan['profile'] ?? 'standard');
+
+        return $this->domains->setDocumentRootVariant($domain, $variant, $profile);
     }
 
     /**
@@ -127,8 +167,13 @@ class SiteStackAdvisor
                     throw new \RuntimeException((string) $perf['error']);
                 }
                 break;
+            case 'storage_symlink':
+                $res = $this->engine->ensureLaravelStorageLink($domain->name);
+                if (! empty($res['error'])) {
+                    throw new \RuntimeException((string) $res['error']);
+                }
+                break;
             case 'apply_docroot':
-                // detectAndApply üst fonksiyonda
                 break;
             default:
                 break;

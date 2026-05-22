@@ -33,6 +33,10 @@ class AutoWebConfigurator
             ];
         }
 
+        if (! empty($resp['document_root'])) {
+            $domain->update(['document_root' => (string) $resp['document_root']]);
+        }
+
         if (strtolower((string) ($domain->server_type ?? 'nginx')) === 'nginx') {
             $perf = $this->engine->setSitePerformance($domain->name, 'standard');
             if (! empty($perf['error'])) {

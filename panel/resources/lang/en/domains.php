@@ -52,6 +52,7 @@ return [
         'stale_user_ini' => 'Legacy .user.ini may block PHP with an old path.',
         'node_reverse_proxy' => 'Node.js needs a reverse proxy and app process.',
         'nginx_perf_optional' => 'Standard Nginx performance preset is recommended.',
+        'storage_symlink_missing' => 'Laravel storage symlink is missing (public/storage). Logos and uploads may 404.',
         'apache_htaccess_ok' => '.htaccess detected; Apache is a good fit.',
         'ols_active' => 'OpenLiteSpeed is active; ensure rules are compatible.',
     ],

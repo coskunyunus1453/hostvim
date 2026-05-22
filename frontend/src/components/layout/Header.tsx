@@ -23,7 +23,9 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
+  Crown,
 } from 'lucide-react'
+import { useProFeatures } from '../../hooks/useProFeatures'
 import { pollWhenVisible } from '../../lib/pollWhenVisible'
 import clsx from 'clsx'
 import { useEffect, useState } from 'react'
@@ -42,6 +44,11 @@ export default function Header() {
   const { user, logout: logoutStore } = useAuthStore()
   const requiresPasswordChange = user?.force_password_change === true
   const serverUI = isServerAdminUI(user)
+  const { licensePro, licenseValid, planCode, licenseExpiresAt } = useProFeatures()
+  const showProBadge = licensePro && licenseValid
+  const proBadgeTitle = planCode
+    ? t('license.pro_active_title_plan', { plan: planCode })
+    : t('license.pro_active_title')
   const { isDark, toggleTheme, openMobileSidebar } = useThemeStore()
   const { mode, setMode, advancedTipsSeen, markAdvancedTipsSeen } = useUiModeStore()
   const [showAdvancedTips, setShowAdvancedTips] = useState(false)
@@ -255,6 +262,20 @@ export default function Header() {
           </>
         )}
 
+        {showProBadge && (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-violet-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-md shadow-amber-500/25 ring-1 ring-white/20 dark:shadow-amber-900/40 sm:px-2.5 sm:py-1 sm:text-[11px]"
+            title={
+              licenseExpiresAt
+                ? `${proBadgeTitle} · ${t('license.pro_expires', { date: new Date(licenseExpiresAt).toLocaleDateString() })}`
+                : proBadgeTitle
+            }
+          >
+            <Crown className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} />
+            <span>{t('license.pro_badge')}</span>
+          </span>
+        )}
+
         <button
           onClick={toggleTheme}
           className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 md:p-2"
@@ -378,7 +399,18 @@ export default function Header() {
                   setShowLanguageSubmenu(false)
                 }}
               />
-              <div className="fixed inset-x-3 bottom-3 z-50 w-auto overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 md:absolute md:inset-auto md:right-0 md:bottom-auto md:mt-2 md:w-44 md:rounded-lg md:shadow-lg">
+              <div className="fixed inset-x-3 bottom-3 z-50 w-auto overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 md:absolute md:inset-auto md:right-0 md:bottom-auto md:mt-2 md:w-48 md:rounded-lg md:shadow-lg">
+                {showProBadge && (
+                  <div className="flex items-center gap-2 border-b border-amber-200/80 bg-gradient-to-r from-amber-50 to-violet-50 px-3 py-2.5 dark:border-amber-900/40 dark:from-amber-950/40 dark:to-violet-950/30">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-violet-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                      <Crown className="h-3 w-3" />
+                      {t('license.pro_badge')}
+                    </span>
+                    <span className="min-w-0 truncate text-xs text-gray-600 dark:text-gray-300">
+                      {planCode ? t('license.pro_plan_label', { plan: planCode }) : t('license.pro_active_title')}
+                    </span>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"

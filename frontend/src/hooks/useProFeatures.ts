@@ -32,6 +32,8 @@ export function useProFeatures() {
   const modules = q.data?.modules ?? {}
   const licensePro = Boolean(q.data?.features?.license_pro)
   const licenseValid = Boolean(q.data?.features?.license_valid)
+  const planCode = q.data?.features?.plan ?? null
+  const licenseExpiresAt = q.data?.features?.expires_at ?? null
 
   const isModuleEnabled = (key: string | undefined): boolean => {
     if (!key) return true
@@ -67,6 +69,8 @@ export function useProFeatures() {
     modules,
     licensePro,
     licenseValid,
+    planCode,
+    licenseExpiresAt,
     isModuleEnabled,
     moduleKeyForPath,
     canAccessPath,

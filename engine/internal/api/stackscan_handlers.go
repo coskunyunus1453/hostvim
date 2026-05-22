@@ -14,6 +14,23 @@ import (
 
 func registerStackScanRoutes(cfg *config.Config, site *gin.RouterGroup) {
 	site.GET("/:domain/stack-scan", handleStackScan(cfg))
+	site.POST("/:domain/laravel-storage-link", handleLaravelStorageLink(cfg))
+}
+
+func handleLaravelStorageLink(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		domain := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		base := detectDocumentRootBase(cfg.Paths.WebRoot, domain)
+		if err := hosting.EnsureStoragePublicLink(base); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"domain": domain, "ok": true, "message": "storage link ensured"})
+	}
 }
 
 func handleStackScan(cfg *config.Config) gin.HandlerFunc {

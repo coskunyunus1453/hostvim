@@ -52,6 +52,7 @@ return [
         'stale_user_ini' => 'Eski panel .user.ini dosyası PHP yolunu kilitliyor olabilir.',
         'node_reverse_proxy' => 'Node.js için reverse proxy ve uygulama süreci gerekir.',
         'nginx_perf_optional' => 'Nginx için standart performans ön ayarı önerilir.',
+        'storage_symlink_missing' => 'Laravel storage bağlantısı eksik (public/storage). Medya ve logo 404 verebilir.',
         'apache_htaccess_ok' => '.htaccess algılandı; Apache uygun.',
         'ols_active' => 'OpenLiteSpeed aktif; kuralların uyumlu olduğundan emin olun.',
     ],
