@@ -159,7 +159,17 @@ class SiteStackAdvisor
         }
         $profile = (string) ($scan['profile'] ?? 'standard');
 
-        return $this->domains->setDocumentRootVariant($domain, $variant, $profile);
+        $result = $this->domains->setDocumentRootVariant($domain, $variant, $profile);
+
+        if ($variant === 'public' && empty($result['error'])) {
+            $norm = $this->engine->normalizeSitePublicUrls($domain->name);
+            if (! empty($norm['changed']) && is_array($norm['changed'])) {
+                $result['env_normalized'] = $norm['changed'];
+            }
+            $this->engine->ensureLaravelStorageLink($domain->name);
+        }
+
+        return $result;
     }
 
     /**
@@ -192,6 +202,12 @@ class SiteStackAdvisor
                 break;
             case 'storage_symlink':
                 $res = $this->engine->ensureLaravelStorageLink($domain->name);
+                if (! empty($res['error'])) {
+                    throw new \RuntimeException((string) $res['error']);
+                }
+                break;
+            case 'normalize_app_url':
+                $res = $this->engine->normalizeSitePublicUrls($domain->name);
                 if (! empty($res['error'])) {
                     throw new \RuntimeException((string) $res['error']);
                 }

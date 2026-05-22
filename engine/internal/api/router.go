@@ -459,10 +459,19 @@ func handleSetDocumentRoot(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc
 			return
 		}
 
+		envChanged := []string{}
+		if variant == "public" || hosting.DocrootIsPublicVariant(meta.DocumentRoot, base) {
+			if keys, nerr := hosting.NormalizePublicDocrootEnv(base, domain); nerr == nil {
+				envChanged = keys
+			}
+			_ = hosting.EnsureStoragePublicLink(base)
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"domain":        domain,
 			"variant":       variant,
 			"document_root": meta.DocumentRoot,
+			"env_changed":   envChanged,
 		})
 	}
 }

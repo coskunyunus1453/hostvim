@@ -146,6 +146,11 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    # Docroot is already .../public; CMS sometimes still emits /public/uploads/... (404 without this)
+    location ^~ /public/ {
+        rewrite ^/public/(.*)$ /$1 last;
+    }
+
     # Wrong VITE base + /admin URL → browser requests /admin/admin/assets/* ; map to real /assets/*
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
@@ -246,6 +251,10 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    location ^~ /public/ {
+        rewrite ^/public/(.*)$ /$1 last;
+    }
+
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
         try_files $uri =404;
@@ -354,6 +363,10 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    location ^~ /public/ {
+        rewrite ^/public/(.*)$ /$1 last;
+    }
+
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
         try_files $uri =404;
@@ -450,6 +463,10 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    location ^~ /public/ {
+        rewrite ^/public/(.*)$ /$1 last;
+    }
+
     location ^~ /admin/admin/assets/ {
         rewrite ^/admin/admin/assets/(.*)$ /assets/$1 break;
         try_files $uri =404;

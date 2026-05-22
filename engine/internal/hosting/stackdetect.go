@@ -224,6 +224,13 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 		})
 	}
 
+	if DocrootIsPublicVariant(curClean, siteBase) && EnvHasPublicURLSuffix(siteBase) {
+		issues = append(issues, StackIssue{
+			Code: "app_url_public_suffix", Severity: "warning",
+			Fixable: true, FixID: "normalize_app_url",
+		})
+	}
+
 	ini := fs.readUserIni()
 	hasUserIni := ini != ""
 	if hasUserIni && (strings.Contains(ini, "/www/wwwroot/") || strings.Contains(ini, "wwwroot")) {

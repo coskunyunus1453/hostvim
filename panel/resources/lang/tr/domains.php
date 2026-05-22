@@ -53,6 +53,7 @@ return [
         'node_reverse_proxy' => 'Node.js için reverse proxy ve uygulama süreci gerekir.',
         'nginx_perf_optional' => 'Nginx için standart performans ön ayarı önerilir.',
         'storage_symlink_missing' => 'Laravel storage bağlantısı eksik (public/storage). Medya ve logo 404 verebilir.',
+        'app_url_public_suffix' => 'Site .env adresi /public ile bitiyor; belge kökü zaten public olduğu için resim URL\'leri /public/uploads/... üretiliyor (404).',
         'apache_htaccess_ok' => '.htaccess algılandı; Apache uygun.',
         'ols_active' => 'OpenLiteSpeed aktif; kuralların uyumlu olduğundan emin olun.',
     ],

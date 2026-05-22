@@ -522,6 +522,16 @@ class EngineApiService
     }
 
     /**
+     * Belge kökü public iken .env APP_URL/ASSET_URL içindeki hatalı /public sonekini düzeltir.
+     *
+     * @return array<string, mixed>
+     */
+    public function normalizeSitePublicUrls(string $domain): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/normalize-public-urls', []);
+    }
+
+    /**
      * @return array{
      *  nginx_manage_vhosts: bool,
      *  nginx_reload_after_vhost: bool,
