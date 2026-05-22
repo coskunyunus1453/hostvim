@@ -54,6 +54,7 @@ return [
         'nginx_perf_optional' => 'Standard Nginx performance preset is recommended.',
         'storage_symlink_missing' => 'Laravel storage symlink is missing (public/storage). Logos and uploads may 404.',
         'app_url_public_suffix' => 'Site .env URL ends with /public while document root is already public — media URLs get an extra /public prefix (404).',
+        'static_export_node_stale' => 'Static export in out/ exists but nginx still proxies to Node.js — the site will not load.',
         'apache_htaccess_ok' => '.htaccess detected; Apache is a good fit.',
         'ols_active' => 'OpenLiteSpeed is active; ensure rules are compatible.',
     ],

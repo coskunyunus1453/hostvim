@@ -16,6 +16,29 @@ func registerStackScanRoutes(cfg *config.Config, site *gin.RouterGroup) {
 	site.GET("/:domain/stack-scan", handleStackScan(cfg))
 	site.POST("/:domain/laravel-storage-link", handleLaravelStorageLink(cfg))
 	site.POST("/:domain/normalize-public-urls", handleNormalizePublicURLs(cfg))
+	site.POST("/:domain/static-out-activate", handleStaticOutActivate(cfg))
+}
+
+func handleStaticOutActivate(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		domain := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		base := detectDocumentRootBase(cfg.Paths.WebRoot, domain)
+		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+		if err != nil || meta == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+			return
+		}
+		docRoot, err := hosting.ActivateStaticOutExport(cfg, domain, base, meta)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"domain": domain, "ok": true, "document_root": docRoot})
+	}
 }
 
 func handleNormalizePublicURLs(cfg *config.Config) gin.HandlerFunc {
@@ -86,6 +109,12 @@ func handleStackScan(cfg *config.Config) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+		if hosting.HasStaticOutExport(base) && meta.NodeProxyPort() > 0 {
+			scan.Issues = append(scan.Issues, hosting.StackIssue{
+				Code: "static_export_node_stale", Severity: "critical",
+				Fixable: true, FixID: "static_out_docroot",
+			})
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"domain":      domain,

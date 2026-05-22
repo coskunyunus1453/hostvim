@@ -212,6 +212,15 @@ class SiteStackAdvisor
                     throw new \RuntimeException((string) $res['error']);
                 }
                 break;
+            case 'static_out_docroot':
+                $res = $this->engine->activateStaticOutExport($domain->name);
+                if (! empty($res['error'])) {
+                    throw new \RuntimeException((string) $res['error']);
+                }
+                if (! empty($res['document_root'])) {
+                    $domain->update(['document_root' => (string) $res['document_root']]);
+                }
+                break;
             case 'apply_docroot':
                 break;
             default:

@@ -103,6 +103,7 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 	hasMoodle := has("config.php") && fs.isDir("lib") && has("version.php")
 	hasMediaWiki := has("LocalSettings.php") && fs.isDir("includes")
 	hasNext := hasPkg && (has(".next") || has("next.config.js") || has("next.config.mjs") || has("next.config.ts"))
+	hasOutStatic := has("out/index.html")
 	hasNuxt := hasPkg && (has("nuxt.config.js") || has("nuxt.config.ts"))
 	hasStrapi := hasPkg && (has("strapi.config.js") || has("strapi.config.ts")) && fs.isDir("src")
 	hasN8n := hasPkg && (has("n8n.config.js") || has("n8n.json"))
@@ -154,6 +155,9 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 	case hasMediaWiki:
 		profile, variant, confidence = "mediawiki", "root", "high"
 		indexPath = "index.php"
+	case hasNext && hasOutStatic:
+		profile, runtime, variant, confidence = "nextjs", "static", "root", "high"
+		indexPath = "out/index.html"
 	case hasNext:
 		profile, runtime, variant, confidence = "nextjs", "node", "root", "high"
 	case hasNuxt:
@@ -182,6 +186,9 @@ func ScanSiteStack(siteBase, metaDocRoot, serverType string) (*StackScanResult, 
 	recommended := siteBase
 	if variant == "public" {
 		recommended = filepath.Join(siteBase, "public")
+	}
+	if runtime == "static" && hasOutStatic {
+		recommended = filepath.Join(siteBase, "out")
 	}
 
 	current := strings.TrimSpace(metaDocRoot)

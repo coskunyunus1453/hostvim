@@ -532,6 +532,16 @@ class EngineApiService
     }
 
     /**
+     * Next.js static export (out/): Node proxy kapat, belge kökü out, nginx statik mod.
+     *
+     * @return array<string, mixed>
+     */
+    public function activateStaticOutExport(string $domain): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/static-out-activate', []);
+    }
+
+    /**
      * @return array{
      *  nginx_manage_vhosts: bool,
      *  nginx_reload_after_vhost: bool,
