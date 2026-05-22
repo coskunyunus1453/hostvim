@@ -4,6 +4,27 @@ Bu klasör, paneli **tek sunucuda** güvenli ve tekrarlanabilir şekilde ayağa 
 
 **Yayın öncesi:** [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) — ortam değişkenleri, engine hizalama, TLS ve duman testi maddeleri.
 
+## Günlük deploy (tek komut — Mac + sunucu)
+
+Tüm yayınlar **`main`** dalına gider; sunucu da her zaman **`main`** çeker. Feature dalında çalışsanız bile push betiği değişiklikleri `main`’e birleştirip push eder.
+
+| Ortam | Komut |
+|--------|--------|
+| **Mac** (repo kökü) | `bash hostvim-push` veya `bash hostvim-push "commit mesajı"` |
+| **Sunucu** | `cd /var/www/hostvim && bash hostvim-deploy` |
+
+Betikler: `deploy/scripts/hostvim-push.sh`, `deploy/scripts/hostvim-deploy.sh`
+
+İsteğe bağlı: `HOSTVIM_DEPLOY_BRANCH=main` (varsayılan), sunucuda `HOSTVIM_SKIP_ENGINE=1` / `HOSTVIM_SKIP_FRONTEND=1`
+
+Sunucuda betikler henüz yoksa (eski checkout), **bir kez**:
+
+```bash
+cd /var/www/hostvim && git fetch origin && git checkout main && git reset --hard origin/main
+```
+
+ardından Mac’ten `hostvim-push`, sunucuda `hostvim-deploy`.
+
 ## Sizin tarafınız (müşteriye vermeden önce)
 
 Müşteri **sizin barındırdığınız** kaynaktan kodu çekecek. Yaygın seçenekler:

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Kısayol: repo kökünden sunucu deploy (sunucuda çalıştırın)
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+exec bash "$ROOT/deploy/scripts/hostvim-deploy.sh" "$@"
