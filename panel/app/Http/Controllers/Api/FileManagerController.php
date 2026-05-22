@@ -75,37 +75,87 @@ class FileManagerController extends Controller
     }
 
     /**
-     * Dosya yöneticisi için baz dizin:
-     * - Varsayılan: domain.document_root
-     * - Laravel/Symfony gibi "public" giriş noktasında: bir üst dizin (kod kökü)
-     *   Böylece kullanıcı public_html/public'a sabitlenmez.
+     * Plesk benzeri dosya yöneticisi kapsamı: site public_html (veya alt alan public_html).
+     * Belge kökü out/ veya public/ olsa bile üst klasörlere gezinilebilir; jail dışına çıkılmaz.
      */
-    private function fileManagerBasePath(HostingSiteTarget $target): string
+    private function fileManagerSiteHomePath(HostingSiteTarget $target): string
     {
-        $docRoot = str_replace('\\', '/', rtrim($target->documentRoot, '/'));
-        if ($docRoot === '') {
-            return $target->documentRoot;
-        }
-
+        $hostingRoot = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
         if ($target->isSubdomain()) {
-            $siteRoot = dirname($docRoot);
+            $docRoot = str_replace('\\', '/', rtrim($target->documentRoot, '/'));
+            if ($docRoot === '') {
+                return $target->documentRoot;
+            }
+            if (str_ends_with(strtolower($docRoot), '/public_html')) {
+                return str_replace('/', DIRECTORY_SEPARATOR, $docRoot);
+            }
             if (str_ends_with(strtolower($docRoot), '/public')) {
-                if (is_file($siteRoot.'/artisan') || is_file($siteRoot.'/composer.json') || is_file($siteRoot.'/spark')) {
-                    return $siteRoot;
+                $parent = dirname($docRoot);
+                if (is_file($parent.'/artisan') || is_file($parent.'/composer.json') || is_file($parent.'/spark')) {
+                    return str_replace('/', DIRECTORY_SEPARATOR, $parent);
                 }
             }
 
-            return $siteRoot !== '.' && $siteRoot !== '/' ? $siteRoot : $docRoot;
+            return str_replace('/', DIRECTORY_SEPARATOR, $docRoot);
         }
 
-        if (str_ends_with(strtolower($docRoot), '/public')) {
-            $parent = dirname($docRoot);
-            if (is_file($parent.'/artisan') || is_file($parent.'/composer.json')) {
-                return $parent;
+        return $hostingRoot.DIRECTORY_SEPARATOR.$target->engineSiteName.DIRECTORY_SEPARATOR.'public_html';
+    }
+
+    private function fileManagerBasePath(HostingSiteTarget $target): string
+    {
+        return $this->fileManagerSiteHomePath($target);
+    }
+
+    private function documentRootRelFromSiteHome(HostingSiteTarget $target): string
+    {
+        $home = str_replace('\\', '/', rtrim($this->fileManagerSiteHomePath($target), '/'));
+        $doc = str_replace('\\', '/', rtrim($target->documentRoot, '/'));
+        if ($doc === '' || $doc === $home) {
+            return '';
+        }
+        if (str_starts_with($doc, $home.'/')) {
+            return substr($doc, strlen($home) + 1);
+        }
+
+        return '';
+    }
+
+    /**
+     * @return list<array{name: string, path: string, children: list<mixed>}>
+     */
+    private function buildFolderTree(HostingSiteTarget $target, string $rel, int $depthLeft): array
+    {
+        if ($depthLeft <= 0) {
+            return [];
+        }
+        $rel = trim(str_replace('\\', '/', $rel), '/');
+        $engineRel = $this->panelRelToEngineRel($target, $rel);
+        $list = $this->engine->listFilesResult($target->engineSiteName, $engineRel, 500, 0, 'name', 'asc');
+        if ($list['error'] !== null) {
+            return [];
+        }
+        $nodes = [];
+        foreach ((array) ($list['entries'] ?? []) as $entry) {
+            if (! is_array($entry) || empty($entry['is_dir'])) {
+                continue;
             }
+            $name = (string) ($entry['name'] ?? '');
+            if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '/')) {
+                continue;
+            }
+            if ($name === self::TRASH_DIR || $name === '.hostvim-trash') {
+                continue;
+            }
+            $childRel = $rel === '' ? $name : $rel.'/'.$name;
+            $nodes[] = [
+                'name' => $name,
+                'path' => $childRel,
+                'children' => $this->buildFolderTree($target, $childRel, $depthLeft - 1),
+            ];
         }
 
-        return $docRoot;
+        return $nodes;
     }
 
     public function index(Request $request, Domain $domain): JsonResponse
@@ -145,11 +195,30 @@ class FileManagerController extends Controller
             'entries' => $list['entries'],
             'document_root_hint' => $hostingTarget->documentRoot,
             'file_manager_root' => $this->fileManagerBasePath($hostingTarget),
+            'document_root_rel' => $this->documentRootRelFromSiteHome($hostingTarget),
             'hostname' => $hostingTarget->hostname,
             'subdomain_id' => $hostingTarget->subdomain?->id,
             'total' => $list['total'] ?? 0,
             'offset' => $list['offset'] ?? $offset,
             'limit' => $list['limit'] ?? $limit,
+        ]);
+    }
+
+    public function tree(Request $request, Domain $domain): JsonResponse
+    {
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
+        $depth = max(1, min(5, (int) $request->query('depth', 3)));
+
+        return response()->json([
+            'tree' => $this->buildFolderTree($hostingTarget, '', $depth),
+            'file_manager_root' => $this->fileManagerBasePath($hostingTarget),
+            'document_root_hint' => $hostingTarget->documentRoot,
+            'document_root_rel' => $this->documentRootRelFromSiteHome($hostingTarget),
+            'hostname' => $hostingTarget->hostname,
+            'subdomain_id' => $hostingTarget->subdomain?->id,
         ]);
     }
 

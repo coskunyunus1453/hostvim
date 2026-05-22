@@ -36,6 +36,7 @@ import FileUploadProgressOverlay, {
   type FileUploadProgressView,
 } from '../components/files/FileUploadProgressOverlay'
 import FileArchiveProgressOverlay from '../components/files/FileArchiveProgressOverlay'
+import FileManagerFolderTree from '../components/files/FileManagerFolderTree'
 
 type ListEntry = {
   name: string
@@ -50,6 +51,8 @@ type ListEntry = {
 type FilesListResponse = {
   entries: ListEntry[]
   document_root_hint?: string
+  file_manager_root?: string
+  document_root_rel?: string
   total?: number
   limit?: number
   offset?: number
@@ -657,6 +660,25 @@ export default function FileManagerPage() {
     },
   })
 
+  const treeQ = useQuery({
+    queryKey: ['domain-files-tree', domainId, subdomainId],
+    enabled: typeof domainId === 'number' && domainId > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const u = new URLSearchParams({ depth: '4' })
+      if (subdomainId) u.set('subdomain_id', String(subdomainId))
+      const { data } = await api.get(`/domains/${domainId}/files/tree?${u.toString()}`)
+      return data as {
+        tree?: { name: string; path: string; children?: { name: string; path: string; children?: unknown[] }[] }[]
+        document_root_rel?: string
+        file_manager_root?: string
+      }
+    },
+  })
+
+  const documentRootRel = filesQ.data?.document_root_rel ?? treeQ.data?.document_root_rel ?? ''
+  const fileManagerRoot = filesQ.data?.file_manager_root ?? treeQ.data?.file_manager_root ?? ''
+
   useEffect(() => {
     if (!editorOpen) {
       setMonacoReady(false)
@@ -695,14 +717,15 @@ export default function FileManagerPage() {
   const docHint = filesQ.data?.document_root_hint
 
   const fullPathDisplay = useMemo(() => {
-    const rel = path || t('files.root_segment')
-    if (docHint) {
-      const sep = docHint.includes('\\') ? '\\' : '/'
-      const base = docHint.replace(/[/\\]+$/, '')
-      return path ? `${base}${sep}${path.replace(/\//g, sep)}` : base
+    const rel = path || t('files.public_html_root')
+    const base = fileManagerRoot || docHint
+    if (base) {
+      const sep = base.includes('\\') ? '\\' : '/'
+      const home = base.replace(/[/\\]+$/, '')
+      return path ? `${home}${sep}${path.replace(/\//g, sep)}` : home
     }
     return `~/${rel}`
-  }, [path, docHint, t])
+  }, [path, fileManagerRoot, docHint, t])
 
   const openFileWrapped = useCallback(
     async (relPath: string) => {
@@ -1668,8 +1691,35 @@ export default function FileManagerPage() {
     >
       <input {...getInputProps()} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_min(16rem,36vw)] lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-4 lg:gap-5">
-        <div className="card order-1 min-w-0 overflow-hidden rounded-xl border border-gray-200 shadow-sm dark:border-gray-700 dark:shadow-none">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(10rem,13rem)_minmax(0,1fr)_min(14rem,20rem)] lg:grid-cols-[14rem_minmax(0,1fr)_18rem] xl:grid-cols-[15rem_minmax(0,1fr)_20rem] md:items-start md:gap-4 lg:gap-5">
+        <aside
+          className={clsx(
+            'card order-2 flex min-w-0 flex-col gap-2 rounded-xl border border-gray-200 p-3 shadow-sm dark:border-gray-700 md:order-1 md:sticky md:top-[max(1rem,env(safe-area-inset-top,0px))] md:z-[5] md:self-start',
+            domainId === '' && 'pointer-events-none opacity-50',
+          )}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {t('files.folder_tree_title')}
+          </p>
+          <FileManagerFolderTree
+            tree={treeQ.data?.tree ?? []}
+            currentPath={path}
+            documentRootRel={documentRootRel || undefined}
+            rootLabel={t('files.public_html_root')}
+            docrootLabel={
+              documentRootRel
+                ? t('files.web_root_short', { path: documentRootRel })
+                : t('files.root_segment')
+            }
+            loading={treeQ.isLoading}
+            onNavigate={(p) => {
+              setFilePath(p)
+              setSelected(null)
+            }}
+          />
+        </aside>
+
+        <div className="card order-1 min-w-0 overflow-hidden rounded-xl border border-gray-200 shadow-sm dark:border-gray-700 dark:shadow-none md:order-2">
           {domainId === '' ? (
             <div className="flex min-h-[min(50vh,22rem)] flex-col items-center justify-center gap-3 px-6 py-12 text-center">
               <Folder className="h-12 w-12 text-gray-300 dark:text-gray-600" aria-hidden />
@@ -1701,7 +1751,7 @@ export default function FileManagerPage() {
                       setSelected(null)
                     }}
                   >
-                    {t('files.root_segment')}
+                    {t('files.public_html_root')}
                   </button>
                   {crumbs.map((c) => (
                     <span key={c.path} className="inline-flex min-w-0 items-center gap-0.5">
@@ -2445,7 +2495,7 @@ export default function FileManagerPage() {
 
         <aside
           className={clsx(
-            'card order-2 flex w-full min-w-0 flex-col gap-3.5 rounded-xl border border-gray-200 p-3 shadow-sm dark:border-gray-700 dark:shadow-none md:sticky md:top-[max(1rem,env(safe-area-inset-top,0px))] md:z-[5] md:self-start xl:p-4',
+            'card order-3 flex w-full min-w-0 flex-col gap-3.5 rounded-xl border border-gray-200 p-3 shadow-sm dark:border-gray-700 dark:shadow-none md:sticky md:top-[max(1rem,env(safe-area-inset-top,0px))] md:z-[5] md:self-start xl:p-4',
             domainId === '' && 'opacity-95',
           )}
         >
@@ -2530,6 +2580,7 @@ export default function FileManagerPage() {
               onClick={() => {
                 void targetsQ.refetch()
                 void filesQ.refetch()
+                void treeQ.refetch()
               }}
               title={t('common.refresh')}
             >
@@ -2591,6 +2642,15 @@ export default function FileManagerPage() {
                 >
                   {t('files.shortcut_public')}
                 </button>
+                {documentRootRel && documentRootRel !== 'public' ? (
+                  <button
+                    type="button"
+                    className="col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-2 py-1.5 text-center text-[11px] font-medium leading-tight text-emerald-900 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100 sm:text-xs"
+                    onClick={() => setFilePath(documentRootRel)}
+                  >
+                    {t('files.shortcut_web_root', { path: documentRootRel })}
+                  </button>
+                ) : null}
               </div>
             </div>
           )}

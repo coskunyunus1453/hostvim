@@ -164,6 +164,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::prefix('domains/{domain}/files')->group(function () {
         Route::middleware('ability:files:read')->group(function () {
             Route::get('/', [FileManagerController::class, 'index'])->middleware('throttle:files-read');
+            Route::get('tree', [FileManagerController::class, 'tree'])->middleware('throttle:files-read');
             Route::get('search', [FileManagerController::class, 'search'])->middleware('throttle:files-read');
             Route::get('read', [FileManagerController::class, 'read'])->middleware('throttle:files-read');
             Route::post('read', [FileManagerController::class, 'read'])->middleware('throttle:files-read');
