@@ -1411,6 +1411,9 @@
     "discover_scheduled_badge": "In scheduler",
     "discover_profile": "Project type: {{profile}}",
     "discover_pick_hint": "Pick a command to fill the command field and suggested schedule.",
+    "discover_deep": "Deep scan (all artisan commands, ~1–2 min)",
+    "discover_scan_long": "Scanning project; large sites may take 1–2 minutes…",
+    "discover_failed": "Project scan failed.",
     "human_invalid": "Invalid or custom expression",
     "human_custom": "Minute {{m}}, hour {{h}}, day {{dom}}, month {{mon}}, weekday {{dow}}",
     "presets": {

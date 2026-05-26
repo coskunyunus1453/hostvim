@@ -2,6 +2,7 @@
 
 namespace App\Services\Cron;
 
+use App\Models\Domain;
 use App\Models\User;
 
 class CronAllowedPaths
@@ -17,7 +18,7 @@ class CronAllowedPaths
     /**
      * @return list<string>
      */
-    public static function rootsFor(?User $user = null): array
+    public static function rootsFor(?User $user = null, ?Domain $domain = null): array
     {
         $roots = [];
 
@@ -37,11 +38,16 @@ class CronAllowedPaths
             }
         }
 
+        if ($domain !== null) {
+            $roots = array_merge($roots, self::rootsFromDomainRecord($domain));
+        }
+
         if ($user !== null) {
             $wwwBases = array_values(array_unique(array_filter($roots)));
             $domains = $user->domains()->get(['document_root', 'name']);
-            foreach ($domains as $domain) {
-                $name = strtolower(trim((string) $domain->name));
+            foreach ($domains as $owned) {
+                $roots = array_merge($roots, self::rootsFromDomainRecord($owned));
+                $name = strtolower(trim((string) $owned->name));
                 if ($name === '') {
                     continue;
                 }
@@ -52,21 +58,38 @@ class CronAllowedPaths
                     $roots[] = $site.'/public_html';
                     $roots[] = $site.'/public_html/public';
                 }
+            }
+        }
 
-                $doc = rtrim(str_replace('\\', '/', (string) $domain->document_root), '/');
-                if ($doc === '') {
-                    continue;
-                }
-                $roots[] = $doc;
-                $parent = dirname($doc);
-                if ($parent !== '.' && $parent !== '/') {
-                    $roots[] = $parent;
-                }
-                $siteRoot = dirname($parent);
-                if ($siteRoot !== '.' && $siteRoot !== '/') {
-                    $roots[] = $siteRoot;
+        return array_values(array_unique(array_filter($roots)));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function rootsFromDomainRecord(Domain $domain): array
+    {
+        $roots = [];
+        $name = strtolower(trim((string) $domain->name));
+        $doc = rtrim(str_replace('\\', '/', (string) $domain->document_root), '/');
+
+        if ($doc !== '') {
+            $roots[] = $doc;
+            $parent = dirname($doc);
+            if ($parent !== '.' && $parent !== '/') {
+                $roots[] = $parent;
+                $grand = dirname($parent);
+                if ($grand !== '.' && $grand !== '/') {
+                    $roots[] = $grand;
                 }
             }
+        }
+
+        $configured = rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/');
+        if ($configured !== '' && $name !== '') {
+            $roots[] = $configured.'/'.$name;
+            $roots[] = $configured.'/'.$name.'/public_html';
+            $roots[] = $configured.'/'.$name.'/public_html/public';
         }
 
         return array_values(array_unique(array_filter($roots)));
@@ -84,7 +107,6 @@ class CronAllowedPaths
         return false;
     }
 
-    /** Cron çıktısını yok saymak için standart hedefler (>> /dev/null 2>&1). */
     public static function isSafeDevSink(string $path): bool
     {
         $normalized = rtrim(str_replace('\\', '/', $path), '/');
@@ -99,9 +121,13 @@ class CronAllowedPaths
         return (bool) preg_match('#/(?:usr/)?bin/php\d*$#', $normalized);
     }
 
-    public static function isAllowed(string $path, ?User $user = null): bool
+    public static function isAllowed(string $path, ?User $user = null, ?Domain $domain = null): bool
     {
-        if (self::isSystemBinaryPath($path)) {
+        if (self::isSystemBinaryPath($path) || self::isPhpBinaryPath($path)) {
+            return true;
+        }
+
+        if ($domain !== null && self::pathUnderDomain($path, $domain)) {
             return true;
         }
 
@@ -113,7 +139,7 @@ class CronAllowedPaths
         $real = @realpath($path);
         $realNorm = is_string($real) ? str_replace('\\', '/', $real) : null;
 
-        foreach (self::rootsFor($user) as $root) {
+        foreach (self::rootsFor($user, $domain) as $root) {
             if ($root === '') {
                 continue;
             }
@@ -127,6 +153,40 @@ class CronAllowedPaths
                     if ($realNorm === $rootRealNorm || str_starts_with($realNorm.'/', $rootRealNorm.'/')) {
                         return true;
                     }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static function pathUnderDomain(string $path, Domain $domain): bool
+    {
+        $normalized = str_replace('\\', '/', $path);
+        $name = strtolower(trim((string) $domain->name));
+        if ($name !== '') {
+            if (preg_match('#/(?:data/www|www|home/[^/]+)/'.preg_quote($name, '#').'(?:/|$)#', $normalized) === 1) {
+                return true;
+            }
+            if (str_contains($normalized, '/'.$name.'/') || str_ends_with($normalized, '/'.$name)) {
+                return true;
+            }
+        }
+
+        foreach (self::rootsFromDomainRecord($domain) as $root) {
+            if ($root === '') {
+                continue;
+            }
+            if ($normalized === $root || str_starts_with($normalized.'/', $root.'/')) {
+                return true;
+            }
+            $rootReal = @realpath($root);
+            $pathReal = @realpath($path);
+            if (is_string($rootReal) && is_string($pathReal)) {
+                $rootRealNorm = str_replace('\\', '/', $rootReal);
+                $pathRealNorm = str_replace('\\', '/', $pathReal);
+                if ($pathRealNorm === $rootRealNorm || str_starts_with($pathRealNorm.'/', $rootRealNorm.'/')) {
+                    return true;
                 }
             }
         }

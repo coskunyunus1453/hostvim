@@ -1410,6 +1410,9 @@
     "discover_scheduled_badge": "Zamanlayıcıda",
     "discover_profile": "Proje türü: {{profile}}",
     "discover_pick_hint": "Bir komut seçin; komut ve önerilen zamanlama alanlara yazılır.",
+    "discover_deep": "Derin tarama (tüm artisan komutları, ~1–2 dk)",
+    "discover_scan_long": "Proje taranıyor; büyük projelerde 1–2 dakika sürebilir…",
+    "discover_failed": "Proje taraması başarısız oldu.",
     "human_invalid": "Geçersiz veya özel ifade",
     "human_custom": "Dakika {{m}}, saat {{h}}, gün {{dom}}, ay {{mon}}, hafta günü {{dow}}",
     "presets": {

@@ -2,6 +2,7 @@
 
 namespace App\Services\Cron;
 
+use App\Models\CronJob;
 use App\Models\Domain;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -10,7 +11,7 @@ use Symfony\Component\Process\Process;
 
 class CronCommandDiscoveryService
 {
-    private const MAX_SUGGESTIONS = 48;
+    private const MAX_SUGGESTIONS = 64;
 
     /** @var list<string> */
     private const ARTISAN_SKIP_PREFIXES = [
@@ -25,6 +26,8 @@ class CronCommandDiscoveryService
      *   profile: string,
      *   project_root: string|null,
      *   php_binary: string,
+     *   domain: string,
+     *   scan_steps: list<array{key: string, label: string, status: string}>,
      *   suggestions: list<array{
      *     id: string,
      *     kind: string,
@@ -36,59 +39,97 @@ class CronCommandDiscoveryService
      *   }>
      * }
      */
-    public function discover(Domain $domain, User $user): array
+    public function discover(Domain $domain, User $user, bool $deep = false): array
     {
         $phpBin = $this->phpBinary();
-        $roots = $this->resolveProjectRoots($domain);
+        $steps = [];
+        $byCommand = [];
         $profile = 'unknown';
         $projectRoot = null;
-        $byCommand = [];
+
+        $addStep = function (string $key, string $label, string $status = 'done') use (&$steps): void {
+            $steps[] = ['key' => $key, 'label' => $label, 'status' => $status];
+        };
+
+        $addStep('start', (string) __('cron.discover_step_start'), 'running');
+        $roots = $this->resolveProjectRoots($domain);
+        $addStep('roots', (string) __('cron.discover_step_roots', ['count' => count($roots)]));
+
+        $owner = $domain->user ?? User::query()->find($domain->user_id);
+        $pathUser = $owner ?? $user;
+
+        foreach ($this->discoverExistingPanelCrons($domain) as $item) {
+            $byCommand[$item['command']] = $item;
+        }
+        $addStep('existing', (string) __('cron.discover_step_existing', ['count' => count($byCommand)]));
 
         foreach ($roots as $root) {
-            if (! $this->pathAllowed($root, $user)) {
+            if (! CronAllowedPaths::isAllowed($root, $pathUser, $domain)) {
                 continue;
             }
 
-            if (is_file($root.'/artisan')) {
+            foreach ($this->locateArtisanRoots($root) as $artisanRoot) {
+                if (! is_file($artisanRoot.'/artisan')) {
+                    continue;
+                }
                 $profile = 'laravel';
-                $projectRoot = $root;
-                foreach ($this->discoverArtisan($root, $phpBin, $user) as $item) {
+                $projectRoot ??= $artisanRoot;
+                $addStep('artisan', (string) __('cron.discover_step_artisan', ['path' => $artisanRoot]), 'running');
+                foreach ($this->discoverArtisan($artisanRoot, $phpBin, $pathUser, $domain, $deep) as $item) {
                     $byCommand[$item['command']] = $item;
                 }
-                break;
+                $addStep('artisan', (string) __('cron.discover_step_artisan_done'));
             }
 
-            if (is_file($root.'/spark')) {
-                $profile = 'codeigniter';
-                $projectRoot = $root;
-                foreach ($this->discoverSpark($root, $phpBin, $user) as $item) {
+            foreach ($this->locateSparkRoots($root) as $sparkRoot) {
+                if (! is_file($sparkRoot.'/spark')) {
+                    continue;
+                }
+                $profile = $profile === 'laravel' ? 'laravel' : 'codeigniter';
+                $projectRoot ??= $sparkRoot;
+                $addStep('spark', (string) __('cron.discover_step_spark', ['path' => $sparkRoot]), 'running');
+                foreach ($this->discoverSpark($sparkRoot, $phpBin, $pathUser, $domain) as $item) {
                     $byCommand[$item['command']] = $item;
                 }
-                break;
+                $addStep('spark', (string) __('cron.discover_step_spark_done'));
+            }
+
+            if ($profile === 'unknown') {
+                foreach ($this->locateNpmRoots($root) as $npmRoot) {
+                    $pkg = $npmRoot.'/package.json';
+                    if (! is_file($pkg)) {
+                        continue;
+                    }
+                    $profile = 'node';
+                    $projectRoot ??= $npmRoot;
+                    $addStep('npm', (string) __('cron.discover_step_npm'), 'running');
+                    foreach ($this->discoverNpmScripts($npmRoot, $pathUser, $domain) as $item) {
+                        $byCommand[$item['command']] = $item;
+                    }
+                    $addStep('npm', (string) __('cron.discover_step_npm_done'));
+                }
             }
         }
 
-        if ($profile === 'unknown') {
-            foreach ($roots as $root) {
-                if (! $this->pathAllowed($root, $user)) {
-                    continue;
-                }
-                $npm = $this->discoverNpmScripts($root, $user);
-                if ($npm !== []) {
-                    $profile = 'node';
-                    $projectRoot = $root;
-                    foreach ($npm as $item) {
-                        $byCommand[$item['command']] = $item;
-                    }
-                    break;
-                }
+        if ($profile === 'unknown' && $byCommand === []) {
+            $addStep('fallback', (string) __('cron.discover_step_fallback'));
+            foreach ($this->fallbackSuggestions($domain, $phpBin) as $item) {
+                $byCommand[$item['command']] = $item;
             }
         }
 
         $suggestions = array_values($byCommand);
         usort($suggestions, static function (array $a, array $b): int {
-            if (($a['scheduled'] ?? false) !== ($b['scheduled'] ?? false)) {
-                return ($b['scheduled'] ?? false) <=> ($a['scheduled'] ?? false);
+            $rank = static fn (array $x): int => match ($x['kind'] ?? '') {
+                'existing' => 4,
+                'artisan', 'spark' => 3,
+                'scheduler' => 2,
+                default => 1,
+            };
+            $ra = $rank($a) + (($a['scheduled'] ?? false) ? 10 : 0);
+            $rb = $rank($b) + (($b['scheduled'] ?? false) ? 10 : 0);
+            if ($ra !== $rb) {
+                return $rb <=> $ra;
             }
 
             return strcasecmp((string) $a['label'], (string) $b['label']);
@@ -98,10 +139,14 @@ class CronCommandDiscoveryService
             $suggestions = array_slice($suggestions, 0, self::MAX_SUGGESTIONS);
         }
 
+        $addStep('finish', (string) __('cron.discover_step_finish', ['count' => count($suggestions)]));
+
         return [
             'profile' => $profile,
             'project_root' => $projectRoot,
             'php_binary' => $phpBin,
+            'domain' => $domain->name,
+            'scan_steps' => $steps,
             'suggestions' => $suggestions,
         ];
     }
@@ -109,42 +154,125 @@ class CronCommandDiscoveryService
     /**
      * @return list<array{id: string, kind: string, label: string, description: string, command: string, recommended_schedule: string|null, scheduled: bool}>
      */
-    private function discoverArtisan(string $root, string $phpBin, User $user): array
+    private function discoverExistingPanelCrons(Domain $domain): array
+    {
+        $needle = strtolower(trim((string) $domain->name));
+        if ($needle === '') {
+            return [];
+        }
+
+        $items = [];
+        $jobs = CronJob::query()
+            ->where('user_id', $domain->user_id)
+            ->where('is_system', false)
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get();
+
+        foreach ($jobs as $job) {
+            $cmdLower = strtolower($job->command);
+            $matchesName = str_contains($cmdLower, $needle);
+            $matchesRoot = false;
+            foreach (CronAllowedPaths::rootsFromDomainRecord($domain) as $root) {
+                if ($root !== '' && str_contains($cmdLower, strtolower($root))) {
+                    $matchesRoot = true;
+                    break;
+                }
+            }
+            if (! $matchesName && ! $matchesRoot) {
+                continue;
+            }
+            $items[] = [
+                'id' => 'existing:'.$job->id,
+                'kind' => 'existing',
+                'label' => $job->description ?: __('cron.discover_existing_job'),
+                'description' => $job->schedule.' — '.__('cron.discover_existing_hint'),
+                'command' => $job->command,
+                'recommended_schedule' => $job->schedule,
+                'scheduled' => false,
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function locateArtisanRoots(string $base): array
+    {
+        $candidates = [$base];
+        if (str_ends_with($base, '/public_html') || str_ends_with($base, '/public')) {
+            $candidates[] = dirname($base);
+        }
+        $candidates[] = $base.'/public_html';
+
+        return array_values(array_unique(array_filter($candidates, static fn (string $p) => $p !== '' && $p !== '.' && is_dir($p))));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function locateSparkRoots(string $base): array
+    {
+        $candidates = [
+            $base,
+            $base.'/public_html',
+            dirname($base),
+            dirname($base).'/public_html',
+        ];
+
+        return array_values(array_unique(array_filter($candidates, static fn (string $p) => $p !== '' && $p !== '.' && is_dir($p))));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function locateNpmRoots(string $base): array
+    {
+        return $this->locateSparkRoots($base);
+    }
+
+    /**
+     * @return list<array{id: string, kind: string, label: string, description: string, command: string, recommended_schedule: string|null, scheduled: bool}>
+     */
+    private function discoverArtisan(string $root, string $phpBin, User $user, Domain $domain, bool $deep): array
     {
         $artisan = $root.'/artisan';
-        if (! $this->pathAllowed($artisan, $user)) {
+        if (! CronAllowedPaths::isAllowed($artisan, $user, $domain)) {
             return [];
         }
 
         $items = [];
         $scheduledNames = [];
 
-        $scheduleOut = $this->run([$phpBin, $artisan, 'schedule:list'], $root, 20);
+        $scheduleOut = $this->run([$phpBin, $artisan, 'schedule:list'], $root, 25);
         foreach ($this->parseScheduleList($scheduleOut) as $row) {
             $name = $row['command'];
             $scheduledNames[$name] = true;
             $items[] = $this->artisanSuggestion($phpBin, $artisan, $name, $row['description'], $row['schedule'], true);
         }
 
-        $listOut = $this->run([$phpBin, $artisan, 'list', '--format=json'], $root, 45);
-        $decoded = json_decode($listOut, true);
-        if (is_array($decoded)) {
-            foreach ($this->parseArtisanJson($decoded) as $row) {
-                $name = $row['name'];
-                if (isset($scheduledNames[$name])) {
-                    continue;
+        $this->mergeArtisanFromConsoleRoutes($root, $items, $scheduledNames, $phpBin, $artisan);
+
+        if ($deep || $items === []) {
+            $listOut = $this->run([$phpBin, $artisan, 'list', '--format=json'], $root, 90);
+            $decoded = json_decode($listOut, true);
+            if (is_array($decoded)) {
+                foreach ($this->parseArtisanJson($decoded) as $row) {
+                    $name = $row['name'];
+                    if (isset($scheduledNames[$name]) || $this->shouldSkipArtisanCommand($name)) {
+                        continue;
+                    }
+                    $items[] = $this->artisanSuggestion(
+                        $phpBin,
+                        $artisan,
+                        $name,
+                        $row['description'],
+                        $this->guessSchedule($name),
+                        false,
+                    );
                 }
-                if ($this->shouldSkipArtisanCommand($name)) {
-                    continue;
-                }
-                $items[] = $this->artisanSuggestion(
-                    $phpBin,
-                    $artisan,
-                    $name,
-                    $row['description'],
-                    $this->guessSchedule($name),
-                    false,
-                );
             }
         }
 
@@ -162,25 +290,54 @@ class CronCommandDiscoveryService
     }
 
     /**
+     * @param  list<array{id: string, kind: string, label: string, description: string, command: string, recommended_schedule: string|null, scheduled: bool}>  $items
+     * @param  array<string, bool>  $scheduledNames
+     */
+    private function mergeArtisanFromConsoleRoutes(string $root, array &$items, array &$scheduledNames, string $phpBin, string $artisan): void
+    {
+        $files = [
+            $root.'/routes/console.php',
+            $root.'/app/Console/Kernel.php',
+        ];
+        foreach ($files as $file) {
+            if (! is_file($file)) {
+                continue;
+            }
+            $content = @file_get_contents($file);
+            if (! is_string($content)) {
+                continue;
+            }
+            if (preg_match_all("#(?:Schedule::|schedule->)command\(\s*['\"]([^'\"]+)['\"]#", $content, $m) !== false) {
+                foreach ($m[1] as $name) {
+                    if ($name === '' || isset($scheduledNames[$name]) || $this->shouldSkipArtisanCommand($name)) {
+                        continue;
+                    }
+                    $scheduledNames[$name] = true;
+                    $items[] = $this->artisanSuggestion($phpBin, $artisan, $name, (string) __('cron.discover_from_routes'), '*/15 * * * *', true);
+                }
+            }
+        }
+    }
+
+    /**
      * @return list<array{id: string, kind: string, label: string, description: string, command: string, recommended_schedule: string|null, scheduled: bool}>
      */
-    private function discoverSpark(string $root, string $phpBin, User $user): array
+    private function discoverSpark(string $root, string $phpBin, User $user, Domain $domain): array
     {
         $spark = $root.'/spark';
-        if (! $this->pathAllowed($spark, $user)) {
+        if (! CronAllowedPaths::isAllowed($spark, $user, $domain)) {
             return [];
         }
 
         $items = [];
-        $out = $this->run([$phpBin, $spark, 'list'], $root, 25);
+        $out = $this->run([$phpBin, $spark, 'list'], $root, 30);
         foreach ($this->parseSparkList($out) as $row) {
-            $cmd = $phpBin.' '.$spark.' '.$row['name'];
             $items[] = [
                 'id' => 'spark:'.$row['name'],
                 'kind' => 'spark',
                 'label' => $row['name'],
                 'description' => $row['description'],
-                'command' => $cmd,
+                'command' => $phpBin.' '.$spark.' '.$row['name'],
                 'recommended_schedule' => $this->guessSchedule($row['name']),
                 'scheduled' => false,
             ];
@@ -192,10 +349,10 @@ class CronCommandDiscoveryService
     /**
      * @return list<array{id: string, kind: string, label: string, description: string, command: string, recommended_schedule: string|null, scheduled: bool}>
      */
-    private function discoverNpmScripts(string $root, User $user): array
+    private function discoverNpmScripts(string $root, User $user, Domain $domain): array
     {
         $pkgPath = $root.'/package.json';
-        if (! is_file($pkgPath) || ! $this->pathAllowed($pkgPath, $user)) {
+        if (! is_file($pkgPath) || ! CronAllowedPaths::isAllowed($pkgPath, $user, $domain)) {
             return [];
         }
 
@@ -214,18 +371,11 @@ class CronCommandDiscoveryService
             return [];
         }
 
-        $npm = '/usr/bin/npm';
-        if (! is_executable($npm)) {
-            $npm = 'npm';
-        }
-
+        $npm = is_executable('/usr/bin/npm') ? '/usr/bin/npm' : 'npm';
         $items = [];
         foreach ($scripts as $name => $script) {
             if (! is_string($name) || $name === '' || ! is_string($script)) {
                 continue;
-            }
-            if (in_array($name, ['dev', 'start', 'build', 'lint', 'test'], true) && ! str_contains($name, ':')) {
-                // still include but lower priority — include all
             }
             $items[] = [
                 'id' => 'npm:'.$name,
@@ -234,6 +384,39 @@ class CronCommandDiscoveryService
                 'description' => Str::limit($script, 120),
                 'command' => 'cd '.$root.' && '.$npm.' run '.$name,
                 'recommended_schedule' => $this->guessSchedule($name),
+                'scheduled' => false,
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return list<array{id: string, kind: string, label: string, description: string, command: string, recommended_schedule: string|null, scheduled: bool}>
+     */
+    private function fallbackSuggestions(Domain $domain, string $phpBin): array
+    {
+        $items = [];
+        $name = strtolower(trim((string) $domain->name));
+        $configured = rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/');
+        if ($configured === '' || $name === '') {
+            return [];
+        }
+
+        $site = $configured.'/'.$name;
+        $artisan = $site.'/artisan';
+        $spark = $site.'/public_html/spark';
+        if (is_file($artisan)) {
+            $items[] = $this->artisanSuggestion($phpBin, $artisan, 'schedule:run', (string) __('cron.discover_schedule_run_desc'), '* * * * *', false, 'scheduler');
+        }
+        if (is_file($spark)) {
+            $items[] = [
+                'id' => 'spark:custom',
+                'kind' => 'spark',
+                'label' => 'spark …',
+                'description' => (string) __('cron.discover_spark_manual'),
+                'command' => $phpBin.' '.$spark.' ',
+                'recommended_schedule' => '*/5 * * * *',
                 'scheduled' => false,
             ];
         }
@@ -281,10 +464,7 @@ class CronCommandDiscoveryService
             if ($name === '') {
                 continue;
             }
-            $desc = '';
-            if (is_array($def)) {
-                $desc = (string) ($def['description'] ?? $def['help'] ?? '');
-            }
+            $desc = is_array($def) ? (string) ($def['description'] ?? $def['help'] ?? '') : '';
             $rows[] = ['name' => $name, 'description' => $desc];
         }
 
@@ -302,7 +482,6 @@ class CronCommandDiscoveryService
             if ($line === '' || str_starts_with($line, '+') || str_contains($line, '---')) {
                 continue;
             }
-            // "*/5 * * * *  php artisan orders:sync ...."
             if (preg_match('#^([^\s]+(?:\s+[^\s]+){4})\s+.*?artisan\s+([^\s]+)#', $line, $m) === 1) {
                 $rows[] = [
                     'schedule' => trim($m[1]),
@@ -328,6 +507,8 @@ class CronCommandDiscoveryService
             }
             if (preg_match('#^([a-z0-9][a-z0-9:\-_/]*)\s{2,}(.+)$#i', $line, $m) === 1) {
                 $rows[] = ['name' => trim($m[1]), 'description' => trim($m[2])];
+            } elseif (preg_match('#^([a-z0-9][a-z0-9:\-_/]+)$#i', $line, $m) === 1) {
+                $rows[] = ['name' => trim($m[1]), 'description' => ''];
             }
         }
 
@@ -369,42 +550,24 @@ class CronCommandDiscoveryService
      */
     private function resolveProjectRoots(Domain $domain): array
     {
-        $roots = [];
-        $doc = rtrim(str_replace('\\', '/', (string) $domain->document_root), '/');
-        if ($doc !== '') {
-            $roots[] = $doc;
-            $roots[] = dirname($doc);
-            $roots[] = dirname($doc, 2);
-        }
-
-        $configured = rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/');
-        $name = strtolower(trim((string) $domain->name));
-        if ($configured !== '' && $name !== '') {
-            $roots[] = $configured.'/'.$name;
-            $roots[] = $configured.'/'.$name.'/public_html';
-        }
-
         $unique = [];
-        foreach ($roots as $root) {
-            $root = rtrim($root, '/');
-            if ($root === '' || $root === '.' || isset($unique[$root])) {
-                continue;
-            }
+        foreach (CronAllowedPaths::rootsFromDomainRecord($domain) as $root) {
             if (is_dir($root)) {
-                $unique[$root] = true;
+                $unique[rtrim($root, '/')] = true;
             }
         }
 
         return array_keys($unique);
     }
 
-    private function pathAllowed(string $path, User $user): bool
-    {
-        return CronAllowedPaths::isAllowed(str_replace('\\', '/', $path), $user);
-    }
-
     private function phpBinary(): string
     {
+        foreach (['/usr/bin/php', '/usr/local/bin/php'] as $candidate) {
+            if (is_executable($candidate)) {
+                return $candidate;
+            }
+        }
+
         $configured = trim((string) config('hostvim.cron.php_binary', ''));
         if ($configured !== '' && is_executable($configured)) {
             return $configured;
@@ -422,6 +585,7 @@ class CronCommandDiscoveryService
             $process = new Process($command, $cwd, [
                 'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
                 'HOME' => $cwd,
+                'LANG' => 'C.UTF-8',
             ]);
             $process->setTimeout($timeoutSeconds);
             $process->run();

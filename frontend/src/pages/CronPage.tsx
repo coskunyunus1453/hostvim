@@ -29,10 +29,17 @@ type CronSuggestion = {
   scheduled?: boolean
 }
 
+type CronScanStep = {
+  key: string
+  label: string
+  status: string
+}
+
 type CronDiscoverResponse = {
   profile: string
   project_root?: string | null
   php_binary?: string
+  scan_steps?: CronScanStep[]
   suggestions: CronSuggestion[]
 }
 
@@ -92,6 +99,7 @@ export default function CronPage() {
   const [logJob, setLogJob] = useState<CronRow | null>(null)
   const [logFilter, setLogFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'timeout'>('all')
   const [discoverDomainId, setDiscoverDomainId] = useState<number | ''>('')
+  const [discoverDeep, setDiscoverDeep] = useState(true)
 
   const domainsQ = useDomainsList()
 
@@ -159,10 +167,14 @@ export default function CronPage() {
   }, [currentSchedule, t])
 
   const discoverQ = useQuery({
-    queryKey: ['cron-discover', discoverDomainId],
-    enabled: modal !== null && discoverDomainId !== '',
+    queryKey: ['cron-discover', discoverDomainId, discoverDeep],
+    enabled: false,
+    retry: false,
     queryFn: async () => {
-      const { data } = await api.get<CronDiscoverResponse>(`/domains/${discoverDomainId}/cron/discover`)
+      const { data } = await api.get<CronDiscoverResponse>(
+        `/domains/${discoverDomainId}/cron/discover`,
+        { params: { deep: discoverDeep ? 1 : 0 }, timeout: 120_000 },
+      )
       return data
     },
   })
@@ -189,8 +201,12 @@ export default function CronPage() {
   }
 
   const createM = useMutation({
-    mutationFn: async (payload: { schedule: string; command: string; description?: string }) =>
-      api.post('/cron', payload),
+    mutationFn: async (payload: {
+      schedule: string
+      command: string
+      description?: string
+      domain_id?: number
+    }) => api.post('/cron', payload),
     onSuccess: () => {
       toast.success(t('cron.created'))
       qc.invalidateQueries({ queryKey: ['cron'] })
@@ -281,10 +297,18 @@ export default function CronPage() {
       toast.error(t('cron.invalid_schedule_short'))
       return
     }
-    const payload = {
+    const payload: {
+      schedule: string
+      command: string
+      description?: string
+      domain_id?: number
+    } = {
       schedule: parts.join(' '),
       command: normalizeCronCommand(command),
       description: description.trim() || undefined,
+    }
+    if (discoverDomainId !== '') {
+      payload.domain_id = discoverDomainId
     }
     if (modal === 'edit' && editing) {
       updateM.mutate({ id: editing.id, ...payload })
@@ -581,7 +605,7 @@ export default function CronPage() {
                   type="button"
                   className="btn-secondary shrink-0"
                   disabled={discoverDomainId === '' || discoverQ.isFetching}
-                  onClick={() => discoverQ.refetch()}
+                  onClick={() => void discoverQ.refetch()}
                 >
                   {discoverQ.isFetching ? (
                     <Loader2 className="h-4 w-4 animate-spin inline mr-1" />
@@ -591,6 +615,41 @@ export default function CronPage() {
                   {discoverQ.isFetching ? t('cron.discover_scanning') : t('cron.discover_scan')}
                 </button>
               </div>
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={discoverDeep}
+                  onChange={(e) => setDiscoverDeep(e.target.checked)}
+                  disabled={discoverQ.isFetching}
+                />
+                {t('cron.discover_deep')}
+              </label>
+              {discoverQ.isFetching && (
+                <div className="space-y-2">
+                  <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div className="h-full w-1/3 rounded-full bg-primary-500 animate-pulse" />
+                  </div>
+                  <p className="text-xs text-gray-500">{t('cron.discover_scan_long')}</p>
+                </div>
+              )}
+              {discoverQ.isSuccess && (discoverQ.data?.scan_steps?.length ?? 0) > 0 && (
+                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 max-h-32 overflow-y-auto">
+                  {discoverQ.data!.scan_steps!.map((step, i) => (
+                    <li key={`${step.key}-${i}`} className="flex items-center gap-2">
+                      <span
+                        className={clsx(
+                          'inline-block h-1.5 w-1.5 rounded-full shrink-0',
+                          step.status === 'running'
+                            ? 'bg-amber-400 animate-pulse'
+                            : 'bg-emerald-500',
+                        )}
+                      />
+                      {step.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {discoverQ.data?.profile && discoverDomainId !== '' && (
                 <p className="text-xs text-gray-500">
                   {t('cron.discover_profile', { profile: discoverQ.data.profile })}
@@ -601,6 +660,11 @@ export default function CronPage() {
                 <p className="text-sm text-gray-500 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('cron.discover_scanning')}
+                </p>
+              )}
+              {discoverQ.isError && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {apiErrorMessage(discoverQ.error, t('cron.discover_failed'))}
                 </p>
               )}
               {discoverDomainId !== '' && discoverQ.isSuccess && !discoverQ.isFetching && (

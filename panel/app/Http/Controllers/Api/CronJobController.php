@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Domain;
 use App\Models\CronJob;
 use App\Models\CronJobRun;
 use App\Services\Cron\CronCommandParser;
@@ -51,8 +52,10 @@ class CronJobController extends Controller
                 'schedule' => ['required', 'string', 'max:80', $this->cronScheduleRule()],
                 'command' => 'required|string|max:2000',
                 'description' => 'nullable|string|max:255',
+                'domain_id' => 'nullable|integer|exists:domains,id',
             ]);
-            $this->commandParser->assertValid($validated['command'], $request->user());
+            $domain = $this->resolveDomainForPathCheck($request, $validated['domain_id'] ?? null);
+            $this->commandParser->assertValid($validated['command'], $request->user(), $domain);
 
             $this->quota->ensureCanCreateCronJob($request->user());
 
@@ -105,8 +108,10 @@ class CronJobController extends Controller
             'schedule' => ['required', 'string', 'max:80', $this->cronScheduleRule()],
             'command' => 'required|string|max:2000',
             'description' => 'nullable|string|max:255',
+            'domain_id' => 'nullable|integer|exists:domains,id',
         ]);
-        $this->commandParser->assertValid($validated['command'], $request->user());
+        $domain = $this->resolveDomainForPathCheck($request, $validated['domain_id'] ?? null);
+        $this->commandParser->assertValid($validated['command'], $request->user(), $domain);
 
         $eid = $cronJob->engine_job_id;
         if ($eid === null || $eid === '') {
@@ -225,5 +230,24 @@ class CronJobController extends Controller
         if ($cronJob->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
             abort(403);
         }
+    }
+
+    private function resolveDomainForPathCheck(Request $request, mixed $domainId): ?Domain
+    {
+        if ($domainId === null || $domainId === '') {
+            return null;
+        }
+
+        $domain = Domain::query()->find((int) $domainId);
+        if ($domain === null) {
+            return null;
+        }
+
+        $user = $request->user();
+        if ($user->isAdmin() || $domain->user_id === $user->id) {
+            return $domain;
+        }
+
+        abort(403);
     }
 }

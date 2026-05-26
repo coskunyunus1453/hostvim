@@ -23,8 +23,10 @@ class CronDiscoveryController extends Controller
             abort(403);
         }
 
+        $deep = $request->boolean('deep', true);
+
         return response()->json(
-            $this->discovery->discover($domain, $request->user())
+            $this->discovery->discover($domain, $request->user(), $deep)
         );
     }
 }

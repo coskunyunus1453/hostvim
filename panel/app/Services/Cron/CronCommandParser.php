@@ -2,6 +2,7 @@
 
 namespace App\Services\Cron;
 
+use App\Models\Domain;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -69,21 +70,21 @@ class CronCommandParser
     /**
      * @return array{shell: true, command: string, working_directory: string|null, argv: array<int, string>}
      */
-    public function parse(string $command, ?User $user = null): array
+    public function parse(string $command, ?User $user = null, ?Domain $domain = null): array
     {
         $normalized = $this->normalizeInput($command);
         $cmd = trim($normalized['command']);
 
-        $this->assertShellCommandSafe($cmd, $user);
+        $this->assertShellCommandSafe($cmd, $user, $domain);
 
         $workingDirectory = null;
         if (preg_match('~^cd\s+(/[^\s;|&><]+)\s+&&\s*(.+)$~', $cmd, $matches) === 1) {
             $workingDirectory = rtrim($matches[1], '/');
-            $this->assertPathAllowed($workingDirectory, $user);
+            $this->assertPathAllowed($workingDirectory, $user, $domain);
             $cmd = trim($matches[2]);
         } elseif (preg_match('~^cd\s+(/[^\s;|&><]+)\s+(.+)$~', $cmd, $matches) === 1) {
             $workingDirectory = rtrim($matches[1], '/');
-            $this->assertPathAllowed($workingDirectory, $user);
+            $this->assertPathAllowed($workingDirectory, $user, $domain);
         }
 
         return [
@@ -94,7 +95,7 @@ class CronCommandParser
         ];
     }
 
-    public function assertValid(string $command, ?User $user = null): void
+    public function assertValid(string $command, ?User $user = null, ?Domain $domain = null): void
     {
         $normalized = $this->normalizeInput($command);
         if ($normalized['stripped_schedule'] !== null) {
@@ -103,10 +104,10 @@ class CronCommandParser
             ]);
         }
 
-        $this->parse($command, $user);
+        $this->parse($command, $user, $domain);
     }
 
-    private function assertShellCommandSafe(string $cmd, ?User $user): void
+    private function assertShellCommandSafe(string $cmd, ?User $user, ?Domain $domain = null): void
     {
         if ($cmd === '') {
             throw ValidationException::withMessages([
@@ -140,7 +141,7 @@ class CronCommandParser
             }
         }
 
-        $this->assertPathsInCommandAllowed($cmd, $user);
+        $this->assertPathsInCommandAllowed($cmd, $user, $domain);
     }
 
     /**
@@ -158,7 +159,7 @@ class CronCommandParser
         ];
     }
 
-    private function assertPathsInCommandAllowed(string $cmd, ?User $user): void
+    private function assertPathsInCommandAllowed(string $cmd, ?User $user, ?Domain $domain = null): void
     {
         $scan = preg_replace('/#.*$/', '', $cmd) ?? $cmd;
 
@@ -177,18 +178,18 @@ class CronCommandParser
                 if (CronAllowedPaths::isPhpBinaryPath($path)) {
                     continue;
                 }
-                $this->assertPathAllowed($path, $user);
+                $this->assertPathAllowed($path, $user, $domain);
             }
         }
     }
 
-    private function assertPathAllowed(string $path, ?User $user): void
+    private function assertPathAllowed(string $path, ?User $user, ?Domain $domain = null): void
     {
-        if (CronAllowedPaths::isAllowed($path, $user)) {
+        if (CronAllowedPaths::isAllowed($path, $user, $domain)) {
             return;
         }
 
-        $roots = CronAllowedPaths::rootsFor($user);
+        $roots = CronAllowedPaths::rootsFor($user, $domain);
         $hint = $roots !== []
             ? ' '.__('cron.command_path_hint', ['path' => Str::limit($roots[0], 80)])
             : '';
