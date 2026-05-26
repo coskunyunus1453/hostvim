@@ -29,34 +29,26 @@ class CronCommandParser
     }
 
     /**
-     * @return array{argv: array<int, string>, working_directory: string|null}
+     * @return array{shell: true, command: string, working_directory: string|null, argv: array<int, string>}
      */
     public function parse(string $command, ?User $user = null): array
     {
         $normalized = $this->normalizeInput($command);
-        $cmd = $normalized['command'];
+        $cmd = trim($normalized['command']);
+
+        $this->assertShellCommandSafe($cmd, $user);
+
         $workingDirectory = null;
-
-        if (preg_match('#^cd\s+(/[A-Za-z0-9_./-]+)\s+(.+)$#', $cmd, $matches) === 1) {
-            $workingDirectory = $matches[1];
-            $cmd = trim($matches[2]);
-        }
-
-        $argv = $this->argvFromCommand($cmd);
-
-        if ($workingDirectory !== null) {
+        if (preg_match('#^cd\s+(/[^\s#;&|><]+)\s+(.+)$#', $cmd, $matches) === 1) {
+            $workingDirectory = rtrim($matches[1], '/');
             $this->assertPathAllowed($workingDirectory, $user);
         }
 
-        foreach ($argv as $arg) {
-            if (str_starts_with($arg, '/')) {
-                $this->assertPathAllowed($arg, $user);
-            }
-        }
-
         return [
-            'argv' => $argv,
+            'shell' => true,
+            'command' => $cmd,
             'working_directory' => $workingDirectory,
+            'argv' => [],
         ];
     }
 
@@ -65,58 +57,80 @@ class CronCommandParser
         $normalized = $this->normalizeInput($command);
         if ($normalized['stripped_schedule'] !== null) {
             throw ValidationException::withMessages([
-                'command' => 'Zamanlama komut alanına değil, üstteki "Cron" / zamanlama alanına yazılmalı (örn. 0 * * * *). Komut kutusuna yalnızca çalıştırılacak kısmı girin.',
+                'command' => __('cron.schedule_in_command_field'),
             ]);
         }
 
         $this->parse($command, $user);
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function argvFromCommand(string $cmd): array
+    private function assertShellCommandSafe(string $cmd, ?User $user): void
     {
         if ($cmd === '') {
             throw ValidationException::withMessages([
-                'command' => 'Komut boş olamaz.',
+                'command' => __('cron.command_empty'),
             ]);
         }
 
-        if (preg_match('/[;&|`><\n\r]/', $cmd) === 1) {
+        if (mb_strlen($cmd) > 2000) {
             throw ValidationException::withMessages([
-                'command' => 'Güvenlik nedeniyle shell operatörleri (|, ;, &, >, <, `) kullanılamaz. Örnek: cd /site/public_html/public /usr/bin/php /site/public_html/spark görev:adı',
+                'command' => __('cron.command_too_long'),
             ]);
         }
 
-        $parts = str_getcsv($cmd, ' ', '"', '\\');
-        $argv = array_values(array_filter(
-            array_map(static fn ($v) => trim((string) $v), $parts),
-            static fn ($v) => $v !== ''
-        ));
-
-        if ($argv === []) {
+        if (preg_match('/[\x00\r\n]/', $cmd) === 1) {
             throw ValidationException::withMessages([
-                'command' => 'Komut çözümlenemedi.',
+                'command' => __('cron.command_no_multiline'),
             ]);
         }
 
-        $binary = $argv[0];
-        if (! preg_match('/^[A-Za-z0-9_\/.\-]+$/', $binary)) {
+        if (preg_match('/`|\$\(|(\$\{)/', $cmd) === 1) {
             throw ValidationException::withMessages([
-                'command' => 'Komut adı geçersiz karakter içeriyor.',
+                'command' => __('cron.command_no_substitution'),
             ]);
         }
 
-        foreach ($argv as $arg) {
-            if (preg_match('/[\x00]/', $arg) === 1) {
+        foreach ($this->forbiddenPatterns() as $pattern) {
+            if (preg_match($pattern, $cmd) === 1) {
                 throw ValidationException::withMessages([
-                    'command' => 'Komut argümanlarında geçersiz karakter var.',
+                    'command' => __('cron.command_forbidden_pattern'),
                 ]);
             }
         }
 
-        return $argv;
+        $this->assertPathsInCommandAllowed($cmd, $user);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function forbiddenPatterns(): array
+    {
+        return [
+            '/\|\s*(?:ba)?sh\b/i',
+            '/;\s*(?:\/usr)?\/bin\/(?:ba)?sh\b/i',
+            '/\b(?:curl|wget)\b[^\n|&;]*\|\s*(?:ba)?sh\b/i',
+            '/\brm\s+-rf\s+\/(?:\s|$)/i',
+            '/>\s*\/dev\/(?:null|zero|tcp|udp)\b/i',
+        ];
+    }
+
+    private function assertPathsInCommandAllowed(string $cmd, ?User $user): void
+    {
+        $scan = preg_replace('/#.*$/', '', $cmd) ?? $cmd;
+
+        if (preg_match_all('#(/[A-Za-z0-9][A-Za-z0-9_./-]*)#', $scan, $matches) !== false) {
+            foreach ($matches[1] as $path) {
+                $path = rtrim($path, '/');
+                if ($path === '' || $path === '/') {
+                    continue;
+                }
+                if (preg_match('#^/\d+$#', $path) === 1) {
+                    continue;
+                }
+                $this->assertPathAllowed($path, $user);
+            }
+        }
     }
 
     private function assertPathAllowed(string $path, ?User $user): void
@@ -126,10 +140,10 @@ class CronCommandParser
         }
 
         $roots = CronAllowedPaths::rootsFor($user);
-        $hint = $roots !== [] ? ' İzin verilen örnek kök: '.Str::limit($roots[0], 80) : '';
+        $hint = $roots !== [] ? ' '.Str::limit($roots[0], 80) : '';
 
         throw ValidationException::withMessages([
-            'command' => 'Komut yolu bu hesabın site dizinleri veya panel kökü altında olmalı.'.$hint,
+            'command' => __('cron.command_path_not_allowed', ['hint' => $hint]),
         ]);
     }
 }

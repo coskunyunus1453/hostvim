@@ -44,8 +44,8 @@ class CronJobExecutor
     {
         $job->loadMissing('user');
         $parsed = $this->parser->parse($job->command, $job->user);
-        $argv = $parsed['argv'];
-        $cwd = $parsed['working_directory'] ?? $this->inferWorkingDirectory($job, $argv);
+        $shellCommand = (string) $parsed['command'];
+        $cwd = $parsed['working_directory'] ?? $this->inferWorkingDirectory($job, $shellCommand);
 
         $run = CronJobRun::create([
             'cron_job_id' => $job->id,
@@ -54,7 +54,7 @@ class CronJobExecutor
             'started_at' => now(),
         ]);
 
-        $process = new Process($argv, $cwd, $this->processEnvironment($cwd));
+        $process = Process::fromShellCommandline($shellCommand, $cwd, $this->processEnvironment($cwd));
         $process->setTimeout((int) config('hostvim.cron.timeout', 180));
         $process->setIdleTimeout((int) config('hostvim.cron.idle_timeout', 120));
 
@@ -90,30 +90,19 @@ class CronJobExecutor
         return $run->fresh();
     }
 
-    /**
-     * @param  array<int, string>  $argv
-     */
-    private function inferWorkingDirectory(CronJob $job, array $argv): ?string
+    private function inferWorkingDirectory(CronJob $job, string $shellCommand): ?string
     {
-        foreach ($argv as $arg) {
-            if (! str_starts_with($arg, '/') || ! is_file($arg)) {
-                continue;
-            }
-            $base = basename($arg);
-            if (in_array($base, ['spark', 'artisan'], true) || str_ends_with($base, '.php')) {
-                return dirname($arg);
-            }
+        if (preg_match('#^cd\s+(/[^\s#;&|><]+)#', $shellCommand, $m) === 1) {
+            $dir = rtrim($m[1], '/');
+
+            return is_dir($dir) ? $dir : null;
         }
 
-        if (isset($argv[1]) && str_starts_with((string) $argv[1], '/') && is_file($argv[1])) {
-            return dirname($argv[1]);
-        }
-
-        $relativeSpark = isset($argv[1]) && in_array($argv[1], ['spark', 'artisan'], true);
-        if ($relativeSpark) {
-            $root = $this->primaryDocumentRootForUser((int) $job->user_id);
-            if ($root !== null && is_file($root.DIRECTORY_SEPARATOR.$argv[1])) {
-                return $root;
+        if (preg_match_all('#(/[A-Za-z0-9][A-Za-z0-9_./-]*(?:artisan|spark|\.php))#', $shellCommand, $matches) !== false) {
+            foreach ($matches[1] as $script) {
+                if (is_file($script)) {
+                    return dirname($script);
+                }
             }
         }
 

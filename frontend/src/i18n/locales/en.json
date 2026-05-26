@@ -1357,7 +1357,7 @@
     "info_engine": "Jobs run automatically via the panel scheduler (every minute). Ensure /etc/cron.d/hostvim-panel-scheduler is active on the server.",
     "info_paths": "Use absolute paths in commands (php, wget, your site directory).",
     "examples_title": "Example commands",
-    "examples_body": "# Laravel (change path to your site)\n0 * * * *  →  /usr/bin/php /var/www/site/public_html/artisan schedule:run\n\n# WordPress ping\n*/15 * * * *  →  wget -q -O - https://example.com/wp-cron.php?doing_wp_cron\n\n# PHP script\n0 2 * * *  →  /usr/bin/php /var/www/site/public_html/scripts/backup.php",
+    "examples_body": "# Schedule above (e.g. 0 * * * *). Command box is a shell line:\n\n# Laravel\n/usr/bin/php /var/www/site/public_html/artisan schedule:run >> /var/www/site/public_html/storage/logs/cron.log 2>&1\n\n# CodeIgniter\ncd /var/www/site/public_html/public && /usr/bin/php ../spark scrape:prices\n\n# Allowed: && || ; | >> > 2>&1 # comment\n# Blocked: `$(...)` backticks, multiline, paths outside your sites, curl|bash",
     "quota_unlimited": "Tasks in use: {{used}} (no package limit).",
     "quota_count": "Task quota: {{used}} / {{max}}",
     "system_section_title": "System tasks",
