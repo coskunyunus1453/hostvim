@@ -92,6 +92,13 @@ class CronAllowedPaths
         return $normalized === '/dev/null' || $normalized === '/dev/zero';
     }
 
+    public static function isPhpBinaryPath(string $path): bool
+    {
+        $normalized = rtrim(str_replace('\\', '/', $path), '/');
+
+        return (bool) preg_match('#/(?:usr/)?bin/php\d*$#', $normalized);
+    }
+
     public static function isAllowed(string $path, ?User $user = null): bool
     {
         if (self::isSystemBinaryPath($path)) {

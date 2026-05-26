@@ -20,7 +20,7 @@ class CronJobExecutor
         $lock = Cache::lock('cron_job_run:'.$job->id, (int) config('hostvim.cron.lock_seconds', 600));
 
         if (! $lock->get()) {
-            $run = CronJobRun::create([
+            return CronJobRun::create([
                 'cron_job_id' => $job->id,
                 'user_id' => $triggerUserId ?? $job->user_id,
                 'status' => 'failed',
@@ -29,8 +29,6 @@ class CronJobExecutor
                 'started_at' => now(),
                 'finished_at' => now(),
             ]);
-
-            return $run;
         }
 
         try {
@@ -44,9 +42,12 @@ class CronJobExecutor
     {
         $job->loadMissing('user');
         $parsed = $this->parser->parse($job->command, $job->user);
-        $shellCommand = (string) $parsed['command'];
-        $cwd = $parsed['working_directory'] ?? $this->inferWorkingDirectory($job, $shellCommand);
-        $shellCommand = $this->resolveShellCommand($shellCommand, $cwd);
+        $shellCommand = trim((string) $parsed['command']);
+        $cwd = $this->resolveWorkingDirectory(
+            $shellCommand,
+            $parsed['working_directory'] ?? null,
+            (int) $job->user_id,
+        );
 
         $run = CronJobRun::create([
             'cron_job_id' => $job->id,
@@ -55,9 +56,12 @@ class CronJobExecutor
             'started_at' => now(),
         ]);
 
-        $process = Process::fromShellCommandline($shellCommand, $cwd, $this->processEnvironment($cwd));
+        $process = $this->createProcess($shellCommand, $cwd);
         $process->setTimeout((int) config('hostvim.cron.timeout', 180));
-        $process->setIdleTimeout((int) config('hostvim.cron.idle_timeout', 120));
+        $idleTimeout = (int) config('hostvim.cron.idle_timeout', 0);
+        if ($idleTimeout > 0) {
+            $process->setIdleTimeout($idleTimeout);
+        }
 
         try {
             $process->mustRun();
@@ -91,15 +95,66 @@ class CronJobExecutor
         return $run->fresh();
     }
 
-    private function inferWorkingDirectory(CronJob $job, string $shellCommand): ?string
+    private function resolveWorkingDirectory(string $shellCommand, ?string $fromParser, int $userId): ?string
     {
-        if (preg_match('#^cd\s+(/[^\s#;&|><]+)#', $shellCommand, $m) === 1) {
-            $dir = rtrim($m[1], '/');
-
-            return is_dir($dir) ? $dir : null;
+        if ($fromParser !== null && $fromParser !== '' && is_dir($fromParser)) {
+            return $fromParser;
         }
 
-        if (preg_match_all('#(/[A-Za-z0-9][A-Za-z0-9_./-]*(?:artisan|spark|\.php))#', $shellCommand, $matches) !== false) {
+        if ($this->hasAbsoluteScriptPath($shellCommand)) {
+            return null;
+        }
+
+        return $this->inferWorkingDirectory($userId, $shellCommand);
+    }
+
+    private function hasAbsoluteScriptPath(string $cmd): bool
+    {
+        return preg_match('#(?:^|\s)(/[^\s;|&"\'<>]+/(?:artisan|spark))(?:\s|$)#', $cmd) === 1;
+    }
+
+    private function createProcess(string $shellCommand, ?string $cwd): Process
+    {
+        $env = $this->processEnvironment($cwd);
+
+        if ($this->requiresShell($shellCommand)) {
+            return Process::fromShellCommandline($shellCommand, $cwd, $env);
+        }
+
+        $argv = $this->toArgv($shellCommand);
+        if ($argv !== null) {
+            return new Process($argv, $cwd, $env);
+        }
+
+        return Process::fromShellCommandline($shellCommand, $cwd, $env);
+    }
+
+    private function requiresShell(string $cmd): bool
+    {
+        return preg_match('#[|;&`$]|\$\(|&&|\|\||>>|(?<![>])>(?![>])#', $cmd) === 1;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function toArgv(string $cmd): ?array
+    {
+        if (preg_match('#^(/usr/bin/php\d*|/usr/local/bin/php\d*|php)\s+(/[^\s;|&]+)(?:\s+(.*))?$#', $cmd, $m) !== 1) {
+            return null;
+        }
+
+        $argv = [$m[1], $m[2]];
+        $rest = trim((string) ($m[3] ?? ''));
+        if ($rest !== '') {
+            $argv = array_merge($argv, preg_split('/\s+/', $rest, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        }
+
+        return $argv;
+    }
+
+    private function inferWorkingDirectory(int $userId, string $shellCommand): ?string
+    {
+        if (preg_match_all('#(/[A-Za-z0-9][A-Za-z0-9_./-]*(?:artisan|spark))(?:\s|$)#', $shellCommand, $matches) !== false) {
             foreach ($matches[1] as $script) {
                 if (is_file($script)) {
                     return dirname($script);
@@ -107,7 +162,7 @@ class CronJobExecutor
             }
         }
 
-        return $this->primaryDocumentRootForUser((int) $job->user_id);
+        return $this->primaryDocumentRootForUser($userId);
     }
 
     private function primaryDocumentRootForUser(int $userId): ?string
@@ -134,7 +189,11 @@ class CronJobExecutor
     private function processEnvironment(?string $cwd): ?array
     {
         $path = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
-        $env = ['PATH' => $path];
+        $env = [
+            'PATH' => $path,
+            'LANG' => 'C.UTF-8',
+            'LC_ALL' => 'C.UTF-8',
+        ];
         if ($cwd !== null && $cwd !== '') {
             $env['HOME'] = $cwd;
         }
@@ -150,89 +209,6 @@ class CronJobExecutor
         }
 
         return mb_substr($out, 0, 65535);
-    }
-
-    private function resolveShellCommand(string $shellCommand, ?string $cwd): string
-    {
-        $cmd = trim($shellCommand);
-        if ($cmd === '') {
-            return $cmd;
-        }
-
-        if (preg_match('#\bphp\s+artisan\b#', $cmd) === 1) {
-            $artisan = $this->findArtisanPath($cwd, $cmd);
-            if ($artisan !== null) {
-                $cmd = (string) preg_replace(
-                    '#\bphp\s+artisan\b#',
-                    escapeshellarg(PHP_BINARY).' '.escapeshellarg($artisan),
-                    $cmd,
-                    1,
-                );
-            } elseif (! str_contains($cmd, '/artisan')) {
-                $cmd = (string) preg_replace(
-                    '#\bphp\s+artisan\b#',
-                    escapeshellarg(PHP_BINARY).' artisan',
-                    $cmd,
-                    1,
-                );
-            }
-        }
-
-        if (preg_match('#\bphp\s+([^\s;&|]+/spark)\b#', $cmd, $m) === 1) {
-            $spark = $m[1];
-            if (! str_starts_with($spark, '/') && $cwd) {
-                $candidate = $cwd.'/'.ltrim($spark, './');
-                if (is_file($candidate)) {
-                    $cmd = (string) preg_replace(
-                        '#\bphp\s+'.preg_quote($spark, '#').'\b#',
-                        escapeshellarg(PHP_BINARY).' '.escapeshellarg($candidate),
-                        $cmd,
-                        1,
-                    );
-                }
-            }
-        }
-
-        if (preg_match('#\bphp\s+([^\s;&|]+\.php)\b#', $cmd, $m) === 1 && ! str_starts_with($m[1], '/')) {
-            $script = $m[1];
-            if ($cwd && is_file($cwd.'/'.ltrim($script, './'))) {
-                $full = $cwd.'/'.ltrim($script, './');
-                $cmd = (string) preg_replace(
-                    '#\bphp\s+'.preg_quote($script, '#').'\b#',
-                    escapeshellarg(PHP_BINARY).' '.escapeshellarg($full),
-                    $cmd,
-                    1,
-                );
-            }
-        }
-
-        return $cmd;
-    }
-
-    private function findArtisanPath(?string $cwd, string $cmd): ?string
-    {
-        if (preg_match('#(/[^\s;&|]+/artisan)\b#', $cmd, $m) === 1 && is_file($m[1])) {
-            return $m[1];
-        }
-
-        $dirs = [];
-        if ($cwd !== null && $cwd !== '') {
-            $dirs[] = $cwd;
-            $dirs[] = dirname($cwd);
-            $dirs[] = dirname($cwd, 2);
-        }
-
-        foreach ($dirs as $dir) {
-            if ($dir === '.' || $dir === '/') {
-                continue;
-            }
-            $path = rtrim(str_replace('\\', '/', $dir), '/').'/artisan';
-            if (is_file($path)) {
-                return $path;
-            }
-        }
-
-        return null;
     }
 
     private function formatRunOutput(string $shellCommand, string $output): string

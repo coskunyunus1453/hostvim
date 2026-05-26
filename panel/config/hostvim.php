@@ -180,7 +180,8 @@ return [
     /** Müşteri cron görevleri (cron:run-due) */
     'cron' => [
         'timeout' => max(30, (int) env('HOSTVIM_CRON_TIMEOUT', 180)),
-        'idle_timeout' => max(30, (int) env('HOSTVIM_CRON_IDLE_TIMEOUT', 120)),
+        // 0 = kapalı (scrape gibi uzun süre çıktı vermeyen işler 120 sn'de kesilmesin)
+        'idle_timeout' => max(0, (int) env('HOSTVIM_CRON_IDLE_TIMEOUT', 0)),
         'lock_seconds' => max(60, (int) env('HOSTVIM_CRON_LOCK_SECONDS', 600)),
     ],
 

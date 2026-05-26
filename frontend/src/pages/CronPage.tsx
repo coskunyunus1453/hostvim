@@ -238,8 +238,7 @@ export default function CronPage() {
       qc.invalidateQueries({ queryKey: ['cron-runs', id] })
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      toast.error(apiErrorMessage(err))
     },
   })
 

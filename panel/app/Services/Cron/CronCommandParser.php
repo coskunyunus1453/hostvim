@@ -174,6 +174,9 @@ class CronCommandParser
                 if (CronAllowedPaths::isSafeDevSink($path)) {
                     continue;
                 }
+                if (CronAllowedPaths::isPhpBinaryPath($path)) {
+                    continue;
+                }
                 $this->assertPathAllowed($path, $user);
             }
         }

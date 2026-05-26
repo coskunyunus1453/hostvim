@@ -181,8 +181,13 @@ class CronJobController extends Controller
         }
 
         if ($run->status !== 'success') {
+            $detail = trim((string) ($run->output ?? ''));
+            $message = $detail !== ''
+                ? __('cron.run_failed').': '.$detail
+                : __('cron.run_failed');
+
             return response()->json([
-                'message' => __('cron.run_failed'),
+                'message' => $message,
                 'run' => $run,
             ], 422);
         }
