@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\BackupGoogleDriveController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\BrandingController;
+use App\Http\Controllers\Api\CronDiscoveryController;
 use App\Http\Controllers\Api\CronJobController;
 use App\Http\Controllers\Api\DatabaseController;
 use App\Http\Controllers\Api\DeploymentController;
@@ -257,6 +258,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:cron:read')->group(function () {
         Route::get('cron/summary', [CronJobController::class, 'summary']);
         Route::get('cron', [CronJobController::class, 'index']);
+        Route::get('domains/{domain}/cron/discover', [CronDiscoveryController::class, 'discover']);
     });
     Route::middleware('ability:cron:write')->group(function () {
         Route::post('cron', [CronJobController::class, 'store']);

@@ -46,6 +46,7 @@ class CronJobExecutor
         $parsed = $this->parser->parse($job->command, $job->user);
         $shellCommand = (string) $parsed['command'];
         $cwd = $parsed['working_directory'] ?? $this->inferWorkingDirectory($job, $shellCommand);
+        $shellCommand = $this->resolveShellCommand($shellCommand, $cwd);
 
         $run = CronJobRun::create([
             'cron_job_id' => $job->id,
@@ -63,7 +64,7 @@ class CronJobExecutor
             $run->update([
                 'status' => 'success',
                 'exit_code' => $process->getExitCode(),
-                'output' => $this->trimOutput($process),
+                'output' => $this->formatRunOutput($shellCommand, $this->trimOutput($process)),
                 'finished_at' => now(),
             ]);
         } catch (ProcessTimedOutException $e) {
@@ -149,5 +150,106 @@ class CronJobExecutor
         }
 
         return mb_substr($out, 0, 65535);
+    }
+
+    private function resolveShellCommand(string $shellCommand, ?string $cwd): string
+    {
+        $cmd = trim($shellCommand);
+        if ($cmd === '') {
+            return $cmd;
+        }
+
+        if (preg_match('#\bphp\s+artisan\b#', $cmd) === 1) {
+            $artisan = $this->findArtisanPath($cwd, $cmd);
+            if ($artisan !== null) {
+                $cmd = (string) preg_replace(
+                    '#\bphp\s+artisan\b#',
+                    escapeshellarg(PHP_BINARY).' '.escapeshellarg($artisan),
+                    $cmd,
+                    1,
+                );
+            } elseif (! str_contains($cmd, '/artisan')) {
+                $cmd = (string) preg_replace(
+                    '#\bphp\s+artisan\b#',
+                    escapeshellarg(PHP_BINARY).' artisan',
+                    $cmd,
+                    1,
+                );
+            }
+        }
+
+        if (preg_match('#\bphp\s+([^\s;&|]+/spark)\b#', $cmd, $m) === 1) {
+            $spark = $m[1];
+            if (! str_starts_with($spark, '/') && $cwd) {
+                $candidate = $cwd.'/'.ltrim($spark, './');
+                if (is_file($candidate)) {
+                    $cmd = (string) preg_replace(
+                        '#\bphp\s+'.preg_quote($spark, '#').'\b#',
+                        escapeshellarg(PHP_BINARY).' '.escapeshellarg($candidate),
+                        $cmd,
+                        1,
+                    );
+                }
+            }
+        }
+
+        if (preg_match('#\bphp\s+([^\s;&|]+\.php)\b#', $cmd, $m) === 1 && ! str_starts_with($m[1], '/')) {
+            $script = $m[1];
+            if ($cwd && is_file($cwd.'/'.ltrim($script, './'))) {
+                $full = $cwd.'/'.ltrim($script, './');
+                $cmd = (string) preg_replace(
+                    '#\bphp\s+'.preg_quote($script, '#').'\b#',
+                    escapeshellarg(PHP_BINARY).' '.escapeshellarg($full),
+                    $cmd,
+                    1,
+                );
+            }
+        }
+
+        return $cmd;
+    }
+
+    private function findArtisanPath(?string $cwd, string $cmd): ?string
+    {
+        if (preg_match('#(/[^\s;&|]+/artisan)\b#', $cmd, $m) === 1 && is_file($m[1])) {
+            return $m[1];
+        }
+
+        $dirs = [];
+        if ($cwd !== null && $cwd !== '') {
+            $dirs[] = $cwd;
+            $dirs[] = dirname($cwd);
+            $dirs[] = dirname($cwd, 2);
+        }
+
+        foreach ($dirs as $dir) {
+            if ($dir === '.' || $dir === '/') {
+                continue;
+            }
+            $path = rtrim(str_replace('\\', '/', $dir), '/').'/artisan';
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    private function formatRunOutput(string $shellCommand, string $output): string
+    {
+        $out = trim($output);
+        if ($out !== '') {
+            return $out;
+        }
+
+        if (preg_match('#>>\s*/dev/null|2>&1\s*/dev/null#', $shellCommand) === 1) {
+            return __('cron.output_discarded_dev_null');
+        }
+
+        if (preg_match('#\bartisan\s+schedule:run\b#', $shellCommand) === 1) {
+            return __('cron.output_empty_schedule_run');
+        }
+
+        return $out;
     }
 }

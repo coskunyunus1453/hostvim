@@ -77,7 +77,11 @@ class CronCommandParser
         $this->assertShellCommandSafe($cmd, $user);
 
         $workingDirectory = null;
-        if (preg_match('~^cd\s+(/[^\s;|&><]+)\s+(.+)$~', $cmd, $matches) === 1) {
+        if (preg_match('~^cd\s+(/[^\s;|&><]+)\s+&&\s*(.+)$~', $cmd, $matches) === 1) {
+            $workingDirectory = rtrim($matches[1], '/');
+            $this->assertPathAllowed($workingDirectory, $user);
+            $cmd = trim($matches[2]);
+        } elseif (preg_match('~^cd\s+(/[^\s;|&><]+)\s+(.+)$~', $cmd, $matches) === 1) {
             $workingDirectory = rtrim($matches[1], '/');
             $this->assertPathAllowed($workingDirectory, $user);
         }

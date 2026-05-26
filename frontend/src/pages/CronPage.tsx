@@ -17,6 +17,24 @@ import {
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { CRON_PRESETS, joinCronFields, parseCronFields, presetIdForSchedule } from '../utils/cronHumanize'
+import { useDomainsList } from '../hooks/useDomains'
+
+type CronSuggestion = {
+  id: string
+  kind: string
+  label: string
+  description: string
+  command: string
+  recommended_schedule?: string | null
+  scheduled?: boolean
+}
+
+type CronDiscoverResponse = {
+  profile: string
+  project_root?: string | null
+  php_binary?: string
+  suggestions: CronSuggestion[]
+}
 
 function apiErrorMessage(err: unknown, fallback = 'Server Error'): string {
   const ax = err as {
@@ -73,6 +91,9 @@ export default function CronPage() {
   const [description, setDescription] = useState('')
   const [logJob, setLogJob] = useState<CronRow | null>(null)
   const [logFilter, setLogFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'timeout'>('all')
+  const [discoverDomainId, setDiscoverDomainId] = useState<number | ''>('')
+
+  const domainsQ = useDomainsList()
 
   const q = useQuery({
     queryKey: ['cron'],
@@ -115,6 +136,7 @@ export default function CronPage() {
     if (modal === 'create') {
       setCommand('')
       setDescription('')
+      setDiscoverDomainId('')
       setMode('preset')
       setPresetKey('every_5')
       setCustomLine('*/5 * * * *')
@@ -135,6 +157,36 @@ export default function CronPage() {
       dow: p[4],
     })
   }, [currentSchedule, t])
+
+  const discoverQ = useQuery({
+    queryKey: ['cron-discover', discoverDomainId],
+    enabled: modal !== null && discoverDomainId !== '',
+    queryFn: async () => {
+      const { data } = await api.get<CronDiscoverResponse>(`/domains/${discoverDomainId}/cron/discover`)
+      return data
+    },
+  })
+
+  const applySuggestion = (s: CronSuggestion) => {
+    setCommand(s.command)
+    if (s.label?.trim()) {
+      setDescription(s.label)
+    }
+    const sched = s.recommended_schedule?.trim()
+    if (sched) {
+      const pid = presetIdForSchedule(sched)
+      if (pid) {
+        setMode('preset')
+        setPresetKey(pid)
+      } else {
+        setMode('custom')
+        setCustomLine(sched)
+        const pr = parseCronFields(sched)
+        if (pr) setFields(pr)
+      }
+    }
+    toast.success(t('cron.discover_applied'))
+  }
 
   const createM = useMutation({
     mutationFn: async (payload: { schedule: string; command: string; description?: string }) =>
@@ -504,6 +556,93 @@ export default function CronPage() {
               <h2 className="text-lg font-semibold">
                 {modal === 'edit' ? t('cron.modal_edit') : t('cron.modal_create')}
               </h2>
+            </div>
+
+            <div className="rounded-lg border border-dashed border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/10 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('cron.discover_pick_hint')}</p>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="label">{t('cron.discover_domain')}</label>
+                  <select
+                    className="input w-full"
+                    value={discoverDomainId}
+                    onChange={(e) =>
+                      setDiscoverDomainId(e.target.value === '' ? '' : Number(e.target.value))
+                    }
+                  >
+                    <option value="">—</option>
+                    {(domainsQ.data ?? []).map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary shrink-0"
+                  disabled={discoverDomainId === '' || discoverQ.isFetching}
+                  onClick={() => discoverQ.refetch()}
+                >
+                  {discoverQ.isFetching ? (
+                    <Loader2 className="h-4 w-4 animate-spin inline mr-1" />
+                  ) : (
+                    <Wand2 className="h-4 w-4 inline mr-1" />
+                  )}
+                  {discoverQ.isFetching ? t('cron.discover_scanning') : t('cron.discover_scan')}
+                </button>
+              </div>
+              {discoverQ.data?.profile && discoverDomainId !== '' && (
+                <p className="text-xs text-gray-500">
+                  {t('cron.discover_profile', { profile: discoverQ.data.profile })}
+                  {discoverQ.data.project_root ? ` — ${discoverQ.data.project_root}` : ''}
+                </p>
+              )}
+              {discoverDomainId !== '' && discoverQ.isFetching && (
+                <p className="text-sm text-gray-500 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('cron.discover_scanning')}
+                </p>
+              )}
+              {discoverDomainId !== '' && discoverQ.isSuccess && !discoverQ.isFetching && (
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {(discoverQ.data?.suggestions ?? []).length === 0 ? (
+                    <p className="text-sm text-gray-500">{t('cron.discover_empty')}</p>
+                  ) : (
+                    (discoverQ.data?.suggestions ?? []).map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm font-semibold">{s.label}</span>
+                            {s.scheduled && (
+                              <span className="text-[10px] uppercase tracking-wide rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 px-1.5 py-0.5">
+                                {t('cron.discover_scheduled_badge')}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-gray-400">{s.kind}</span>
+                          </div>
+                          {s.description && (
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{s.description}</p>
+                          )}
+                          <p className="text-xs font-mono text-gray-600 dark:text-gray-400 mt-1 break-all">
+                            {s.command}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-primary text-xs py-1 px-2 shrink-0"
+                          onClick={() => applySuggestion(s)}
+                        >
+                          {t('cron.discover_apply')}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 flex-wrap">
