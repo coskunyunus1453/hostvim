@@ -1324,6 +1324,20 @@ export default function FileManagerPage() {
     },
   })
 
+  const zipBulkM = useMutation({
+    mutationFn: async (vars: { sources: string[]; target: string }) =>
+      api.post(`/domains/${domainId}/files/zip-bulk`, vars, fileArchiveReqConfig()),
+    onSuccess: () => {
+      toast.success(t('files.zip_ok'))
+      qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
+      setOffset(0)
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
   const unzipM = useMutation({
     mutationFn: async (vars: { archive: string; target_dir: string; if_exists?: 'fail' | 'overwrite' | 'skip' }) =>
       api.post(
@@ -1394,6 +1408,22 @@ export default function FileManagerPage() {
       }
     },
     [zipM],
+  )
+
+  const runZipBulkArchive = useCallback(
+    async (vars: { sources: string[]; target: string }) => {
+      setArchiveUi({ kind: 'zip', complete: false })
+      try {
+        await zipBulkM.mutateAsync(vars)
+        setArchiveUi({ kind: 'zip', complete: true })
+        await new Promise((r) => setTimeout(r, 680))
+      } catch {
+        /* toast zipBulkM */
+      } finally {
+        setArchiveUi(null)
+      }
+    },
+    [zipBulkM],
   )
 
   const runUnzipArchive = useCallback(
@@ -1902,24 +1932,29 @@ export default function FileManagerPage() {
                             ? entries.filter((e) => selectedIds.has(rowKey(e)))
                             : []
 
-                          // Çoklu seçimde `selected` null olabildiği için `source` boş/yanlış gidiyordu.
-                          // Bu durumda seçili öğelerin her birini ayrı ZIP'e alıyoruz.
+                          // Multi seçiliyse hepsini tek ZIP'e al.
                           if (bulkSelected.length > 0) {
-                            void (async () => {
-                              for (const e of bulkSelected) {
-                                const rel = joinRel(path, e.name)
-                                const trimmed = rel.trim()
-                                if (!isSafeRelativePath(trimmed)) {
-                                  toast.error(t('files.invalid_path'))
-                                  continue
-                                }
-                                const target = suggestedZipTargetPath(trimmed, e.is_dir)
-                                await runZipArchive({ source: trimmed, target })
+                            const sources = bulkSelected.map((e) => joinRel(path, e.name))
+                            for (const s of sources) {
+                              if (!isSafeRelativePath(s.trim())) {
+                                toast.error(t('files.invalid_path'))
+                                return
                               }
-                            })()
+                            }
+
+                            const first = bulkSelected[0]
+                            const firstRel = joinRel(path, first.name)
+                            const target = suggestedZipTargetPath(firstRel, first.is_dir)
+
+                            if (bulkSelected.length === 1) {
+                              void runZipArchive({ source: sources[0], target })
+                            } else {
+                              void runZipBulkArchive({ sources, target })
+                            }
                             return
                           }
 
+                          // Multi yoksa: seçili tek öğe ya da geçerli klasörün kendisi.
                           const source = selected ? joinRel(path, selected) : path
                           const trimmed = source.trim()
                           if (!isSafeRelativePath(trimmed)) {

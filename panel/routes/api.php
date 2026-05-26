@@ -183,6 +183,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
             Route::post('copy', [FileManagerController::class, 'copy'])->middleware('throttle:files-write');
             Route::post('chmod', [FileManagerController::class, 'chmod'])->middleware('throttle:files-write');
             Route::post('zip', [FileManagerController::class, 'zip'])->middleware('throttle:files-write');
+            Route::post('zip-bulk', [FileManagerController::class, 'zipBulk'])->middleware('throttle:files-write');
             Route::post('unzip', [FileManagerController::class, 'unzip'])->middleware('throttle:files-write');
             Route::post('trash/move', [FileManagerController::class, 'trashMove'])->middleware('throttle:files-write');
             Route::post('trash/move-bulk', [FileManagerController::class, 'trashMoveBulk'])->middleware('throttle:files-write');

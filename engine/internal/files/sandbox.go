@@ -446,6 +446,118 @@ func ZipPath(root, sourceRel, targetRel string) error {
 	return writeZipFile(zw, src, baseName, srcInfo)
 }
 
+// ZipSources zips multiple files/folders into a single archive.
+// Each source keeps its basename at the top level inside the zip.
+func ZipSources(root string, sourcesRel []string, targetRel string) error {
+	if len(sourcesRel) == 0 {
+		return fmt.Errorf("no sources provided")
+	}
+
+	// Dedupe while keeping order.
+	seen := map[string]bool{}
+	deduped := make([]string, 0, len(sourcesRel))
+	for _, s := range sourcesRel {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		deduped = append(deduped, s)
+	}
+	if len(deduped) == 0 {
+		return fmt.Errorf("no sources provided")
+	}
+
+	dst, err := ResolveUnderRoot(root, targetRel)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(dst); err == nil {
+		return fmt.Errorf("target already exists")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+
+	id := randomTempID()
+	tmpDir := filepath.Join(filepath.Dir(dst), ".tmp_zipmany_"+id)
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// Copy all selected entries into tmpDir so we can zip them as one unit.
+	for _, sRel := range deduped {
+		src, err := ResolveUnderRoot(root, sRel)
+		if err != nil {
+			return err
+		}
+		st, err := os.Stat(src)
+		if err != nil {
+			return err
+		}
+		base := filepath.Base(src)
+		dstBase := filepath.Join(tmpDir, base)
+
+		if st.IsDir() {
+			if err := os.MkdirAll(dstBase, 0o755); err != nil {
+				return err
+			}
+			if err := copyDir(src, dstBase); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(src, dstBase, st.Mode().Perm()); err != nil {
+				return err
+			}
+		}
+	}
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	zw := zip.NewWriter(out)
+	defer zw.Close()
+
+	// Zip tmpDir contents so we don't wrap everything under ".tmp_zipmany_*".
+	if err := filepath.WalkDir(tmpDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(tmpDir, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		zipName := filepath.ToSlash(rel)
+
+		if d.IsDir() {
+			_, err := zw.Create(zipName + "/")
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return writeZipFile(zw, path, zipName, info)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func writeZipFile(zw *zip.Writer, srcPath, zipName string, info fs.FileInfo) error {
 	h, err := zip.FileInfoHeader(info)
 	if err != nil {

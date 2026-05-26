@@ -970,6 +970,64 @@ class FileManagerController extends Controller
         return response()->json($result);
     }
 
+    public function zipBulk(Request $request, Domain $domain): JsonResponse
+    {
+        set_time_limit(1900);
+
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+        $hostingTarget = $this->resolveHostingTarget($request, $domain);
+
+        $validated = $request->validate([
+            'sources' => 'required|array|min:1',
+            'sources.*' => 'required|string',
+            'target' => 'required|string',
+        ]);
+
+        $sources = $validated['sources'];
+        $zipDest = $validated['target'];
+
+        $engineSources = array_map(
+            fn (string $s): string => $this->panelRelToEngineRel($hostingTarget, $s),
+            $sources
+        );
+        $engineTarget = $this->panelRelToEngineRel($hostingTarget, $zipDest);
+
+        $result = $this->engine->zipSources($hostingTarget->engineSiteName, $engineSources, $engineTarget);
+
+        if (! empty($result['error'])) {
+            // Aynı isimde zip varsa otomatik olarak benzersiz isimle bir kez daha dene.
+            if (str_contains(strtolower((string) $result['error']), 'target already exists')) {
+                $dot = strrpos($zipDest, '.');
+                $base = $dot !== false ? substr($zipDest, 0, $dot) : $zipDest;
+                $ext = $dot !== false ? substr($zipDest, $dot) : '.zip';
+                $retryTarget = $base.'-'.now()->format('YmdHis').$ext;
+
+                $retryEngineTarget = $this->panelRelToEngineRel($hostingTarget, $retryTarget);
+                $retry = $this->engine->zipSources($hostingTarget->engineSiteName, $engineSources, $retryEngineTarget);
+
+                if (empty($retry['error'])) {
+                    $this->logFileAction($request, $domain, 'zip', (string) implode(',', $sources), $retryTarget, true, null);
+
+                    return response()->json([
+                        'message' => 'zip created',
+                        'target' => $retryTarget,
+                    ]);
+                }
+                $result = $retry;
+            }
+
+            $this->logFileAction($request, $domain, 'zip', (string) implode(',', $sources), $zipDest, false, $result['error']);
+
+            return response()->json(['message' => $result['error']], 422);
+        }
+
+        $this->logFileAction($request, $domain, 'zip', (string) implode(',', $sources), $zipDest, true, null);
+
+        return response()->json($result);
+    }
+
     public function unzip(Request $request, Domain $domain): JsonResponse
     {
         ignore_user_abort(true);

@@ -802,6 +802,19 @@ class EngineApiService
         ], 1800);
     }
 
+    /**
+     * @param  list<string>  $sources
+     * @return array{message?: string, error?: string}
+     */
+    public function zipSources(string $domain, array $sources, string $target): array
+    {
+        return $this->postLongChecked('/api/v1/files/zip-bulk', [
+            'domain' => $domain,
+            'sources' => array_values($sources),
+            'target' => $target,
+        ], 1800);
+    }
+
     public function unzipPath(string $domain, string $archive, string $targetDir, string $ifExists = 'fail'): array
     {
         return $this->postLongChecked('/api/v1/files/unzip', [

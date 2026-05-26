@@ -190,6 +190,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	api.POST("/files/copy", handleFileCopy(cfg))
 	api.POST("/files/chmod", handleFileChmod(cfg))
 	api.POST("/files/zip", handleFileZip(cfg))
+	api.POST("/files/zip-bulk", handleFileZipBulk(cfg))
 	api.POST("/files/unzip", handleFileUnzip(cfg))
 	api.GET("/files/download", handleFileDownload(cfg))
 	api.POST("/files/upload", handleFileUpload(cfg))
@@ -2647,6 +2648,37 @@ func handleFileZip(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusOK, gin.H{"message": "zip created"})
+	}
+}
+
+func handleFileZipBulk(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Domain  string   `json:"domain" binding:"required"`
+			Sources []string `json:"sources" binding:"required"`
+			Target  string   `json:"target" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if len(req.Sources) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sources is empty"})
+			return
+		}
+
+		root, err := resolveFileManagerRoot(cfg, req.Domain)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := files.ZipSources(root, req.Sources, req.Target); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "zip created"})
 	}
 }
