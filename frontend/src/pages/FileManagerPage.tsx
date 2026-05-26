@@ -488,6 +488,7 @@ export default function FileManagerPage() {
   const [clipboardMode, setClipboardMode] = useState<'copy' | 'cut'>('copy')
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; rel: string; isDir: boolean } | null>(null)
   const [archiveUi, setArchiveUi] = useState<{ kind: 'zip' | 'unzip'; complete: boolean } | null>(null)
+  const [zipBulkPick, setZipBulkPick] = useState<{ sources: string[]; zipName: string } | null>(null)
   const [pasteConflictDialog, setPasteConflictDialog] = useState<{
     open: boolean
     sourcePath: string
@@ -1426,6 +1427,35 @@ export default function FileManagerPage() {
     [zipBulkM],
   )
 
+  const chooseZipBulkTargetDir = useCallback(
+    (targetDirRel: string) => {
+      if (!zipBulkPick) return
+
+      const raw = zipBulkPick.zipName.trim()
+      if (!raw) {
+        toast.error(t('files.invalid_filename'))
+        return
+      }
+
+      const withExt = raw.toLowerCase().endsWith('.zip') ? raw : `${raw}.zip`
+      if (!isSafeNewFileName(withExt)) {
+        toast.error(t('files.invalid_filename'))
+        return
+      }
+
+      const target = targetDirRel ? joinRel(targetDirRel, withExt) : withExt
+      if (!isSafeRelativePath(target)) {
+        toast.error(t('files.invalid_path'))
+        return
+      }
+
+      const sources = zipBulkPick.sources
+      setZipBulkPick(null)
+      void runZipBulkArchive({ sources, target })
+    },
+    [runZipBulkArchive, zipBulkPick, t],
+  )
+
   const runUnzipArchive = useCallback(
     async (vars: { archive: string; target_dir: string; if_exists?: 'fail' | 'overwrite' | 'skip' }) => {
       setArchiveUi({ kind: 'unzip', complete: false })
@@ -1943,13 +1973,22 @@ export default function FileManagerPage() {
                             }
 
                             const first = bulkSelected[0]
-                            const firstRel = joinRel(path, first.name)
-                            const target = suggestedZipTargetPath(firstRel, first.is_dir)
+                            const firstName = first.name
+                            const suggestedZipName = first.is_dir
+                              ? `${firstName}.zip`
+                              : (() => {
+                                  const dot = firstName.lastIndexOf('.')
+                                  const stem = dot > 0 ? firstName.slice(0, dot) : firstName
+                                  return `${stem || 'archive'}.zip`
+                                })()
 
                             if (bulkSelected.length === 1) {
+                              const firstRel = joinRel(path, first.name)
+                              const target = suggestedZipTargetPath(firstRel, first.is_dir)
                               void runZipArchive({ source: sources[0], target })
                             } else {
-                              void runZipBulkArchive({ sources, target })
+                              setZipBulkPick({ sources, zipName: suggestedZipName })
+                              toast(t('files.zip_pick_source'), { duration: 3500 })
                             }
                             return
                           }
@@ -2138,6 +2177,7 @@ export default function FileManagerPage() {
                             entries.length > 0 &&
                             entries.every((e) => selectedIds.has(rowKey(e)))
                           }
+                          disabled={zipBulkPick !== null}
                           onChange={() => {
                             const all = entries.every((e) => selectedIds.has(rowKey(e)))
                             if (all) {
@@ -2249,6 +2289,7 @@ export default function FileManagerPage() {
                             <input
                               type="checkbox"
                               checked={selectedIds.has(rk)}
+                              disabled={zipBulkPick !== null}
                               onChange={() => {
                                 setSelectedIds((prev) => {
                                   const next = new Set(prev)
@@ -2268,6 +2309,10 @@ export default function FileManagerPage() {
                                   isSel && 'bg-primary-100 ring-1 ring-primary-300 dark:bg-primary-900/30 dark:ring-primary-700',
                                 )}
                                 onClick={() => {
+                                  if (zipBulkPick) {
+                                    chooseZipBulkTargetDir(joinRel(path, e.name))
+                                    return
+                                  }
                                   setSelected(e.name)
                                   goIntoFolder(e.name)
                                 }}
@@ -2414,6 +2459,10 @@ export default function FileManagerPage() {
                         )}
                         onClick={() => {
                           if (e.is_dir) {
+                            if (zipBulkPick) {
+                              chooseZipBulkTargetDir(joinRel(path, e.name))
+                              return
+                            }
                             setSelected(e.name)
                             goIntoFolder(e.name)
                           } else {
@@ -2427,7 +2476,13 @@ export default function FileManagerPage() {
                         }}
                         onKeyDown={(ev) => {
                           if (ev.key === 'Enter') {
-                            if (e.is_dir) goIntoFolder(e.name)
+                            if (e.is_dir) {
+                              if (zipBulkPick) {
+                                chooseZipBulkTargetDir(joinRel(path, e.name))
+                                return
+                              }
+                              goIntoFolder(e.name)
+                            }
                             else if (isImageFile(rel)) void previewImage(rel)
                             else void openFileWrapped(rel)
                           }
@@ -2443,6 +2498,7 @@ export default function FileManagerPage() {
                             className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                             checked={selectedIds.has(rk)}
                             aria-label={t('files.select_for_bulk', { name: e.name })}
+                            disabled={zipBulkPick !== null}
                             onChange={() => {
                               setSelectedIds((prev) => {
                                 const next = new Set(prev)
@@ -2828,6 +2884,53 @@ export default function FileManagerPage() {
                 alt={imagePreview.filename}
                 className="mx-auto max-w-full"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {zipBulkPick && (
+        <div className="fixed inset-0 z-[59] pointer-events-none flex items-start justify-center p-2 sm:p-4">
+          <div className="w-full max-w-md pointer-events-auto overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Toplu ZIP</h2>
+              <button
+                type="button"
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Kapat"
+                onClick={() => setZipBulkPick(null)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-sm">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">ZIP adı</label>
+                <input
+                  className="input w-full font-mono"
+                  value={zipBulkPick.zipName}
+                  onChange={(e) => setZipBulkPick((prev) => (prev ? { ...prev, zipName: e.target.value } : prev))}
+                  placeholder="backup.zip"
+                />
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Hedef klasörü seçmek için dosya listesinden bir klasöre tıkla. ZIP işlemi seçtiğin konuma hemen başlayacak.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+              <button type="button" className="btn-secondary" onClick={() => setZipBulkPick(null)}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => chooseZipBulkTargetDir(path)}
+              >
+                Bu klasöre kaydet
+              </button>
             </div>
           </div>
         </div>
