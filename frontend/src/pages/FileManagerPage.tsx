@@ -1898,6 +1898,28 @@ export default function FileManagerPage() {
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
                         onClick={() => {
                           setFileOpsOpen(false)
+                          const bulkSelected = selectedIds.size > 0
+                            ? entries.filter((e) => selectedIds.has(rowKey(e)))
+                            : []
+
+                          // Çoklu seçimde `selected` null olabildiği için `source` boş/yanlış gidiyordu.
+                          // Bu durumda seçili öğelerin her birini ayrı ZIP'e alıyoruz.
+                          if (bulkSelected.length > 0) {
+                            void (async () => {
+                              for (const e of bulkSelected) {
+                                const rel = joinRel(path, e.name)
+                                const trimmed = rel.trim()
+                                if (!isSafeRelativePath(trimmed)) {
+                                  toast.error(t('files.invalid_path'))
+                                  continue
+                                }
+                                const target = suggestedZipTargetPath(trimmed, e.is_dir)
+                                await runZipArchive({ source: trimmed, target })
+                              }
+                            })()
+                            return
+                          }
+
                           const source = selected ? joinRel(path, selected) : path
                           const trimmed = source.trim()
                           if (!isSafeRelativePath(trimmed)) {
