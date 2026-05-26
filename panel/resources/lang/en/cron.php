@@ -13,7 +13,7 @@ return [
     'command_too_long' => 'Command may be at most 2000 characters.',
     'command_no_multiline' => 'Command must be a single line.',
     'command_no_substitution' => 'Security: command substitution via `$(...)` or backticks is not allowed.',
-    'command_forbidden_pattern' => 'Security: this command pattern is not allowed (e.g. piping into a shell, rm -rf /).',
+    'command_forbidden_pattern' => 'Security: this command pattern is not allowed (e.g. curl|bash, rm -rf /, /dev/tcp). >> /dev/null and 2>&1 are allowed.',
     'command_path_not_allowed' => 'Paths in the command must stay under your site directories or system tools like /usr/bin.:hint',
     'command_path_hint' => 'Example root: :path',
     'database_not_ready' => 'Cron tables are not ready. On the server, in the panel directory run: php artisan migrate --force',

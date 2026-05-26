@@ -149,7 +149,8 @@ class CronCommandParser
             '/;\s*(?:\/usr)?\/bin\/(?:ba)?sh\b/i',
             '/\b(?:curl|wget)\b[^\n|&;]*\|\s*(?:ba)?sh\b/i',
             '/\brm\s+-rf\s+\/(?:\s|$)/i',
-            '/>\s*\/dev\/(?:null|zero|tcp|udp)\b/i',
+            // /dev/tcp|udp — kabuk ağı tüneli; /dev/null ve /dev/zero cron'da yaygın ve güvenli
+            '/\/dev\/(?:tcp|udp)\b/i',
         ];
     }
 
@@ -164,6 +165,9 @@ class CronCommandParser
                     continue;
                 }
                 if (preg_match('#^/\d+$#', $path) === 1) {
+                    continue;
+                }
+                if (CronAllowedPaths::isSafeDevSink($path)) {
                     continue;
                 }
                 $this->assertPathAllowed($path, $user);

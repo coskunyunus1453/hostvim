@@ -13,7 +13,7 @@ return [
     'command_too_long' => 'Komut en fazla 2000 karakter olabilir.',
     'command_no_multiline' => 'Komut tek satır olmalıdır.',
     'command_no_substitution' => 'Güvenlik: `$(...)` veya backtick ile komut enjeksiyonu kullanılamaz.',
-    'command_forbidden_pattern' => 'Güvenlik: bu komut deseni izin verilmiyor (ör. pipe ile kabuk açma, rm -rf /).',
+    'command_forbidden_pattern' => 'Güvenlik: bu komut deseni izin verilmiyor (ör. curl|bash, rm -rf /, /dev/tcp). >> /dev/null ve 2>&1 kullanılabilir.',
     'command_path_not_allowed' => 'Komuttaki dosya yolu yalnızca sizin site dizinleriniz veya /usr/bin gibi sistem araçları altında olmalı.:hint',
     'command_path_hint' => 'Örnek kök: :path',
     'database_not_ready' => 'Cron tablosu hazır değil. Sunucuda panel dizininde: php artisan migrate --force',

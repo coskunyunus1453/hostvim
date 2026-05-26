@@ -84,6 +84,14 @@ class CronAllowedPaths
         return false;
     }
 
+    /** Cron çıktısını yok saymak için standart hedefler (>> /dev/null 2>&1). */
+    public static function isSafeDevSink(string $path): bool
+    {
+        $normalized = rtrim(str_replace('\\', '/', $path), '/');
+
+        return $normalized === '/dev/null' || $normalized === '/dev/zero';
+    }
+
     public static function isAllowed(string $path, ?User $user = null): bool
     {
         if (self::isSystemBinaryPath($path)) {
