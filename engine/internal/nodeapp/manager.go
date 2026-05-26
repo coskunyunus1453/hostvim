@@ -192,12 +192,39 @@ func StatusOf(cfg *config.Config, domain string, meta *sites.SiteMeta) (Status, 
 		return st, nil
 	}
 	st.Running = strings.Contains(out, `"status":"online"`) || strings.Contains(out, `"status": "online"`)
-	if st.Running {
-		st.Status = "online"
-	} else {
-		st.Status = "stopped"
+	st.Status = pm2StatusFromJlist(out, name)
+	if st.Status == "" {
+		if st.Running {
+			st.Status = "online"
+		} else {
+			st.Status = "stopped"
+		}
+	}
+	if strings.EqualFold(st.Status, "online") {
+		st.Running = true
 	}
 	return st, nil
+}
+
+func pm2StatusFromJlist(jlist, name string) string {
+	needle := `"name":"` + name + `"`
+	if !strings.Contains(jlist, needle) {
+		needle = `"name": "` + name + `"`
+	}
+	if !strings.Contains(jlist, needle) {
+		return ""
+	}
+	idx := strings.Index(jlist, needle)
+	chunk := jlist[idx:]
+	if len(chunk) > 1200 {
+		chunk = chunk[:1200]
+	}
+	for _, st := range []string{"errored", "stopped", "stopping", "launching", "online"} {
+		if strings.Contains(chunk, `"status":"`+st+`"`) || strings.Contains(chunk, `"status": "`+st+`"`) {
+			return st
+		}
+	}
+	return ""
 }
 
 // UpdateConfig meta günceller, nginx vhost yeniler, isteğe bağlı auto_start.
@@ -300,6 +327,11 @@ func Start(cfg *config.Config, domain string) (string, error) {
 		"start", npmBin(cfg),
 		"--name", name,
 		"--cwd", workAbs,
+		"--max-restarts", "100",
+		"--restart-delay", "4000",
+		"--min-uptime", "5000",
+		"--max-memory-restart", "512M",
+		"--time",
 		"--",
 		"run", script,
 	}

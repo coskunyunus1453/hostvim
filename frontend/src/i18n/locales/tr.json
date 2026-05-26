@@ -1837,6 +1837,7 @@
     "listen_port": "Dinleme portu",
     "env_file": "Ortam dosyası",
     "auto_start": "Kayıtta otomatik başlat",
+    "watchdog_hint": "Etkin uygulamalar engine watchdog ile her ~60 sn kontrol edilir; çökünce PM2 yeniden başlatır. Sunucu reboot sonrası hostvim-pm2 servisi devreye girer.",
     "detect": "Algıla",
     "auto_configure": "Otomatik yapılandır ve başlat",
     "start": "Başlat",

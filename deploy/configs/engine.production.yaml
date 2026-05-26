@@ -93,7 +93,10 @@ hosting:
   composer_path: "/usr/bin/composer"
   npm_path: "/usr/bin/npm"
   pm2_path: "/usr/bin/pm2"
+  pm2_home: "/var/www/hostvim/data/pm2"
   pm2_run_user: "www-data"
+  node_watchdog_enabled: true
+  node_watchdog_interval_seconds: 60
   tools_max_seconds: 600
   wordpress_zip_url: "https://wordpress.org/latest.zip"
   # Faz 6 — site dizini tar.gz (panel yedeği); restore varsayılan kapalı (üzerine yazar)

@@ -12,6 +12,7 @@ import (
 	"hostvim/engine/internal/api"
 	"hostvim/engine/internal/config"
 	"hostvim/engine/internal/daemon"
+	"hostvim/engine/internal/nodeapp"
 	"hostvim/engine/pkg/logger"
 )
 
@@ -35,6 +36,7 @@ func main() {
 	}
 
 	router := api.NewRouter(cfg, d, log)
+	nodeapp.RunWatchdog(cfg, log)
 
 	readSec := cfg.Server.ReadTimeoutSeconds
 	if readSec <= 0 {

@@ -12,6 +12,17 @@ import (
 	"hostvim/engine/internal/sites"
 )
 
+func handleNodeAppsReconcile(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		report, err := nodeapp.ReconcileAll(cfg)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "report": report})
+			return
+		}
+		c.JSON(http.StatusOK, report)
+	}
+}
+
 func registerNodeAppRoutes(cfg *config.Config, site *gin.RouterGroup) {
 	site.GET("/:domain/node-app", handleNodeAppGet(cfg))
 	site.POST("/:domain/node-app/detect", handleNodeAppDetect(cfg))

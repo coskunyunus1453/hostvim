@@ -560,6 +560,19 @@ if [[ -f "$REPO_ROOT/deploy/host/hostvim-node-pm2" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/hostvim-node-pm2" /usr/local/sbin/hostvim-node-pm2
   ln -sfn /usr/local/sbin/hostvim-node-pm2 /usr/local/sbin/panelsar-node-pm2
 fi
+# PM2 global (Node uygulamaları)
+if command -v npm >/dev/null 2>&1 && ! command -v pm2 >/dev/null 2>&1; then
+  npm install -g pm2 2>/dev/null || true
+fi
+# Sunucu açılışında PM2 resurrect (www-data)
+PM2_HOME_DIR="${HOSTVIM_PM2_HOME:-${HOSTVIM_HOME:-/var/www/hostvim}/data/pm2}"
+mkdir -p "$PM2_HOME_DIR"
+chown -R www-data:www-data "$PM2_HOME_DIR" 2>/dev/null || true
+if [[ -f "$REPO_ROOT/deploy/systemd/hostvim-pm2.service" ]]; then
+  sed "s|@PM2_HOME@|${PM2_HOME_DIR}|g" "$REPO_ROOT/deploy/systemd/hostvim-pm2.service" > /etc/systemd/system/hostvim-pm2.service
+  systemctl daemon-reload
+  systemctl enable hostvim-pm2.service 2>/dev/null || true
+fi
 cat > /etc/sudoers.d/hostvim-engine <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost

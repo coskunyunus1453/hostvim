@@ -129,6 +129,8 @@ type HostingConfig struct {
 	Pm2Path         string `mapstructure:"pm2_path"`
 	Pm2Home         string `mapstructure:"pm2_home"`
 	Pm2RunUser      string `mapstructure:"pm2_run_user"`
+	NodeWatchdogEnabled          bool `mapstructure:"node_watchdog_enabled"`
+	NodeWatchdogIntervalSeconds  int  `mapstructure:"node_watchdog_interval_seconds"`
 	ToolsMaxSeconds int    `mapstructure:"tools_max_seconds"`
 	WordPressZipURL  string `mapstructure:"wordpress_zip_url"`
 	OpenCartZipURL   string `mapstructure:"opencart_zip_url"`
@@ -283,6 +285,8 @@ func setDefaults() {
 	viper.SetDefault("hosting.pm2_path", "pm2")
 	viper.SetDefault("hosting.pm2_home", "")
 	viper.SetDefault("hosting.pm2_run_user", "www-data")
+	viper.SetDefault("hosting.node_watchdog_enabled", true)
+	viper.SetDefault("hosting.node_watchdog_interval_seconds", 60)
 	viper.SetDefault("hosting.tools_max_seconds", 300)
 	viper.SetDefault("hosting.wordpress_zip_url", "https://wordpress.org/latest.zip")
 	viper.SetDefault("hosting.nginx_vhost_helper", "/usr/local/sbin/hostvim-nginx-vhost")

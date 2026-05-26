@@ -27,8 +27,68 @@ class RunSelfHealCommand extends Command
 
         $this->handleDiskAlert($stats);
         $this->handleServiceAutoRestart($engine, $services);
+        $this->handleNodeAppsWatchdog($engine);
 
         return self::SUCCESS;
+    }
+
+    private function handleNodeAppsWatchdog(EngineApiService $engine): void
+    {
+        $report = $engine->reconcileNodeApps();
+        if (! empty($report['error'])) {
+            $dedupe = 'node-reconcile-error-'.date('YmdHi');
+            if (! $this->alertExists($dedupe)) {
+                $this->createAlert([
+                    'level' => 'error',
+                    'title' => 'Node.js watchdog hatası',
+                    'message' => (string) $report['error'],
+                    'path' => '/node-apps',
+                    'dedupe_key' => $dedupe,
+                ]);
+            }
+
+            return;
+        }
+
+        $failed = (int) ($report['failed'] ?? 0);
+        $started = (int) ($report['started'] ?? 0);
+        $restarted = (int) ($report['restarted'] ?? 0);
+
+        if ($failed > 0) {
+            $lines = [];
+            foreach (($report['items'] ?? []) as $item) {
+                if (! is_array($item) || ($item['action'] ?? '') !== 'failed') {
+                    continue;
+                }
+                $dom = (string) ($item['domain'] ?? '?');
+                $err = (string) ($item['error'] ?? 'bilinmeyen');
+                $lines[] = "{$dom}: {$err}";
+                if (count($lines) >= 5) {
+                    break;
+                }
+            }
+            $dedupe = 'node-failed-'.date('YmdHi');
+            if (! $this->alertExists($dedupe)) {
+                $this->createAlert([
+                    'level' => 'error',
+                    'title' => "Node.js uygulaması başlatılamadı ({$failed})",
+                    'message' => $lines !== [] ? implode("\n", $lines) : 'PM2 süreci ayakta değil veya port dinlemiyor.',
+                    'path' => '/node-apps',
+                    'dedupe_key' => $dedupe,
+                ]);
+            }
+        } elseif ($started > 0 || $restarted > 0) {
+            $dedupe = 'node-recovered-'.date('YmdHi');
+            if (! $this->alertExists($dedupe)) {
+                $this->createAlert([
+                    'level' => 'info',
+                    'title' => 'Node.js uygulamaları otomatik yenilendi',
+                    'message' => sprintf('Başlatılan: %d, yeniden başlatılan: %d', $started, $restarted),
+                    'path' => '/node-apps',
+                    'dedupe_key' => $dedupe,
+                ]);
+            }
+        }
     }
 
     private function handleDiskAlert(array $stats): void

@@ -385,6 +385,9 @@ export default function NodeAppPage() {
                 />
                 {t('node_apps.auto_start')}
               </label>
+              {form.enabled && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 md:col-span-2">{t('node_apps.watchdog_hint')}</p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">

@@ -1392,6 +1392,11 @@ class EngineApiService
     /**
      * Nginx proxy, bağımlılık, build ve PM2 sürecini otomatik onarır.
      */
+    public function reconcileNodeApps(): array
+    {
+        return $this->postChecked('/api/v1/node-apps/reconcile', []);
+    }
+
     public function healNodeApp(string $domain): array
     {
         return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/heal', [], 900);

@@ -1838,6 +1838,7 @@
     "listen_port": "Listen port",
     "env_file": "Env file",
     "auto_start": "Auto-start on save",
+    "watchdog_hint": "Enabled apps are checked every ~60s by the engine watchdog; PM2 restarts them on crash. After reboot, the hostvim-pm2 systemd unit restores processes.",
     "detect": "Detect",
     "auto_configure": "Auto configure and start",
     "start": "Start",

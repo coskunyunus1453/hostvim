@@ -94,6 +94,7 @@ func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.En
 			site.POST("/:domain/aliases", handleAddSiteAlias(cfg, d))
 			site.DELETE("/:domain/aliases", handleRemoveSiteAlias(cfg, d))
 			registerNodeAppRoutes(cfg, site)
+			api.POST("/node-apps/reconcile", handleNodeAppsReconcile(cfg))
 			registerStackScanRoutes(cfg, site)
 			registerRedirectRoutes(cfg, site)
 		}
