@@ -440,8 +440,22 @@ func ZipPath(root, sourceRel, targetRel string) error {
 				_, err = zw.Create(zipName + "/")
 				return err
 			}
+			if info.Mode()&os.ModeSymlink != 0 {
+				link, err := os.Readlink(path)
+				if err != nil {
+					return err
+				}
+				return writeZipSymlink(zw, zipName, link, info)
+			}
 			return writeZipFile(zw, path, zipName, info)
 		})
+	}
+	if srcInfo.Mode()&os.ModeSymlink != 0 {
+		link, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+		return writeZipSymlink(zw, baseName, link, srcInfo)
 	}
 	return writeZipFile(zw, src, baseName, srcInfo)
 }
@@ -498,12 +512,24 @@ func ZipSources(root string, sourcesRel []string, targetRel string) error {
 		if err != nil {
 			return err
 		}
-		st, err := os.Stat(src)
+		st, err := os.Lstat(src)
 		if err != nil {
 			return err
 		}
 		base := filepath.Base(src)
 		dstBase := filepath.Join(tmpDir, base)
+
+		// Preserve symlinks as symlinks (don't follow).
+		if st.Mode()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(src)
+			if err != nil {
+				return err
+			}
+			if err := os.Symlink(link, dstBase); err != nil {
+				return err
+			}
+			continue
+		}
 
 		if st.IsDir() {
 			if err := os.MkdirAll(dstBase, 0o755); err != nil {
@@ -542,12 +568,21 @@ func ZipSources(root string, sourcesRel []string, targetRel string) error {
 		}
 		zipName := filepath.ToSlash(rel)
 
+		// Use lstat so symlinks stay symlinks.
+		info, statErr := os.Lstat(path)
+		if statErr != nil {
+			return statErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return writeZipSymlink(zw, zipName, link, info)
+		}
+
 		if d.IsDir() {
 			_, err := zw.Create(zipName + "/")
-			return err
-		}
-		info, err := d.Info()
-		if err != nil {
 			return err
 		}
 		return writeZipFile(zw, path, zipName, info)
@@ -556,6 +591,22 @@ func ZipSources(root string, sourcesRel []string, targetRel string) error {
 	}
 
 	return nil
+}
+
+func writeZipSymlink(zw *zip.Writer, zipName, linkTarget string, info fs.FileInfo) error {
+	h, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return err
+	}
+	h.Name = zipName
+	h.Method = zip.Store
+	h.SetMode(info.Mode())
+	w, err := zw.CreateHeader(h)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write([]byte(linkTarget))
+	return err
 }
 
 func writeZipFile(zw *zip.Writer, srcPath, zipName string, info fs.FileInfo) error {
