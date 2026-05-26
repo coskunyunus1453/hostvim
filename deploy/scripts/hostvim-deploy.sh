@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# Hostvim — sunucu: tek komutla git pull + engine + panel + frontend deploy.
+# Hostvim — SUNUCU (Linux): tek komutla git pull + engine + panel + frontend deploy.
+# Mac'te ÇALIŞTIRMAYIN — Mac için: bash hostvim-push
 #
-#   cd /var/www/hostvim && bash deploy/scripts/hostvim-deploy.sh
+#   ssh root@SUNUCU_IP
+#   cd /var/www/hostvim && bash hostvim-deploy
 #
 # Ortam:
 #   HOSTVIM_HOME=/var/www/hostvim
@@ -19,6 +21,13 @@ BRANCH="${HOSTVIM_DEPLOY_BRANCH:-main}"
 PANEL_ROOT="${PANEL_ROOT:-$HOSTVIM_HOME/panel}"
 
 cd "$HOSTVIM_HOME"
+
+if [[ "$(uname -s)" == "Darwin" ]] && [[ "$HOSTVIM_HOME" == *"/Applications/"* || "$HOSTVIM_HOME" == *"htdocs"* ]]; then
+  echo "Hata: hostvim-deploy sunucu betiğidir; Mac'te çalıştırmayın." >&2
+  echo "  Mac:  bash hostvim-push" >&2
+  echo "  Sunucu: ssh ile bağlanıp  cd /var/www/hostvim && bash hostvim-deploy" >&2
+  exit 1
+fi
 
 if [[ ! -d "$HOSTVIM_HOME/.git" ]]; then
   echo "Hata: $HOSTVIM_HOME bir git deposu değil." >&2

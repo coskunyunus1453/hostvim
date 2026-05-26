@@ -15,4 +15,6 @@ return [
     'command_no_substitution' => 'Güvenlik: `$(...)` veya backtick ile komut enjeksiyonu kullanılamaz.',
     'command_forbidden_pattern' => 'Güvenlik: bu komut deseni izin verilmiyor (ör. pipe ile kabuk açma, rm -rf /).',
     'command_path_not_allowed' => 'Komuttaki dosya yolu yalnızca sizin site dizinleriniz veya /usr/bin gibi sistem araçları altında olmalı.:hint',
+    'command_path_hint' => 'Örnek kök: :path',
+    'database_not_ready' => 'Cron tablosu hazır değil. Sunucuda panel dizininde: php artisan migrate --force',
 ];

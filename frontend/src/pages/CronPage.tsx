@@ -18,6 +18,24 @@ import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { CRON_PRESETS, joinCronFields, parseCronFields, presetIdForSchedule } from '../utils/cronHumanize'
 
+function apiErrorMessage(err: unknown, fallback = 'Server Error'): string {
+  const ax = err as {
+    response?: { data?: { message?: string; errors?: Record<string, string[]> } }
+  }
+  const data = ax.response?.data
+  if (data?.errors) {
+    const first = Object.values(data.errors).flat()[0]
+    if (first) return String(first)
+  }
+  if (data?.message) return String(data.message)
+  if (err instanceof Error && err.message) return err.message
+  return fallback
+}
+
+function normalizeCronCommand(command: string): string {
+  return command.replace(/\s*\n+\s*/g, ' ').trim()
+}
+
 type CronRow = {
   id: number
   schedule: string
@@ -128,8 +146,7 @@ export default function CronPage() {
       setModal(null)
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      toast.error(apiErrorMessage(err))
     },
   })
 
@@ -145,8 +162,7 @@ export default function CronPage() {
       setEditing(null)
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      toast.error(apiErrorMessage(err))
     },
   })
 
@@ -216,7 +232,7 @@ export default function CronPage() {
     }
     const payload = {
       schedule: parts.join(' '),
-      command: command.trim(),
+      command: normalizeCronCommand(command),
       description: description.trim() || undefined,
     }
     if (modal === 'edit' && editing) {
@@ -227,7 +243,7 @@ export default function CronPage() {
   }
 
   const insertSnippet = (snippet: string) => {
-    setCommand((c) => (c ? `${c.trimEnd()}\n${snippet}` : snippet))
+    setCommand((c) => (c ? `${c.trimEnd()}; ${snippet}` : snippet))
   }
 
   return (

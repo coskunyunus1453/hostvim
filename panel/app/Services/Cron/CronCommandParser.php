@@ -16,16 +16,54 @@ class CronCommandParser
     public function normalizeInput(string $command): array
     {
         $cmd = trim($command);
-        if (preg_match('#^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+(.+)$#s', $cmd, $m) === 1) {
-            $schedule = trim($m[1]);
-            $rest = trim($m[2]);
-            $parts = preg_split('/\s+/', $schedule, -1, PREG_SPLIT_NO_EMPTY);
-            if (is_array($parts) && count($parts) === 5) {
-                return ['command' => $rest, 'stripped_schedule' => $schedule];
+        if (preg_match('#^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+(.+)$#s', $cmd, $m) !== 1) {
+            return ['command' => $cmd, 'stripped_schedule' => null];
+        }
+
+        $schedule = trim($m[1]);
+        $rest = trim($m[2]);
+        $parts = preg_split('/\s+/', $schedule, -1, PREG_SPLIT_NO_EMPTY);
+        if (! is_array($parts) || count($parts) !== 5 || ! $this->looksLikeCronSchedulePrefix($parts)) {
+            return ['command' => $cmd, 'stripped_schedule' => null];
+        }
+
+        return ['command' => $rest, 'stripped_schedule' => $schedule];
+    }
+
+    /**
+     * @param  list<string>  $parts
+     */
+    private function looksLikeCronSchedulePrefix(array $parts): bool
+    {
+        $shellStarts = ['cd', 'php', 'bash', 'sh', 'wget', 'curl', 'env', 'export', 'sudo', 'nice', 'nohup'];
+        $first = strtolower($parts[0]);
+        if (in_array($first, $shellStarts, true)) {
+            return false;
+        }
+
+        foreach ($parts as $part) {
+            if (str_contains($part, '/')) {
+                return false;
+            }
+            if (! $this->looksLikeCronField($part)) {
+                return false;
             }
         }
 
-        return ['command' => $cmd, 'stripped_schedule' => null];
+        return true;
+    }
+
+    private function looksLikeCronField(string $field): bool
+    {
+        if ($field === '') {
+            return false;
+        }
+
+        if (preg_match('/^@(annually|yearly|monthly|weekly|daily|hourly|reboot)$/i', $field) === 1) {
+            return true;
+        }
+
+        return preg_match('/^[\d*\/,\-A-Za-z#LW?]+$/', $field) === 1;
     }
 
     /**
@@ -39,7 +77,7 @@ class CronCommandParser
         $this->assertShellCommandSafe($cmd, $user);
 
         $workingDirectory = null;
-        if (preg_match('#^cd\s+(/[^\s#;&|><]+)\s+(.+)$#', $cmd, $matches) === 1) {
+        if (preg_match('~^cd\s+(/[^\s;|&><]+)\s+(.+)$~', $cmd, $matches) === 1) {
             $workingDirectory = rtrim($matches[1], '/');
             $this->assertPathAllowed($workingDirectory, $user);
         }
@@ -140,7 +178,9 @@ class CronCommandParser
         }
 
         $roots = CronAllowedPaths::rootsFor($user);
-        $hint = $roots !== [] ? ' '.Str::limit($roots[0], 80) : '';
+        $hint = $roots !== []
+            ? ' '.__('cron.command_path_hint', ['path' => Str::limit($roots[0], 80)])
+            : '';
 
         throw ValidationException::withMessages([
             'command' => __('cron.command_path_not_allowed', ['hint' => $hint]),

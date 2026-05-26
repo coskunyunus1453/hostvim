@@ -10,8 +10,10 @@ use App\Services\Cron\CronJobExecutor;
 use App\Services\Cron\CronScheduleHelper;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 class CronJobController extends Controller
 {
     public function __construct(
@@ -44,23 +46,35 @@ class CronJobController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'schedule' => ['required', 'string', 'max:80', $this->cronScheduleRule()],
-            'command' => 'required|string|max:2000',
-            'description' => 'nullable|string|max:255',
-        ]);
-        $this->commandParser->assertValid($validated['command'], $request->user());
+        try {
+            $validated = $request->validate([
+                'schedule' => ['required', 'string', 'max:80', $this->cronScheduleRule()],
+                'command' => 'required|string|max:2000',
+                'description' => 'nullable|string|max:255',
+            ]);
+            $this->commandParser->assertValid($validated['command'], $request->user());
 
-        $this->quota->ensureCanCreateCronJob($request->user());
+            $this->quota->ensureCanCreateCronJob($request->user());
 
-        $job = CronJob::create([
-            'user_id' => $request->user()->id,
-            'schedule' => $validated['schedule'],
-            'command' => $validated['command'],
-            'description' => $validated['description'] ?? null,
-            'status' => 'active',
-            'next_run_at' => CronScheduleHelper::nextRunAt($validated['schedule']),
-        ]);
+            $job = CronJob::create([
+                'user_id' => $request->user()->id,
+                'schedule' => $validated['schedule'],
+                'command' => $validated['command'],
+                'description' => $validated['description'] ?? null,
+                'status' => 'active',
+                'next_run_at' => CronScheduleHelper::nextRunAt($validated['schedule']),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            if (str_contains($e->getMessage(), 'cron_jobs')) {
+                return response()->json([
+                    'message' => __('cron.database_not_ready'),
+                ], 503);
+            }
+
+            throw $e;
+        }
 
         $engine = $this->engine->engineCronCreate([
             'schedule' => $job->schedule,
