@@ -2309,10 +2309,6 @@ export default function FileManagerPage() {
                                   isSel && 'bg-primary-100 ring-1 ring-primary-300 dark:bg-primary-900/30 dark:ring-primary-700',
                                 )}
                                 onClick={() => {
-                                  if (zipBulkPick) {
-                                    chooseZipBulkTargetDir(joinRel(path, e.name))
-                                    return
-                                  }
                                   setSelected(e.name)
                                   goIntoFolder(e.name)
                                 }}
@@ -2459,10 +2455,6 @@ export default function FileManagerPage() {
                         )}
                         onClick={() => {
                           if (e.is_dir) {
-                            if (zipBulkPick) {
-                              chooseZipBulkTargetDir(joinRel(path, e.name))
-                              return
-                            }
                             setSelected(e.name)
                             goIntoFolder(e.name)
                           } else {
@@ -2477,10 +2469,6 @@ export default function FileManagerPage() {
                         onKeyDown={(ev) => {
                           if (ev.key === 'Enter') {
                             if (e.is_dir) {
-                              if (zipBulkPick) {
-                                chooseZipBulkTargetDir(joinRel(path, e.name))
-                                return
-                              }
                               goIntoFolder(e.name)
                             }
                             else if (isImageFile(rel)) void previewImage(rel)
@@ -2916,7 +2904,7 @@ export default function FileManagerPage() {
               </div>
 
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Hedef klasörü seçmek için dosya listesinden bir klasöre tıkla. ZIP işlemi seçtiğin konuma hemen başlayacak.
+                Hedef klasörü seçmek için bir klasöre tıkla (içine gir). Sonra “Bu klasöre kaydet” ile ZIP’i başlat.
               </p>
             </div>
 
