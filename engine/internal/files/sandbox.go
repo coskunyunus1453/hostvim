@@ -499,52 +499,6 @@ func ZipSources(root string, sourcesRel []string, targetRel string) error {
 		return err
 	}
 
-	id := randomTempID()
-	tmpDir := filepath.Join(filepath.Dir(dst), ".tmp_zipmany_"+id)
-	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
-		return err
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	// Copy all selected entries into tmpDir so we can zip them as one unit.
-	for _, sRel := range deduped {
-		src, err := ResolveUnderRoot(root, sRel)
-		if err != nil {
-			return err
-		}
-		st, err := os.Lstat(src)
-		if err != nil {
-			return err
-		}
-		base := filepath.Base(src)
-		dstBase := filepath.Join(tmpDir, base)
-
-		// Preserve symlinks as symlinks (don't follow).
-		if st.Mode()&os.ModeSymlink != 0 {
-			link, err := os.Readlink(src)
-			if err != nil {
-				return err
-			}
-			if err := os.Symlink(link, dstBase); err != nil {
-				return err
-			}
-			continue
-		}
-
-		if st.IsDir() {
-			if err := os.MkdirAll(dstBase, 0o755); err != nil {
-				return err
-			}
-			if err := copyDir(src, dstBase); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(src, dstBase, st.Mode().Perm()); err != nil {
-				return err
-			}
-		}
-	}
-
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -554,40 +508,76 @@ func ZipSources(root string, sourcesRel []string, targetRel string) error {
 	zw := zip.NewWriter(out)
 	defer zw.Close()
 
-	// Zip tmpDir contents so we don't wrap everything under ".tmp_zipmany_*".
-	if err := filepath.WalkDir(tmpDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	// Do not stage to temp dir: stream directly into archive for speed.
+	usedTopNames := map[string]int{}
+	uniqueTop := func(base string) string {
+		if base == "" || base == "." || base == string(filepath.Separator) {
+			base = "item"
 		}
-		rel, err := filepath.Rel(tmpDir, path)
-		if err != nil {
-			return err
+		n := usedTopNames[base]
+		usedTopNames[base] = n + 1
+		if n == 0 {
+			return base
 		}
-		if rel == "." {
-			return nil
-		}
-		zipName := filepath.ToSlash(rel)
+		return fmt.Sprintf("%s_%d", base, n+1)
+	}
 
-		// Use lstat so symlinks stay symlinks.
-		info, statErr := os.Lstat(path)
-		if statErr != nil {
-			return statErr
+	for _, sRel := range deduped {
+		src, err := ResolveUnderRoot(root, sRel)
+		if err != nil {
+			return err
 		}
+		info, err := os.Lstat(src)
+		if err != nil {
+			return err
+		}
+		top := uniqueTop(filepath.Base(src))
+
 		if info.Mode()&os.ModeSymlink != 0 {
-			link, err := os.Readlink(path)
+			link, err := os.Readlink(src)
 			if err != nil {
 				return err
 			}
-			return writeZipSymlink(zw, zipName, link, info)
+			if err := writeZipSymlink(zw, filepath.ToSlash(top), link, info); err != nil {
+				return err
+			}
+			continue
 		}
 
-		if d.IsDir() {
-			_, err := zw.Create(zipName + "/")
+		if !info.IsDir() {
+			if err := writeZipFile(zw, src, filepath.ToSlash(top), info); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := filepath.Walk(src, func(path string, walkInfo fs.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			rel, err := filepath.Rel(src, path)
+			if err != nil {
+				return err
+			}
+			zipName := filepath.ToSlash(filepath.Join(top, rel))
+			if walkInfo.IsDir() {
+				if rel == "." {
+					return nil
+				}
+				_, err = zw.Create(zipName + "/")
+				return err
+			}
+			if walkInfo.Mode()&os.ModeSymlink != 0 {
+				link, err := os.Readlink(path)
+				if err != nil {
+					return err
+				}
+				return writeZipSymlink(zw, zipName, link, walkInfo)
+			}
+			return writeZipFile(zw, path, zipName, walkInfo)
+		}); err != nil {
 			return err
 		}
-		return writeZipFile(zw, path, zipName, info)
-	}); err != nil {
-		return err
 	}
 
 	return nil
