@@ -849,6 +849,40 @@ class EngineApiService
     }
 
     /**
+     * @return array{body?: string, filename?: string, mime?: string, error?: string}
+     */
+    public function downloadFileBinary(string $domain, string $path): array
+    {
+        $q = http_build_query(['domain' => $domain, 'path' => $path, 'raw' => 1]);
+        try {
+            $response = $this->client()->get($this->baseUrl.'/api/v1/files/download?'.$q);
+            if (! $response->successful()) {
+                $json = $response->json() ?? [];
+                $msg = is_string($json['error'] ?? null) ? $json['error'] : ($response->body() ?: 'HTTP '.$response->status());
+
+                return ['error' => $msg];
+            }
+
+            $mime = (string) ($response->header('Content-Type') ?: 'application/octet-stream');
+            $disposition = (string) ($response->header('Content-Disposition') ?: '');
+            $filename = '';
+            if (preg_match('/filename="([^"]+)"/', $disposition, $m) === 1) {
+                $filename = (string) ($m[1] ?? '');
+            }
+
+            return [
+                'body' => $response->body(),
+                'filename' => $filename,
+                'mime' => $mime,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Engine API GET /files/download(raw) failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * @return list<array{path: string, line: int, preview: string}>
      */
     public function searchFiles(string $domain, string $path, string $query): array

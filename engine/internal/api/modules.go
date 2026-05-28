@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"mime"
 	"net/http"
 	"os"
@@ -2736,6 +2737,13 @@ func handleFileDownload(cfg *config.Config) gin.HandlerFunc {
 			mimeType = "application/octet-stream"
 		}
 		filename := filepath.Base(path)
+
+		if c.Query("raw") == "1" {
+			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+			c.Header("Content-Length", strconv.Itoa(len(b)))
+			c.Data(http.StatusOK, mimeType, b)
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"content_base64": encoded,

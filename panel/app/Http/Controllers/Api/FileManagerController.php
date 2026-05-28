@@ -1054,23 +1054,16 @@ class FileManagerController extends Controller
         }
         $enginePath = $this->panelRelToEngineRel($hostingTarget, $path);
 
-        $result = $this->engine->downloadFile($hostingTarget->engineSiteName, $enginePath);
+        $result = $this->engine->downloadFileBinary($hostingTarget->engineSiteName, $enginePath);
         if (! empty($result['error'])) {
             $this->logFileAction($request, $domain, 'download', $path, null, false, $result['error']);
 
             return response()->json(['message' => $result['error']], 422);
         }
 
-        $b64 = (string) ($result['content_base64'] ?? '');
-        $bytes = base64_decode($b64, true);
-        if ($bytes === false) {
-            $this->logFileAction($request, $domain, 'download', $path, null, false, 'invalid base64');
-
-            return response()->json(['message' => 'download failed'], 500);
-        }
-
+        $bytes = (string) ($result['body'] ?? '');
         $mime = (string) ($result['mime'] ?? 'application/octet-stream');
-        $filename = basename((string) ($result['filename'] ?? $path));
+        $filename = basename((string) ($result['filename'] ?? basename($path)));
 
         $this->logFileAction($request, $domain, 'download', $path, null, true, null);
 

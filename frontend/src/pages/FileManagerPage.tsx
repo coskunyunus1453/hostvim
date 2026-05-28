@@ -800,22 +800,28 @@ export default function FileManagerPage() {
   const downloadAsFile = useCallback(
     async (rel: string) => {
       if (!domainId) return
-      const res = await api.get(`/domains/${domainId}/files/download`, {
-        ...fileReqConfig({ params: { path: rel } }),
-        responseType: 'blob',
-      })
-      const blob = res.data as Blob
-      const url = URL.createObjectURL(blob)
-      const filename = rel.split('/').pop() || 'download'
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      try {
+        const res = await api.get(`/domains/${domainId}/files/download`, {
+          ...fileReqConfig({ params: { path: rel } }),
+          responseType: 'blob',
+          timeout: 300_000,
+        })
+        const blob = res.data as Blob
+        const url = URL.createObjectURL(blob)
+        const filename = rel.split('/').pop() || 'download'
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      } catch (err: unknown) {
+        const ax = err as { response?: { data?: { message?: string } } }
+        toast.error(ax.response?.data?.message ?? t('common.download_error'))
+      }
     },
-    [domainId, fileReqConfig],
+    [domainId, fileReqConfig, t],
   )
 
   const previewImage = useCallback(
