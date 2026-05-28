@@ -28,6 +28,8 @@ return [
     'engine_secret' => trim((string) env('ENGINE_API_SECRET', env('PANELSAR_ENGINE_API_SECRET', env('PANELSAR_JWT_SECRET', '')))),
     /** Uzak yedek → engine restore-upload (HTTP istemci timeout, saniye) */
     'engine_restore_upload_timeout' => (int) env('HOSTVIM_ENGINE_RESTORE_UPLOAD_TIMEOUT', 7200),
+    /** Dosya yöneticisi indirme: panel → engine HTTP timeout (saniye) */
+    'engine_download_timeout' => max(60, (int) env('HOSTVIM_ENGINE_DOWNLOAD_TIMEOUT', 1800)),
     'vendor_license_signing_key' => env('VENDOR_LICENSE_SIGNING_KEY', ''),
     'vendor_billing_webhook_secret' => env('VENDOR_BILLING_WEBHOOK_SECRET', ''),
     'vendor_request_replay_ttl_seconds' => (int) env('VENDOR_REQUEST_REPLAY_TTL_SECONDS', 300),

@@ -805,10 +805,31 @@ export default function FileManagerPage() {
           ...fileReqConfig({ params: { path: rel } }),
           responseType: 'blob',
           timeout: 300_000,
+          validateStatus: (s) => s < 500,
         })
+        const ct = String(res.headers['content-type'] ?? '')
+        if (res.status >= 400 || ct.includes('application/json')) {
+          let msg = t('common.download_error')
+          try {
+            const text = await new Response(res.data as Blob).text()
+            const j = JSON.parse(text) as { message?: string }
+            if (j.message) msg = j.message
+          } catch {
+            /* ignore parse */
+          }
+          toast.error(msg)
+          return
+        }
         const blob = res.data as Blob
+        if (!blob.size) {
+          toast.error(t('common.download_error'))
+          return
+        }
+        let filename = rel.split('/').pop() || 'download'
+        const cd = String(res.headers['content-disposition'] ?? '')
+        const fnMatch = /filename="([^"]+)"/.exec(cd)
+        if (fnMatch?.[1]) filename = fnMatch[1]
         const url = URL.createObjectURL(blob)
-        const filename = rel.split('/').pop() || 'download'
         const a = document.createElement('a')
         a.href = url
         a.download = filename
@@ -817,8 +838,21 @@ export default function FileManagerPage() {
         a.remove()
         URL.revokeObjectURL(url)
       } catch (err: unknown) {
-        const ax = err as { response?: { data?: { message?: string } } }
-        toast.error(ax.response?.data?.message ?? t('common.download_error'))
+        const ax = err as { response?: { data?: Blob | { message?: string } } }
+        let msg = t('common.download_error')
+        const data = ax.response?.data
+        if (data instanceof Blob) {
+          try {
+            const text = await data.text()
+            const j = JSON.parse(text) as { message?: string }
+            if (j.message) msg = j.message
+          } catch {
+            /* ignore */
+          }
+        } else if (data && typeof data === 'object' && 'message' in data && data.message) {
+          msg = String(data.message)
+        }
+        toast.error(msg)
       }
     },
     [domainId, fileReqConfig, t],

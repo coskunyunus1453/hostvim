@@ -82,6 +82,13 @@ class EngineApiService
         return $this->withEngineAuth(Http::timeout($timeout)->acceptJson());
     }
 
+    private function clientDownload(): PendingRequest
+    {
+        $timeout = (int) config('hostvim.engine_download_timeout', 1800);
+
+        return $this->withEngineAuth(Http::timeout($timeout));
+    }
+
     public function getSystemStats(): array
     {
         return $this->get('/api/v1/system/stats')['data'] ?? [];
@@ -853,9 +860,39 @@ class EngineApiService
      */
     public function downloadFileBinary(string $domain, string $path): array
     {
+        $opened = $this->openDownloadStream($domain, $path);
+        if (! empty($opened['error'])) {
+            return ['error' => (string) $opened['error']];
+        }
+        $stream = $opened['stream'] ?? null;
+        if ($stream === null) {
+            return ['error' => 'download stream unavailable'];
+        }
+        try {
+            return [
+                'body' => (string) $stream,
+                'filename' => (string) ($opened['filename'] ?? ''),
+                'mime' => (string) ($opened['mime'] ?? 'application/octet-stream'),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Engine API GET /files/download(raw) read failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Büyük dosyalar için panel → tarayıcı akışı (belleğe tamponlamadan).
+     *
+     * @return array{stream?: \Psr\Http\Message\StreamInterface, filename?: string, mime?: string, error?: string}
+     */
+    public function openDownloadStream(string $domain, string $path): array
+    {
         $q = http_build_query(['domain' => $domain, 'path' => $path, 'raw' => 1]);
         try {
-            $response = $this->client()->get($this->baseUrl.'/api/v1/files/download?'.$q);
+            $response = $this->clientDownload()
+                ->withOptions(['stream' => true])
+                ->get($this->baseUrl.'/api/v1/files/download?'.$q);
             if (! $response->successful()) {
                 $json = $response->json() ?? [];
                 $msg = is_string($json['error'] ?? null) ? $json['error'] : ($response->body() ?: 'HTTP '.$response->status());
@@ -871,12 +908,12 @@ class EngineApiService
             }
 
             return [
-                'body' => $response->body(),
+                'stream' => $response->toPsrResponse()->getBody(),
                 'filename' => $filename,
                 'mime' => $mime,
             ];
         } catch (\Exception $e) {
-            Log::error('Engine API GET /files/download(raw) failed: '.$e->getMessage());
+            Log::error('Engine API GET /files/download(stream) failed: '.$e->getMessage());
 
             return ['error' => $e->getMessage()];
         }

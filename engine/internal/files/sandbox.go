@@ -936,23 +936,44 @@ func ReadFileForEditor(root, rel string) ([]byte, error) {
 	return os.ReadFile(base)
 }
 
-// MaxDownloadFileSize download için üst limit.
-const MaxDownloadFileSize int64 = 20 << 20
+// MaxDownloadFileSize download için üst limit (ZIP yedekleri dahil).
+const MaxDownloadFileSize int64 = 2 << 30 // 2 GiB
 
-func ReadFileForDownload(root, rel string) ([]byte, error) {
+func statFileForDownload(root, rel string) (string, os.FileInfo, error) {
 	base, err := ResolveUnderRoot(root, rel)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	st, err := os.Stat(base)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	if st.IsDir() {
-		return nil, fmt.Errorf("is a directory")
+		return "", nil, fmt.Errorf("is a directory")
 	}
 	if st.Size() > MaxDownloadFileSize {
-		return nil, fmt.Errorf("file too large for download (max %d MiB)", MaxDownloadFileSize>>20)
+		return "", nil, fmt.Errorf("file too large for download (max %d MiB)", MaxDownloadFileSize>>20)
+	}
+	return base, st, nil
+}
+
+// OpenFileForDownload büyük dosyaları belleğe yüklemeden akış için açar.
+func OpenFileForDownload(root, rel string) (*os.File, os.FileInfo, error) {
+	base, st, err := statFileForDownload(root, rel)
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := os.Open(base)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, st, nil
+}
+
+func ReadFileForDownload(root, rel string) ([]byte, error) {
+	base, _, err := statFileForDownload(root, rel)
+	if err != nil {
+		return nil, err
 	}
 	return os.ReadFile(base)
 }

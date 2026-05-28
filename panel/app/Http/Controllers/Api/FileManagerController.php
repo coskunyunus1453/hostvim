@@ -1054,20 +1054,34 @@ class FileManagerController extends Controller
         }
         $enginePath = $this->panelRelToEngineRel($hostingTarget, $path);
 
-        $result = $this->engine->downloadFileBinary($hostingTarget->engineSiteName, $enginePath);
+        $result = $this->engine->openDownloadStream($hostingTarget->engineSiteName, $enginePath);
         if (! empty($result['error'])) {
             $this->logFileAction($request, $domain, 'download', $path, null, false, $result['error']);
 
             return response()->json(['message' => $result['error']], 422);
         }
 
-        $bytes = (string) ($result['body'] ?? '');
+        $stream = $result['stream'] ?? null;
+        if ($stream === null) {
+            $this->logFileAction($request, $domain, 'download', $path, null, false, 'download stream unavailable');
+
+            return response()->json(['message' => 'download stream unavailable'], 502);
+        }
+
         $mime = (string) ($result['mime'] ?? 'application/octet-stream');
         $filename = basename((string) ($result['filename'] ?? basename($path)));
 
         $this->logFileAction($request, $domain, 'download', $path, null, true, null);
 
-        return response($bytes, 200, [
+        return response()->stream(function () use ($stream): void {
+            while (! $stream->eof()) {
+                echo $stream->read(262144);
+                if (ob_get_level() > 0) {
+                    @ob_flush();
+                }
+                flush();
+            }
+        }, 200, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);

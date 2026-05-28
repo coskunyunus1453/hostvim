@@ -2723,14 +2723,6 @@ func handleFileDownload(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		b, err := files.ReadFileForDownload(root, path)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Return base64 so the panel can stream it safely.
-		encoded := base64.StdEncoding.EncodeToString(b)
 		ext := strings.ToLower(filepath.Ext(path))
 		mimeType := mime.TypeByExtension(ext)
 		if mimeType == "" {
@@ -2739,11 +2731,25 @@ func handleFileDownload(cfg *config.Config) gin.HandlerFunc {
 		filename := filepath.Base(path)
 
 		if c.Query("raw") == "1" {
+			f, st, err := files.OpenFileForDownload(root, path)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			defer f.Close()
 			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-			c.Header("Content-Length", strconv.Itoa(len(b)))
-			c.Data(http.StatusOK, mimeType, b)
+			http.ServeContent(c.Writer, c.Request, filename, st.ModTime(), f)
 			return
 		}
+
+		b, err := files.ReadFileForDownload(root, path)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Return base64 so the panel can stream it safely.
+		encoded := base64.StdEncoding.EncodeToString(b)
 
 		c.JSON(http.StatusOK, gin.H{
 			"content_base64": encoded,
