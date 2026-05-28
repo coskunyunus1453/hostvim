@@ -781,7 +781,8 @@
     "close": "Kapat",
     "ok": "Anladım",
     "back": "Geri",
-    "copy": "Kopyala"
+    "copy": "Kopyala",
+    "download_error": "İndirme başarısız"
   },
   "ui_mode": {
     "easy": "Kolay Mod",
@@ -1002,7 +1003,6 @@
     "trash_restored": "Geri yüklendi",
     "trash_deleted": "Kalıcı silindi",
     "trash_emptied": "Geri dönüşüm kutusu boşaltıldı",
-    "path": "Yol",
     "mode": "Mod",
     "chmod_hint": "Öneri: dosyalar için 644, klasörler için 755.",
     "invalid_path": "Geçersiz yol.",
@@ -2045,26 +2045,20 @@
     "load_error": "Web sunucusu ayarları alınamadı.",
     "engine_hint": "Engine çalışıyor olmalı ve webserver ayar endpoint’ine erişebilmeliyiz.",
     "saved": "Web sunucusu ayarları kaydedildi.",
-
     "nginx": "Nginx",
     "apache": "Apache",
     "openlitespeed": "OpenLiteSpeed",
     "php_fpm": "PHP-FPM",
-
     "manage_vhosts": "VHost yönetimi",
     "reload_after_vhost": "VHost sonrası reload",
-
     "manage_pools": "Pool yönetimi",
     "reload_after_pool": "Pool sonrası reload",
-
     "php_fpm_socket": "PHP-FPM socket (pool yönetimi kapalıyken)",
     "php_fpm_listen_dir": "PHP-FPM listen dir",
     "php_fpm_pool_dir_template": "Pool dizin şablonu",
     "php_fpm_pool_user": "Pool user",
     "php_fpm_pool_group": "Pool group",
-
     "save_hint": "Değişiklikler engine tarafında uygulanır; mevcut vhost/pool yapısı hemen güncellenmeyebilir.",
-
     "ols_conf_root": "OpenLiteSpeed kökü ($SERVER_ROOT)",
     "ols_ctrl_path": "lswsctrl yolu (isteğe bağlı)",
     "ols_include_hint": "httpd_config.conf içine bir kez ekleyin: include conf/conf.d/hostvim-ols-vhosts.conf; HTTP ve HTTPS listener bloklarına sırasıyla hostvim-ols-http-maps.conf ve hostvim-ols-https-maps.conf include edin (engine openlitespeed paket başlığına bakın).",

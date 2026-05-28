@@ -162,7 +162,6 @@
     "category_all": "All plugins",
     "category_migration": "Migration modules",
     "category_integration": "Integrations",
-    "category_integration": "Integrations",
     "install": "Install",
     "activate": "Activate",
     "deactivate": "Deactivate",
@@ -782,7 +781,8 @@
     "close": "Close",
     "ok": "Got it",
     "back": "Back",
-    "copy": "Copy"
+    "copy": "Copy",
+    "download_error": "Download failed"
   },
   "ui_mode": {
     "easy": "Easy Mode",
@@ -1003,7 +1003,6 @@
     "trash_restored": "Restored",
     "trash_deleted": "Deleted permanently",
     "trash_emptied": "Recycle bin emptied",
-    "path": "Path",
     "mode": "Mode",
     "chmod_hint": "Tip: 644 for files, 755 for folders.",
     "invalid_path": "Invalid path.",
@@ -2046,26 +2045,20 @@
     "load_error": "Could not load webserver settings.",
     "engine_hint": "Engine must be reachable and expose the webserver settings endpoint.",
     "saved": "Webserver settings saved.",
-
     "nginx": "Nginx",
     "apache": "Apache",
     "openlitespeed": "OpenLiteSpeed",
     "php_fpm": "PHP-FPM",
-
     "manage_vhosts": "VHost management",
     "reload_after_vhost": "Reload after vhost",
-
     "manage_pools": "Pool management",
     "reload_after_pool": "Reload after pool",
-
     "php_fpm_socket": "PHP-FPM socket (when pool management is off)",
     "php_fpm_listen_dir": "PHP-FPM listen dir",
     "php_fpm_pool_dir_template": "PHP-FPM pool dir template",
     "php_fpm_pool_user": "Pool user",
     "php_fpm_pool_group": "Pool group",
-
     "save_hint": "Changes are applied in the engine; existing vhost/pool may not be updated immediately.",
-
     "ols_conf_root": "OpenLiteSpeed root ($SERVER_ROOT)",
     "ols_ctrl_path": "lswsctrl path (optional)",
     "ols_include_hint": "Add once to httpd_config.conf: include conf/conf.d/hostvim-ols-vhosts.conf; inside HTTP/HTTPS listener blocks include hostvim-ols-http-maps.conf and hostvim-ols-https-maps.conf (see engine openlitespeed package comment).",
