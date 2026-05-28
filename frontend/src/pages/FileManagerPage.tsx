@@ -1973,12 +1973,6 @@ export default function FileManagerPage() {
                           // Multi seçiliyse hepsini tek ZIP'e al.
                           if (bulkSelected.length > 0) {
                             const sources = bulkSelected.map((e) => joinRel(path, e.name))
-                            for (const s of sources) {
-                              if (!isSafeRelativePath(s.trim())) {
-                                toast.error(t('files.invalid_path'))
-                                return
-                              }
-                            }
 
                             const first = bulkSelected[0]
                             const firstName = first.name
