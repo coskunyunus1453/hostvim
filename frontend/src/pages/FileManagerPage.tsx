@@ -1430,6 +1430,7 @@ export default function FileManagerPage() {
   const chooseZipBulkTargetDir = useCallback(
     (targetDirRel: string) => {
       if (!zipBulkPick) return
+      if (zipBulkM.isPending || zipM.isPending) return
 
       const raw = zipBulkPick.zipName.trim()
       if (!raw) {
@@ -1453,7 +1454,7 @@ export default function FileManagerPage() {
       setZipBulkPick(null)
       void runZipBulkArchive({ sources, target })
     },
-    [runZipBulkArchive, zipBulkPick, t],
+    [runZipBulkArchive, zipBulkPick, t, zipBulkM.isPending, zipM.isPending],
   )
 
   const runUnzipArchive = useCallback(
@@ -1871,6 +1872,7 @@ export default function FileManagerPage() {
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                        disabled={zipM.isPending || zipBulkM.isPending}
                         onClick={() => {
                           setFileOpsOpen(false)
                           const name = window.prompt(t('files.op_new_folder'), '')
@@ -2886,6 +2888,7 @@ export default function FileManagerPage() {
                 type="button"
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                 aria-label="Kapat"
+                disabled={zipBulkM.isPending || zipM.isPending}
                 onClick={() => setZipBulkPick(null)}
               >
                 <X className="h-5 w-5" />
@@ -2898,6 +2901,7 @@ export default function FileManagerPage() {
                 <input
                   className="input w-full font-mono"
                   value={zipBulkPick.zipName}
+                  disabled={zipBulkM.isPending || zipM.isPending}
                   onChange={(e) => setZipBulkPick((prev) => (prev ? { ...prev, zipName: e.target.value } : prev))}
                   placeholder="backup.zip"
                 />
@@ -2909,12 +2913,18 @@ export default function FileManagerPage() {
             </div>
 
             <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800">
-              <button type="button" className="btn-secondary" onClick={() => setZipBulkPick(null)}>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={zipBulkM.isPending || zipM.isPending}
+                onClick={() => setZipBulkPick(null)}
+              >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
                 className="btn-primary"
+                disabled={zipBulkM.isPending || zipM.isPending}
                 onClick={() => chooseZipBulkTargetDir(path)}
               >
                 Bu klasöre kaydet

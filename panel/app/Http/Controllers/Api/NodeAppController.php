@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\AuthorizesUserDomain;
+use App\Http\Controllers\Concerns\ResolvesHostingSiteTarget;
 use App\Http\Controllers\Controller;
 use App\Models\Domain;
 use App\Services\EngineApiService;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 class NodeAppController extends Controller
 {
     use AuthorizesUserDomain;
+    use ResolvesHostingSiteTarget;
 
     public function __construct(
         private EngineApiService $engine,
@@ -23,7 +25,8 @@ class NodeAppController extends Controller
             abort(403);
         }
 
-        $resp = $this->engine->getNodeApp($domain->name);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->getNodeApp($target->engineSiteName);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error']], 503);
         }
@@ -41,7 +44,8 @@ class NodeAppController extends Controller
             'work_dir' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $resp = $this->engine->detectNodeApp($domain->name, $validated['work_dir'] ?? null);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->detectNodeApp($target->engineSiteName, $validated['work_dir'] ?? null);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error']], 503);
         }
@@ -66,7 +70,8 @@ class NodeAppController extends Controller
             'env_file' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $resp = $this->engine->updateNodeApp($domain->name, $validated);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->updateNodeApp($target->engineSiteName, $validated);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error']], 422);
         }
@@ -84,7 +89,8 @@ class NodeAppController extends Controller
             'app_profile' => ['nullable', 'string', 'max:32'],
         ]);
 
-        $resp = $this->engine->autoConfigureNodeApp($domain->name, $validated['app_profile'] ?? null);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->autoConfigureNodeApp($target->engineSiteName, $validated['app_profile'] ?? null);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error'], 'output' => $resp['output'] ?? ''], 422);
         }
@@ -98,7 +104,8 @@ class NodeAppController extends Controller
             abort(403);
         }
 
-        $resp = $this->engine->startNodeApp($domain->name);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->startNodeApp($target->engineSiteName);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error'], 'output' => $resp['output'] ?? ''], 422);
         }
@@ -112,7 +119,8 @@ class NodeAppController extends Controller
             abort(403);
         }
 
-        $resp = $this->engine->stopNodeApp($domain->name);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->stopNodeApp($target->engineSiteName);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error'], 'output' => $resp['output'] ?? ''], 422);
         }
@@ -126,7 +134,8 @@ class NodeAppController extends Controller
             abort(403);
         }
 
-        $resp = $this->engine->restartNodeApp($domain->name);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->restartNodeApp($target->engineSiteName);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error'], 'output' => $resp['output'] ?? ''], 422);
         }
@@ -144,7 +153,8 @@ class NodeAppController extends Controller
             'use_ci' => ['nullable', 'boolean'],
         ]);
 
-        $resp = $this->engine->installNodeApp($domain->name, (bool) ($validated['use_ci'] ?? false));
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->installNodeApp($target->engineSiteName, (bool) ($validated['use_ci'] ?? false));
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error'], 'output' => $resp['output'] ?? ''], 422);
         }
@@ -158,7 +168,8 @@ class NodeAppController extends Controller
             abort(403);
         }
 
-        $resp = $this->engine->buildNodeApp($domain->name);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->buildNodeApp($target->engineSiteName);
         if (! empty($resp['error'])) {
             return response()->json(['message' => $resp['error'], 'output' => $resp['output'] ?? ''], 422);
         }
@@ -172,7 +183,8 @@ class NodeAppController extends Controller
             abort(403);
         }
 
-        $resp = $this->engine->healNodeApp($domain->name);
+        $target = $this->resolveHostingTarget($request, $domain);
+        $resp = $this->engine->healNodeApp($target->engineSiteName);
         if (! empty($resp['error'])) {
             return response()->json([
                 'message' => $resp['error'],

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import { Cpu, Play, Square, RotateCcw, Wand2, Package, Hammer, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useDomainsList } from '../hooks/useDomains'
+import { useHostingTargets, targetSelectValue, parseTargetSelectValue } from '../hooks/useHostingTargets'
 
 type WorkDirCandidate = {
   rel: string
@@ -43,21 +43,39 @@ type NodeConfig = {
 export default function NodeAppPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const domainsQ = useDomainsList()
+  const targetsQ = useHostingTargets()
   const [domainId, setDomainId] = useState<number | ''>('')
+  const [subdomainId, setSubdomainId] = useState<number | undefined>(undefined)
   const [lastOut, setLastOut] = useState('')
-  const autoHealedRef = useRef<Set<number>>(new Set())
+  const autoHealedRef = useRef<Set<string>>(new Set())
 
-  const domain = useMemo(
-    () => (domainsQ.data ?? []).find((d) => d.id === domainId),
-    [domainsQ.data, domainId],
+  const targets = targetsQ.data ?? []
+  const currentTarget = useMemo(
+    () =>
+      targets.find((t) =>
+        t.domain_id === domainId && (subdomainId ? t.subdomain_id === subdomainId : t.subdomain_id === null),
+      ),
+    [targets, domainId, subdomainId],
+  )
+  const selectedTargetValue = useMemo(() => {
+    if (domainId === '') return ''
+    return subdomainId ? `s:${domainId}:${subdomainId}` : `d:${domainId}`
+  }, [domainId, subdomainId])
+  const selectedTargetKey = useMemo(
+    () => (domainId === '' ? '' : subdomainId ? `s:${domainId}:${subdomainId}` : `d:${domainId}`),
+    [domainId, subdomainId],
+  )
+
+  const nodeReqConfig = useMemo(
+    () => (subdomainId ? { params: { subdomain_id: subdomainId } } : undefined),
+    [subdomainId],
   )
 
   const configQ = useQuery({
-    queryKey: ['node-app', domainId],
+    queryKey: ['node-app', domainId, subdomainId],
     enabled: domainId !== '',
     queryFn: async () => {
-      const { data } = await api.get<NodeConfig>(`/domains/${domainId}/node-app`)
+      const { data } = await api.get<NodeConfig>(`/domains/${domainId}/node-app`, nodeReqConfig)
       return data
     },
   })
@@ -115,9 +133,11 @@ export default function NodeAppPage() {
 
   const detectM = useMutation({
     mutationFn: async (workDir?: string) => {
-      const { data } = await api.post<{ detect?: NodeDetect }>(`/domains/${domainId}/node-app/detect`, {
-        work_dir: workDir ?? form.work_dir,
-      })
+      const { data } = await api.post<{ detect?: NodeDetect }>(
+        `/domains/${domainId}/node-app/detect`,
+        { work_dir: workDir ?? form.work_dir },
+        nodeReqConfig,
+      )
       return data.detect
     },
     onSuccess: (det) => applyDetect(det),
@@ -129,15 +149,16 @@ export default function NodeAppPage() {
 
   const saveM = useMutation({
     mutationFn: async () => {
-      const { data } = await api.put(`/domains/${domainId}/node-app`, {
-        ...form,
-        app_profile: form.profile,
-      })
+      const { data } = await api.put(
+        `/domains/${domainId}/node-app`,
+        { ...form, app_profile: form.profile },
+        nodeReqConfig,
+      )
       return data
     },
     onSuccess: () => {
       toast.success(t('node_apps.saved'))
-      qc.invalidateQueries({ queryKey: ['node-app', domainId] })
+      qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -147,14 +168,16 @@ export default function NodeAppPage() {
 
   const autoM = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post(`/domains/${domainId}/node-app/auto-configure`, {
-        app_profile: form.profile,
-      })
+      const { data } = await api.post(
+        `/domains/${domainId}/node-app/auto-configure`,
+        { app_profile: form.profile },
+        nodeReqConfig,
+      )
       return data
     },
     onSuccess: (data) => {
       toast.success(t('node_apps.auto_configured'))
-      qc.invalidateQueries({ queryKey: ['node-app', domainId] })
+      qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
       const cfg = data as NodeConfig
       if (cfg?.work_dir) {
         setForm((f) => ({
@@ -184,7 +207,7 @@ export default function NodeAppPage() {
         message?: string
         config?: NodeConfig
         output?: string
-      }>(`/domains/${domainId}/node-app/heal`, {})
+      }>(`/domains/${domainId}/node-app/heal`, {}, nodeReqConfig)
       return data
     },
     onSuccess: (data) => {
@@ -203,7 +226,7 @@ export default function NodeAppPage() {
         }))
       }
       toast.success(data.healthy ? t('node_apps.heal_ok') : t('node_apps.heal_partial'))
-      qc.invalidateQueries({ queryKey: ['node-app', domainId] })
+      qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; steps?: string[] } } }
@@ -221,13 +244,13 @@ export default function NodeAppPage() {
             ? `/domains/${domainId}/node-app/build`
             : `/domains/${domainId}/node-app/${action}`
       const body = action === 'install' ? { use_ci: true } : {}
-      const { data } = await api.post(path, body)
+      const { data } = await api.post(path, body, nodeReqConfig)
       return data as { output?: string; message?: string }
     },
     onSuccess: (data) => {
       setLastOut(data.output ?? data.message ?? '')
       toast.success(t('node_apps.action_ok'))
-      qc.invalidateQueries({ queryKey: ['node-app', domainId] })
+      qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; output?: string } } }
@@ -242,16 +265,16 @@ export default function NodeAppPage() {
       return
     }
     detectM.mutate('.')
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- domain değişince otomatik algıla
-  }, [domainId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hedef değişince otomatik algıla
+  }, [domainId, subdomainId])
 
   useEffect(() => {
-    if (domainId === '' || configQ.isLoading || !configQ.data?.enabled) return
-    if (autoHealedRef.current.has(domainId)) return
-    autoHealedRef.current.add(domainId)
+    if (selectedTargetKey === '' || configQ.isLoading || !configQ.data?.enabled) return
+    if (autoHealedRef.current.has(selectedTargetKey)) return
+    autoHealedRef.current.add(selectedTargetKey)
     healM.mutate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- etkin Node sitesi açılınca otomatik onar
-  }, [domainId, configQ.data?.enabled, configQ.isLoading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- etkin Node hedefi açılınca otomatik onar
+  }, [selectedTargetKey, configQ.data?.enabled, configQ.isLoading])
 
   const running = configQ.data?.status?.running
 
@@ -277,18 +300,27 @@ export default function NodeAppPage() {
             <label className="label">{t('node_apps.domain')}</label>
             <select
               className="input min-w-[240px]"
-              value={domainId}
-              onChange={(e) => setDomainId(e.target.value ? Number(e.target.value) : '')}
+              value={selectedTargetValue}
+              onChange={(e) => {
+                if (!e.target.value) {
+                  setDomainId('')
+                  setSubdomainId(undefined)
+                  return
+                }
+                const p = parseTargetSelectValue(e.target.value)
+                setDomainId(Number(p.domainId))
+                setSubdomainId(p.subdomainId ? Number(p.subdomainId) : undefined)
+              }}
             >
               <option value="">{t('common.select')}</option>
-              {(domainsQ.data ?? []).map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
+              {targets.map((ht) => (
+                <option key={ht.key} value={targetSelectValue(ht)}>
+                  {ht.kind === 'subdomain' ? `↳ ${ht.hostname}` : ht.hostname}
                 </option>
               ))}
             </select>
           </div>
-          {domain && (
+          {currentTarget && (
             <div className="text-sm text-gray-500 dark:text-gray-400">
               {running ? (
                 <span className="text-emerald-600 dark:text-emerald-400">{t('node_apps.status_running')}</span>
