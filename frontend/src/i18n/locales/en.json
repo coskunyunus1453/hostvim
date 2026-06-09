@@ -107,7 +107,9 @@
     "installed": "Installed",
     "not_installed": "Not installed",
     "install": "Install",
-    "install_ok": "Installation finished."
+    "install_ok": "Installation finished.",
+    "retry": "Reinstall",
+    "retry_ok": "Reinstall started."
   },
   "deploy": {
     "subtitle": "Single flow for git pull, runtime steps and webhook deploy",

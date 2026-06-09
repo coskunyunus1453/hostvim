@@ -20,7 +20,7 @@ type StackModule = {
 type StackRun = {
   id: number
   bundle_id: string
-  status: 'queued' | 'running' | 'success' | 'failed'
+  status: 'queued' | 'running' | 'success' | 'failed' | 'cancelled'
   progress?: number
   cancel_requested?: boolean
   message?: string
@@ -95,13 +95,30 @@ export default function AdminStackPage() {
       toast.error(ax.response?.data?.message ?? String(err))
     },
   })
+  const retryRunM = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.post(`/admin/stack/runs/${id}/retry`)).data as { message?: string; run_id?: number; background?: boolean },
+    onSuccess: (data) => {
+      if (typeof data.run_id === 'number') setActiveRunId(data.run_id)
+      toast.success(data.message ?? t('stack.retry_ok'))
+      qc.invalidateQueries({ queryKey: ['admin-stack-runs'] })
+      qc.invalidateQueries({ queryKey: ['admin-stack-modules'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
 
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />
   }
 
   const mods = modulesQ.data ?? []
-  const activeRun = activeRunId !== null ? (runsQ.data?.runs ?? []).find((r) => r.id === activeRunId) : null
+  const runs = runsQ.data?.runs ?? []
+  const activeRun = activeRunId !== null ? runs.find((r) => r.id === activeRunId) : null
+  const busyRun = runs.find((r) => r.status === 'queued' || r.status === 'running') ?? null
+  const installBusy = installM.isPending || retryRunM.isPending || !!busyRun
   const grouped = groupByCategory(mods)
   const catOrder = ['php', 'mail', 'other']
   const cats = catOrder.filter((c) => grouped[c]?.length)
@@ -194,20 +211,44 @@ export default function AdminStackPage() {
                     {m.id}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={m.installed || installM.isPending || !!activeRun}
-                  onClick={() => installM.mutate(m.id)}
-                  className={clsx(
-                    'inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
-                    m.installed || installM.isPending
-                      ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                      : 'bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600',
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  {!m.installed && (
+                    <button
+                      type="button"
+                      disabled={installBusy}
+                      onClick={() => installM.mutate(m.id)}
+                      className={clsx(
+                        'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
+                        installBusy
+                          ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                          : 'bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600',
+                      )}
+                    >
+                      {installM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {installM.isPending ? 'Kuruluyor...' : t('stack.install')}
+                    </button>
                   )}
-                >
-                  {installM.isPending && !m.installed ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {installM.isPending && !m.installed ? 'Kuruluyor...' : t('stack.install')}
-                </button>
+                  {(m.installed || runs.some((r) => r.bundle_id === m.id && r.status === 'failed')) && (
+                    <button
+                      type="button"
+                      disabled={installBusy}
+                      onClick={() => {
+                        const failed = runs.find((r) => r.bundle_id === m.id && r.status === 'failed')
+                        if (failed) retryRunM.mutate(failed.id)
+                        else installM.mutate(m.id)
+                      }}
+                      className={clsx(
+                        'inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors',
+                        installBusy
+                          ? 'cursor-not-allowed border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-500'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800',
+                      )}
+                    >
+                      {retryRunM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {t('stack.retry')}
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -233,6 +274,16 @@ export default function AdminStackPage() {
                     İptal
                   </button>
                 )}
+                {(r.status === 'failed' || r.status === 'cancelled') && (
+                  <button
+                    type="button"
+                    className="btn-secondary py-1 px-2 text-[10px]"
+                    onClick={() => retryRunM.mutate(r.id)}
+                    disabled={retryRunM.isPending || installBusy}
+                  >
+                    {t('stack.retry')}
+                  </button>
+                )}
                 <button type="button" className="btn-secondary py-1 px-2 text-[10px]" onClick={() => setActiveRunId(r.id)}>
                   Detay
                 </button>
@@ -255,6 +306,16 @@ export default function AdminStackPage() {
               </button>
             </div>
             <p className="text-xs text-gray-500 mb-2">{runDetailQ.data.run.message}</p>
+            {(runDetailQ.data.run.status === 'failed' || runDetailQ.data.run.status === 'cancelled') && (
+              <button
+                type="button"
+                className="btn-primary mb-3 py-1.5 px-3 text-xs"
+                onClick={() => retryRunM.mutate(runDetailQ.data!.run.id)}
+                disabled={retryRunM.isPending || installBusy}
+              >
+                {retryRunM.isPending ? 'Yeniden kuruluyor...' : t('stack.retry')}
+              </button>
+            )}
             <pre className="max-h-[360px] overflow-auto rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-[11px] whitespace-pre-wrap">
 {runDetailQ.data.run.output || '-'}
             </pre>

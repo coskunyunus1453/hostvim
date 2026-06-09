@@ -87,11 +87,36 @@ func dpkgInstalled(pkg string) bool {
 	return strings.HasPrefix(s, "install ok")
 }
 
+func unixUserExists(name string) bool {
+	err := exec.Command("id", "-u", strings.TrimSpace(name)).Run()
+	return err == nil
+}
+
+func mailStackWebmailReady() bool {
+	if !dpkgInstalled("roundcube-core") {
+		return false
+	}
+	if !unixUserExists("vmail") {
+		return false
+	}
+	if !dpkgInstalled("dovecot-core") || !dpkgInstalled("postfix") {
+		return false
+	}
+	return true
+}
+
+func moduleInstalled(m Module) bool {
+	if m.ID == "mail-stack-webmail" {
+		return mailStackWebmailReady()
+	}
+	return dpkgInstalled(m.CheckPkg)
+}
+
 // ModulesWithStatus catalog + kurulu mu bilgisi.
 func ModulesWithStatus() []Module {
 	list := Catalog()
 	for i := range list {
-		list[i].Installed = dpkgInstalled(list[i].CheckPkg)
+		list[i].Installed = moduleInstalled(list[i])
 	}
 	return list
 }

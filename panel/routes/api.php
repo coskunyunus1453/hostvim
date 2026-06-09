@@ -437,6 +437,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('stack/runs', [StackController::class, 'runs']);
         Route::get('stack/runs/{stackInstallRun}', [StackController::class, 'showRun']);
         Route::post('stack/runs/{stackInstallRun}/cancel', [StackController::class, 'cancelRun']);
+        Route::post('stack/runs/{stackInstallRun}/retry', [StackController::class, 'retryRun']);
         Route::get('settings/mail', [OutboundMailSettingsController::class, 'show']);
         Route::get('settings/server-mysql', [ServerMysqlSettingsController::class, 'show'])->middleware('throttle:60,1');
         Route::put('settings/mail', [OutboundMailSettingsController::class, 'update']);

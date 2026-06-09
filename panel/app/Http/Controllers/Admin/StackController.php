@@ -21,28 +21,59 @@ class StackController extends Controller
         $validated = $request->validate([
             'bundle_id' => 'required|string|max:120',
         ]);
+
+        return $this->queueBundleInstall($request, $engine, $validated['bundle_id']);
+    }
+
+    public function retryRun(Request $request, StackInstallRun $stackInstallRun, EngineApiService $engine): JsonResponse
+    {
+        if ((int) $stackInstallRun->user_id !== (int) $request->user()->id) {
+            abort(403);
+        }
+        if (! in_array($stackInstallRun->status, ['failed', 'cancelled'], true)) {
+            return response()->json(['message' => 'Yalnızca başarısız veya iptal edilmiş kurulumlar yeniden denenebilir.'], 422);
+        }
+
+        return $this->queueBundleInstall($request, $engine, (string) $stackInstallRun->bundle_id, true);
+    }
+
+    private function queueBundleInstall(Request $request, EngineApiService $engine, string $bundleId, bool $isRetry = false): JsonResponse
+    {
+        $userId = (int) $request->user()->id;
+        $active = StackInstallRun::query()
+            ->where('user_id', $userId)
+            ->where('bundle_id', $bundleId)
+            ->whereIn('status', ['queued', 'running'])
+            ->exists();
+        if ($active) {
+            return response()->json(['message' => 'Bu paket için zaten bir kurulum sürüyor. Bitmesini bekleyin veya iptal edin.'], 422);
+        }
+
         $run = StackInstallRun::query()->create([
-            'user_id' => (int) $request->user()->id,
-            'bundle_id' => $validated['bundle_id'],
+            'user_id' => $userId,
+            'bundle_id' => $bundleId,
             'status' => 'queued',
             'progress' => 0,
             'cancel_requested' => false,
-            'message' => 'Kurulum kuyruğa alındı',
+            'message' => $isRetry ? 'Yeniden kurulum kuyruğa alındı' : 'Kurulum kuyruğa alındı',
         ]);
 
         $isSyncQueue = (string) config('queue.default', 'sync') === 'sync';
         if ($isSyncQueue) {
-            (new RunStackInstallJob($run->id, $validated['bundle_id']))->handle($engine);
+            (new RunStackInstallJob($run->id, $bundleId))->handle($engine);
+            $run->refresh();
+
             return response()->json([
-                'message' => 'Kurulum tamamlandı',
+                'message' => $run->status === 'success' ? 'Kurulum tamamlandı' : ($run->message ?: 'Kurulum bitti'),
                 'run_id' => $run->id,
                 'background' => false,
-            ]);
+            ], $run->status === 'success' ? 200 : 422);
         }
 
-        RunStackInstallJob::dispatch($run->id, $validated['bundle_id'])->afterResponse();
+        RunStackInstallJob::dispatch($run->id, $bundleId)->afterResponse();
+
         return response()->json([
-            'message' => 'Kurulum arka planda başlatıldı',
+            'message' => $isRetry ? 'Yeniden kurulum arka planda başlatıldı' : 'Kurulum arka planda başlatıldı',
             'run_id' => $run->id,
             'background' => true,
         ], 202);

@@ -107,7 +107,9 @@
     "installed": "Kurulu",
     "not_installed": "Kurulu değil",
     "install": "Kur",
-    "install_ok": "Kurulum tamamlandı."
+    "install_ok": "Kurulum tamamlandı.",
+    "retry": "Yeniden kur",
+    "retry_ok": "Yeniden kurulum başlatıldı."
   },
   "deploy": {
     "subtitle": "Git pull + runtime adımları + webhook ile tek noktadan dağıtım",

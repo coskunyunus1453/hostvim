@@ -30,7 +30,7 @@ class RepairStackInstallRunsCommand extends Command
             $run->update([
                 'status' => 'failed',
                 'progress' => 100,
-                'message' => 'Kurulum yarım kaldı (zaman aşımı). panelze:ensure-mail-stack veya Admin → Sunucu paketleri ile yeniden deneyin.',
+                'message' => 'Kurulum yarım kaldı (zaman aşımı). Sunucu paketleri sayfasında «Yeniden kur» ile tekrar deneyin.',
                 'finished_at' => now(),
             ]);
             $this->line("Run #{$run->id} ({$run->bundle_id}) → failed");
