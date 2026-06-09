@@ -99,11 +99,7 @@ export default function AdminStackPage() {
     queryKey: ['admin-stack-run', activeRunId],
     queryFn: async () => (await api.get(`/admin/stack/runs/${activeRunId}`)).data as { run: StackRun },
     enabled: activeRunId !== null,
-    refetchInterval: () => {
-      const st = runDetailQ.data?.run?.status
-      const live = st === 'queued' || st === 'running'
-      return pollWhenVisible(live ? 2_000 : 8_000)
-    },
+    refetchInterval: () => pollWhenVisible(2_000),
   })
   const cancelRunM = useMutation({
     mutationFn: async (id: number) => (await api.post(`/admin/stack/runs/${id}/cancel`)).data as { message?: string },
