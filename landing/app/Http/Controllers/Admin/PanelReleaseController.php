@@ -69,12 +69,14 @@ class PanelReleaseController extends Controller
         if ($panel_release->artifact_url === null && $panel_release->git_tag === null) {
             return redirect()
                 ->route('admin.panel-releases.edit', $panel_release)
-                ->with('error', 'Yayınlamadan önce artifact URL veya git etiketi girin.');
+                ->with('error', 'Yayınlamadan önce artifact URL veya git etiketi girin ve «Kaydet» ile kaydedin.');
         }
 
         $panel_release->update([
             'is_published' => true,
-            'published_at' => $panel_release->published_at ?? now(),
+            'published_at' => $panel_release->published_at?->isFuture()
+                ? $panel_release->published_at
+                : ($panel_release->published_at ?? now()),
         ]);
 
         return redirect()
@@ -111,8 +113,8 @@ class PanelReleaseController extends Controller
             'artifact_sha256' => ['nullable', 'string', 'size:64', 'regex:/^[a-f0-9]{64}$/i'],
             'git_tag' => ['nullable', 'string', 'max:64', 'regex:/^v?\d+\.\d+\.\d+/'],
             'min_panel_version' => ['nullable', 'string', 'max:32', 'regex:/^\d+\.\d+\.\d+([\-+][0-9A-Za-z\.\-]+)?$/'],
-            'requires_engine_restart' => ['boolean'],
-            'is_published' => ['boolean'],
+            'requires_engine_restart' => ['nullable', 'in:0,1'],
+            'is_published' => ['nullable', 'in:0,1'],
             'published_at' => ['nullable', 'date'],
         ]);
 
@@ -132,6 +134,15 @@ class PanelReleaseController extends Controller
             }
         }
 
+        $isPublished = (bool) ($data['is_published'] ?? false);
+        $publishedAt = ! empty($data['published_at']) ? $data['published_at'] : null;
+        if ($isPublished && $publishedAt === null) {
+            $publishedAt = now();
+        }
+        if (! $isPublished) {
+            $publishedAt = ! empty($data['published_at']) ? $data['published_at'] : null;
+        }
+
         return [
             'version' => $data['version'],
             'channel' => $data['channel'],
@@ -144,9 +155,9 @@ class PanelReleaseController extends Controller
                 : null,
             'git_tag' => $gitTag !== '' ? $gitTag : null,
             'min_panel_version' => trim((string) ($data['min_panel_version'] ?? '')) ?: null,
-            'requires_engine_restart' => (bool) ($data['requires_engine_restart'] ?? true),
-            'is_published' => (bool) ($data['is_published'] ?? false),
-            'published_at' => ! empty($data['published_at']) ? $data['published_at'] : null,
+            'requires_engine_restart' => (bool) ($data['requires_engine_restart'] ?? 1),
+            'is_published' => $isPublished,
+            'published_at' => $publishedAt,
         ];
     }
 }

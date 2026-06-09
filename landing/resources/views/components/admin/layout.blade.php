@@ -159,6 +159,16 @@
                         {{ session('error') }}
                     </div>
                 @endif
+                @if ($errors->any())
+                    <div class="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
+                        <p class="font-semibold">Form doğrulanamadı:</p>
+                        <ul class="mt-2 list-inside list-disc space-y-1">
+                            @foreach ($errors->all() as $message)
+                                <li>{{ $message }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 {{ $slot }}
             </main>

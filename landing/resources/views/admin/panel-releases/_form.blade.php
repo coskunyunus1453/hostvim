@@ -3,7 +3,8 @@
 @endphp
 <div class="grid gap-4 sm:grid-cols-2">
     <div>
-        <label class="block text-sm font-medium">Sürüm * <span class="text-slate-500">(semver, örn. 0.2.0)</span></label>
+        <label class="block text-sm font-medium">Sürüm * <span class="text-slate-500">(semver: 0.2.0 — üç parça zorunlu)</span></label>
+        @error('version')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
         <input type="text" name="version" value="{{ old('version', $release?->version) }}" required class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900">
     </div>
     <div>
@@ -45,6 +46,7 @@
 <div>
     <label class="block text-sm font-medium">Artifact URL (önerilen)</label>
     <input type="url" name="artifact_url" value="{{ old('artifact_url', $release?->artifact_url) }}" placeholder="https://.../panelze-customer-....tar.gz" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900">
+    @error('artifact_url')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
 </div>
 <div>
     <label class="block text-sm font-medium">Artifact SHA256</label>
