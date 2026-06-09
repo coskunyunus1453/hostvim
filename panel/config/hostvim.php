@@ -128,6 +128,11 @@ return [
         'token_ttl' => max(30, (int) env('PANELZE_PMA_SIGNON_TTL', 90)),
     ],
 
+    /** Roundcube webmail: tek tık panel → /webmail-signon → Roundcube oturumu */
+    'webmail_signon' => [
+        'token_ttl' => max(30, (int) env('HOSTVIM_WEBMAIL_SIGNON_TTL', 90)),
+    ],
+
     /**
      * İsteğe bağlı CDN önbellek temizliği (api_token + zone_id; provider: cloudflare).
      *

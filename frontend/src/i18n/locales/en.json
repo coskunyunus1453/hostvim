@@ -1310,6 +1310,10 @@
     "forwarder_deleted": "Forwarder deleted",
     "forwarder_domain_mismatch": "Source address must belong to selected domain.",
     "webmail_open": "Open webmail",
+    "webmail_login": "Open inbox",
+    "webmail_login_short": "Inbox",
+    "webmail_login_hint": "One-click Roundcube webmail — no password needed.",
+    "webmail_login_opening": "Opening webmail…",
     "webmail_note_title": "No webmail here?",
     "webmail_note_body": "This panel does not display your inbox. Use Outlook, Apple Mail, Thunderbird, or a server-installed webmail such as Roundcube/SOGo; use the address and password you set here."
   },

@@ -232,6 +232,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     });
 
     Route::middleware('ability:email:read')->get('domains/{domain}/email', [EmailAccountController::class, 'index']);
+    Route::middleware('ability:email:read')->post('email/{emailAccount}/webmail-login', [EmailAccountController::class, 'webmailLogin']);
     Route::middleware('ability:email:write')->group(function () {
         Route::post('domains/{domain}/email', [EmailAccountController::class, 'store']);
         Route::post('domains/{domain}/email/ensure-dns', [EmailAccountController::class, 'ensureDns']);

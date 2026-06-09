@@ -1311,6 +1311,10 @@
     "forwarder_deleted": "Yönlendirici silindi",
     "forwarder_domain_mismatch": "Kaynak adres seçilen alan adı ile bitmelidir.",
     "webmail_open": "Webmail aç",
+    "webmail_login": "Webmail'e gir",
+    "webmail_login_short": "Gelen kutusu",
+    "webmail_login_hint": "Tek tıkla Roundcube webmail; şifre girmenize gerek kalmaz.",
+    "webmail_login_opening": "Webmail açılıyor…",
     "webmail_note_title": "Webmail yok mu?",
     "webmail_note_body": "Bu panelde gelen kutusu görüntüleme yoktur. E-postayı okumak için Outlook, Apple Mail, Thunderbird veya sunucunuza kurulu Roundcube/SOGo gibi bir web arayüzü kullanın; hesap bilgileri burada oluşturduğunuz adres ve şifredir."
   },

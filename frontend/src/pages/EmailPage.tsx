@@ -283,6 +283,27 @@ export default function EmailPage() {
   const webmailUrl: string | undefined = safeExternalHttpUrl(q.data?.webmail_url ?? '') ?? undefined
   const webmailStatus = q.data?.webmail_status as { host?: string; dns_ok?: boolean; hint?: string } | undefined
 
+  const webmailLoginM = useMutation({
+    mutationFn: async (accountId: number) => {
+      const { data } = await api.post(`/email/${accountId}/webmail-login`)
+      return data as { signon_url?: string; message?: string }
+    },
+    onSuccess: (data) => {
+      const raw = String(data.signon_url ?? '').trim()
+      const url = safeExternalHttpUrl(raw)
+      if (!url) {
+        toast.error(t('email.load_error'))
+        return
+      }
+      window.open(url, '_blank', 'noopener,noreferrer')
+      toast.success(data.message ?? t('email.webmail_login_opening'))
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err), { duration: 10_000 })
+    },
+  })
+
   const ensureDnsM = useMutation({
     mutationFn: async () => api.post(`/domains/${domainId}/email/ensure-dns`),
     onSuccess: () => {
@@ -408,6 +429,14 @@ export default function EmailPage() {
           <div className="p-4 sm:p-5" role="tabpanel">
             {emailTab === 'mailboxes' && (
               <>
+                {mailStackReady && accounts.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-100">
+                    <p className="font-medium">{t('email.webmail_login_hint')}</p>
+                    {webmailUrl && (
+                      <p className="mt-1 font-mono text-[11px] opacity-90">{webmailUrl}</p>
+                    )}
+                  </div>
+                )}
                 {q.isLoading ? (
                   <p className="py-10 text-center text-gray-500">{t('common.loading')}</p>
                 ) : q.isError ? (
@@ -428,7 +457,7 @@ export default function EmailPage() {
                           <th className="px-4 py-3 font-medium text-gray-600 dark:text-gray-400">
                             {t('email.table_status')}
                           </th>
-                          <th className="w-28 px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-400">
+                          <th className="min-w-[11rem] px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-400">
                             {t('common.actions')}
                           </th>
                         </tr>
@@ -459,6 +488,18 @@ export default function EmailPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-right">
+                              {mailStackReady && a.status === 'active' && (
+                                <button
+                                  type="button"
+                                  className="btn-primary mr-2 inline-flex items-center gap-1 py-1.5 px-2.5 text-xs"
+                                  disabled={webmailLoginM.isPending}
+                                  onClick={() => webmailLoginM.mutate(a.id)}
+                                  title={t('email.webmail_login')}
+                                >
+                                  <Mail className="h-3.5 w-3.5" />
+                                  {t('email.webmail_login_short')}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="mr-1 inline-flex rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"

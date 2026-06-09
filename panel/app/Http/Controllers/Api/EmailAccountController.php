@@ -11,6 +11,8 @@ use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
 use App\Services\MailDnsService;
 use App\Services\MailStackService;
+use App\Services\WebmailService;
+use App\Services\WebmailSignonService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -26,6 +28,8 @@ class EmailAccountController extends Controller
         private HostingQuotaService $quota,
         private MailStackService $mailStack,
         private MailDnsService $mailDns,
+        private WebmailService $webmail,
+        private WebmailSignonService $webmailSignon,
     ) {}
 
     public function index(Request $request, Domain $domain): JsonResponse
@@ -34,31 +38,11 @@ class EmailAccountController extends Controller
             abort(403);
         }
 
-        $webmailHost = 'webmail.'.$domain->name;
-        $dnsIps = @gethostbynamel($webmailHost);
-        $webmailDnsOk = is_array($dnsIps) && count($dnsIps) > 0 && $dnsIps[0] !== $webmailHost;
-        $webmailScheme = null;
-        if ($webmailDnsOk) {
-            $errno = 0;
-            $errstr = '';
-            $s443 = @fsockopen($webmailHost, 443, $errno, $errstr, 1.5);
-            if (is_resource($s443)) {
-                fclose($s443);
-                $webmailScheme = 'https';
-            } else {
-                $s80 = @fsockopen($webmailHost, 80, $errno, $errstr, 1.5);
-                if (is_resource($s80)) {
-                    fclose($s80);
-                    $webmailScheme = 'http';
-                }
-            }
-        }
-
-        $mailStackReady = $this->mailStack->isWebmailStackInstalled();
+        $wm = $this->webmail->statusForDomain($domain, true);
 
         return response()->json([
             'mail' => $this->engine->mailOverview($domain->name),
-            'mail_stack_ready' => $mailStackReady,
+            'mail_stack_ready' => $wm['mail_stack_ready'],
             'accounts' => $request->user()->emailAccounts()->where('domain_id', $domain->id)->get(),
             'forwarders' => EmailForwarder::query()
                 ->where('domain_id', $domain->id)
@@ -69,15 +53,13 @@ class EmailAccountController extends Controller
                 })
                 ->orderBy('source')
                 ->get(),
-            'webmail_url' => ($webmailDnsOk && $webmailScheme) ? sprintf('%s://%s', $webmailScheme, $webmailHost) : null,
+            'webmail_url' => $wm['url'],
             'webmail_status' => [
-                'host' => $webmailHost,
-                'dns_ok' => $webmailDnsOk,
-                'ips' => $webmailDnsOk ? $dnsIps : [],
-                'scheme' => $webmailScheme,
-                'hint' => $webmailDnsOk
-                    ? ($webmailScheme ? null : 'DNS var ancak 80/443 portlarında webmail servisi görünmüyor.')
-                    : 'webmail alt alan adı için DNS kaydı bulunamadı. DNS panelinden webmail A kaydı ekleyin.',
+                'host' => $wm['host'],
+                'dns_ok' => $wm['dns_ok'],
+                'ips' => $wm['ips'],
+                'scheme' => $wm['scheme'],
+                'hint' => $wm['hint'],
             ],
         ]);
     }
@@ -132,6 +114,28 @@ class EmailAccountController extends Controller
             'engine' => $engine,
             'mail_stack_ready' => true,
         ], 201);
+    }
+
+    public function webmailLogin(Request $request, EmailAccount $emailAccount): JsonResponse
+    {
+        if ($emailAccount->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        try {
+            $session = $this->webmailSignon->mintForAccount($emailAccount);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => __('email.webmail_sso_opening'),
+            'signon_url' => $session['signon_url'],
+            'webmail_url' => $session['webmail_url'],
+            'expires_in' => $session['expires_in'],
+        ]);
     }
 
     public function ensureDns(Request $request, Domain $domain): JsonResponse
