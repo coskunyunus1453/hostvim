@@ -33,7 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('panelze:self-heal')->everyMinute()->withoutOverlapping();
         $schedule->command('panelze:check-panel-update')->everySixHours()->withoutOverlapping();
         $schedule->command('panelze:stack-scan-hourly')->hourly()->withoutOverlapping();
-        $schedule->command('cron:run-due')->everyMinute()->withoutOverlapping();
+        // Müşteri cron'ları: mutex takılırsa (deploy/kill) tüm siteler durur — kısa süre sonra otomatik açılsın.
+        $schedule->command('cron:run-due')->everyMinute()->withoutOverlapping(20);
     })
     ->withMiddleware(function (Middleware $middleware) {
         // Nginx / TLS sonlandırma arkasında doğru şema (wss, secure() vb.)

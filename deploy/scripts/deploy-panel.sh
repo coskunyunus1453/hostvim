@@ -89,6 +89,7 @@ echo "==> optimize"
 hostvim_run_artisan config:cache
 hostvim_run_artisan route:cache
 hostvim_run_artisan view:cache
+hostvim_run_artisan schedule:clear-cache 2>/dev/null || true
 
 if [[ -d "$FRONTEND_ROOT" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]]; then
   if ! command -v npm >/dev/null 2>&1; then
