@@ -389,6 +389,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:billing:read')->group(function () {
         Route::get('billing/packages', [BillingController::class, 'packages']);
         Route::get('billing/subscriptions', [BillingController::class, 'subscriptions']);
+        Route::get('billing/license', [BillingController::class, 'licenseSummary']);
     });
     Route::middleware(['ability:billing:write', 'pro.feature:stripe_billing'])
         ->post('billing/checkout', [BillingController::class, 'checkout']);

@@ -74,6 +74,10 @@ class SaasLicenseValidationService
                 'status' => $license->subscription_status,
                 'renews_at' => $this->iso($license->subscription_renews_at),
             ],
+            'billing' => [
+                'provider' => $license->billing_provider,
+                'reference' => $license->billing_reference,
+            ],
         ];
     }
 
@@ -98,6 +102,19 @@ class SaasLicenseValidationService
         ];
         if ($license) {
             $out['license_id'] = $license->id;
+            $product = $license->product;
+            $out['plan'] = $product?->code;
+            $out['plan_name'] = $product?->name;
+            $out['expires_at'] = $this->iso($license->expires_at);
+            $out['status'] = $license->status;
+            $out['subscription'] = [
+                'status' => $license->subscription_status,
+                'renews_at' => $this->iso($license->subscription_renews_at),
+            ];
+            $out['billing'] = [
+                'provider' => $license->billing_provider,
+                'reference' => $license->billing_reference,
+            ];
         }
 
         return $out;

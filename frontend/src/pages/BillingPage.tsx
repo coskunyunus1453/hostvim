@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '../services/api'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
 
@@ -24,6 +24,32 @@ type SubRow = {
   amount: string | number
   currency: string
   hosting_package?: { name: string }
+}
+
+type LicenseSummary = {
+  has_license_key?: boolean
+  valid?: boolean
+  tier?: string
+  plan?: string | null
+  plan_name?: string | null
+  license_status?: string | null
+  expires_at?: string | null
+  subscription_status?: string | null
+  renews_at?: string | null
+  billing_provider?: string | null
+  payment_method_label?: string | null
+  downgraded_to_community?: boolean
+  message?: string | null
+  hub_reachable?: boolean
+}
+
+function formatLicenseDate(iso?: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleString()
+  } catch {
+    return iso
+  }
 }
 
 export default function BillingPage() {
@@ -50,6 +76,12 @@ export default function BillingPage() {
   const subs = useQuery({
     queryKey: ['billing-subs'],
     queryFn: async () => (await api.get('/billing/subscriptions')).data,
+  })
+
+  const licenseQ = useQuery({
+    queryKey: ['billing-license'],
+    queryFn: async () =>
+      (await api.get('/billing/license')).data as { license: LicenseSummary },
   })
 
   const checkoutM = useMutation({
@@ -100,6 +132,18 @@ export default function BillingPage() {
 
   const packages = pkgs.data?.packages ?? []
   const subRows: SubRow[] = subs.data?.data ?? []
+  const lic = licenseQ.data?.license
+
+  const tierLabel =
+    lic?.tier === 'pro'
+      ? t('billing.tier_pro')
+      : lic?.tier === 'community'
+        ? t('billing.tier_community')
+        : lic?.tier === 'standard'
+          ? t('billing.tier_standard')
+          : lic?.tier === 'none'
+            ? t('billing.tier_none')
+            : t('billing.tier_unknown')
 
   return (
     <div className="space-y-6">
@@ -110,6 +154,69 @@ export default function BillingPage() {
           <p className="text-gray-500 dark:text-gray-400 text-sm">{t('billing.subtitle')}</p>
         </div>
       </div>
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+          <ShieldCheck className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {t('billing.license_title')}
+          </h2>
+        </div>
+        {licenseQ.isLoading ? (
+          <p className="p-4 text-gray-500">{t('common.loading')}</p>
+        ) : !lic?.has_license_key ? (
+          <p className="p-4 text-sm text-gray-500">{t('billing.license_none')}</p>
+        ) : (
+          <dl className="grid gap-3 p-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-gray-500">{t('billing.license_plan')}</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">
+                {lic.plan_name ?? lic.plan ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">{t('billing.license_tier')}</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">{tierLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">{t('billing.license_status')}</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">
+                {lic.valid ? t('billing.license_active') : t('billing.license_inactive')}
+                {lic.license_status ? ` (${lic.license_status})` : ''}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">{t('billing.license_expires')}</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">
+                {formatLicenseDate(lic.expires_at)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">{t('billing.payment_method')}</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">
+                {lic.payment_method_label ?? lic.billing_provider ?? t('billing.payment_manual')}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">{t('billing.subscription_hub')}</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">
+                {lic.subscription_status ?? '—'}
+                {lic.renews_at ? ` · ${formatLicenseDate(lic.renews_at)}` : ''}
+              </dd>
+            </div>
+          </dl>
+        )}
+        {lic?.downgraded_to_community && (
+          <p className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+            {t('billing.license_downgraded')}
+          </p>
+        )}
+        {lic?.message && !lic.valid && (
+          <p className="border-t border-gray-100 px-4 py-2 text-xs text-gray-500 dark:border-gray-800">
+            {lic.message}
+          </p>
+        )}
+      </div>
+
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
         <p className="font-semibold">{t('billing.payment_methods_title')}</p>
         <p className="mt-1 text-xs">{t('billing.payment_methods_hint')}</p>

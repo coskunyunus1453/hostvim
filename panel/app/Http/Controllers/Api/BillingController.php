@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\HostingPackage;
 use App\Models\Subscription as PanelSubscription;
 use App\Models\User;
+use App\Services\PanelLicenseService;
 use App\Services\SafeAuditLogger;
 use App\Services\UserHostingPackageSync;
 use Carbon\Carbon;
@@ -23,7 +24,15 @@ class BillingController extends Controller
 {
     public function __construct(
         private UserHostingPackageSync $hostingPackageSync,
+        private PanelLicenseService $panelLicense,
     ) {}
+
+    public function licenseSummary(): JsonResponse
+    {
+        return response()->json([
+            'license' => $this->panelLicense->billingSummary(),
+        ]);
+    }
 
     public function packages(): JsonResponse
     {

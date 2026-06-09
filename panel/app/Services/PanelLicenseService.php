@@ -105,6 +105,78 @@ class PanelLicenseService
         return isset($hub['expires_at']) ? (string) $hub['expires_at'] : null;
     }
 
+    public function isCommunityPlan(): bool
+    {
+        if (! $this->isLicenseValid()) {
+            return $this->storedLicense->effectiveKey() !== '';
+        }
+        $plan = $this->planCode();
+        $community = config('hostvim.license.community_plan_codes', []);
+
+        return $plan !== null && in_array($plan, $community, true);
+    }
+
+    /**
+     * Hub yanıtından faturalama / lisans özeti (müşteri paneli).
+     *
+     * @return array<string, mixed>
+     */
+    public function billingSummary(): array
+    {
+        $key = $this->storedLicense->effectiveKey();
+        $hubConfigured = rtrim(trim((string) config('hostvim.license_server', '')), '/') !== '';
+
+        $base = [
+            'has_license_key' => $key !== '',
+            'hub_configured' => $hubConfigured,
+        ];
+
+        if ($key === '') {
+            return array_merge($base, [
+                'valid' => false,
+                'tier' => 'none',
+            ]);
+        }
+
+        $hub = $this->hubPayload();
+        if ($hub === null) {
+            return array_merge($base, [
+                'valid' => false,
+                'tier' => 'unknown',
+                'hub_reachable' => false,
+            ]);
+        }
+
+        $valid = ($hub['valid'] ?? false) === true;
+        $tier = $this->resolveTier($valid, $hub);
+
+        return array_merge($base, [
+            'valid' => $valid,
+            'tier' => $tier,
+            'plan' => $hub['plan'] ?? null,
+            'plan_name' => $hub['plan_name'] ?? null,
+            'license_status' => $hub['status'] ?? null,
+            'expires_at' => $hub['expires_at'] ?? null,
+            'subscription_status' => is_array($hub['subscription'] ?? null)
+                ? ($hub['subscription']['status'] ?? null)
+                : null,
+            'renews_at' => is_array($hub['subscription'] ?? null)
+                ? ($hub['subscription']['renews_at'] ?? null)
+                : null,
+            'billing_provider' => is_array($hub['billing'] ?? null)
+                ? ($hub['billing']['provider'] ?? null)
+                : null,
+            'payment_method_label' => $this->formatBillingProvider(
+                is_array($hub['billing'] ?? null) ? ($hub['billing']['provider'] ?? null) : null
+            ),
+            'customer' => is_array($hub['customer'] ?? null) ? $hub['customer'] : null,
+            'downgraded_to_community' => ! $valid && $key !== '',
+            'code' => $hub['code'] ?? null,
+            'message' => $hub['message'] ?? null,
+            'hub_reachable' => true,
+        ]);
+    }
+
     public function hasPhpMyAdminAutoLogin(): bool
     {
         return $this->hasFeature('phpmyadmin_sso');
@@ -113,5 +185,41 @@ class PanelLicenseService
     public function forgetCache(): void
     {
         Cache::forget('hostvim.license.hub_payload');
+    }
+
+    /**
+     * @param  array<string, mixed>  $hub
+     */
+    private function resolveTier(bool $valid, array $hub): string
+    {
+        if (! $valid) {
+            return 'community';
+        }
+        if ($this->isProPlan()) {
+            return 'pro';
+        }
+        $plan = strtolower(trim((string) ($hub['plan'] ?? '')));
+        $community = config('hostvim.license.community_plan_codes', []);
+        if ($plan !== '' && in_array($plan, $community, true)) {
+            return 'community';
+        }
+
+        return 'standard';
+    }
+
+    private function formatBillingProvider(?string $provider): ?string
+    {
+        if ($provider === null || trim($provider) === '') {
+            return null;
+        }
+
+        return match (strtolower(trim($provider))) {
+            'stripe' => 'Stripe (kart)',
+            'paytr' => 'PayTR',
+            'manual', 'bank', 'bank_transfer', 'eft' => 'Havale / EFT',
+            'whmcs' => 'WHMCS',
+            'invoice' => 'Fatura / manuel',
+            default => trim($provider),
+        };
     }
 }
