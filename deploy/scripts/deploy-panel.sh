@@ -9,8 +9,13 @@ REPO_ROOT="$(cd "$(dirname "$PANEL_ROOT")" && pwd)"
 export PANELZE_HOME="${PANELZE_HOME:-$REPO_ROOT}"
 RUN_USER="${RUN_USER:-www-data}"
 DEPLOY_SCRIPTS="$REPO_ROOT/deploy/scripts"
-# shellcheck source=lib/panelze-deploy-common.sh
-source "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh"
+if [[ -f "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh" ]]; then
+  # shellcheck source=lib/hostvim-deploy-common.sh
+  source "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh"
+else
+  # shellcheck source=lib/panelze-deploy-common.sh
+  source "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh"
+fi
 export PANEL_ROOT
 
 echo "==> Panel: $PANEL_ROOT"

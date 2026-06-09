@@ -44,7 +44,8 @@ git remote -v | head -1 || true
 git fetch origin "$BRANCH" --tags 2>/dev/null || git fetch origin
 if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
   git checkout "$BRANCH" 2>/dev/null || git checkout -B "$BRANCH" "origin/$BRANCH"
-  git merge --ff-only "origin/$BRANCH" || git reset --hard "origin/$BRANCH"
+  # Sunucuda panel/public build artıkları merge'i bozmasın — her zaman origin ile aynı olsun.
+  git reset --hard "origin/$BRANCH"
 else
   echo "Hata: origin/$BRANCH bulunamadı. Mac'te önce: bash hostvim-push" >&2
   exit 1

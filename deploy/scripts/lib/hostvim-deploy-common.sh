@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Panelze deploy — ortak yardımcılar (source ile kullanın).
-#   source "$(dirname "$0")/lib/panelze-deploy-common.sh"
+#   source "$(dirname "$0")/lib/hostvim-deploy-common.sh"
 
 hostvim_deploy_common_loaded() { :; }
 
