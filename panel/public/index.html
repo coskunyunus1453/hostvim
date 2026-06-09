@@ -32,7 +32,7 @@
     <script>
       (function () {
         try {
-          var raw = localStorage.getItem('hostvim-theme');
+          var raw = localStorage.getItem('panelze-theme');
           if (raw) {
             var o = JSON.parse(raw);
             if (o && o.state && o.state.isDark === false) {
@@ -49,7 +49,7 @@
       })();
     </script>
     <style>
-      /* Açık/koyu: Tailwind ile aynı kaynak — html.dark (tercih hostvim-theme). OS prefers-color-scheme kullanılmaz. */
+      /* Açık/koyu: Tailwind ile aynı kaynak — html.dark (tercih panelze-theme). OS prefers-color-scheme kullanılmaz. */
       :root {
         --ps-bg: #f8fafc;
         --ps-bg-mid: #e2e8f0;
@@ -77,7 +77,7 @@
         color: var(--ps-text);
         -webkit-font-smoothing: antialiased;
       }
-      #hostvim-boot {
+      #panelze-boot {
         min-height: 100vh;
         min-height: 100dvh;
         display: flex;
@@ -223,7 +223,7 @@
       </div>
     </noscript>
     <div id="root">
-      <div id="hostvim-boot" aria-busy="true" aria-live="polite">
+      <div id="panelze-boot" aria-busy="true" aria-live="polite">
         <div class="ps-boot-card">
           <div class="ps-boot-brand">
             <img src="/panelze-icon.svg" alt="" width="44" height="44" decoding="async" />
@@ -346,7 +346,7 @@
           document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(function (l) {
             l.setAttribute('href', iconPath)
           })
-          var bootImg = document.querySelector('#hostvim-boot img')
+          var bootImg = document.querySelector('#panelze-boot img')
           if (bootImg) bootImg.setAttribute('src', iconPath)
           var elapsed = Date.now() - startedAt
           if (elapsed < 2000) {

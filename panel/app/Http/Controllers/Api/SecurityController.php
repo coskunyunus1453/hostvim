@@ -373,9 +373,9 @@ class SecurityController extends Controller
         $code = 502;
         $lower = strtolower($err);
 
-        if (str_contains($lower, 'sudo') || str_contains($lower, 'hostvim-security') || str_contains($lower, 'panelsar-security')) {
+        if (str_contains($lower, 'sudo') || str_contains($lower, 'panelze-security') || str_contains($lower, 'panelsar-security')) {
             $code = 422;
-            $hint = 'Sunucuda /usr/local/sbin/hostvim-security (veya eski panelsar-security) ve sudoers NOPASSWD kuralını kontrol edin. Gerekirse deploy/bootstrap/install-production.sh yeniden çalıştırın.';
+            $hint = 'Sunucuda /usr/local/sbin/panelze-security (veya eski panelsar-security) ve sudoers NOPASSWD kuralını kontrol edin. Gerekirse deploy/bootstrap/install-production.sh yeniden çalıştırın.';
         } elseif (str_contains($lower, 'fim baseline not found')) {
             $code = 422;
             $hint = 'FIM taraması için önce baseline oluşturun, ardından tekrar tarama başlatın.';
@@ -387,13 +387,13 @@ class SecurityController extends Controller
             $hint = 'İlgili servis paketi (fail2ban/modsecurity/clamav) yüklü veya etkin olmayabilir.';
         } elseif (str_contains($lower, 'scan path not allowed')) {
             $code = 422;
-            $hint = 'ClamAV hedefi yalnızca /var/www veya /home altında olabilir (veya HOSTVIM_WEB_ROOT ile tanımlı web kökü).';
+            $hint = 'ClamAV hedefi yalnızca /var/www veya /home altında olabilir (veya PANELZE_WEB_ROOT ile tanımlı web kökü).';
         } elseif (str_contains($lower, 'maldet not installed')) {
             $code = 422;
             $hint = 'Linux Malware Detect (maldet) sunucuda kurulu değil. İsterseniz LMD kurun veya yalnızca ClamAV taramasını kullanın.';
         } elseif (str_contains($lower, 'iptables') || str_contains($lower, 'firewall-rule')) {
             $code = 422;
-            $hint = 'Güvenlik duvarı kuralı iptables üzerinden uygulanamadı. Sunucuda iptables kurulu olduğundan ve hostvim-security scriptinin güncel olduğundan emin olun.';
+            $hint = 'Güvenlik duvarı kuralı iptables üzerinden uygulanamadı. Sunucuda iptables kurulu olduğundan ve panelze-security scriptinin güncel olduğundan emin olun.';
         } elseif (str_contains($lower, 'invalid profile') || str_contains($lower, 'invalid mode') || str_contains($lower, 'invalid domain') || str_contains($lower, 'invalid target')) {
             $code = 422;
             $hint = 'Geçersiz güvenlik kuralı girdisi. Profil/mod/domain/target alanlarını kontrol edip tekrar deneyin.';

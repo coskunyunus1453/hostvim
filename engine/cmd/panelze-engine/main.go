@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	appName    = "Hostvim Engine"
+	appName    = "Panelze Engine"
 	appVersion = "0.1.0"
 )
 

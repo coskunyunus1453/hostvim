@@ -87,7 +87,7 @@ class GoogleDriveService
                 'refresh_token' => $tokens['refresh_token'] ?? null,
                 'expires_at' => $tokens['expires_at'] ?? null,
                 'email' => $tokens['email'] ?? null,
-                'folder_name' => (string) config('hostvim.google_drive.folder_name', 'Hostvim Backups'),
+                'folder_name' => (string) config('hostvim.google_drive.folder_name', 'Panelze Backups'),
                 'folder_id' => null,
             ],
             'is_default' => true,
@@ -166,7 +166,7 @@ class GoogleDriveService
         if ($folderId !== '') {
             return $folderId;
         }
-        $folderName = trim((string) ($cfg['folder_name'] ?? 'Hostvim Backups'));
+        $folderName = trim((string) ($cfg['folder_name'] ?? 'Panelze Backups'));
         $token = $this->accessToken($dest);
         $q = sprintf(
             "mimeType='application/vnd.google-apps.folder' and name='%s' and trashed=false",
@@ -320,6 +320,6 @@ class GoogleDriveService
 
     private function stateCacheKey(string $state): string
     {
-        return 'hostvim:gdrive_oauth:'.$state;
+        return 'panelze:gdrive_oauth:'.$state;
     }
 }

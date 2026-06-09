@@ -218,7 +218,7 @@ func ProvisionSubdomain(webRoot, parentDomain, hostname, pathSegment, phpVersion
 		ServerType:   st,
 		SSLEnabled:   false,
 	}
-	subMetaDir := filepath.Join(webRoot, parentDomain, ".hostvim", "subdomains")
+	subMetaDir := filepath.Join(webRoot, parentDomain, ".panelze", "subdomains")
 	if err := os.MkdirAll(subMetaDir, 0o750); err != nil {
 		return "", err
 	}
@@ -257,7 +257,7 @@ func ReadSubdomainMeta(webRoot, parentDomain, pathSegment string) (*SiteMeta, er
 	if parentDomain == "" || pathSegment == "" {
 		return nil, nil
 	}
-	metaPath := filepath.Join(webRoot, parentDomain, ".hostvim", "subdomains", pathSegment+".json")
+	metaPath := filepath.Join(webRoot, parentDomain, ".panelze", "subdomains", pathSegment+".json")
 	b, err := os.ReadFile(metaPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -288,7 +288,7 @@ func RemoveSubdomain(webRoot, parentDomain, pathSegment string) (hostname string
 	if strings.Contains(pathSegment, "/") || strings.Contains(pathSegment, "..") {
 		return "", fmt.Errorf("invalid path segment")
 	}
-	metaPath := filepath.Join(webRoot, parentDomain, ".hostvim", "subdomains", pathSegment+".json")
+	metaPath := filepath.Join(webRoot, parentDomain, ".panelze", "subdomains", pathSegment+".json")
 	legacyMetaPath := filepath.Join(webRoot, parentDomain, ".panelsar", "subdomains", pathSegment+".json")
 	b, rerr := os.ReadFile(metaPath)
 	if rerr != nil && os.IsNotExist(rerr) {
@@ -309,7 +309,7 @@ func RemoveSubdomain(webRoot, parentDomain, pathSegment string) (hostname string
 	return hostname, nil
 }
 
-// WriteSubdomainMeta .hostvim/subdomains/<pathSegment>.json yazar (alan adı yeniden adlandırma sonrası güncelleme için).
+// WriteSubdomainMeta .panelze/subdomains/<pathSegment>.json yazar (alan adı yeniden adlandırma sonrası güncelleme için).
 func WriteSubdomainMeta(webRoot, parentDomain, pathSegment string, meta *SiteMeta) error {
 	parentDomain = strings.ToLower(strings.TrimSpace(parentDomain))
 	pathSegment = strings.TrimSpace(pathSegment)
@@ -317,7 +317,7 @@ func WriteSubdomainMeta(webRoot, parentDomain, pathSegment string, meta *SiteMet
 		strings.Contains(pathSegment, "/") || strings.Contains(pathSegment, "..") || meta == nil {
 		return fmt.Errorf("invalid subdomain meta write")
 	}
-	subMetaDir := filepath.Join(webRoot, parentDomain, ".hostvim", "subdomains")
+	subMetaDir := filepath.Join(webRoot, parentDomain, ".panelze", "subdomains")
 	if err := os.MkdirAll(subMetaDir, 0o750); err != nil {
 		return err
 	}

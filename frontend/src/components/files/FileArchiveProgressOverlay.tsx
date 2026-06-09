@@ -55,7 +55,7 @@ export default function FileArchiveProgressOverlay({ open, kind, complete }: Pro
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="hostvim-archive-progress-title"
+      aria-labelledby="panelze-archive-progress-title"
       aria-busy={!complete}
     >
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
@@ -82,7 +82,7 @@ export default function FileArchiveProgressOverlay({ open, kind, complete }: Pro
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <p
-              id="hostvim-archive-progress-title"
+              id="panelze-archive-progress-title"
               className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-lg font-bold tracking-tight text-transparent sm:text-xl"
             >
               {title}
@@ -110,7 +110,7 @@ export default function FileArchiveProgressOverlay({ open, kind, complete }: Pro
                   className="absolute inset-0 block bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-70"
                   style={{
                     backgroundSize: '200% 100%',
-                    animation: 'hostvim-shimmer 1.35s ease-in-out infinite',
+                    animation: 'panelze-shimmer 1.35s ease-in-out infinite',
                   }}
                 />
               )}
@@ -119,7 +119,7 @@ export default function FileArchiveProgressOverlay({ open, kind, complete }: Pro
         </div>
       </div>
       <style>{`
-        @keyframes hostvim-shimmer {
+        @keyframes panelze-shimmer {
           0% { background-position: 120% 0; }
           100% { background-position: -120% 0; }
         }

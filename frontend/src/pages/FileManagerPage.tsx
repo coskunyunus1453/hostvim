@@ -379,7 +379,7 @@ async function getFilesFromDropEvent(evt: DropEvent): Promise<(File | DataTransf
   return out
 }
 
-const FILEMGR_HELP_KEY = 'hostvim_filemgr_help_seen'
+const FILEMGR_HELP_KEY = 'panelze_filemgr_help_seen'
 
 export default function FileManagerPage() {
   const { t } = useTranslation()

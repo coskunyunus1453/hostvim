@@ -2,7 +2,7 @@
 
 /**
  * Panel özellik yetenekleri (Sanctum token + Spatie Permission adı = aynı string).
- * Yeni özellik eklerken burayı güncelleyin; ardından `php artisan hostvim:sync-abilities` çalıştırın.
+ * Yeni özellik eklerken burayı güncelleyin; ardından `php artisan panelze:sync-abilities` çalıştırın.
  *
  * @var list<array{name: string, group: string}>
  */

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# aaPanel / BT Panel yedeği: www/wwwroot/<domain>/ → Hostvim: <web_root>/<domain>/public_html/
+# aaPanel / BT Panel yedeği: www/wwwroot/<domain>/ → Panelze: <web_root>/<domain>/public_html/
 #
 # Kullanım (Mac — arşivi sunucuya at + sunucuda dağıt):
 #   export SSH_HOST=root@207.180.237.13
@@ -14,9 +14,9 @@
 set -euo pipefail
 
 SSH_HOST="${SSH_HOST:-root@207.180.237.13}"
-WEB_ROOT="${HOSTVIM_HOSTING_WEB_ROOT:-/var/www/data/www}"
-WEB_USER="${HOSTVIM_WEB_USER:-www-data}"
-WEB_GROUP="${HOSTVIM_WEB_GROUP:-www-data}"
+WEB_ROOT="${PANELZE_HOSTING_WEB_ROOT:-/var/www/data/www}"
+WEB_USER="${PANELZE_WEB_USER:-www-data}"
+WEB_GROUP="${PANELZE_WEB_GROUP:-www-data}"
 SKIP_DOMAINS="${SKIP_DOMAINS:-default}"
 
 cmd="${1:-}"
@@ -36,16 +36,16 @@ list_domains_in_archive() {
 remote_web_root() {
   ssh "$SSH_HOST" bash -s <<'REMOTE'
 set -euo pipefail
-for p in "${HOSTVIM_HOSTING_WEB_ROOT:-}" "/var/www/data/www" "/var/www/hostvim/data/www"; do
+for p in "${PANELZE_HOSTING_WEB_ROOT:-}" "/var/www/data/www" "/var/www/panelze/data/www"; do
   if [[ -n "$p" && -d "$p" ]]; then
     echo "$p"
     exit 0
   fi
 done
 # panel .env
-for env in /var/www/hostvim/panel/.env /var/www/panel/.env; do
+for env in /var/www/panelze/panel/.env /var/www/panel/.env; do
   if [[ -f "$env" ]]; then
-    wr="$(grep -E '^HOSTVIM_HOSTING_WEB_ROOT=' "$env" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    wr="$(grep -E '^PANELZE_HOSTING_WEB_ROOT=' "$env" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
     if [[ -n "$wr" && -d "$wr" ]]; then
       echo "$wr"
       exit 0
@@ -68,13 +68,13 @@ WG="${4:-www-data}"
 SKIP="${5:-default}"
 
 if [[ -z "$WR" ]]; then
-  for p in /var/www/data/www /var/www/hostvim/data/www; do
+  for p in /var/www/data/www /var/www/panelze/data/www; do
     [[ -d "$p" ]] && WR="$p" && break
   done
 fi
 [[ -n "$WR" && -d "$WR" ]] || { echo "WEB_ROOT bulunamadı: $WR" >&2; exit 1; }
 
-WORK="/tmp/hostvim-www-restore-$$"
+WORK="/tmp/panelze-www-restore-$$"
 mkdir -p "$WORK"
 echo "==> Arşiv açılıyor: $ARC"
 tar -xzf "$ARC" -C "$WORK"

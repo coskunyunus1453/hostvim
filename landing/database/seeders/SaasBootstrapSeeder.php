@@ -43,7 +43,7 @@ class SaasBootstrapSeeder extends Seeder
         SaasLicenseProduct::query()->updateOrCreate(
             ['code' => 'community'],
             [
-                'name' => 'Hostvim Community',
+                'name' => 'Panelze Community',
                 'description' => 'Freemium — Pro modüller görünür, lisans ile açılır',
                 'default_limits' => ['max_sites' => 5],
                 'default_modules' => $allOff,
@@ -58,10 +58,10 @@ class SaasBootstrapSeeder extends Seeder
                 ['code' => $code],
                 [
                     'name' => match ($code) {
-                        'pro-monthly' => 'Hostvim Pro (Aylık)',
-                        'pro-yearly' => 'Hostvim Pro (Yıllık)',
-                        'pro-lifetime' => 'Hostvim Pro (Sınırsız)',
-                        default => 'Hostvim Pro',
+                        'pro-monthly' => 'Panelze Pro (Aylık)',
+                        'pro-yearly' => 'Panelze Pro (Yıllık)',
+                        'pro-lifetime' => 'Panelze Pro (Sınırsız)',
+                        default => 'Panelze Pro',
                     },
                     'description' => 'Tüm Pro modüller',
                     'default_limits' => ['max_sites' => 500],

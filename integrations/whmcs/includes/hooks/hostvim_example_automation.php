@@ -1,6 +1,6 @@
 <?php
 /**
- * Örnek WHMCS hook — Hostvim panel API (Bearer HOSTVIM_WHMCS_SECRET).
+ * Örnek WHMCS hook — Panelze panel API (Bearer PANELZE_WHMCS_SECRET).
  *
  * Kurulum:
  * - Bu dosyayı WHMCS kökünde `includes/hooks/` altına kopyalayın.
@@ -13,10 +13,10 @@ if (! defined('WHMCS')) {
 }
 
 /** @var string Panel kök URL, sondaki / olmadan */
-const HOSTVIM_PANEL_URL = 'https://panel.example.com';
+const PANELZE_PANEL_URL = 'https://panel.example.com';
 
-/** @var string Panel .env HOSTVIM_WHMCS_SECRET ile aynı */
-const HOSTVIM_WHMCS_SECRET = 'CHANGE_ME';
+/** @var string Panel .env PANELZE_WHMCS_SECRET ile aynı */
+const PANELZE_WHMCS_SECRET = 'CHANGE_ME';
 
 /**
  * Hizmet oluşturulduktan sonra Let’s Encrypt tetikleme örneği.
@@ -25,11 +25,11 @@ const HOSTVIM_WHMCS_SECRET = 'CHANGE_ME';
 add_hook('AfterModuleCreate', 1, function (array $vars) {
     $email = trim((string) ($vars['clientsdetails']['email'] ?? ''));
     $domain = trim((string) ($vars['domain'] ?? ''));
-    if ($email === '' || $domain === '' || HOSTVIM_WHMCS_SECRET === 'CHANGE_ME') {
+    if ($email === '' || $domain === '' || PANELZE_WHMCS_SECRET === 'CHANGE_ME') {
         return;
     }
 
-    $url = HOSTVIM_PANEL_URL.'/api/integrations/whmcs/ssl/issue';
+    $url = PANELZE_PANEL_URL.'/api/integrations/whmcs/ssl/issue';
     $payload = json_encode([
         'email' => $email,
         'domain' => $domain,
@@ -39,7 +39,7 @@ add_hook('AfterModuleCreate', 1, function (array $vars) {
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => [
-            'Authorization: Bearer '.HOSTVIM_WHMCS_SECRET,
+            'Authorization: Bearer '.PANELZE_WHMCS_SECRET,
             'Content-Type: application/json',
             'Accept: application/json',
         ],

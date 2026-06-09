@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Hostvim panel — tek sunucu deploy sırası (örnek).
-# Kullanım: PANEL_ROOT=/var/www/hostvim/panel bash deploy/scripts/deploy-panel.sh
+# Panelze panel — tek sunucu deploy sırası (örnek).
+# Kullanım: PANEL_ROOT=/var/www/panelze/panel bash deploy/scripts/deploy-panel.sh
 set -euo pipefail
 
-PANEL_ROOT="${PANEL_ROOT:?PANEL_ROOT tanımlayın (örn. /var/www/hostvim/panel)}"
+PANEL_ROOT="${PANEL_ROOT:?PANEL_ROOT tanımlayın (örn. /var/www/panelze/panel)}"
 FRONTEND_ROOT="${FRONTEND_ROOT:-$(dirname "$PANEL_ROOT")/frontend}"
 REPO_ROOT="$(cd "$(dirname "$PANEL_ROOT")" && pwd)"
-export HOSTVIM_HOME="${HOSTVIM_HOME:-$REPO_ROOT}"
+export PANELZE_HOME="${PANELZE_HOME:-$REPO_ROOT}"
 RUN_USER="${RUN_USER:-www-data}"
 DEPLOY_SCRIPTS="$REPO_ROOT/deploy/scripts"
-# shellcheck source=lib/hostvim-deploy-common.sh
-source "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh"
+# shellcheck source=lib/panelze-deploy-common.sh
+source "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh"
 export PANEL_ROOT
 
 echo "==> Panel: $PANEL_ROOT"
@@ -20,7 +20,7 @@ if [[ ! -f "$PANEL_ROOT/.env" ]]; then
   exit 1
 fi
 
-if [[ "${HOSTVIM_SKIP_GIT_PULL:-0}" != "1" ]] && command -v git >/dev/null 2>&1; then
+if [[ "${PANELZE_SKIP_GIT_PULL:-0}" != "1" ]] && command -v git >/dev/null 2>&1; then
   if [[ -d "$REPO_ROOT/.git" ]]; then
     echo "==> git pull ($REPO_ROOT)"
     git -C "$REPO_ROOT" pull --ff-only
@@ -31,28 +31,28 @@ if [[ "${HOSTVIM_SKIP_GIT_PULL:-0}" != "1" ]] && command -v git >/dev/null 2>&1;
 fi
 
 # Engine'nin sudo ile çağırdığı yardımcı; panel deploy'da da repo sürümüne sabitlenir.
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-security" ]]; then
-  echo "==> /usr/local/sbin/hostvim-security (repo ile güncelle)"
-  sudo install -m 755 "$REPO_ROOT/deploy/host/hostvim-security" /usr/local/sbin/hostvim-security
-  sudo ln -sfn /usr/local/sbin/hostvim-security /usr/local/sbin/panelsar-security
+if [[ -f "$REPO_ROOT/deploy/host/panelze-security" ]]; then
+  echo "==> /usr/local/sbin/panelze-security (repo ile güncelle)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-security" /usr/local/sbin/panelze-security
+  sudo ln -sfn /usr/local/sbin/panelze-security /usr/local/sbin/panelsar-security
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-nginx-vhost" ]]; then
-  echo "==> /usr/local/sbin/hostvim-nginx-vhost (repo ile güncelle)"
-  sudo install -m 755 "$REPO_ROOT/deploy/host/hostvim-nginx-vhost" /usr/local/sbin/hostvim-nginx-vhost
-  sudo ln -sfn /usr/local/sbin/hostvim-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
+if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
+  echo "==> /usr/local/sbin/panelze-nginx-vhost (repo ile güncelle)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-nginx-vhost" /usr/local/sbin/panelze-nginx-vhost
+  sudo ln -sfn /usr/local/sbin/panelze-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
-  echo "==> /usr/local/sbin/hostvim-panel-update (repo ile güncelle)"
-  sudo install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
+if [[ -f "$REPO_ROOT/deploy/host/panelze-panel-update" ]]; then
+  echo "==> /usr/local/sbin/panelze-panel-update (repo ile güncelle)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-panel-update" /usr/local/sbin/panelze-panel-update
 fi
-for helper in hostvim-post-install.sh repair-mysql-users.sh fix-hosting-permissions.sh; do
+for helper in panelze-post-install.sh repair-mysql-users.sh fix-hosting-permissions.sh; do
   if [[ -f "$DEPLOY_SCRIPTS/$helper" ]]; then
     base="${helper%.sh}"
-    base="${base/hostvim-/hostvim-}"
+    base="${base/panelze-/panelze-}"
     case "$helper" in
-      hostvim-post-install.sh) dest=hostvim-post-install ;;
-      repair-mysql-users.sh) dest=hostvim-repair-mysql ;;
-      fix-hosting-permissions.sh) dest=hostvim-fix-hosting-perms ;;
+      panelze-post-install.sh) dest=panelze-post-install ;;
+      repair-mysql-users.sh) dest=panelze-repair-mysql ;;
+      fix-hosting-permissions.sh) dest=panelze-fix-hosting-perms ;;
     esac
     sudo install -m 755 "$DEPLOY_SCRIPTS/$helper" "/usr/local/sbin/$dest"
   fi
@@ -78,7 +78,7 @@ fi
 
 echo "==> migrate"
 hostvim_run_artisan migrate --force
-hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
+hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
 
 echo "==> optimize"
 hostvim_run_artisan config:cache
@@ -105,8 +105,8 @@ fi
 
 FIX_SCRIPT="$DEPLOY_SCRIPTS/fix-panel-permissions.sh"
 if [[ -f "$FIX_SCRIPT" ]] && [[ -f "$PANEL_ROOT/artisan" ]]; then
-  echo "==> hostvim:fix-permissions"
-  hostvim_run_artisan hostvim:fix-permissions || true
+  echo "==> panelze:fix-permissions"
+  hostvim_run_artisan panelze:fix-permissions || true
   echo "==> panel storage/bootstrap izinleri ($RUN_USER)"
   if [[ "$(id -u)" -eq 0 ]]; then
     env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
@@ -122,7 +122,7 @@ else
   sudo bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
 fi
 
-echo "==> hostvim:install-check"
-hostvim_run_artisan hostvim:install-check --ping || true
+echo "==> panelze:install-check"
+hostvim_run_artisan panelze:install-check --ping || true
 
 echo "Tamam."

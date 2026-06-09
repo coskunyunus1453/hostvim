@@ -553,7 +553,7 @@ if ((bool) config('hostvim.vendor_enabled', false)) {
 
 Route::get('health', fn () => response()->json([
     'status' => 'ok',
-    'panel' => 'hostvim',
+    'panel' => 'panelze',
     'version' => config('hostvim.version', '0.1.0'),
 ]));
 

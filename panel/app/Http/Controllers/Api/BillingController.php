@@ -140,7 +140,7 @@ class BillingController extends Controller
         $packageId = $this->stripeMetaInt($stripe->metadata, 'hosting_package_id') ?? $existing?->hosting_package_id;
 
         if ($userId === null || $packageId === null) {
-            SafeAuditLogger::warning('hostvim.billing_stripe', [
+            SafeAuditLogger::warning('panelze.billing_stripe', [
                 'action' => 'subscription_webhook_skipped',
                 'reason' => 'missing_meta',
                 'stripe_subscription_fp' => substr(hash('sha256', (string) $stripe->id), 0, 16),
@@ -150,7 +150,7 @@ class BillingController extends Controller
         }
 
         if (! User::query()->whereKey($userId)->exists() || ! HostingPackage::query()->whereKey($packageId)->exists()) {
-            SafeAuditLogger::warning('hostvim.billing_stripe', [
+            SafeAuditLogger::warning('panelze.billing_stripe', [
                 'action' => 'subscription_webhook_skipped',
                 'reason' => 'invalid_user_or_package',
                 'stripe_subscription_fp' => substr(hash('sha256', (string) $stripe->id), 0, 16),

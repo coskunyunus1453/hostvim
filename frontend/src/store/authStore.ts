@@ -70,7 +70,7 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      name: 'hostvim-auth',
+      name: 'panelze-auth',
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         token: state.token,

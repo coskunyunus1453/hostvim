@@ -43,7 +43,7 @@ export default function AdminWhmcsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'hostvim-whmcs-module.zip'
+      a.download = 'panelze-whmcs-module.zip'
       a.rel = 'noopener'
       document.body.appendChild(a)
       a.click()

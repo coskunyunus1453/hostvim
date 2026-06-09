@@ -177,7 +177,7 @@ class DomainController extends Controller
             }
             $msg = $e->getMessage() ?: __('domains.status_updated');
             if (EngineApiService::isLikelyConnectionFailure($msg)) {
-                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve hostvim-engine servisini kontrol edin.';
+                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve panelze-engine servisini kontrol edin.';
             }
 
             return response()->json([
@@ -209,7 +209,7 @@ class DomainController extends Controller
             }
             $msg = $e->getMessage() ?: __('domains.server_switched');
             if (EngineApiService::isLikelyConnectionFailure($msg)) {
-                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve hostvim-engine servisini kontrol edin.';
+                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve panelze-engine servisini kontrol edin.';
             }
 
             return response()->json([
@@ -241,7 +241,7 @@ class DomainController extends Controller
             }
             $msg = $e->getMessage() ?: __('domains.php_switched');
             if (EngineApiService::isLikelyConnectionFailure($msg)) {
-                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve hostvim-engine servisini kontrol edin.';
+                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve panelze-engine servisini kontrol edin.';
             }
 
             return response()->json([

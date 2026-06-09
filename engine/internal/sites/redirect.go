@@ -187,7 +187,7 @@ func nginxRedirectBlock(r RedirectRule) (string, error) {
 		qSuffix = "$is_args$args"
 	}
 
-	comment := fmt.Sprintf("    # Hostvim redirect — %s (%d)\n", r.ID, r.Status)
+	comment := fmt.Sprintf("    # Panelze redirect — %s (%d)\n", r.ID, r.Status)
 
 	switch r.MatchType {
 	case "exact":

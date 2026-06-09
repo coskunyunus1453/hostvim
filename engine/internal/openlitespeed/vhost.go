@@ -1,8 +1,8 @@
 // Package openlitespeed — OpenLiteSpeed sanal host parçaları (vhconf + listener map + include indeksi).
 // Kurulum: ana httpd_config.conf içinde (bir kez) şunları ekleyin:
-//   include conf/conf.d/hostvim-ols-vhosts.conf
-// HTTP listener bloğu içinde:  include conf/conf.d/hostvim-ols-http-maps.conf
-// HTTPS listener bloğu içinde: include conf/conf.d/hostvim-ols-https-maps.conf
+//   include conf/conf.d/panelze-ols-vhosts.conf
+// HTTP listener bloğu içinde:  include conf/conf.d/panelze-ols-http-maps.conf
+// HTTPS listener bloğu içinde: include conf/conf.d/panelze-ols-https-maps.conf
 package openlitespeed
 
 import (
@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	olsVhostsIndex   = "hostvim-ols-vhosts.conf"
-	olsHTTPMapsFile  = "hostvim-ols-http-maps.conf"
-	olsHTTPSMapsFile = "hostvim-ols-https-maps.conf"
+	olsVhostsIndex   = "panelze-ols-vhosts.conf"
+	olsHTTPMapsFile  = "panelze-ols-http-maps.conf"
+	olsHTTPSMapsFile = "panelze-ols-https-maps.conf"
 )
 
 func confRoot(cfg *config.Config) string {
@@ -51,11 +51,11 @@ func ctrlBin(cfg *config.Config) string {
 func VhostID(domain string) string {
 	d := strings.ToLower(strings.TrimSpace(domain))
 	d = strings.ReplaceAll(d, ".", "-")
-	return "hostvim-" + d
+	return "panelze-" + d
 }
 
 func vhConfDir(cfg *config.Config, domain string) string {
-	return filepath.Join(confRoot(cfg), "conf", "vhosts", "hostvim-"+strings.ToLower(strings.TrimSpace(domain)))
+	return filepath.Join(confRoot(cfg), "conf", "vhosts", "panelze-"+strings.ToLower(strings.TrimSpace(domain)))
 }
 
 func vhConfPath(cfg *config.Config, domain string) string {
@@ -169,7 +169,7 @@ func upsertMapFile(path, vhid string, domains []string) error {
 	}
 	if len(lines) == 0 {
 		lines = []string{
-			"# Hostvim — OpenLiteSpeed HTTP(S) listener map parçası.",
+			"# Panelze — OpenLiteSpeed HTTP(S) listener map parçası.",
 			"# Bu dosyayı ilgili listener bloğunun içine include edin (httpd_config.conf).",
 		}
 	}
@@ -219,7 +219,7 @@ func upsertIncludeIndex(cfg *config.Config, vhid string) error {
 	}
 	if len(lines) == 0 {
 		lines = []string{
-			"# Hostvim — sanal host parçaları. Ana httpd_config sonuna bir kez ekleyin:",
+			"# Panelze — sanal host parçaları. Ana httpd_config sonuna bir kez ekleyin:",
 			"# include conf/conf.d/" + olsVhostsIndex,
 		}
 	}
@@ -250,7 +250,7 @@ func removeIncludeIndex(cfg *config.Config, vhid string) error {
 	return writeLines(idx, kept)
 }
 
-const vhconfTpl = `# Hostvim — {{.Primary}}
+const vhconfTpl = `# Panelze — {{.Primary}}
 docRoot                   {{.DocRoot}}
 vhDomain                  {{.Primary}}
 vhAliases                 {{.AliasLine}}
@@ -261,7 +261,7 @@ index  {
   autoIndex               0
 }
 
-extprocessor hostvim-fpm {
+extprocessor panelze-fpm {
   type                    fcgi
   address                 {{.UDS}}
   maxConns                10
@@ -272,7 +272,7 @@ extprocessor hostvim-fpm {
 }
 
 scripthandler  {
-  add                     hostvim-fpm php
+  add                     panelze-fpm php
 }
 
 context /.well-known/acme-challenge {
@@ -369,7 +369,7 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 	useSSL := chain != "" && key != ""
 
 	vhid := VhostID(domain)
-	vhRoot := filepath.Join(cfg.Paths.WebRoot, domain, ".hostvim", "ols")
+	vhRoot := filepath.Join(cfg.Paths.WebRoot, domain, ".panelze", "ols")
 	if err := os.MkdirAll(filepath.Join(vhRoot, "logs"), 0o755); err != nil {
 		return fmt.Errorf("ols vh root: %w", err)
 	}
@@ -415,7 +415,7 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 		return fmt.Errorf("write ols vhconf: %w", err)
 	}
 
-	configRel := "conf/vhosts/hostvim-" + domain + "/vhconf.conf"
+	configRel := "conf/vhosts/panelze-" + domain + "/vhconf.conf"
 	ft, err := template.New("frag").Parse(fragTpl)
 	if err != nil {
 		_ = os.Remove(vhPath)

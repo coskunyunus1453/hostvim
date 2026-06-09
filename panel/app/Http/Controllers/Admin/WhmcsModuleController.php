@@ -10,12 +10,12 @@ use ZipArchive;
 class WhmcsModuleController extends Controller
 {
     /**
-     * WHMCS sunucu modülü (hostvim/) zip indirimi — önce kaynak klasör, yoksa paketlenmiş dosya.
+     * WHMCS sunucu modülü (panelze/) zip indirimi — önce kaynak klasör, yoksa paketlenmiş dosya.
      */
     public function downloadModuleZip(Request $request): BinaryFileResponse
     {
         $configuredSource = trim((string) config('hostvim.whmcs_module_source_dir', ''));
-        $source = $configuredSource !== '' ? $configuredSource : base_path('../integrations/whmcs/modules/servers/hostvim');
+        $source = $configuredSource !== '' ? $configuredSource : base_path('../integrations/whmcs/modules/servers/panelze');
         $source = $source !== '' && is_dir($source) ? realpath($source) : false;
 
         if ($source !== false) {
@@ -23,12 +23,12 @@ class WhmcsModuleController extends Controller
         }
 
         $configuredZip = trim((string) config('hostvim.whmcs_module_prebuilt_zip', ''));
-        $prebuilt = $configuredZip !== '' ? $configuredZip : storage_path('app/whmcs/hostvim-whmcs-module.zip');
+        $prebuilt = $configuredZip !== '' ? $configuredZip : storage_path('app/whmcs/panelze-whmcs-module.zip');
         if (! is_file($prebuilt)) {
             abort(503, (string) __('whmcs_integration.zip_missing'));
         }
 
-        return response()->download($prebuilt, 'hostvim-whmcs-module.zip', [
+        return response()->download($prebuilt, 'panelze-whmcs-module.zip', [
             'Content-Type' => 'application/zip',
         ]);
     }
@@ -58,11 +58,11 @@ class WhmcsModuleController extends Controller
             }
             $full = $file->getPathname();
             $rel = substr($full, strlen($absoluteSourceDir) + 1);
-            $zip->addFile($full, 'hostvim/'.str_replace('\\', '/', $rel));
+            $zip->addFile($full, 'panelze/'.str_replace('\\', '/', $rel));
         }
         $zip->close();
 
-        return response()->download($zipPath, 'hostvim-whmcs-module.zip', [
+        return response()->download($zipPath, 'panelze-whmcs-module.zip', [
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
     }

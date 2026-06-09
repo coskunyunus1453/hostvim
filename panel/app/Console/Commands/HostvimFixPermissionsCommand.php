@@ -5,9 +5,9 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
-class HostvimFixPermissionsCommand extends Command
+class PanelzeFixPermissionsCommand extends Command
 {
-    protected $signature = 'hostvim:fix-permissions';
+    protected $signature = 'panelze:fix-permissions';
 
     protected $description = 'Panel storage/bootstrap/public dizinlerini oluşturur ve mümkünse chmod uygular (chown için deploy script kullanın)';
 
@@ -49,7 +49,7 @@ class HostvimFixPermissionsCommand extends Command
             $this->line('  sudo bash '.escapeshellarg($script).' '.escapeshellarg($panelRoot));
             if (is_file($hostingScript)) {
                 $this->line('  sudo bash '.escapeshellarg($hostingScript).'  # site dosyaları (SSH sonrası)');
-                $this->line('  sudo hostvim-post-install  # MySQL + izinler tek komut');
+                $this->line('  sudo panelze-post-install  # MySQL + izinler tek komut');
             }
             if (\PHP_OS_FAMILY === 'Darwin' && is_dir('/Applications/XAMPP/xamppfiles')) {
                 $this->line('  (XAMPP Apache genelde daemon kullanır; script bunu otomatik seçer.)');

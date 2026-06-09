@@ -1,49 +1,49 @@
 #!/usr/bin/env bash
 #
-# Hostvim — SUNUCU (Linux): tek komutla git pull + engine + panel + frontend deploy.
-# Mac'te ÇALIŞTIRMAYIN — Mac için: bash hostvim-push
+# Panelze — SUNUCU (Linux): tek komutla git pull + engine + panel + frontend deploy.
+# Mac'te ÇALIŞTIRMAYIN — Mac için: bash panelze-push
 #
 #   ssh root@SUNUCU_IP
-#   cd /var/www/hostvim && bash hostvim-deploy
+#   cd /var/www/panelze && bash panelze-deploy
 #
 # Ortam:
-#   HOSTVIM_HOME=/var/www/hostvim
-#   HOSTVIM_DEPLOY_BRANCH=main
-#   HOSTVIM_SKIP_ENGINE=1      # Go derlemesini atla
-#   HOSTVIM_SKIP_FRONTEND=1    # npm build atla
+#   PANELZE_HOME=/var/www/panelze
+#   PANELZE_DEPLOY_BRANCH=main
+#   PANELZE_SKIP_ENGINE=1      # Go derlemesini atla
+#   PANELZE_SKIP_FRONTEND=1    # npm build atla
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-HOSTVIM_HOME="${HOSTVIM_HOME:-$REPO_ROOT}"
-BRANCH="${HOSTVIM_DEPLOY_BRANCH:-main}"
-PANEL_ROOT="${PANEL_ROOT:-$HOSTVIM_HOME/panel}"
+PANELZE_HOME="${PANELZE_HOME:-$REPO_ROOT}"
+BRANCH="${PANELZE_DEPLOY_BRANCH:-main}"
+PANEL_ROOT="${PANEL_ROOT:-$PANELZE_HOME/panel}"
 
-cd "$HOSTVIM_HOME"
+cd "$PANELZE_HOME"
 
-if [[ "$(uname -s)" == "Darwin" ]] && [[ "$HOSTVIM_HOME" == *"/Applications/"* || "$HOSTVIM_HOME" == *"htdocs"* ]]; then
-  echo "Hata: hostvim-deploy sunucu betiğidir; Mac'te çalıştırmayın." >&2
-  echo "  Mac:  bash hostvim-push" >&2
-  echo "  Sunucu: ssh ile bağlanıp  cd /var/www/hostvim && bash hostvim-deploy" >&2
+if [[ "$(uname -s)" == "Darwin" ]] && [[ "$PANELZE_HOME" == *"/Applications/"* || "$PANELZE_HOME" == *"htdocs"* ]]; then
+  echo "Hata: panelze-deploy sunucu betiğidir; Mac'te çalıştırmayın." >&2
+  echo "  Mac:  bash panelze-push" >&2
+  echo "  Sunucu: ssh ile bağlanıp  cd /var/www/panelze && bash panelze-deploy" >&2
   exit 1
 fi
 
-if [[ ! -d "$HOSTVIM_HOME/.git" ]]; then
-  echo "Hata: $HOSTVIM_HOME bir git deposu değil." >&2
+if [[ ! -d "$PANELZE_HOME/.git" ]]; then
+  echo "Hata: $PANELZE_HOME bir git deposu değil." >&2
   exit 1
 fi
 
 BEFORE="$(git rev-parse HEAD 2>/dev/null || echo none)"
 
-echo "==> git fetch + checkout $BRANCH ($HOSTVIM_HOME)"
+echo "==> git fetch + checkout $BRANCH ($PANELZE_HOME)"
 git remote -v | head -1 || true
 git fetch origin "$BRANCH" --tags 2>/dev/null || git fetch origin
 if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
   git checkout "$BRANCH" 2>/dev/null || git checkout -B "$BRANCH" "origin/$BRANCH"
   git merge --ff-only "origin/$BRANCH" || git reset --hard "origin/$BRANCH"
 else
-  echo "Hata: origin/$BRANCH bulunamadı. Mac'te önce: bash deploy/scripts/hostvim-push.sh" >&2
+  echo "Hata: origin/$BRANCH bulunamadı. Mac'te önce: bash deploy/scripts/panelze-push.sh" >&2
   exit 1
 fi
 
@@ -55,12 +55,12 @@ else
   git log -1 --oneline
 fi
 
-if [[ "${HOSTVIM_SKIP_ENGINE:-0}" != "1" ]] && [[ -d "$HOSTVIM_HOME/engine/cmd/hostvim-engine" ]]; then
+if [[ "${PANELZE_SKIP_ENGINE:-0}" != "1" ]] && [[ -d "$PANELZE_HOME/engine/cmd/panelze-engine" ]]; then
   if command -v go >/dev/null 2>&1; then
-    echo "==> hostvim-engine derleniyor"
-    (cd "$HOSTVIM_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/hostvim-engine ./cmd/hostvim-engine)
-    if systemctl is-active hostvim-engine >/dev/null 2>&1; then
-      systemctl restart hostvim-engine
+    echo "==> panelze-engine derleniyor"
+    (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine)
+    if systemctl is-active panelze-engine >/dev/null 2>&1; then
+      systemctl restart panelze-engine
     elif systemctl is-active panelsar-engine >/dev/null 2>&1; then
       systemctl restart panelsar-engine
     fi
@@ -69,14 +69,14 @@ if [[ "${HOSTVIM_SKIP_ENGINE:-0}" != "1" ]] && [[ -d "$HOSTVIM_HOME/engine/cmd/h
   fi
 fi
 
-DEPLOY_PANEL="$HOSTVIM_HOME/deploy/scripts/deploy-panel.sh"
-if [[ -f "$DEPLOY_PANEL" ]] && [[ "${HOSTVIM_SKIP_FRONTEND:-0}" != "1" ]]; then
+DEPLOY_PANEL="$PANELZE_HOME/deploy/scripts/deploy-panel.sh"
+if [[ -f "$DEPLOY_PANEL" ]] && [[ "${PANELZE_SKIP_FRONTEND:-0}" != "1" ]]; then
   echo "==> deploy-panel.sh"
-  export HOSTVIM_HOME
-  export HOSTVIM_SKIP_GIT_PULL=1
+  export PANELZE_HOME
+  export PANELZE_SKIP_GIT_PULL=1
   export PANEL_ROOT
   bash "$DEPLOY_PANEL"
-elif [[ -f "$DEPLOY_PANEL" ]] && [[ "${HOSTVIM_SKIP_FRONTEND:-0}" == "1" ]]; then
+elif [[ -f "$DEPLOY_PANEL" ]] && [[ "${PANELZE_SKIP_FRONTEND:-0}" == "1" ]]; then
   echo "==> panel (frontend atlandı)"
   cd "$PANEL_ROOT"
   if [[ "$(id -u)" -eq 0 ]]; then
@@ -112,8 +112,8 @@ else
     php artisan route:cache
     php artisan view:cache
   fi
-  FRONTEND_ROOT="$HOSTVIM_HOME/frontend"
-  if [[ "${HOSTVIM_SKIP_FRONTEND:-0}" != "1" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]] && command -v npm >/dev/null 2>&1; then
+  FRONTEND_ROOT="$PANELZE_HOME/frontend"
+  if [[ "${PANELZE_SKIP_FRONTEND:-0}" != "1" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]] && command -v npm >/dev/null 2>&1; then
     echo "==> frontend build"
     (cd "$FRONTEND_ROOT" && (test -f package-lock.json && npm ci || npm install) && npm run build)
     rsync -a --delete --exclude index.php --exclude .htaccess \

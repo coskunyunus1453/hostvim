@@ -44,7 +44,7 @@
 </div>
 <div>
     <label class="block text-sm font-medium">Artifact URL (önerilen)</label>
-    <input type="url" name="artifact_url" value="{{ old('artifact_url', $release?->artifact_url) }}" placeholder="https://.../hostvim-customer-....tar.gz" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900">
+    <input type="url" name="artifact_url" value="{{ old('artifact_url', $release?->artifact_url) }}" placeholder="https://.../panelze-customer-....tar.gz" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900">
 </div>
 <div>
     <label class="block text-sm font-medium">Artifact SHA256</label>

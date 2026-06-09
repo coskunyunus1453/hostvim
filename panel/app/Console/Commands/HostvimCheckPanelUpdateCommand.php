@@ -5,9 +5,9 @@ namespace App\Console\Commands;
 use App\Services\PanelUpdateService;
 use Illuminate\Console\Command;
 
-class HostvimCheckPanelUpdateCommand extends Command
+class PanelzeCheckPanelUpdateCommand extends Command
 {
-    protected $signature = 'hostvim:check-panel-update';
+    protected $signature = 'panelze:check-panel-update';
 
     protected $description = 'Hub üzerinden yeni panel sürümü kontrol eder ve admin bildirimi oluşturur';
 

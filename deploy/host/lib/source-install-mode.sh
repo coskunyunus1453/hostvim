@@ -17,10 +17,10 @@ hostvim_source_install_mode_lib() {
     fi
   fi
 
-  local home="${HOSTVIM_HOME:-${PANELSAR_HOME:-/var/www/hostvim}}"
+  local home="${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
   candidates+=(
     "$home/deploy/host/lib/install-mode.sh"
-    "/var/www/hostvim/deploy/host/lib/install-mode.sh"
+    "/var/www/panelze/deploy/host/lib/install-mode.sh"
   )
 
   local c f="" tmp=""
@@ -32,8 +32,8 @@ hostvim_source_install_mode_lib() {
   done
 
   if [[ -z "$f" ]]; then
-    local branch="${HOSTVIM_BRANCH:-${PANELSAR_BRANCH:-main}}"
-    local raw="${HOSTVIM_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${branch}}"
+    local branch="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
+    local raw="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${branch}}"
     tmp="$(mktemp)"
     if ! curl -fsSL "${raw}/deploy/host/lib/install-mode.sh" -o "$tmp" 2>/dev/null; then
       rm -f "$tmp"

@@ -61,7 +61,7 @@ return new class extends Migration
         DB::table('blog_posts')->where('slug', 'tek-sunucudan-coklu-clustera')->update(['slug' => 'single-server-to-cluster']);
 
         DB::table('doc_pages')->where('slug', 'sunucu-kurulumu')->update(['slug' => 'server-setup']);
-        DB::table('doc_pages')->where('slug', 'hostvim-mimarisi')->update(['slug' => 'architecture']);
+        DB::table('doc_pages')->where('slug', 'panelze-mimarisi')->update(['slug' => 'architecture']);
         DB::table('doc_pages')->where('slug', 'baslangic')->update(['slug' => 'getting-started']);
     }
 
@@ -69,7 +69,7 @@ return new class extends Migration
     {
         DB::table('doc_pages')->where('slug', 'getting-started')->update(['slug' => 'baslangic']);
         DB::table('doc_pages')->where('slug', 'server-setup')->update(['slug' => 'sunucu-kurulumu']);
-        DB::table('doc_pages')->where('slug', 'architecture')->update(['slug' => 'hostvim-mimarisi']);
+        DB::table('doc_pages')->where('slug', 'architecture')->update(['slug' => 'panelze-mimarisi']);
 
         DB::table('blog_posts')->where('slug', 'from-shared-hosting')->update(['slug' => 'shared-hostingten-kendi-panelime']);
         DB::table('blog_posts')->where('slug', 'panel-security-basics')->update(['slug' => 'panel-guvenliginde-temel-hatalar']);

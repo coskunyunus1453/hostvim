@@ -6,7 +6,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PANEL_ROOT="${PANEL_ROOT:-$REPO_ROOT/panel}"
 ENV_FILE="$PANEL_ROOT/.env"
-NGX_DST="/etc/nginx/sites-available/hostvim.conf"
+NGX_DST="/etc/nginx/sites-available/panelze.conf"
 PHP_FPM_SOCK="${PHP_FPM_SOCK:-/run/php/php8.4-fpm.sock}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -56,12 +56,12 @@ sed \
   -e 's|__SERVER_NAME__|_|g' \
   -e "s|__PANEL_PUBLIC__|$PANEL_ROOT/public|g" \
   -e "s|__PHP_FPM_SOCK__|$PHP_FPM_SOCK|g" \
-  "$REPO_ROOT/deploy/nginx/hostvim.conf" >"$NGX_DST"
+  "$REPO_ROOT/deploy/nginx/panelze.conf" >"$NGX_DST"
 sed -i 's/listen 80;/listen 80 default_server;/' "$NGX_DST" || true
 sed -i 's/listen \[::\]:80;/listen [::]:80 default_server;/' "$NGX_DST" || true
 
 rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/panelsar.conf 2>/dev/null || true
-ln -sf "$NGX_DST" /etc/nginx/sites-enabled/hostvim.conf
+ln -sf "$NGX_DST" /etc/nginx/sites-enabled/panelze.conf
 
 nginx -t
 systemctl reload nginx
@@ -72,7 +72,7 @@ if [[ "$PHP_FPM_SOCK" =~ php([0-9]+\.[0-9]+)-fpm ]]; then
 fi
 if [[ -n "$PHP_VER" && -d "/etc/php/$PHP_VER/fpm/pool.d" ]]; then
   echo "==> PHP-FPM uzun istek limiti (zip/unzip)"
-  cp "$REPO_ROOT/deploy/php-fpm/hostvim-long-requests.conf" "/etc/php/$PHP_VER/fpm/pool.d/zz-hostvim-long.conf"
+  cp "$REPO_ROOT/deploy/php-fpm/panelze-long-requests.conf" "/etc/php/$PHP_VER/fpm/pool.d/zz-panelze-long.conf"
   systemctl reload "php${PHP_VER}-fpm" 2>/dev/null || systemctl reload php-fpm 2>/dev/null || true
 fi
 

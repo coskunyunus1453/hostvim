@@ -16,10 +16,10 @@ import (
 const maxRawApacheVhostBytes = 512 << 10
 
 func apachePrevPath(main string) string {
-	return main + ".hostvim-prev"
+	return main + ".panelze-prev"
 }
 
-const tplHTTP = `# Hostvim — {{.Domain}} (Apache HTTP)
+const tplHTTP = `# Panelze — {{.Domain}} (Apache HTTP)
 <VirtualHost *:{{.HTTPPort}}>
     ServerName {{.Domain}}
     ServerAlias {{.ServerAliasLine}}
@@ -33,7 +33,7 @@ const tplHTTP = `# Hostvim — {{.Domain}} (Apache HTTP)
         Require all granted
     </Directory>
 
-    # Dotfile/Dotdir erişimi kapat (örn. .env, .git, .hostvim). ACME challenge hariç.
+    # Dotfile/Dotdir erişimi kapat (örn. .env, .git, .panelze). ACME challenge hariç.
     <LocationMatch "(^|/)\.(?!well-known(?:/|$))">
         Require all denied
     </LocationMatch>
@@ -44,12 +44,12 @@ const tplHTTP = `# Hostvim — {{.Domain}} (Apache HTTP)
         SetHandler "proxy:unix:{{.PHPSocket}}|fcgi://localhost"
     </FilesMatch>
 
-    ErrorLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-error.log
-    CustomLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-error.log
+    CustomLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-access.log combined
 </VirtualHost>
 `
 
-const tplHTTPS = `# Hostvim — {{.Domain}} (Apache HTTPS)
+const tplHTTPS = `# Panelze — {{.Domain}} (Apache HTTPS)
 {{if .ForceHTTPS}}
 <VirtualHost *:{{.HTTPPort}}>
     ServerName {{.Domain}}
@@ -77,7 +77,7 @@ const tplHTTPS = `# Hostvim — {{.Domain}} (Apache HTTPS)
         Require all granted
     </Directory>
 
-    # Dotfile/Dotdir erişimi kapat (örn. .env, .git, .hostvim). ACME challenge hariç.
+    # Dotfile/Dotdir erişimi kapat (örn. .env, .git, .panelze). ACME challenge hariç.
     <LocationMatch "(^|/)\.(?!well-known(?:/|$))">
         Require all denied
     </LocationMatch>
@@ -88,12 +88,12 @@ const tplHTTPS = `# Hostvim — {{.Domain}} (Apache HTTPS)
         SetHandler "proxy:unix:{{.PHPSocket}}|fcgi://localhost"
     </FilesMatch>
 
-    ErrorLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-ssl-error.log
-    CustomLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-ssl-access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-ssl-access.log combined
 </VirtualHost>
 `
 
-const tplHTTPSDual = `# Hostvim — {{.Domain}} (Apache HTTP + HTTPS)
+const tplHTTPSDual = `# Panelze — {{.Domain}} (Apache HTTP + HTTPS)
 <VirtualHost *:{{.HTTPPort}}>
     ServerName {{.Domain}}
     ServerAlias {{.ServerAliasLine}}
@@ -117,8 +117,8 @@ const tplHTTPSDual = `# Hostvim — {{.Domain}} (Apache HTTP + HTTPS)
         SetHandler "proxy:unix:{{.PHPSocket}}|fcgi://localhost"
     </FilesMatch>
 
-    ErrorLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-error.log
-    CustomLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-error.log
+    CustomLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-access.log combined
 </VirtualHost>
 
 <VirtualHost *:443>
@@ -150,8 +150,8 @@ const tplHTTPSDual = `# Hostvim — {{.Domain}} (Apache HTTP + HTTPS)
         SetHandler "proxy:unix:{{.PHPSocket}}|fcgi://localhost"
     </FilesMatch>
 
-    ErrorLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-ssl-error.log
-    CustomLog ${APACHE_LOG_DIR}/hostvim-{{.Domain}}-ssl-access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/panelze-{{.Domain}}-ssl-access.log combined
 </VirtualHost>
 `
 
@@ -202,7 +202,7 @@ func buildApacheServerAliasLine(primary string, aliases []string) string {
 }
 
 func confBaseName(domain string) string {
-	return "hostvim-" + strings.ToLower(domain) + ".conf"
+	return "panelze-" + strings.ToLower(domain) + ".conf"
 }
 
 func sitesAvailable(cfg *config.Config) string {
@@ -399,7 +399,7 @@ func reloadApacheErr() error {
 	return nil
 }
 
-// VhostFilePath sites-available altındaki hostvim-<domain>.conf mutlak yolu.
+// VhostFilePath sites-available altındaki panelze-<domain>.conf mutlak yolu.
 func VhostFilePath(cfg *config.Config, domain string) (string, error) {
 	domain = strings.ToLower(strings.TrimSpace(domain))
 	if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {

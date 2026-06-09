@@ -50,7 +50,7 @@ class PanelZekaKnowledge
     {
         if ($locale === 'en') {
             return <<<'DOC'
-When you need the user to approve panel operations, append a fenced block ```hostvim-actions with JSON:
+When you need the user to approve panel operations, append a fenced block ```panelze-actions with JSON:
 {
   "fixes": [{"domain_id": 1, "path": "relative/path", "content": "full file content", "summary": "why"}],
   "actions": [
@@ -68,7 +68,7 @@ DOC;
         }
 
         return <<<'DOC'
-Panel işlemi gerektiğinde ```hostvim-actions ile JSON ekle:
+Panel işlemi gerektiğinde ```panelze-actions ile JSON ekle:
 {
   "fixes": [{"domain_id": 1, "path": "göreli/yol", "content": "dosyanın tam yeni içeriği", "summary": "neden"}],
   "actions": [

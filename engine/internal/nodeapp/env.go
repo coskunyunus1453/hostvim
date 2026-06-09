@@ -73,7 +73,7 @@ func publicURLVars(domain string, ssl bool) map[string]string {
 		"APP_URL":                  base,
 		"SITE_URL":                 base,
 		"PUBLIC_URL":               base,
-		"HOSTVIM_PUBLIC_URL":       base,
+		"PANELZE_PUBLIC_URL":       base,
 		"NEXT_PUBLIC_APP_URL":      base,
 		"NEXT_PUBLIC_SITE_URL":     base,
 		"NEXT_PUBLIC_VERCEL_URL":   domain,

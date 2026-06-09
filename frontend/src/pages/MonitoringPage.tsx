@@ -16,6 +16,7 @@ import {
   Server,
   Waves,
 } from 'lucide-react'
+import { processCpuOfTotal } from '../lib/cpuDisplay'
 import {
   Area,
   AreaChart,
@@ -380,7 +381,7 @@ export default function MonitoringPage() {
   const procCpuData =
     stats?.top_cpu_processes?.map((p) => ({
       name: (p.name ?? '?').slice(0, 24),
-      cpu: Math.round((p.cpu_percent ?? 0) * 10) / 10,
+      cpu: Math.round(processCpuOfTotal(p, stats?.cpu_cores_logical) * 10) / 10,
     })) ?? []
 
   const procMemData =
@@ -1201,7 +1202,7 @@ export default function MonitoringPage() {
                           <tr>
                             <th className="px-4 py-2 text-left">{t('monitoring.pid')}</th>
                             <th className="px-4 py-2 text-left">{t('monitoring.process')}</th>
-                            <th className="px-4 py-2 text-right">CPU %</th>
+                            <th className="px-4 py-2 text-right">{t('monitoring.cpu_col_total')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1210,7 +1211,7 @@ export default function MonitoringPage() {
                               <td className="px-4 py-2 font-mono text-gray-600 dark:text-gray-400">{p.pid}</td>
                               <td className="max-w-[200px] truncate px-4 py-2 font-mono">{p.name}</td>
                               <td className="px-4 py-2 text-right tabular-nums">
-                                {(p.cpu_percent ?? 0).toFixed(1)}
+                                {processCpuOfTotal(p, stats?.cpu_cores_logical).toFixed(1)}
                               </td>
                             </tr>
                           ))}

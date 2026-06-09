@@ -7,7 +7,7 @@ DOCKER_DIR := docker
 .PHONY: help dev build test clean engine panel frontend docker
 
 help:
-	@echo "Hostvim - Hosting Control Panel"
+	@echo "Panelze - Hosting Control Panel"
 	@echo "================================"
 	@echo "make dev          - Start all development services"
 	@echo "make build        - Build all components"
@@ -26,14 +26,14 @@ dev: docker-up
 	@echo "Starting all services..."
 	cd $(FRONTEND_DIR) && npm run dev &
 	cd $(PANEL_DIR) && php artisan serve --port=8000 &
-	cd $(ENGINE_DIR) && go run cmd/hostvim-engine/main.go
+	cd $(ENGINE_DIR) && go run cmd/panelze-engine/main.go
 
 # Engine
 engine:
-	cd $(ENGINE_DIR) && go build -o bin/hostvim-engine cmd/hostvim-engine/main.go
+	cd $(ENGINE_DIR) && go build -o bin/panelze-engine cmd/panelze-engine/main.go
 
 engine-dev:
-	cd $(ENGINE_DIR) && go run cmd/hostvim-engine/main.go
+	cd $(ENGINE_DIR) && go run cmd/panelze-engine/main.go
 
 engine-test:
 	cd $(ENGINE_DIR) && go test ./...

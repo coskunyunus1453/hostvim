@@ -33,7 +33,7 @@ class SslRenewDueCommand extends Command
 
             $res = $engine->renewSSL($domain->name);
             if (! empty($res['error'])) {
-                Log::warning('hostvim.ssl_auto_renew_failed', [
+                Log::warning('panelze.ssl_auto_renew_failed', [
                     'domain' => $domain->name,
                     'certificate_id' => $cert->id,
                     'error' => $res['error'],
@@ -48,7 +48,7 @@ class SslRenewDueCommand extends Command
             ]);
             $domain->update(['ssl_expiry' => $cert->expires_at]);
 
-            Log::info('hostvim.ssl_auto_renew_ok', [
+            Log::info('panelze.ssl_auto_renew_ok', [
                 'domain' => $domain->name,
                 'certificate_id' => $cert->id,
             ]);

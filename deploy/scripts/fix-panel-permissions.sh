@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hostvim panel — storage / bootstrap / public/admin izinleri (Linux + macOS).
+# Panelze panel — storage / bootstrap / public/admin izinleri (Linux + macOS).
 # Müşteri sunucuda veya yerelde tek komutla çalıştırır; OS ve web kullanıcı adını kendisi seçer.
 #
 # Kullanım:
@@ -7,7 +7,7 @@
 #   PANEL_ROOT=/custom/panel bash deploy/scripts/fix-panel-permissions.sh
 #
 # Linux üretim (örnek):
-#   RUN_USER=www-data RUN_GROUP=www-data sudo bash deploy/scripts/fix-panel-permissions.sh /var/www/hostvim/panel
+#   RUN_USER=www-data RUN_GROUP=www-data sudo bash deploy/scripts/fix-panel-permissions.sh /var/www/panelze/panel
 #
 # macOS / XAMPP (örnek):
 #   bash deploy/scripts/fix-panel-permissions.sh /Applications/XAMPP/xamppfiles/htdocs/hostvim/panel

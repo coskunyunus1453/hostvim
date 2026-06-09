@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Hostvim: panel/composer.lock ile uyumlu PHP-FPM (Ondrej / Sury).
+# Panelze: panel/composer.lock ile uyumlu PHP-FPM (Ondrej / Sury).
 # Ubuntu varsayılan php-fpm çoğu zaman 8.1 — Laravel 11 + kilit dosyası 8.2+ (çoğu paket 8.3/8.4) ister.
 #
 # Ortam:
-#   HOSTVIM_PHP_VERSION=8.4   # panel + varsayılan FPM (eski: PANELSAR_PHP_VERSION)
-#   HOSTVIM_EXTRA_PHP_FPM_VERSIONS="8.3 8.2"   # ek FPM (eski: PANELSAR_EXTRA_PHP_FPM_VERSIONS)
+#   PANELZE_PHP_VERSION=8.4   # panel + varsayılan FPM (eski: PANELSAR_PHP_VERSION)
+#   PANELZE_EXTRA_PHP_FPM_VERSIONS="8.3 8.2"   # ek FPM (eski: PANELSAR_EXTRA_PHP_FPM_VERSIONS)
 
 ensure_php_fpm_packages() {
   [[ "${SKIP_APT:-}" == "1" ]] && return 0
 
-  local pv="${HOSTVIM_PHP_VERSION:-${PANELSAR_PHP_VERSION:-8.4}}"
-  local extra="${HOSTVIM_EXTRA_PHP_FPM_VERSIONS:-${PANELSAR_EXTRA_PHP_FPM_VERSIONS:-8.3 8.2}}"
+  local pv="${PANELZE_PHP_VERSION:-${PANELSAR_PHP_VERSION:-8.4}}"
+  local extra="${PANELZE_EXTRA_PHP_FPM_VERSIONS:-${PANELSAR_EXTRA_PHP_FPM_VERSIONS:-8.3 8.2}}"
   if [[ ! -r /etc/os-release ]]; then
     echo "Hata: /etc/os-release bulunamadı." >&2
     exit 1

@@ -1,4 +1,4 @@
-# Hostvim — üretim (yayın) kontrol listesi
+# Panelze — üretim (yayın) kontrol listesi
 
 Kurulumdan sonra veya her majör sürüm öncesi işaretleyin. Amaç: yapılandırma tutarlılığı, sırlar ve temel güvenlik.
 
@@ -20,7 +20,7 @@ Kurulumdan sonra veya her majör sürüm öncesi işaretleyin. Amaç: yapıland�
 
 - [ ] `server.debug: false` (üretim yaml’da)
 - [ ] Engine portu (varsayılan `9090`) yalnız **localhost** veya güvenilen iç ağa bağlı; internete açıksa TLS + firewall ile sıkı sınır
-- [ ] `paths.web_root` ile panel `HOSTVIM_HOSTING_WEB_ROOT` (veya eski `PANELSAR_HOSTING_WEB_ROOT`) aynı hosting kökünü işaret ediyor
+- [ ] `paths.web_root` ile panel `PANELZE_HOSTING_WEB_ROOT` (veya eski `PANELSAR_HOSTING_WEB_ROOT`) aynı hosting kökünü işaret ediyor
 
 ## 4. HTTPS ve terminal
 
@@ -48,7 +48,7 @@ Kurulumdan sonra veya her majör sürüm öncesi işaretleyin. Amaç: yapıland�
 
 - [ ] Dosya izinleri: `.env` ve secret dosyaları web sunucusundan okunamıyor; MySQL şifre dosyaları `600` vb.
 - [ ] İsteniyorsa `ENFORCE_ADMIN_2FA=true` ile yönetici/vendor API’lerinde 2FA token zorunluluğu açılır (varsayılan kapalı; kullanıcılar Ayarlar’dan isteğe bağlı 2FA açabilir)
-- [ ] `HOSTVIM_SAFE_AUDIT` (maskelemeli audit; eski `PANELSAR_SAFE_AUDIT`) üretimde açık bırakıldı (`true`)
+- [ ] `PANELZE_SAFE_AUDIT` (maskelemeli audit; eski `PANELSAR_SAFE_AUDIT`) üretimde açık bırakıldı (`true`)
 - [ ] Firewall / güvenlik grupları: yalnız 80/443 (ve ssh) dış dünyaya; engine iç arayüz kapatıldı
 
 ## 9. Bağımlılık ve sağlık taraması

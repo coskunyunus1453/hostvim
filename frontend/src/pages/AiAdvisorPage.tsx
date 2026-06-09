@@ -103,7 +103,7 @@ const PROVIDER_ICONS: Record<string, string> = {
 }
 
 function stripActionsBlock(text: string): string {
-  return text.replace(/```hostvim-actions[\s\S]*?```/gi, '').trim()
+  return text.replace(/```panelze-actions[\s\S]*?```/gi, '').trim()
 }
 
 function MarkdownLite({ text }: { text: string }) {

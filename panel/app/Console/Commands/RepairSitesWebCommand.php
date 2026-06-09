@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 
 class RepairSitesWebCommand extends Command
 {
-    protected $signature = 'hostvim:repair-sites-web
+    protected $signature = 'panelze:repair-sites-web
                             {--domain= : Yalnızca bu alan adı}
                             {--all : Tüm aktif domainler}';
 

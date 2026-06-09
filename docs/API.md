@@ -1,4 +1,4 @@
-# Hostvim API Documentation
+# Panelze API Documentation
 
 ## Base URL
 ```
@@ -14,7 +14,7 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@hostvim.com",
+  "email": "admin@panelze.com",
   "password": "password"
 }
 
@@ -214,7 +214,7 @@ GET /api/v1/system/processes
 ```
 
 ### Panel → Engine internal auth
-Panel, `ENGINE_INTERNAL_KEY` ile `X-Hostvim-Engine-Key` başlığını gönderir (engine `security.internal_api_key` ile aynı olmalı; eski istemciler `X-Panelsar-Engine-Key` de kabul edilir).
+Panel, `ENGINE_INTERNAL_KEY` ile `X-Panelze-Engine-Key` başlığını gönderir (engine `security.internal_api_key` ile aynı olmalı; eski istemciler `X-Panelsar-Engine-Key` de kabul edilir).
 
 ### Engine ek uçlar (özet)
 ```

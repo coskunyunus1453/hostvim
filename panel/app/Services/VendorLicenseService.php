@@ -57,7 +57,7 @@ class VendorLicenseService
     {
         $secret = (string) config('hostvim.vendor_license_signing_key', '');
         if ($secret === '') {
-            $secret = hash('sha256', (string) config('app.key', 'hostvim-default-key'));
+            $secret = hash('sha256', (string) config('app.key', 'panelze-default-key'));
         }
 
         return hash_hmac('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $secret);

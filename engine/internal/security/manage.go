@@ -12,7 +12,7 @@ import (
 	"hostvim/engine/internal/config"
 )
 
-const helperPath = "/usr/local/sbin/hostvim-security"
+const helperPath = "/usr/local/sbin/panelze-security"
 
 type Overview struct {
 	Fail2banEnabled bool   `json:"fail2ban_enabled"`
@@ -97,7 +97,7 @@ type QuarantineResult struct {
 	Dest   string `json:"dest"`
 }
 
-// QuarantineClamFiles şüpheli dosyaları hostvim-quarantine dizinine taşır (silme değil).
+// QuarantineClamFiles şüpheli dosyaları panelze-quarantine dizinine taşır (silme değil).
 func QuarantineClamFiles(cfg *config.Config, paths []string) ([]QuarantineResult, error) {
 	if len(paths) > MaxQuarantinePaths {
 		return nil, fmt.Errorf("too many paths (max %d)", MaxQuarantinePaths)
@@ -251,7 +251,7 @@ func NginxConfigSet(scope, content string, reload bool) error {
 	if scope == "" {
 		scope = "main"
 	}
-	tmp, err := os.CreateTemp("", "hostvim-nginx-*.conf")
+	tmp, err := os.CreateTemp("", "panelze-nginx-*.conf")
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func ModSecSiteRuleRemove(id string) error {
 	return err
 }
 
-// FirewallActive HOSTVIM-FW zinciri INPUT'a bağlı mı.
+// FirewallActive PANELZE-FW zinciri INPUT'a bağlı mı.
 func FirewallActive() (bool, error) {
 	out, err := run("firewall-status")
 	if err != nil {

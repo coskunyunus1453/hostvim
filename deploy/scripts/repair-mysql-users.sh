@@ -3,20 +3,20 @@
 # Kurulum, güncelleme veya elle müdahale sonrası 1045 hatalarını giderir.
 #
 # Kullanım (root):
-#   PANEL_ROOT=/var/www/hostvim/panel bash deploy/scripts/repair-mysql-users.sh
-#   MYSQL_ROOT_PASS='...' PANEL_ROOT=/var/www/hostvim/panel bash deploy/scripts/repair-mysql-users.sh
+#   PANEL_ROOT=/var/www/panelze/panel bash deploy/scripts/repair-mysql-users.sh
+#   MYSQL_ROOT_PASS='...' PANEL_ROOT=/var/www/panelze/panel bash deploy/scripts/repair-mysql-users.sh
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/lib/hostvim-deploy-common.sh" ]]; then
-  # shellcheck source=lib/hostvim-deploy-common.sh
-  source "$SCRIPT_DIR/lib/hostvim-deploy-common.sh"
-elif [[ -f "${HOSTVIM_HOME:-/var/www/hostvim}/deploy/scripts/lib/hostvim-deploy-common.sh" ]]; then
+if [[ -f "$SCRIPT_DIR/lib/panelze-deploy-common.sh" ]]; then
+  # shellcheck source=lib/panelze-deploy-common.sh
+  source "$SCRIPT_DIR/lib/panelze-deploy-common.sh"
+elif [[ -f "${PANELZE_HOME:-/var/www/panelze}/deploy/scripts/lib/panelze-deploy-common.sh" ]]; then
   # shellcheck source=/dev/null
-  source "${HOSTVIM_HOME:-/var/www/hostvim}/deploy/scripts/lib/hostvim-deploy-common.sh"
+  source "${PANELZE_HOME:-/var/www/panelze}/deploy/scripts/lib/panelze-deploy-common.sh"
 else
-  echo "Hata: hostvim-deploy-common.sh bulunamadi. HOSTVIM_HOME veya repo deploy/scripts yolunu kontrol edin." >&2
+  echo "Hata: panelze-deploy-common.sh bulunamadi. PANELZE_HOME veya repo deploy/scripts yolunu kontrol edin." >&2
   exit 1
 fi
 
@@ -35,8 +35,8 @@ if [[ "${WITH_MARIADB:-1}" != "1" && "${WITH_MARIADB:-1}" != "yes" ]]; then
   fi
 fi
 
-if [[ -s /root/hostvim-panel-mysql.secret ]]; then
-  PANEL_DB_PASS="$(tr -d '\r\n' < /root/hostvim-panel-mysql.secret)"
+if [[ -s /root/panelze-panel-mysql.secret ]]; then
+  PANEL_DB_PASS="$(tr -d '\r\n' < /root/panelze-panel-mysql.secret)"
 elif [[ -s /root/panelsar-panel-mysql.secret ]]; then
   PANEL_DB_PASS="$(tr -d '\r\n' < /root/panelsar-panel-mysql.secret)"
 else
@@ -44,13 +44,13 @@ else
   if [[ -z "$PANEL_DB_PASS" ]]; then
     PANEL_DB_PASS="$(openssl rand -hex 16)"
   fi
-  echo "$PANEL_DB_PASS" > /root/hostvim-panel-mysql.secret
-  chmod 600 /root/hostvim-panel-mysql.secret
-  echo "==> Panel DB şifresi oluşturuldu: /root/hostvim-panel-mysql.secret"
+  echo "$PANEL_DB_PASS" > /root/panelze-panel-mysql.secret
+  chmod 600 /root/panelze-panel-mysql.secret
+  echo "==> Panel DB şifresi oluşturuldu: /root/panelze-panel-mysql.secret"
 fi
 
-if [[ -s /root/hostvim-mysql-provision.secret ]]; then
-  MYSQL_PROVISION_PASS="$(tr -d '\r\n' < /root/hostvim-mysql-provision.secret)"
+if [[ -s /root/panelze-mysql-provision.secret ]]; then
+  MYSQL_PROVISION_PASS="$(tr -d '\r\n' < /root/panelze-mysql-provision.secret)"
 elif [[ -s /root/panelsar-mysql-provision.secret ]]; then
   MYSQL_PROVISION_PASS="$(tr -d '\r\n' < /root/panelsar-mysql-provision.secret)"
 else
@@ -58,9 +58,9 @@ else
   if [[ -z "$MYSQL_PROVISION_PASS" ]]; then
     MYSQL_PROVISION_PASS="$(openssl rand -hex 18)"
   fi
-  echo "$MYSQL_PROVISION_PASS" > /root/hostvim-mysql-provision.secret
-  chmod 600 /root/hostvim-mysql-provision.secret
-  echo "==> Provision şifresi oluşturuldu: /root/hostvim-mysql-provision.secret"
+  echo "$MYSQL_PROVISION_PASS" > /root/panelze-mysql-provision.secret
+  chmod 600 /root/panelze-mysql-provision.secret
+  echo "==> Provision şifresi oluşturuldu: /root/panelze-mysql-provision.secret"
 fi
 
 update_env() {
@@ -111,10 +111,10 @@ update_env "MYSQL_PROVISION_PORT" "3306"
 update_env "MYSQL_PROVISION_USERNAME" "hostvim_provision"
 update_env "MYSQL_PROVISION_PASSWORD" "$MYSQL_PROVISION_PASS"
 
-echo "$PANEL_DB_PASS" > /root/hostvim-panel-mysql.secret
-chmod 600 /root/hostvim-panel-mysql.secret
-echo "$MYSQL_PROVISION_PASS" > /root/hostvim-mysql-provision.secret
-chmod 600 /root/hostvim-mysql-provision.secret
+echo "$PANEL_DB_PASS" > /root/panelze-panel-mysql.secret
+chmod 600 /root/panelze-panel-mysql.secret
+echo "$MYSQL_PROVISION_PASS" > /root/panelze-mysql-provision.secret
+chmod 600 /root/panelze-mysql-provision.secret
 
 echo "==> Bağlantı testi..."
 mysql -u hostvim -p"${PANEL_DB_PASS}" -h 127.0.0.1 -e "USE hostvim; SELECT 'panel_db ok' AS status;"
@@ -124,4 +124,4 @@ if [[ -f "$PANEL_ROOT/artisan" ]]; then
   hostvim_run_artisan config:clear || true
 fi
 
-echo "Tamam. Secret dosyaları: /root/hostvim-panel-mysql.secret, /root/hostvim-mysql-provision.secret"
+echo "Tamam. Secret dosyaları: /root/panelze-panel-mysql.secret, /root/panelze-mysql-provision.secret"

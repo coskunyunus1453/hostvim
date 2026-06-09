@@ -42,9 +42,9 @@ class RunPanelUpdateJob implements ShouldQueue
         File::put($updates->maintenanceFlagPath(), (string) now()->toIso8601String());
 
         $home = dirname(base_path());
-        $script = '/usr/local/sbin/hostvim-panel-update';
+        $script = '/usr/local/sbin/panelze-panel-update';
         if (! is_executable($script)) {
-            $repoScript = $home.'/deploy/host/hostvim-panel-update';
+            $repoScript = $home.'/deploy/host/panelze-panel-update';
             if (is_file($repoScript)) {
                 $script = $repoScript;
             }
@@ -69,7 +69,7 @@ class RunPanelUpdateJob implements ShouldQueue
             $args[] = '--rebuild-engine=1';
         }
 
-        $useSudo = is_executable('/usr/local/sbin/hostvim-panel-update');
+        $useSudo = is_executable('/usr/local/sbin/panelze-panel-update');
         if ($useSudo) {
             array_unshift($args, 'sudo', '-n');
         }

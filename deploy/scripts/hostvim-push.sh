@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 #
-# Hostvim — Mac / geliştirici: değişiklikleri her zaman aynı dala push eder (varsayılan: main).
+# Panelze — Mac / geliştirici: değişiklikleri her zaman aynı dala push eder (varsayılan: main).
 #
-#   bash deploy/scripts/hostvim-push.sh
-#   bash deploy/scripts/hostvim-push.sh "Panel: nginx düzeltmesi"
+#   bash deploy/scripts/panelze-push.sh
+#   bash deploy/scripts/panelze-push.sh "Panel: nginx düzeltmesi"
 #
 # Ortam:
-#   HOSTVIM_DEPLOY_BRANCH=main   # sunucunun çekeceği dal (hostvim-deploy ile aynı olmalı)
-#   HOSTVIM_SKIP_COMMIT=1        # yalnızca mevcut commit'leri push et (commit atma)
+#   PANELZE_DEPLOY_BRANCH=main   # sunucunun çekeceği dal (panelze-deploy ile aynı olmalı)
+#   PANELZE_SKIP_COMMIT=1        # yalnızca mevcut commit'leri push et (commit atma)
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BRANCH="${HOSTVIM_DEPLOY_BRANCH:-main}"
+BRANCH="${PANELZE_DEPLOY_BRANCH:-main}"
 MSG="${1:-}"
 
 cd "$REPO_ROOT"
@@ -29,7 +29,7 @@ if [[ -z "$START_BRANCH" ]]; then
   exit 1
 fi
 
-if [[ "${HOSTVIM_SKIP_COMMIT:-0}" != "1" ]]; then
+if [[ "${PANELZE_SKIP_COMMIT:-0}" != "1" ]]; then
   if [[ -n "$(git status --porcelain)" ]]; then
     if [[ -z "$MSG" ]]; then
       MSG="hostvim deploy $(date '+%Y-%m-%d %H:%M')"
@@ -64,6 +64,6 @@ echo "==> push origin $BRANCH"
 git push -u origin "$BRANCH"
 
 echo ""
-echo "Tamam. Sunucuda (SSH ile — Mac'te hostvim-deploy ÇALIŞTIRMAYIN):"
+echo "Tamam. Sunucuda (SSH ile — Mac'te panelze-deploy ÇALIŞTIRMAYIN):"
 echo "  ssh root@SUNUCU_IP"
-echo "  cd /var/www/hostvim && bash hostvim-deploy"
+echo "  cd /var/www/panelze && bash panelze-deploy"

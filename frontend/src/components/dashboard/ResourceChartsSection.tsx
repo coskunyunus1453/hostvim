@@ -11,6 +11,7 @@ import {
   XAxis,
 } from 'recharts'
 import type { SystemStats } from '../../types'
+import { processCpuOfTotal } from '../../lib/cpuDisplay'
 import { useThemeStore } from '../../store/themeStore'
 import { Cpu, HardDrive, MemoryStick, X } from 'lucide-react'
 import clsx from 'clsx'
@@ -261,10 +262,22 @@ export default function ResourceChartsSection({
                     <dd className="text-right font-mono">{stats.cpu_cores_logical ?? '—'}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-gray-500">{t('dashboard.load_now')}</dt>
+                    <dt className="text-gray-500">{t('dashboard.cpu_usage_total')}</dt>
                     <dd className="text-right font-mono">{Math.round(cpu)}%</dd>
                   </div>
+                  {stats.load1 != null && stats.cpu_cores_logical != null && stats.cpu_cores_logical > 0 && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-gray-500">{t('dashboard.load_avg_1')}</dt>
+                      <dd className="text-right font-mono">
+                        {stats.load1.toFixed(2)}
+                        <span className="ml-1 text-xs text-gray-500">
+                          ({t('dashboard.load_avg_hint', { cores: stats.cpu_cores_logical })})
+                        </span>
+                      </dd>
+                    </div>
+                  )}
                 </dl>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('dashboard.cpu_process_hint')}</p>
                 <h4 className="font-medium text-gray-900 dark:text-white">
                   {t('dashboard.top3_cpu')}
                 </h4>
@@ -279,7 +292,7 @@ export default function ResourceChartsSection({
                         {p.name}
                       </span>
                       <span className="font-mono text-sm font-semibold text-primary-600 dark:text-primary-400">
-                        {p.cpu_percent.toFixed(1)}% CPU
+                        {processCpuOfTotal(p, stats.cpu_cores_logical).toFixed(1)}% CPU
                       </span>
                     </li>
                   ))}

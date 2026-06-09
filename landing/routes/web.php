@@ -71,7 +71,7 @@ Route::permanentRedirect('/blog/tek-sunucudan-coklu-clustera', '/blog/single-ser
 
 Route::permanentRedirect('/docs/baslangic', '/docs/getting-started');
 Route::permanentRedirect('/docs/sunucu-kurulumu', '/docs/server-setup');
-Route::permanentRedirect('/docs/hostvim-mimarisi', '/docs/architecture');
+Route::permanentRedirect('/docs/panelze-mimarisi', '/docs/architecture');
 
 Route::get('/', function () {
     $latestPosts = BlogPost::query()

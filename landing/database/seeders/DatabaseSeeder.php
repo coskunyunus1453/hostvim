@@ -16,14 +16,21 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $adminEmail = env('PANELZE_ADMIN_EMAIL', 'admin@panelze.local');
+        $adminPassword = env('PANELZE_ADMIN_PASSWORD', 'password');
+
         $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@hostvim.local'],
+            ['email' => $adminEmail],
             [
                 'name' => 'Admin',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($adminPassword),
                 'email_verified_at' => now(),
             ]
         );
+        if (env('PANELZE_ADMIN_PASSWORD')) {
+            $admin->password = Hash::make($adminPassword);
+            $admin->save();
+        }
         $admin->forceFill(['is_admin' => true])->save();
 
         $this->call(LandingSettingsSeeder::class);

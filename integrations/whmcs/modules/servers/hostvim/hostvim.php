@@ -4,18 +4,18 @@
  *
  * Kurulum:
  * 1) Bu klasörü WHMCS sunucusuna kopyalayın: modules/servers/hostvim/
- * 2) Panelze panel .env: HOSTVIM_WHMCS_SECRET=uzun-rastgele-gizli-deger
- *    İsteğe bağlı: HOSTVIM_SSO_PANEL_URL=https://panel.example.com/admin
+ * 2) Panelze panel .env: PANELZE_WHMCS_SECRET=uzun-rastgele-gizli-deger
+ *    İsteğe bağlı: PANELZE_SSO_PANEL_URL=https://panel.example.com/admin
  * 3) WHMCS → Yapılandırma → Sunucular → Yeni sunucu: Modül=hostvim
  *    - Hostname: panel kök URL (örn. https://panel.ornek.com veya IP)
- *    - Şifre: HOSTVIM_WHMCS_SECRET ile aynı (WHMCS şifre alanında saklanır)
+ *    - Şifre: PANELZE_WHMCS_SECRET ile aynı (WHMCS şifre alanında saklanır)
  *    - Kullanıcı adı (yönetici SSO için): Panelze admin hesabının e-postası
  * 4) Ürün → Modül ayarları: Hosting Package ID, PHP, web sunucusu, Let’s Encrypt
  * 5) Siparişte alan adı (WHMCS “Domain” alanı) dolu olmalı — engine’de site açılır
  *
  * Panel oturumu: WHMCS müşteri e-postası = panel giriş e-postası (clientsdetails.email).
  *
- * Ek API uçları (Bearer HOSTVIM_WHMCS_SECRET):
+ * Ek API uçları (Bearer PANELZE_WHMCS_SECRET):
  *   GET  .../usage/accounts          — WHMCS UsageUpdate (tüm siteler)
  *   GET  .../usage/domain?email=&domain=
  *   POST .../email/create|delete
@@ -473,7 +473,7 @@ function hostvim_bearerSecret(array $params): string
 {
     $s = (string) ($params['serverpassword'] ?? '');
     if ($s === '') {
-        throw new RuntimeException('Sunucu şifresi (HOSTVIM_WHMCS_SECRET) tanımlı değil.');
+        throw new RuntimeException('Sunucu şifresi (PANELZE_WHMCS_SECRET) tanımlı değil.');
     }
 
     return $s;
@@ -491,7 +491,7 @@ function hostvim_apiGet(array $params, string $path): array
         CURLOPT_TIMEOUT => 45,
         CURLOPT_HTTPHEADER => [
             'Accept: application/json',
-            'Authorization: Bearer '.hostvim_bearerSecret($params),
+            'Authorization: Bearer '.panelze_bearerSecret($params),
         ],
     ]);
     $body = curl_exec($ch);
@@ -524,7 +524,7 @@ function hostvim_apiPost(array $params, string $path, array $payload, int $timeo
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'Accept: application/json',
-            'Authorization: Bearer '.hostvim_bearerSecret($params),
+            'Authorization: Bearer '.panelze_bearerSecret($params),
         ],
     ]);
     $body = curl_exec($ch);

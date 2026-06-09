@@ -30,9 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('sanctum:prune-expired --hours=24')->daily();
         $schedule->command('backups:run-due')->everyMinute();
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
-        $schedule->command('hostvim:self-heal')->everyMinute()->withoutOverlapping();
-        $schedule->command('hostvim:check-panel-update')->everySixHours()->withoutOverlapping();
-        $schedule->command('hostvim:stack-scan-hourly')->hourly()->withoutOverlapping();
+        $schedule->command('panelze:self-heal')->everyMinute()->withoutOverlapping();
+        $schedule->command('panelze:check-panel-update')->everySixHours()->withoutOverlapping();
+        $schedule->command('panelze:stack-scan-hourly')->hourly()->withoutOverlapping();
         $schedule->command('cron:run-due')->everyMinute()->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware) {

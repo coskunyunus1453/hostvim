@@ -31,5 +31,5 @@ return [
     'success' => 'Operation successful',
     'error' => 'An error occurred',
     'engine_auth_missing' => 'ENGINE_INTERNAL_KEY (must match engine security.internal_api_key) or ENGINE_API_SECRET is not set in the panel .env; engine calls cannot be made.',
-    'engine_auth_mismatch' => 'Panel-to-engine authentication failed. Ensure panel .env ENGINE_INTERNAL_KEY exactly matches engine security.internal_api_key, the hostvim-engine service is running, then run php artisan config:clear.',
+    'engine_auth_mismatch' => 'Panel-to-engine authentication failed. Ensure panel .env ENGINE_INTERNAL_KEY exactly matches engine security.internal_api_key, the panelze-engine service is running, then run php artisan config:clear.',
 ];

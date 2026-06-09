@@ -17,7 +17,7 @@ final class DatabaseImportConfirmation
             'TÜMVERİSİLİNECEK',
             'TUMVERISILINECEK',
             'REPLACEALLDATA',
-            'HOSTVIM_REPLACE_DB',
+            'PANELZE_REPLACE_DB',
         ]));
     }
 

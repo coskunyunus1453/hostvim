@@ -59,11 +59,11 @@
                 </div>
                 <div>
                     <label class="admin-label" for="install_home">Kurulum dizini</label>
-                    <input id="install_home" type="text" name="install_home" value="{{ old('install_home', $settings['install_home']) }}" class="admin-field mt-1" placeholder="/var/www/hostvim">
+                    <input id="install_home" type="text" name="install_home" value="{{ old('install_home', $settings['install_home']) }}" class="admin-field mt-1" placeholder="/var/www/panelze">
                 </div>
                 <div class="sm:col-span-2">
                     <label class="admin-label" for="install_admin_login_file">İlk admin dosyası</label>
-                    <input id="install_admin_login_file" type="text" name="install_admin_login_file" value="{{ old('install_admin_login_file', $settings['admin_login_file']) }}" class="admin-field mt-1" placeholder="/root/hostvim-admin-login.txt">
+                    <input id="install_admin_login_file" type="text" name="install_admin_login_file" value="{{ old('install_admin_login_file', $settings['admin_login_file']) }}" class="admin-field mt-1" placeholder="/root/panelze-admin-login.txt">
                 </div>
             </div>
 
@@ -91,7 +91,7 @@
                 <li><code>deploy/get.panelze.sh</code> → DNS <strong>get.panelze.sh</strong> kökünde sunun.</li>
                 <li>Community/Pro betiklerini kendi CDN’nize kopyalayın veya GitHub raw URL kullanın.</li>
                 <li>Kurulum sonrası: <code>sudo certbot --nginx -d panel.ornek.com</code> ve panel <code>APP_URL</code> HTTPS olmalı.</li>
-                <li>Sorun giderme: <code>sudo hostvim-post-install</code> · MySQL: <code>sudo hostvim-repair-mysql</code></li>
+                <li>Sorun giderme: <code>sudo panelze-post-install</code> · MySQL: <code>sudo panelze-repair-mysql</code></li>
             </ul>
         </div>
     </div>

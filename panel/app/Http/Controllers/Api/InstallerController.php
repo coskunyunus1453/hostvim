@@ -214,7 +214,7 @@ class InstallerController extends Controller
             'ok' => $engineOk,
             'message' => $engineOk
                 ? 'Engine bağlantısı başarılı.'
-                : 'Engine erişimi sağlanamadı. hostvim-engine servis durumunu kontrol edin.',
+                : 'Engine erişimi sağlanamadı. panelze-engine servis durumunu kontrol edin.',
         ];
 
         $runsTableOk = Schema::hasTable('installer_runs');

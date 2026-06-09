@@ -24,7 +24,7 @@ func poolSlug(domain string) string {
 
 // PoolName php-fpm [pool] bölümü adı.
 func PoolName(domain string) string {
-	return "hostvim-" + poolSlug(domain)
+	return "panelze-" + poolSlug(domain)
 }
 
 // SocketPath bu domain için unix soket yolu (nginx ile aynı olmalı).
@@ -83,7 +83,7 @@ func (h HostingPoolSettings) poolGroup() string {
 	return h.FPMGroup
 }
 
-const poolTemplate = `; Hostvim — %s — PHP %s
+const poolTemplate = `; Panelze — %s — PHP %s
 [%s]
 user = %s
 group = %s

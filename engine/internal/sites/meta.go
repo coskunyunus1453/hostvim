@@ -64,14 +64,14 @@ func IsNodeProfile(profile string) bool {
 	}
 }
 
-const metaDirName = ".hostvim"
+const metaDirName = ".panelze"
 const legacyMetaDirName = ".panelsar"
 
 func metaDir(webRoot, domain string) string {
 	return filepath.Join(webRoot, domain, metaDirName)
 }
 
-// SitePrivateDir alan adı altındaki .hostvim dizinini döndürür (site.json ile aynı konum).
+// SitePrivateDir alan adı altındaki .panelze dizinini döndürür (site.json ile aynı konum).
 // Tipik kurulumda bu yol, web sunucusunun belge kökünün (ör. public_html) dışında kalır; HTTP ile doğrudan servis edilmez.
 func SitePrivateDir(webRoot, domain string) string {
 	if domain == "" || strings.Contains(domain, "..") {
@@ -118,7 +118,7 @@ func ReadSiteMeta(webRoot, domain string) (*SiteMeta, error) {
 	return &m, nil
 }
 
-// WriteSiteMeta .hostvim/site.json yazar.
+// WriteSiteMeta .panelze/site.json yazar.
 func WriteSiteMeta(webRoot, domain string, m *SiteMeta) error {
 	if domain == "" || strings.Contains(domain, "..") {
 		return nil

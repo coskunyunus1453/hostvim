@@ -39,7 +39,7 @@ class WhmcsProvisioningController extends Controller
     {
         return response()->json([
             'ok' => true,
-            'panel' => 'hostvim',
+            'panel' => 'panelze',
             'version' => config('hostvim.version', '0.1.0'),
         ]);
     }
@@ -128,7 +128,7 @@ class WhmcsProvisioningController extends Controller
 
         $user = User::query()->where('email', $validated['email'])->firstOrFail();
 
-        SafeAuditLogger::info('hostvim.whmcs.provision', [
+        SafeAuditLogger::info('panelze.whmcs.provision', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
             'domain' => $domainName,
@@ -185,7 +185,7 @@ class WhmcsProvisioningController extends Controller
             }
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.suspend', [
+        SafeAuditLogger::info('panelze.whmcs.suspend', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
             'site_errors' => $siteErrors !== [] ? $siteErrors : null,
@@ -220,7 +220,7 @@ class WhmcsProvisioningController extends Controller
             }
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.unsuspend', [
+        SafeAuditLogger::info('panelze.whmcs.unsuspend', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
             'site_errors' => $siteErrors !== [] ? $siteErrors : null,
@@ -252,7 +252,7 @@ class WhmcsProvisioningController extends Controller
         $user->update(['status' => 'disabled']);
         $user->tokens()->delete();
 
-        SafeAuditLogger::warning('hostvim.whmcs.terminate', [
+        SafeAuditLogger::warning('panelze.whmcs.terminate', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
             'delete_sites' => $deleteSites,
@@ -278,7 +278,7 @@ class WhmcsProvisioningController extends Controller
         ])->save();
         $user->tokens()->delete();
 
-        SafeAuditLogger::info('hostvim.whmcs.change_password', [
+        SafeAuditLogger::info('panelze.whmcs.change_password', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
         ], $request);
@@ -299,7 +299,7 @@ class WhmcsProvisioningController extends Controller
             'hosting_package_manual_override' => true,
         ]);
 
-        SafeAuditLogger::info('hostvim.whmcs.change_package', [
+        SafeAuditLogger::info('panelze.whmcs.change_package', [
             'user_id' => $user->id,
             'hosting_package_id' => $user->hosting_package_id,
         ], $request);
@@ -357,7 +357,7 @@ class WhmcsProvisioningController extends Controller
 
         $domain->refresh();
 
-        SafeAuditLogger::info('hostvim.whmcs.site_update', [
+        SafeAuditLogger::info('panelze.whmcs.site_update', [
             'user_id' => $user->id,
             'domain' => $domain->name,
         ], $request);
@@ -409,7 +409,7 @@ class WhmcsProvisioningController extends Controller
             return response()->json(['message' => $e->getMessage() ?: 'Alan adı değiştirilemedi.'], 503);
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.change_domain', [
+        SafeAuditLogger::info('panelze.whmcs.change_domain', [
             'user_id' => $user->id,
             'old_domain' => $old,
             'new_domain' => $new,
@@ -444,7 +444,7 @@ class WhmcsProvisioningController extends Controller
             }
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.service_renew', [
+        SafeAuditLogger::info('panelze.whmcs.service_renew', [
             'user_id' => $user->id,
             'domain' => $dom !== '' ? $dom : null,
         ], $request);

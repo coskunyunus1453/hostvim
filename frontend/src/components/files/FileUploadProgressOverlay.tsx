@@ -56,7 +56,7 @@ export default function FileUploadProgressOverlay({ open, state }: Props) {
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="hostvim-upload-progress-title"
+      aria-labelledby="panelze-upload-progress-title"
       aria-busy="true"
     >
       <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md" />
@@ -96,7 +96,7 @@ export default function FileUploadProgressOverlay({ open, state }: Props) {
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <p
-              id="hostvim-upload-progress-title"
+              id="panelze-upload-progress-title"
               className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-lg font-bold tracking-tight text-transparent sm:text-xl"
             >
               {t('app.name')}
@@ -129,7 +129,7 @@ export default function FileUploadProgressOverlay({ open, state }: Props) {
               style={{ width: `${pct}%` }}
             >
               <div
-                className="hostvim-upload-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                className="panelze-upload-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
                 style={{ width: '55%' }}
               />
             </div>
@@ -165,12 +165,12 @@ export default function FileUploadProgressOverlay({ open, state }: Props) {
         </div>
       </div>
       <style>{`
-        @keyframes hostvim-shimmer {
+        @keyframes panelze-shimmer {
           0% { transform: translateX(-120%); }
           100% { transform: translateX(320%); }
         }
-        .hostvim-upload-shimmer {
-          animation: hostvim-shimmer 1.15s ease-in-out infinite;
+        .panelze-upload-shimmer {
+          animation: panelze-shimmer 1.15s ease-in-out infinite;
         }
       `}</style>
     </div>

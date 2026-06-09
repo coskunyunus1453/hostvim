@@ -7,7 +7,7 @@ use Spatie\Permission\Models\Permission;
 
 class SyncPanelAbilitiesCommand extends Command
 {
-    protected $signature = 'hostvim:sync-abilities';
+    protected $signature = 'panelze:sync-abilities';
 
     protected $description = 'config/hostvim_abilities.php içindeki yetenekleri Spatie permissions tablosuna ekler/günceller';
 

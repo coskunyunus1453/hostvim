@@ -38,7 +38,7 @@ var commonTimezones = []string{
 	"Asia/Tokyo",
 }
 
-const hostvimSystemSettingsBin = "/usr/local/sbin/hostvim-system-settings"
+const hostvimSystemSettingsBin = "/usr/local/sbin/panelze-system-settings"
 
 // GetServerSettings hostname, saat dilimi ve NTP durumunu okur.
 func GetServerSettings(dataDir string) ServerSettings {
@@ -218,7 +218,7 @@ func formatCmdError(out []byte, err error) string {
 		msg = err.Error()
 	}
 	if strings.Contains(msg, "password is required") {
-		return msg + " — panel kurulumunda /etc/sudoers.d/hostvim-engine içinde hostvim-system-settings NOPASSWD tanımlı olmalı; sudo bash deploy/bootstrap/install-production.sh veya sudo hostvim-post-install çalıştırın"
+		return msg + " — panel kurulumunda /etc/sudoers.d/panelze-engine içinde panelze-system-settings NOPASSWD tanımlı olmalı; sudo bash deploy/bootstrap/install-production.sh veya sudo panelze-post-install çalıştırın"
 	}
 	return msg
 }

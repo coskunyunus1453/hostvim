@@ -1,4 +1,4 @@
-# Hostvim — canlı sunucu kurulumu
+# Panelze — canlı sunucu kurulumu
 
 Bu klasör, paneli **tek sunucuda** güvenli ve tekrarlanabilir şekilde ayağa kaldırmak için dosyalar içerir.
 
@@ -10,20 +10,20 @@ Tüm yayınlar **`main`** dalına gider; sunucu da her zaman **`main`** çeker. 
 
 | Ortam | Komut |
 |--------|--------|
-| **Mac** (repo kökü) | `bash hostvim-push` veya `bash hostvim-push "commit mesajı"` |
-| **Sunucu** | `cd /var/www/hostvim && bash hostvim-deploy` |
+| **Mac** (repo kökü) | `bash panelze-push` veya `bash panelze-push "commit mesajı"` |
+| **Sunucu** | `cd /var/www/panelze && bash panelze-deploy` |
 
-Betikler: `deploy/scripts/hostvim-push.sh`, `deploy/scripts/hostvim-deploy.sh`
+Betikler: `deploy/scripts/panelze-push.sh`, `deploy/scripts/panelze-deploy.sh`
 
-İsteğe bağlı: `HOSTVIM_DEPLOY_BRANCH=main` (varsayılan), sunucuda `HOSTVIM_SKIP_ENGINE=1` / `HOSTVIM_SKIP_FRONTEND=1`
+İsteğe bağlı: `PANELZE_DEPLOY_BRANCH=main` (varsayılan), sunucuda `PANELZE_SKIP_ENGINE=1` / `PANELZE_SKIP_FRONTEND=1`
 
 Sunucuda betikler henüz yoksa (eski checkout), **bir kez**:
 
 ```bash
-cd /var/www/hostvim && git fetch origin && git checkout main && git reset --hard origin/main
+cd /var/www/panelze && git fetch origin && git checkout main && git reset --hard origin/main
 ```
 
-ardından Mac’ten `hostvim-push`, sunucuda `hostvim-deploy`.
+ardından Mac’ten `panelze-push`, sunucuda `panelze-deploy`.
 
 ## Sizin tarafınız (müşteriye vermeden önce)
 
@@ -32,9 +32,9 @@ Müşteri **sizin barındırdığınız** kaynaktan kodu çekecek. Yaygın seçe
 | Yöntem | Açıklama |
 |--------|-----------|
 | **Genel Git** | GitHub / GitLab **public** repo → müşteri `git clone` veya `remote-install.sh` ile çeker. |
-| **Özel Git** | Private repo → müşteriye **deploy key** veya **sınırlı PAT** verirsiniz; `HOSTVIM_REPO_URL` içinde token kullanılabilir (risk: shell geçmişi). Daha iyisi: müşteriye salt okunur deploy key. |
-| **Sabit arşiv** | `hostvim-v1.tar.gz` üretip CDN/S3’e koyarsınız; müşteri `curl … \| tar` ile açar (ayrı betik gerekir). |
-| **Kurulum script’i CDN** | Sadece `remote-install.sh` dosyasını kendi domain’inize koyarsınız (`https://install.panelze.com/remote-install.sh`); script içinde `HOSTVIM_REPO_URL` sizin repo adresinize ayarlı olur. |
+| **Özel Git** | Private repo → müşteriye **deploy key** veya **sınırlı PAT** verirsiniz; `PANELZE_REPO_URL` içinde token kullanılabilir (risk: shell geçmişi). Daha iyisi: müşteriye salt okunur deploy key. |
+| **Sabit arşiv** | `panelze-v1.tar.gz` üretip CDN/S3’e koyarsınız; müşteri `curl … \| tar` ile açar (ayrı betik gerekir). |
+| **Kurulum script’i CDN** | Sadece `remote-install.sh` dosyasını kendi domain’inize koyarsınız (`https://install.panelze.com/remote-install.sh`); script içinde `PANELZE_REPO_URL` sizin repo adresinize ayarlı olur. |
 | **Tek satır kısa domain** | `deploy/get.panelze.sh` → DNS **get.panelze.sh** A kaydı; müşteri: `curl -fsSL https://get.panelze.sh \| bash` |
 
 Öneri: **Public veya müşteriye özel erişimli** bir Git URL + müşterinin indirdiği **tek** kurulum dosyasını kendi domain’inizde host edin.
@@ -44,10 +44,10 @@ Müşteri **sizin barındırdığınız** kaynaktan kodu çekecek. Yaygın seçe
 Müşteriye vereceğiniz **iki giriş betiği** (önerilen): `deploy/host/install-community.sh` ve `deploy/host/install-pro.sh`. İsteğe bağlı: ortak motor `install.sh` veya eski adlar (`install-customer.sh`, `install-vendor.sh` — yönlendirme).
 
 - **Tüm projeyi** bu dizine atmanız gerekmez.
-- `install.sh` içindeki `HOSTVIM_REPO_URL` satırını **kendi Git adresinizle** düzenleyin (veya müşteriye env ile verin; eski: `PANELSAR_REPO_URL`).
+- `install.sh` içindeki `PANELZE_REPO_URL` satırını **kendi Git adresinizle** düzenleyin (veya müşteriye env ile verin; eski: `PANELSAR_REPO_URL`).
 - Asıl kod **`git clone` ile Git’ten** iner.
 
-aaPanel’in `curl -ksSO` kullanımı **sertifika doğrulamasını kapattığı** için (`-k`) orta düzeyde risklidir. Hostvim örneğinde **doğrulama açık** bırakıldı (daha güvenli).
+aaPanel’in `curl -ksSO` kullanımı **sertifika doğrulamasını kapattığı** için (`-k`) orta düzeyde risklidir. Panelze örneğinde **doğrulama açık** bırakıldı (daha güvenli).
 
 ## Müşteri tarafı (aaPanel tarzı tek satır)
 
@@ -59,14 +59,14 @@ URL="https://kodsar.com/panel/install.sh" && if command -v curl >/dev/null 2>&1;
 
 ### İki sürüm komutu (önerilen)
 
-Komutu yapıştırırken satır başına `*` veya madde işareti **eklemeyin**; kabukta `*` dosya adlarını genişletir ve komut bozulur (ör. `go hostvim-admin-login.txt` hatası). Sorun yaşarsanız: `cd /tmp && curl … | bash`.
+Komutu yapıştırırken satır başına `*` veya madde işareti **eklemeyin**; kabukta `*` dosya adlarını genişletir ve komut bozulur (ör. `go panelze-admin-login.txt` hatası). Sorun yaşarsanız: `cd /tmp && curl … | bash`.
 
-**Plesk/cPanel benzeri davranış:** Mevcut kurulum algılanırsa (`panel/.env` veya `data/www` dolu) aynı Community/Pro komutu **otomatik güncelleme moduna** geçer: panel MySQL’i, müşteri siteleri (`data/www`) ve MySQL veritabanları **silinmez**; yalnızca kod + `migrate --force` (değişen tablolar) uygulanır. Sunucuyu baştan sıfırlamak (fabrika) için bilinçli olarak `HOSTVIM_FRESH_INSTALL=1` veya `RESET_PANEL_DB=1` verin.
+**Plesk/cPanel benzeri davranış:** Mevcut kurulum algılanırsa (`panel/.env` veya `data/www` dolu) aynı Community/Pro komutu **otomatik güncelleme moduna** geçer: panel MySQL’i, müşteri siteleri (`data/www`) ve MySQL veritabanları **silinmez**; yalnızca kod + `migrate --force` (değişen tablolar) uygulanır. Sunucuyu baştan sıfırlamak (fabrika) için bilinçli olarak `PANELZE_FRESH_INSTALL=1` veya `RESET_PANEL_DB=1` verin.
 
 | Sürüm | Açıklama | Komut (örnek URL) |
 |--------|-----------|-------------------|
 | **Community** | Freemium / barındırma paneli; `APP_PROFILE=customer`, vendor kapalı | `curl -fsSL …/install-community.sh \| sudo bash` |
-| **Pro** | Lisans + tam özellik; `APP_PROFILE=customer`, vendor kapalı. Lisans/SaaS müşterileri merkezi sitede. İsteğe bağlı: `HOSTVIM_LICENSE_KEY=...` | `HOSTVIM_LICENSE_KEY="..." curl -fsSL …/install-pro.sh \| sudo bash` |
+| **Pro** | Lisans + tam özellik; `APP_PROFILE=customer`, vendor kapalı. Lisans/SaaS müşterileri merkezi sitede. İsteğe bağlı: `PANELZE_LICENSE_KEY=...` | `PANELZE_LICENSE_KEY="..." curl -fsSL …/install-pro.sh \| sudo bash` |
 | **Güncelleme (Community)** | Veri korunur; açık güncelleme betiği | `curl -fsSL …/install-update-community.sh \| sudo bash` |
 | **Güncelleme (Pro)** | Veri korunur | `curl -fsSL …/install-update-pro.sh \| sudo bash` |
 
@@ -79,7 +79,7 @@ curl -fsSL https://kodsar.com/panel/install-community.sh | sudo bash
 # Pro
 curl -fsSL https://kodsar.com/panel/install-pro.sh | sudo bash
 # veya anahtar ile:
-# HOSTVIM_LICENSE_KEY="hv_..." curl -fsSL https://kodsar.com/panel/install-pro.sh | sudo bash
+# PANELZE_LICENSE_KEY="hv_..." curl -fsSL https://kodsar.com/panel/install-pro.sh | sudo bash
 ```
 
 ## Profil artifact üretimi (güncelleme güvenli)
@@ -87,15 +87,15 @@ curl -fsSL https://kodsar.com/panel/install-pro.sh | sudo bash
 Sürekli dosya değişimlerinde manuel ayıklama yapmamak için profile göre otomatik paket üretin:
 
 ```bash
-cd /var/www/hostvim
+cd /var/www/panelze
 bash deploy/scripts/build-profile-artifact.sh customer   # Community sürüm paketi
 bash deploy/scripts/build-profile-artifact.sh vendor    # Pro / tam kod paketi (artifact içi APP_PROFILE=customer)
 ```
 
 Üretilen paketler `dist-artifacts/` altında oluşur:
 
-- `hostvim-customer-*.tar.gz` — Community (vendor backend dosyaları hariç)
-- `hostvim-vendor-*.tar.gz` — Pro (tam paket; panel arayüzü yine müşteri profili)
+- `panelze-customer-*.tar.gz` — Community (vendor backend dosyaları hariç)
+- `panelze-vendor-*.tar.gz` — Pro (tam paket; panel arayüzü yine müşteri profili)
 
 Exclude listeleri:
 
@@ -122,7 +122,7 @@ git push origin v0.1.0
 Önce dosyayı indirip çalıştırmak isterseniz (aaPanel’e daha çok benzer):
 
 ```bash
-URL="https://kodsar.com/panel/install.sh" && if command -v curl >/dev/null 2>&1; then curl -fsSL "$URL" -o /tmp/hostvim-install.sh; else wget -q "$URL" -O /tmp/hostvim-install.sh; fi && sudo bash /tmp/hostvim-install.sh
+URL="https://kodsar.com/panel/install.sh" && if command -v curl >/dev/null 2>&1; then curl -fsSL "$URL" -o /tmp/panelze-install.sh; else wget -q "$URL" -O /tmp/panelze-install.sh; fi && sudo bash /tmp/panelze-install.sh
 ```
 
 Alternatif (GitHub’daki `remote-install.sh` doğrudan):
@@ -134,19 +134,19 @@ curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh | sudo bash
 `install.sh` / `remote-install.sh` sonrası sıra:
 
 1. `git`, `curl` ve gerekirse **Go** kurulur.
-2. `HOSTVIM_REPO_URL` / `HOSTVIM_BRANCH` ile kod `/var/www/hostvim` altına **klonlanır** (veya güncellenir; eski: `PANELSAR_*`).
+2. `PANELZE_REPO_URL` / `PANELZE_BRANCH` ile kod `/var/www/panelze` altına **klonlanır** (veya güncellenir; eski: `PANELSAR_*`).
 3. `install-production.sh` nginx, PHP, MariaDB, engine, ön yüz derlemesi vb. kurar.
 
 **Repo URL’nizi sabitlemek için** müşteriye şunu da verebilirsiniz (tek satır):
 
 ```bash
-curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh | sudo HOSTVIM_REPO_URL=https://github.com/SIRKET/hostvim.git HOSTVIM_BRANCH=main bash
+curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh | sudo PANELZE_REPO_URL=https://github.com/SIRKET/hostvim.git PANELZE_BRANCH=main bash
 ```
 
 Özel repoda token kullanmak zorundaysanız (önerilmez, geçici):
 
 ```bash
-sudo HOSTVIM_REPO_URL=https://TOKEN@github.com/SIRKET/hostvim.git bash -s <<< "$(curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh)"
+sudo PANELZE_REPO_URL=https://TOKEN@github.com/SIRKET/hostvim.git bash -s <<< "$(curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh)"
 ```
 
 Daha güvenlisi: sunucuya **SSH deploy key** ekletmek ve normal `git@github.com:SIRKET/hostvim.git` URL kullanmak.
@@ -161,12 +161,12 @@ Yeni VPS veya formatlanmış makinede tipik sıra:
    ```bash
    sudo mkdir -p /var/www
    sudo chown "$USER":"$USER" /var/www
-   git clone <SIZIN_REPO_URL> /var/www/hostvim
-   cd /var/www/hostvim
+   git clone <SIZIN_REPO_URL> /var/www/panelze
+   cd /var/www/panelze
    git checkout main   # veya kullandığınız dal
    ```
 
-3. **Tam kurulum** (Go, PHP, Nginx, MariaDB, engine derlemesi, `hostvim-stack-install` + sudoers, frontend build dahil):
+3. **Tam kurulum** (Go, PHP, Nginx, MariaDB, engine derlemesi, `panelze-stack-install` + sudoers, frontend build dahil):
 
    ```bash
    sudo bash deploy/bootstrap/install-production.sh
@@ -182,11 +182,11 @@ Yeni VPS veya formatlanmış makinede tipik sıra:
 
    Sonra `panel/.env` içinde `APP_URL=https://panel.ornek.com` ve gerekirse `MAIL_*` (aşağıda “E-posta”).
 
-5. **Admin → Giden posta** (`/admin/mail-settings`): SMTP / sendmail / log; test postası. **Admin → Sunucu paketleri** (`/admin/stack`): ek PHP-FPM, Dovecot, OpenDKIM vb. Kurulum betiği `sudoers` ve `hostvim-stack-install` dosyasını zaten yükler.
+5. **Admin → Giden posta** (`/admin/mail-settings`): SMTP / sendmail / log; test postası. **Admin → Sunucu paketleri** (`/admin/stack`): ek PHP-FPM, Dovecot, OpenDKIM vb. Kurulum betiği `sudoers` ve `panelze-stack-install` dosyasını zaten yükler.
 
 ## Hızlı başlangıç (Debian 12 / Ubuntu 22.04+) — özet
 
-1. `git clone` → `cd /var/www/hostvim`
+1. `git clone` → `cd /var/www/panelze`
 2. `sudo bash deploy/bootstrap/install-production.sh` (Go betik içinde kurulabilir; ayrıca `apt install golang-go` da yeterli olabilir)
 3. Varsayılanlar: **MariaDB**, **Node 20 kaynağı**, engine **127.0.0.1:9090**, Nginx + SPA
 4. HTTPS ve `APP_URL` + `config:cache` (yukarıdaki gibi)
@@ -195,7 +195,7 @@ Yeni VPS veya formatlanmış makinede tipik sıra:
 
 | Değişken | Açıklama |
 |----------|-----------|
-| `HOSTVIM_HOME` | Repo kökü (varsayılan: `/var/www/hostvim`; eski betikler `PANELSAR_HOME` okur) |
+| `PANELZE_HOME` | Repo kökü (varsayılan: `/var/www/panelze`; eski betikler `PANELSAR_HOME` okur) |
 | `SERVER_NAME` | Nginx `server_name`; yalnız IP için `_` (varsayılan) |
 | `LETS_ENCRYPT_EMAIL` | ACME e-postası (engine şablonunda yer tutucu) |
 | `SKIP_APT=1` | Paket kurulumunu atla |
@@ -209,41 +209,41 @@ Barındırma **müşterisi** Git veya SSH görmez; tek adres panel arayüzüdür
 
 ## Güvenlik özeti
 
-- Engine **loopback**; panel ile aynı makinede çalışır, `.env` içindeki `ENGINE_INTERNAL_KEY` `/etc/hostvim/engine.yaml` ile eşleşir.
+- Engine **loopback**; panel ile aynı makinede çalışır, `.env` içindeki `ENGINE_INTERNAL_KEY` `/etc/panelze/engine.yaml` ile eşleşir.
 - Nginx’te temel başlıklar (`X-Frame-Options`, `nosniff`, …) ve gzip.
-- Panel şifreleri `/root/hostvim-panel-mysql.secret` (MariaDB kurulduysa; eski kurulumlar `panelsar-panel-mysql.secret`).
-- MySQL provizyon: `/root/hostvim-mysql-provision.secret` — panelden site veritabanı oluşturmak için.
+- Panel şifreleri `/root/panelze-panel-mysql.secret` (MariaDB kurulduysa; eski kurulumlar `panelsar-panel-mysql.secret`).
+- MySQL provizyon: `/root/panelze-mysql-provision.secret` — panelden site veritabanı oluşturmak için.
 
 ## Sorun giderme (müşteri sunucusu)
 
 Kurulum veya güncelleme sonrası tek komut onarım:
 
 ```bash
-sudo hostvim-post-install
+sudo panelze-post-install
 ```
 
 | Belirti | Muhtemel neden | Komut |
 |--------|----------------|-------|
-| API 500, `1045 Access denied` (hostvim) | Panel DB şifresi uyuşmuyor | `sudo hostvim-repair-mysql` |
-| MySQL DB oluşturulamıyor (hostvim_provision) | Provision şifresi uyuşmuyor | `sudo hostvim-repair-mysql` |
-| Dosya düzenleme `permission denied` | SSH ile root sahipli dosyalar | `sudo hostvim-fix-hosting-perms` |
-| Dosya yöneticisi `Too Many Attempts` | API rate limit | `.env`: `HOSTVIM_FILES_READ_PER_MINUTE=360` + `config:clear` |
-| `php artisan tinker` PsySH hatası | www-data HOME yazılamıyor | `HOME=/var/www/hostvim/panel php artisan ...` |
+| API 500, `1045 Access denied` (hostvim) | Panel DB şifresi uyuşmuyor | `sudo panelze-repair-mysql` |
+| MySQL DB oluşturulamıyor (hostvim_provision) | Provision şifresi uyuşmuyor | `sudo panelze-repair-mysql` |
+| Dosya düzenleme `permission denied` | SSH ile root sahipli dosyalar | `sudo panelze-fix-hosting-perms` |
+| Dosya yöneticisi `Too Many Attempts` | API rate limit | `.env`: `PANELZE_FILES_READ_PER_MINUTE=360` + `config:clear` |
+| `php artisan tinker` PsySH hatası | www-data HOME yazılamıyor | `HOME=/var/www/panelze/panel php artisan ...` |
 
 MySQL root şifresi gerekiyorsa:
 
 ```bash
-MYSQL_ROOT_PASS='root_sifreniz' sudo hostvim-repair-mysql
+MYSQL_ROOT_PASS='root_sifreniz' sudo panelze-repair-mysql
 ```
 
-Secret dosyaları: `/root/hostvim-panel-mysql.secret`, `/root/hostvim-mysql-provision.secret`
+Secret dosyaları: `/root/panelze-panel-mysql.secret`, `/root/panelze-mysql-provision.secret`
 
 ## Güncelleme (Git’ten kod çekme)
 
 Repoyu **kök dizinden** güncelleyin (`panel/` altında `.git` olmayabilir):
 
 ```bash
-cd /var/www/hostvim
+cd /var/www/panelze
 git fetch origin
 git checkout main    # veya master / kullandığınız dal
 git pull --ff-only origin main
@@ -252,24 +252,24 @@ git pull --ff-only origin main
 **Panel + ön yüz + migrate** (deploy betiği artık üst dizinde `.git` varsa otomatik `git pull` da yapar; yine de kökten çekmek net kalır):
 
 ```bash
-cd /var/www/hostvim
-export PANEL_ROOT=/var/www/hostvim/panel
-export FRONTEND_ROOT=/var/www/hostvim/frontend
+cd /var/www/panelze
+export PANEL_ROOT=/var/www/panelze/panel
+export FRONTEND_ROOT=/var/www/panelze/frontend
 sudo -E bash deploy/scripts/deploy-panel.sh
 ```
 
 **Engine ikilisini** yeniden derleyip servisi yenilemek (Go kodu değiştiyse):
 
 ```bash
-cd /var/www/hostvim/engine
-sudo go build -buildvcs=false -o /usr/local/bin/hostvim-engine ./cmd/hostvim-engine
-sudo systemctl restart hostvim-engine
+cd /var/www/panelze/engine
+sudo go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine
+sudo systemctl restart panelze-engine
 ```
 
-Nginx şablonu, systemd birimi veya `hostvim-stack-install` / sudoers değiştiyse, kökten tekrar:
+Nginx şablonu, systemd birimi veya `panelze-stack-install` / sudoers değiştiyse, kökten tekrar:
 
 ```bash
-cd /var/www/hostvim
+cd /var/www/panelze
 SKIP_APT=1 sudo -E bash deploy/bootstrap/install-production.sh
 ```
 
@@ -292,9 +292,9 @@ SKIP_APT=1 sudo -E bash deploy/bootstrap/install-production.sh
 | `host/install.sh` | **kodsar.com/panel’e yükleyeceğiniz tek dosya** (repo URL üstte düzenlenir) |
 | `bootstrap/remote-install.sh` | Aynı mantık; GitHub raw veya başka CDN’den de verilebilir |
 | `bootstrap/install-production.sh` | Ana kurulum |
-| `host/hostvim-stack-install` | Admin “Sunucu paketleri” için apt demetleri (→ `/usr/local/sbin/`) |
-| `host/hostvim-mail-stack-setup.sh` | `mail-stack-webmail` demeti: Postfix+Dovecot+OpenDKIM+Nginx+Roundcube (→ `/usr/local/sbin/`) |
+| `host/panelze-stack-install` | Admin “Sunucu paketleri” için apt demetleri (→ `/usr/local/sbin/`) |
+| `host/panelze-mail-stack-setup.sh` | `mail-stack-webmail` demeti: Postfix+Dovecot+OpenDKIM+Nginx+Roundcube (→ `/usr/local/sbin/`) |
 | `scripts/deploy-panel.sh` | `git pull` (repo kökü), composer, migrate, frontend build |
-| `nginx/hostvim.conf` | Site şablonu |
-| `systemd/hostvim-engine.service` | Engine servisi |
-| `configs/engine.production.yaml` | `/etc/hostvim/engine.yaml` şablonu |
+| `nginx/panelze.conf` | Site şablonu |
+| `systemd/panelze-engine.service` | Engine servisi |
+| `configs/engine.production.yaml` | `/etc/panelze/engine.yaml` şablonu |

@@ -27,11 +27,12 @@ func isOriginAllowed(origin string, allowedCSV string) bool {
 }
 
 func internalAPIHeader(c *gin.Context) string {
-	h := strings.TrimSpace(c.GetHeader("X-Hostvim-Engine-Key"))
-	if h != "" {
-		return h
+	for _, name := range []string{"X-Panelze-Engine-Key", "X-Hostvim-Engine-Key", "X-Panelsar-Engine-Key"} {
+		if h := strings.TrimSpace(c.GetHeader(name)); h != "" {
+			return h
+		}
 	}
-	return strings.TrimSpace(c.GetHeader("X-Panelsar-Engine-Key"))
+	return ""
 }
 
 func AuthRequired(cfg *config.Config) gin.HandlerFunc {
@@ -81,7 +82,7 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
-// RequireInternalRole yalnızca dahili API anahtarı (X-Hostvim-Engine-Key veya eski X-Panelsar-Engine-Key) ile gelen isteklere izin verir.
+// RequireInternalRole yalnızca dahili API anahtarı (X-Panelze-Engine-Key veya eski X-Panelsar-Engine-Key) ile gelen isteklere izin verir.
 // Aynı JWT imza anahtarıyla üretilen terminal veya diğer kullanıcı JWT'leri bu uçlara erişemez.
 func RequireInternalRole() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -114,7 +115,7 @@ func CORS(cfg *config.Config) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Hostvim-Engine-Key, X-Panelsar-Engine-Key")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Panelze-Engine-Key, X-Hostvim-Engine-Key, X-Panelsar-Engine-Key")
 		c.Header("Access-Control-Max-Age", "86400")
 
 		if c.Request.Method == "OPTIONS" {

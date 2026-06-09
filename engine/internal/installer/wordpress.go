@@ -54,7 +54,7 @@ func installWordPress(cfg *config.Config, domain string, db *DBConfig, opts *Opt
 	if err := os.MkdirAll(cfg.Paths.TempDir, 0o755); err != nil {
 		return fmt.Errorf("temp dir: %w", err)
 	}
-	zipFile := filepath.Join(cfg.Paths.TempDir, "hostvim-wordpress-"+domain+".zip")
+	zipFile := filepath.Join(cfg.Paths.TempDir, "panelze-wordpress-"+domain+".zip")
 	if err := downloadFile(zipURL, zipFile, 15*time.Minute); err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func installWooCommercePlugin(cfg *config.Config, docRoot string) error {
 	if err := os.MkdirAll(cfg.Paths.TempDir, 0o755); err != nil {
 		return fmt.Errorf("temp dir: %w", err)
 	}
-	zipFile := filepath.Join(cfg.Paths.TempDir, "hostvim-woocommerce.zip")
+	zipFile := filepath.Join(cfg.Paths.TempDir, "panelze-woocommerce.zip")
 	if err := downloadFile(wooPluginZipURL, zipFile, 20*time.Minute); err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func downloadFile(rawURL, dest string, timeout time.Duration) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "HostvimEngine/1.0")
+	req.Header.Set("User-Agent", "PanelzeEngine/1.0")
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("indirme: %w", err)
@@ -153,7 +153,7 @@ func fetchWordPressSalts(timeout time.Duration) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "HostvimEngine/1.0")
+	req.Header.Set("User-Agent", "PanelzeEngine/1.0")
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err

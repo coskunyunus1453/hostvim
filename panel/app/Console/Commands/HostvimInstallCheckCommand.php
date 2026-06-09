@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Http;
 use PDO;
 use Throwable;
 
-class HostvimInstallCheckCommand extends Command
+class PanelzeInstallCheckCommand extends Command
 {
-    protected $signature = 'hostvim:install-check {--ping : Engine /health isteği dene}';
+    protected $signature = 'panelze:install-check {--ping : Engine /health isteği dene}';
 
     protected $description = 'Üretim öncesi panel yapılandırmasını kontrol eder';
 
@@ -64,8 +64,8 @@ class HostvimInstallCheckCommand extends Command
 
         if (! $ok) {
             $this->newLine();
-            $this->comment('Onarım (root): sudo hostvim-post-install');
-            $this->comment('  veya: MYSQL_ROOT_PASS=... bash /var/www/hostvim/deploy/scripts/repair-mysql-users.sh');
+            $this->comment('Onarım (root): sudo panelze-post-install');
+            $this->comment('  veya: MYSQL_ROOT_PASS=... bash /var/www/panelze/deploy/scripts/repair-mysql-users.sh');
         }
 
         return $ok ? self::SUCCESS : self::FAILURE;
@@ -137,7 +137,7 @@ class HostvimInstallCheckCommand extends Command
             $this->info('Hosting web kökü yazılabilir: '.$webRoot);
         } else {
             $this->error('Hosting web kökü yazılamıyor (Engine dosya düzenleyemez): '.$webRoot);
-            $this->comment('  sudo hostvim-fix-hosting-perms');
+            $this->comment('  sudo panelze-fix-hosting-perms');
             $ok = false;
         }
 

@@ -440,7 +440,7 @@ class OutboundMailSettingsController extends Controller
             ], 404);
         }
 
-        $proc = new Process(['sudo', '-n', '/usr/local/sbin/hostvim-security', 'mail-stack-setup', $domainName]);
+        $proc = new Process(['sudo', '-n', '/usr/local/sbin/panelze-security', 'mail-stack-setup', $domainName]);
         $proc->setTimeout(300);
         $proc->run();
         $output = trim($proc->getOutput()."\n".$proc->getErrorOutput());

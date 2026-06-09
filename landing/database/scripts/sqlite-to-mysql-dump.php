@@ -34,7 +34,7 @@ $write = static function (string $line) use ($fh): void {
     fwrite($fh, $line."\n");
 };
 
-$write('-- Hostvim Landing — tam veritabanı dökümü (şema + veri)');
+$write('-- Panelze Landing — tam veritabanı dökümü (şema + veri)');
 $write('-- Kaynak: database/database.sqlite');
 $write('-- Oluşturulma: '.date('Y-m-d H:i:s'));
 $write('-- MariaDB / MySQL 10.4+ utf8mb4_unicode_ci');

@@ -73,9 +73,9 @@ if [[ -f "$SCRIPT_DIR/fix-panel-permissions.sh" ]] && [[ -f "$PANEL_ROOT/artisan
 fi
 
 if [[ -f "$PANEL_ROOT/artisan" ]]; then
-  echo "==> hostvim:fix-permissions (dizinler + chmod)"
-  (cd "$PANEL_ROOT" && php artisan hostvim:fix-permissions) || {
-    echo "Uyari: hostvim:fix-permissions kismen basarisiz olabilir." >&2
+  echo "==> panelze:fix-permissions (dizinler + chmod)"
+  (cd "$PANEL_ROOT" && php artisan panelze:fix-permissions) || {
+    echo "Uyari: panelze:fix-permissions kismen basarisiz olabilir." >&2
   }
 
   echo "==> Laravel optimize:clear"

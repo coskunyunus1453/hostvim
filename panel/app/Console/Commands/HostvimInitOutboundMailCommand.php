@@ -7,9 +7,9 @@ use Illuminate\Console\Command;
 /**
  * @deprecated Eski kurulumlar ve betikler için — panelze:init-outbound-mail ile aynı işi yapar.
  */
-class HostvimInitOutboundMailCommand extends Command
+class PanelzeInitOutboundMailCommand extends Command
 {
-    protected $signature = 'hostvim:init-outbound-mail';
+    protected $signature = 'panelze:init-outbound-mail';
 
     protected $description = '(Eski ad) panelze:init-outbound-mail ile aynı — giden posta varsayılanlarını yazar.';
 

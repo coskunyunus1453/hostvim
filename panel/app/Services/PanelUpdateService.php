@@ -110,11 +110,11 @@ class PanelUpdateService
 
     public function maintenanceFlagPath(): string
     {
-        return storage_path('framework/hostvim-updating');
+        return storage_path('framework/panelze-updating');
     }
 
     private function dismissCacheKey(): string
     {
-        return 'hostvim:panel-update:dismissed';
+        return 'panelze:panel-update:dismissed';
     }
 }

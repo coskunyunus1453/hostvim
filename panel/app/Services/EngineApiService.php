@@ -60,6 +60,7 @@ class EngineApiService
     {
         if ($this->internalKey !== '') {
             return $req->withHeaders([
+                'X-Panelze-Engine-Key' => $this->internalKey,
                 'X-Hostvim-Engine-Key' => $this->internalKey,
                 'X-Panelsar-Engine-Key' => $this->internalKey,
             ]);
@@ -991,7 +992,7 @@ class EngineApiService
         try {
             $req = Http::timeout(120)->acceptJson();
             if ($this->internalKey !== '') {
-                $req = $req->withHeaders(['X-Hostvim-Engine-Key' => $this->internalKey]);
+                $req = $req->withHeaders(['X-Panelze-Engine-Key' => $this->internalKey]);
             } elseif ($this->jwtSecret !== '') {
                 $req = $req->withToken($this->generateLegacyToken());
             }
@@ -1089,7 +1090,7 @@ class EngineApiService
             $req = Http::timeout($timeout)->acceptJson();
             if ($this->internalKey !== '') {
                 $req = $req->withHeaders([
-                    'X-Hostvim-Engine-Key' => $this->internalKey,
+                    'X-Panelze-Engine-Key' => $this->internalKey,
                     'X-Panelsar-Engine-Key' => $this->internalKey,
                 ]);
             } elseif ($this->jwtSecret !== '') {
@@ -1798,7 +1799,7 @@ class EngineApiService
     private function generateLegacyToken(): string
     {
         $payload = base64_encode(json_encode([
-            'iss' => 'hostvim-panel',
+            'iss' => 'panelze-panel',
             'iat' => time(),
             'exp' => time() + 300,
         ]));

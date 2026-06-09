@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class SiteStackScanHourlyCommand extends Command
 {
-    protected $signature = 'hostvim:stack-scan-hourly';
+    protected $signature = 'panelze:stack-scan-hourly';
 
     protected $description = 'Scan active sites for stack/config issues and create user alerts';
 

@@ -32,7 +32,7 @@ class CronAllowedPaths
             $roots[] = $panel;
         }
 
-        foreach (['/var/www/hostvim/data/www', '/var/www/data/www', '/home'] as $guess) {
+        foreach (['/var/www/panelze/data/www', '/var/www/data/www', '/home'] as $guess) {
             if (is_dir($guess)) {
                 $roots[] = $guess;
             }

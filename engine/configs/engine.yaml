@@ -13,14 +13,14 @@ server:
 database:
   host: "localhost"
   port: 5432
-  name: "hostvim"
-  user: "hostvim"
+  name: "panelze"
+  user: "panelze"
   password: "secret"
 
 docker:
   enabled: true
   socket_path: "/var/run/docker.sock"
-  network: "hostvim_net"
+  network: "panelze_net"
 
 services:
   nginx:
@@ -42,17 +42,17 @@ services:
 
 security:
   jwt_secret: "change-this-jwt-secret-in-production"
-  internal_api_key: "hostvim-engine-internal-dev"
+  internal_api_key: "panelze-engine-internal-dev"
   allowed_origins: "http://localhost,http://127.0.0.1"
   token_expiry: 3600
   max_login_attempts: 5
   fail2ban_enabled: true
 
-# web_root boş bırakılırsa HOSTVIM_HOME/data/www kullanılır (geliştirme)
+# web_root boş bırakılırsa PANELZE_HOME/data/www kullanılır (geliştirme)
 paths:
   web_root: ""
   vhosts_dir: "/etc/nginx/sites-available"
-  ssl_dir: "/etc/hostvim/ssl"
+  ssl_dir: "/etc/panelze/ssl"
   backup_dir: "/var/backups/hostvim"
   log_dir: "/var/log/hostvim"
   temp_dir: ""
@@ -95,8 +95,8 @@ hosting:
   tools_max_seconds: 300
   wordpress_zip_url: "https://wordpress.org/latest.zip"
   # İsteğe bağlı: çekirdek/yol değişiminde yeniden derlemeden betik konumu
-  # nginx_vhost_helper: "/usr/local/sbin/hostvim-nginx-vhost"
-  # stack_install_script: "/usr/local/sbin/hostvim-stack-install"
+  # nginx_vhost_helper: "/usr/local/sbin/panelze-nginx-vhost"
+  # stack_install_script: "/usr/local/sbin/panelze-stack-install"
   # Faz 6 — gerçek tar.gz yedeği (geliştirmede false)
   execute_backups: false
   backup_tar_path: "tar"

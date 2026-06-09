@@ -1,6 +1,8 @@
 package monitoring
 
 import (
+	"time"
+
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
@@ -23,7 +25,8 @@ type SystemSnapshot struct {
 func Collect(rootPath string) SystemSnapshot {
 	out := SystemSnapshot{}
 
-	if pct, err := cpu.Percent(0, false); err == nil && len(pct) > 0 {
+	// Kısa örnekleme: anlık kullanım (0 = önceki çağrıya göre, ilk istekte yanıltıcı olabilir).
+	if pct, err := cpu.Percent(300*time.Millisecond, false); err == nil && len(pct) > 0 {
 		out.CPUUsagePercent = pct[0]
 	}
 

@@ -230,14 +230,14 @@ class SystemController extends Controller
 
         $steps = [];
 
-        $fixExit = Artisan::call('hostvim:fix-permissions');
+        $fixExit = Artisan::call('panelze:fix-permissions');
         $fixOut = trim((string) Artisan::output());
         $steps[] = [
-            'id' => 'artisan:hostvim-fix-permissions',
+            'id' => 'artisan:panelze-fix-permissions',
             'ok' => $fixExit === 0,
             'message' => $fixExit === 0
                 ? ($fixOut !== '' ? substr($fixOut, 0, 400) : 'Dizinler ve chmod denendi')
-                : 'hostvim:fix-permissions başarısız (kod '.$fixExit.')',
+                : 'panelze:fix-permissions başarısız (kod '.$fixExit.')',
         ];
 
         $storageDirs = [
@@ -546,7 +546,7 @@ class SystemController extends Controller
             'ok' => $writable,
             'message' => $writable
                 ? 'Hosting web root writable by panel engine'
-                : 'Hosting web root not writable — run: sudo hostvim-fix-hosting-perms',
+                : 'Hosting web root not writable — run: sudo panelze-fix-hosting-perms',
         ]];
     }
 }

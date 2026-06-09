@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# hostvim.com — SIFIRDAN tam landing kurulumu (yalnızca landing/, panel/engine YOK).
+# panelze.com — SIFIRDAN tam landing kurulumu (yalnızca landing/, panel/engine YOK).
 #
 #   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/install-landing-site.sh" | bash
 #
@@ -8,9 +8,9 @@ set -euo pipefail
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Root: curl -fsSL ... | sudo bash" >&2; exit 1; }
 
-HOSTVIM_REPO_URL="${HOSTVIM_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
-HOSTVIM_BRANCH="${HOSTVIM_BRANCH:-main}"
-LANDING_ROOT="${LANDING_ROOT:-/var/www/hostvim/data/www/hostvim.com}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
+PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
+LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
 PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"
 RUN_USER="${RUN_USER:-www-data}"
 APP_URL="${APP_URL:-http://194.163.131.213}"
@@ -25,7 +25,7 @@ done
 command -v composer >/dev/null 2>&1 || apt-get install -y -qq composer php-cli php-mbstring php-xml php-curl php-zip php-mysql php-sqlite3 unzip
 
 echo "=============================================="
-echo " Hostvim LANDING — sıfırdan kurulum"
+echo " Panelze LANDING — sıfırdan kurulum"
 echo " Site kökü:    $LANDING_ROOT"
 echo " Web kökü:     $PUBLIC_HTML"
 echo "=============================================="
@@ -37,7 +37,7 @@ if [[ -f "$LANDING_ROOT/.env" ]]; then
 fi
 
 echo "==> GitHub'dan landing indiriliyor..."
-git clone --depth 1 --branch "$HOSTVIM_BRANCH" "$HOSTVIM_REPO_URL" "$WORK/repo"
+git clone --depth 1 --branch "$PANELZE_BRANCH" "$PANELZE_REPO_URL" "$WORK/repo"
 [[ -f "$WORK/repo/landing/artisan" ]] || { echo "Hata: repo/landing/artisan yok" >&2; exit 1; }
 [[ -f "$WORK/repo/landing/public/index.php" ]] || { echo "Hata: landing/public/index.php yok" >&2; exit 1; }
 

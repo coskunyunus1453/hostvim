@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
 
 class RunSelfHealCommand extends Command
 {
-    protected $signature = 'hostvim:self-heal';
+    protected $signature = 'panelze:self-heal';
 
     protected $description = 'Run guarded self-heal checks and alerts';
 

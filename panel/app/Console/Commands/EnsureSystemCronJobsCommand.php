@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 
 class EnsureSystemCronJobsCommand extends Command
 {
-    protected $signature = 'hostvim:ensure-system-cron';
+    protected $signature = 'panelze:ensure-system-cron';
 
     protected $description = 'Ensure protected system cron jobs exist and are synced to engine';
 
@@ -58,7 +58,7 @@ class EnsureSystemCronJobsCommand extends Command
             if (! $canSyncEngine) {
                 $this->warn(
                     'Engine cron API skipped (set ENGINE_INTERNAL_KEY or ENGINE_API_SECRET in .env). '.
-                    'Panel DB kaydı güncellendi; OS cron (`/etc/cron.d/hostvim-panel-scheduler`) schedule:run çalışmaya devam eder.'
+                    'Panel DB kaydı güncellendi; OS cron (`/etc/cron.d/panelze-panel-scheduler`) schedule:run çalışmaya devam eder.'
                 );
 
                 continue;

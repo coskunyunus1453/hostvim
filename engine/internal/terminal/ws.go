@@ -22,8 +22,8 @@ import (
 
 const jwtTypTerminal = "terminal_ws"
 
-// Kurulumda /usr/local/sbin/hostvim-terminal-root + sudoers ile root login kabuğu (www-data → sudo NOPASSWD).
-const terminalRootLauncher = "/usr/local/sbin/hostvim-terminal-root"
+// Kurulumda /usr/local/sbin/panelze-terminal-root + sudoers ile root login kabuğu (www-data → sudo NOPASSWD).
+const terminalRootLauncher = "/usr/local/sbin/panelze-terminal-root"
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
@@ -120,7 +120,7 @@ func HandleWS(cfg *config.Config, log *logrus.Logger) gin.HandlerFunc {
 			return
 		}
 
-		shell := os.Getenv("HOSTVIM_TERMINAL_SHELL")
+		shell := os.Getenv("PANELZE_TERMINAL_SHELL")
 		if shell == "" {
 			shell = os.Getenv("PANELSAR_TERMINAL_SHELL")
 		}
@@ -129,7 +129,7 @@ func HandleWS(cfg *config.Config, log *logrus.Logger) gin.HandlerFunc {
 		}
 
 		var cmd *exec.Cmd
-		noRoot := os.Getenv("HOSTVIM_TERMINAL_NO_ROOT")
+		noRoot := os.Getenv("PANELZE_TERMINAL_NO_ROOT")
 		if noRoot == "" {
 			noRoot = os.Getenv("PANELSAR_TERMINAL_NO_ROOT")
 		}
@@ -218,8 +218,8 @@ func terminalTokenFromRequest(r *http.Request) (string, string) {
 
 	for _, p := range websocket.Subprotocols(r) {
 		pp := strings.TrimSpace(p)
-		if strings.HasPrefix(pp, "hostvim.jwt.") && len(pp) > len("hostvim.jwt.") {
-			return strings.TrimPrefix(pp, "hostvim.jwt."), pp
+		if strings.HasPrefix(pp, "panelze.jwt.") && len(pp) > len("panelze.jwt.") {
+			return strings.TrimPrefix(pp, "panelze.jwt."), pp
 		}
 		if strings.HasPrefix(pp, "panelsar.jwt.") && len(pp) > len("panelsar.jwt.") {
 			return strings.TrimPrefix(pp, "panelsar.jwt."), pp

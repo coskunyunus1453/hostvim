@@ -176,8 +176,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $adminEmail = env('HOSTVIM_ADMIN_EMAIL', env('PANELSAR_ADMIN_EMAIL', 'admin@hostvim.com'));
-        $adminPasswordEnv = env('HOSTVIM_ADMIN_PASSWORD', env('PANELSAR_ADMIN_PASSWORD'));
+        $adminEmail = env('PANELZE_ADMIN_EMAIL', env('HOSTVIM_ADMIN_EMAIL', env('PANELSAR_ADMIN_EMAIL', 'admin@panelze.com')));
+        $adminPasswordEnv = env('PANELZE_ADMIN_PASSWORD', env('PANELSAR_ADMIN_PASSWORD'));
         $adminPasswordForNew = ($adminPasswordEnv !== null && $adminPasswordEnv !== '')
             ? $adminPasswordEnv
             : 'password';
@@ -192,7 +192,7 @@ class DatabaseSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        // Kurulum betiği HOSTVIM_ADMIN_PASSWORD verir; önceki yarım seed’de oluşmuş kullanıcıda şifre güncellenmezdi → 422.
+        // Kurulum betiği PANELZE_ADMIN_PASSWORD verir; önceki yarım seed’de oluşmuş kullanıcıda şifre güncellenmezdi → 422.
         if ($adminPasswordEnv !== null && $adminPasswordEnv !== '') {
             $admin->password = Hash::make($adminPasswordEnv);
             $admin->force_password_change = true;
@@ -200,8 +200,8 @@ class DatabaseSeeder extends Seeder
         }
         $admin->syncRoles(['admin']);
 
-        $vendorAdminEmail = env('HOSTVIM_VENDOR_ADMIN_EMAIL', env('PANELSAR_VENDOR_ADMIN_EMAIL'));
-        $vendorAdminPassword = env('HOSTVIM_VENDOR_ADMIN_PASSWORD', env('PANELSAR_VENDOR_ADMIN_PASSWORD'));
+        $vendorAdminEmail = env('PANELZE_VENDOR_ADMIN_EMAIL', env('PANELSAR_VENDOR_ADMIN_EMAIL'));
+        $vendorAdminPassword = env('PANELZE_VENDOR_ADMIN_PASSWORD', env('PANELSAR_VENDOR_ADMIN_PASSWORD'));
         if ($vendorEnabled && $vendorAdminEmail && $vendorAdminPassword) {
             $vendorAdmin = User::firstOrCreate(
                 ['email' => $vendorAdminEmail],
@@ -219,11 +219,11 @@ class DatabaseSeeder extends Seeder
         }
 
         // Production default: only admin user.
-        // Demo accounts are opt-in via HOSTVIM_SEED_DEMO_USERS=1 (veya eski PANELSAR_SEED_DEMO_USERS).
-        $seedDemoUsers = filter_var((string) env('HOSTVIM_SEED_DEMO_USERS', env('PANELSAR_SEED_DEMO_USERS', false)), FILTER_VALIDATE_BOOLEAN);
+        // Demo accounts are opt-in via PANELZE_SEED_DEMO_USERS=1 (veya eski PANELSAR_SEED_DEMO_USERS).
+        $seedDemoUsers = filter_var((string) env('PANELZE_SEED_DEMO_USERS', env('PANELSAR_SEED_DEMO_USERS', false)), FILTER_VALIDATE_BOOLEAN);
         if ($seedDemoUsers) {
             $reseller = User::firstOrCreate(
-                ['email' => 'reseller@hostvim.com'],
+                ['email' => 'reseller@panelze.com'],
                 [
                     'name' => 'Demo Reseller',
                     'password' => Hash::make('password'),
@@ -235,7 +235,7 @@ class DatabaseSeeder extends Seeder
             $reseller->syncRoles(['reseller']);
 
             $user = User::firstOrCreate(
-                ['email' => 'user@hostvim.com'],
+                ['email' => 'user@panelze.com'],
                 [
                     'name' => 'Demo User',
                     'password' => Hash::make('password'),

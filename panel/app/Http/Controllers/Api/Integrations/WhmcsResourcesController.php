@@ -144,7 +144,7 @@ class WhmcsResourcesController extends Controller
             'quota_mb' => $account->quota_mb,
         ]);
 
-        SafeAuditLogger::info('hostvim.whmcs.email_create', [
+        SafeAuditLogger::info('panelze.whmcs.email_create', [
             'user_id' => $user->id,
             'domain' => $domain->name,
         ], $request);
@@ -178,7 +178,7 @@ class WhmcsResourcesController extends Controller
         }
         $account->delete();
 
-        SafeAuditLogger::info('hostvim.whmcs.email_delete', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.email_delete', ['user_id' => $user->id], $request);
 
         return response()->json(['message' => 'deleted']);
     }
@@ -219,7 +219,7 @@ class WhmcsResourcesController extends Controller
             'password' => $password,
         ]);
 
-        SafeAuditLogger::info('hostvim.whmcs.ftp_create', [
+        SafeAuditLogger::info('panelze.whmcs.ftp_create', [
             'user_id' => $user->id,
             'domain' => $domain->name,
         ], $request);
@@ -251,7 +251,7 @@ class WhmcsResourcesController extends Controller
         $this->engine->ftpDeleteAccount($domain->name, $account->username);
         $account->delete();
 
-        SafeAuditLogger::info('hostvim.whmcs.ftp_delete', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.ftp_delete', ['user_id' => $user->id], $request);
 
         return response()->json(['message' => 'deleted']);
     }
@@ -294,7 +294,7 @@ class WhmcsResourcesController extends Controller
             return response()->json(['message' => $e->getMessage() ?: __('databases.provision_failed')], 500);
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.database_create', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.database_create', ['user_id' => $user->id], $request);
 
         return response()->json([
             'database' => $result['database'],
@@ -330,7 +330,7 @@ class WhmcsResourcesController extends Controller
             return response()->json(['message' => $e->getMessage() ?: __('databases.provision_failed')], 500);
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.database_delete', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.database_delete', ['user_id' => $user->id], $request);
 
         return response()->json(['message' => 'deleted']);
     }
@@ -382,7 +382,7 @@ class WhmcsResourcesController extends Controller
             $job->update(['engine_job_id' => (string) $engine['id']]);
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.cron_create', ['user_id' => $user->id, 'job_id' => $job->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.cron_create', ['user_id' => $user->id, 'job_id' => $job->id], $request);
 
         return response()->json([
             'job' => $job->fresh(),
@@ -412,7 +412,7 @@ class WhmcsResourcesController extends Controller
         $job->delete();
         $engine = $this->engine->engineCronDelete($eid);
 
-        SafeAuditLogger::info('hostvim.whmcs.cron_delete', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.cron_delete', ['user_id' => $user->id], $request);
 
         return response()->json(['message' => 'deleted', 'engine' => $engine]);
     }
@@ -442,7 +442,7 @@ class WhmcsResourcesController extends Controller
 
         $redirectUrl = route('whmcs.sso.redirect', ['t' => $jti], true);
 
-        SafeAuditLogger::info('hostvim.whmcs.sso_mint', [
+        SafeAuditLogger::info('panelze.whmcs.sso_mint', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
         ], $request);
@@ -478,7 +478,7 @@ class WhmcsResourcesController extends Controller
 
         $redirectUrl = route('whmcs.sso.redirect', ['t' => $jti], true);
 
-        SafeAuditLogger::info('hostvim.whmcs.sso_mint_admin', [
+        SafeAuditLogger::info('panelze.whmcs.sso_mint_admin', [
             'user_id' => $user->id,
             'email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
         ], $request);
@@ -534,7 +534,7 @@ class WhmcsResourcesController extends Controller
             'priority' => $validated['priority'] ?? null,
         ], ['id' => (string) $record->id]);
 
-        SafeAuditLogger::info('hostvim.whmcs.dns_create', ['user_id' => $user->id, 'domain' => $domain->name], $request);
+        SafeAuditLogger::info('panelze.whmcs.dns_create', ['user_id' => $user->id, 'domain' => $domain->name], $request);
 
         return response()->json([
             'record' => $record,
@@ -593,7 +593,7 @@ class WhmcsResourcesController extends Controller
                     $created[] = $record;
                 }
 
-                SafeAuditLogger::info('hostvim.whmcs.dns_import', [
+                SafeAuditLogger::info('panelze.whmcs.dns_import', [
                     'user_id' => $user->id,
                     'domain' => $domain->name,
                     'count' => count($created),
@@ -671,7 +671,7 @@ class WhmcsResourcesController extends Controller
                     $created[] = $record;
                 }
 
-                SafeAuditLogger::info('hostvim.whmcs.dns_import_zone', [
+                SafeAuditLogger::info('panelze.whmcs.dns_import_zone', [
                     'user_id' => $user->id,
                     'domain' => $domain->name,
                     'count' => count($created),
@@ -715,7 +715,7 @@ class WhmcsResourcesController extends Controller
         $id = (string) $record->id;
         $record->delete();
 
-        SafeAuditLogger::info('hostvim.whmcs.dns_delete', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.dns_delete', ['user_id' => $user->id], $request);
 
         return response()->json([
             'message' => 'deleted',
@@ -756,7 +756,7 @@ class WhmcsResourcesController extends Controller
             'destination' => $forwarder->destination,
         ]);
 
-        SafeAuditLogger::info('hostvim.whmcs.forwarder_create', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.forwarder_create', ['user_id' => $user->id], $request);
 
         return response()->json(['forwarder' => $forwarder], 201);
     }
@@ -782,7 +782,7 @@ class WhmcsResourcesController extends Controller
         }
         $forwarder->delete();
 
-        SafeAuditLogger::info('hostvim.whmcs.forwarder_delete', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.forwarder_delete', ['user_id' => $user->id], $request);
 
         return response()->json(['message' => 'deleted']);
     }
@@ -823,7 +823,7 @@ class WhmcsResourcesController extends Controller
             ], 500);
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.database_rotate', ['user_id' => $user->id], $request);
+        SafeAuditLogger::info('panelze.whmcs.database_rotate', ['user_id' => $user->id], $request);
 
         return response()->json([
             'database' => $database->fresh(),
@@ -852,7 +852,7 @@ class WhmcsResourcesController extends Controller
             return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.ssl_issue', [
+        SafeAuditLogger::info('panelze.whmcs.ssl_issue', [
             'user_id' => $user->id,
             'domain' => $domain->name,
             'ok' => (bool) ($result['ok'] ?? false),
@@ -895,7 +895,7 @@ class WhmcsResourcesController extends Controller
         }
 
         $engine = $this->engine->renewSSL($domain->name);
-        SafeAuditLogger::info('hostvim.whmcs.ssl_renew', ['user_id' => $user->id, 'domain' => $domain->name], $request);
+        SafeAuditLogger::info('panelze.whmcs.ssl_renew', ['user_id' => $user->id, 'domain' => $domain->name], $request);
 
         if (! empty($engine['error'])) {
             return response()->json([
@@ -949,7 +949,7 @@ class WhmcsResourcesController extends Controller
         $engine = $this->engine->queueBackup($domain->name, $backup->type, $backup->id);
         if (! empty($engine['error'])) {
             $backup->update(['status' => 'failed']);
-            SafeAuditLogger::warning('hostvim.whmcs.backup_queue', [
+            SafeAuditLogger::warning('panelze.whmcs.backup_queue', [
                 'user_id' => $user->id,
                 'backup_id' => $backup->id,
                 'error' => (string) $engine['error'],
@@ -980,7 +980,7 @@ class WhmcsResourcesController extends Controller
         if ($panelStatus === 'completed' && $backup->destination_id) {
             $sync = app(BackupController::class)->syncToDestination($backup);
             if (empty($sync['ok'])) {
-                SafeAuditLogger::warning('hostvim.whmcs.backup_queue_sync', [
+                SafeAuditLogger::warning('panelze.whmcs.backup_queue_sync', [
                     'user_id' => $user->id,
                     'backup_id' => $backup->id,
                     'error' => (string) ($sync['error'] ?? 'sync failed'),
@@ -988,7 +988,7 @@ class WhmcsResourcesController extends Controller
             }
         }
 
-        SafeAuditLogger::info('hostvim.whmcs.backup_queue', [
+        SafeAuditLogger::info('panelze.whmcs.backup_queue', [
             'user_id' => $user->id,
             'backup_id' => $backup->id,
             'domain' => $domain->name,

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Merkezi lisans sunucusu (ör. hostvim.com / landing) ile konuşur.
+ * Merkezi lisans sunucusu (ör. panelze.com / landing) ile konuşur.
  * LICENSE_SERVER_URL .env’de doluysa önce buraya POST edilir.
  */
 class LicenseHubClient
@@ -49,7 +49,7 @@ class LicenseHubClient
                 return [
                     'valid' => false,
                     'code' => 'hub_unauthorized',
-                    'message' => 'License hub rejected API token. Set LICENSE_SERVER_API_SECRET on the panel to match HOSTVIM_LICENSE_API_SECRET on the landing server.',
+                    'message' => 'License hub rejected API token. Set LICENSE_SERVER_API_SECRET on the panel to match PANELZE_LICENSE_API_SECRET on the landing server.',
                     'http_status' => $response->status(),
                 ];
             }

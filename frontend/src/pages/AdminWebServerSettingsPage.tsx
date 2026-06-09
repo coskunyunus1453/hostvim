@@ -459,7 +459,7 @@ export default function AdminWebServerSettingsPage() {
               <div className="flex items-center gap-2">
                 <select className="input h-9" value={nginxScope} onChange={(e) => setNginxScope(e.target.value as 'main' | 'panel')}>
                   <option value="main">nginx.conf</option>
-                  <option value="panel">hostvim.conf</option>
+                  <option value="panel">panelze.conf</option>
                 </select>
                 <button type="button" className="btn-secondary" onClick={() => void nginxConfigQ.refetch()}>{t('common.refresh')}</button>
               </div>

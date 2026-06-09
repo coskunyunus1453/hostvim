@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Hostvim landing (hostvim.com) — SADECE landing/ günceller.
+# Panelze landing (panelze.com) — SADECE landing/ günceller.
 # Panel kurmaz, engine derlemez, tüm repoyu reset --hard yapmaz.
 #
 #   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/update-landing.sh" | bash
@@ -17,10 +17,10 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-HOSTVIM_HOME="${HOSTVIM_HOME:-/var/www/hostvim}"
-HOSTVIM_REPO_URL="${HOSTVIM_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
-HOSTVIM_BRANCH="${HOSTVIM_BRANCH:-main}"
-LANDING_ROOT="${LANDING_ROOT:-/var/www/hostvim/data/www/hostvim.com}"
+PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
+PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
+LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
 PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"
 RUN_USER="${RUN_USER:-www-data}"
 SKIP_COMPOSER="${SKIP_COMPOSER:-0}"
@@ -29,36 +29,36 @@ export DEBIAN_FRONTEND=noninteractive
 command -v git >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq git ca-certificates curl; }
 command -v rsync >/dev/null 2>&1 || apt-get install -y -qq rsync
 
-mkdir -p "$(dirname "$HOSTVIM_HOME")" "$LANDING_ROOT" "$PUBLIC_HTML"
+mkdir -p "$(dirname "$PANELZE_HOME")" "$LANDING_ROOT" "$PUBLIC_HTML"
 
 sync_landing_from_git() {
-  if [[ ! -d "$HOSTVIM_HOME/.git" ]]; then
+  if [[ ! -d "$PANELZE_HOME/.git" ]]; then
     echo "==> İlk kurulum: yalnızca landing/ (sparse clone, sığ)"
-    rm -rf "$HOSTVIM_HOME"
-    git clone --depth 1 --filter=blob:none --sparse --branch "$HOSTVIM_BRANCH" \
-      "$HOSTVIM_REPO_URL" "$HOSTVIM_HOME"
-    cd "$HOSTVIM_HOME"
+    rm -rf "$PANELZE_HOME"
+    git clone --depth 1 --filter=blob:none --sparse --branch "$PANELZE_BRANCH" \
+      "$PANELZE_REPO_URL" "$PANELZE_HOME"
+    cd "$PANELZE_HOME"
     git sparse-checkout set landing
     return
   fi
 
   echo "==> Git: yalnızca landing/ klasörü güncelleniyor (tüm repo reset YOK)"
-  cd "$HOSTVIM_HOME"
-  git remote set-url origin "$HOSTVIM_REPO_URL" 2>/dev/null || true
-  git fetch origin "$HOSTVIM_BRANCH" --depth=1
-  git checkout "origin/$HOSTVIM_BRANCH" -- landing/
+  cd "$PANELZE_HOME"
+  git remote set-url origin "$PANELZE_REPO_URL" 2>/dev/null || true
+  git fetch origin "$PANELZE_BRANCH" --depth=1
+  git checkout "origin/$PANELZE_BRANCH" -- landing/
 }
 
 sync_landing_from_git
 
-if [[ ! -d "$HOSTVIM_HOME/landing" ]]; then
-  echo "Hata: $HOSTVIM_HOME/landing yok." >&2
+if [[ ! -d "$PANELZE_HOME/landing" ]]; then
+  echo "Hata: $PANELZE_HOME/landing yok." >&2
   exit 1
 fi
 
-if [[ ! -f "$HOSTVIM_HOME/landing/public/index.php" ]]; then
+if [[ ! -f "$PANELZE_HOME/landing/public/index.php" ]]; then
   echo "Hata: Git'teki landing/public boş görünüyor — rsync yapılmadı (silme riski)." >&2
-  echo "Önce: cd $HOSTVIM_HOME && git checkout origin/$HOSTVIM_BRANCH -- landing/" >&2
+  echo "Önce: cd $PANELZE_HOME && git checkout origin/$PANELZE_BRANCH -- landing/" >&2
   echo "Veya: curl -fsSL .../restore-landing.sh | bash" >&2
   exit 1
 fi
@@ -75,11 +75,11 @@ rsync -a \
   --exclude 'vendor/' \
   --exclude 'node_modules/' \
   --exclude 'storage/logs/' \
-  "$HOSTVIM_HOME/landing/" "$LANDING_ROOT/"
+  "$PANELZE_HOME/landing/" "$LANDING_ROOT/"
 
 echo "==> Web kökü (public): $PUBLIC_HTML — rsync --delete KAPALI"
 rsync -a \
-  "$HOSTVIM_HOME/landing/public/" "$PUBLIC_HTML/"
+  "$PANELZE_HOME/landing/public/" "$PUBLIC_HTML/"
 
 if [[ ! -f "$LANDING_ROOT/artisan" ]]; then
   echo "Hata: $LANDING_ROOT/artisan yok. LANDING_ROOT yanlış olabilir." >&2

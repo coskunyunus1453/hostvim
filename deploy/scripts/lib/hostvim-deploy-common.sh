@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Hostvim deploy — ortak yardımcılar (source ile kullanın).
-#   source "$(dirname "$0")/lib/hostvim-deploy-common.sh"
+# Panelze deploy — ortak yardımcılar (source ile kullanın).
+#   source "$(dirname "$0")/lib/panelze-deploy-common.sh"
 
 hostvim_deploy_common_loaded() { :; }
 
 hostvim_resolve_hostvim_home() {
   local panel_root="${1:-${PANEL_ROOT:-}}"
-  if [[ -n "${HOSTVIM_HOME:-}" ]]; then
-    printf '%s\n' "$HOSTVIM_HOME"
+  if [[ -n "${PANELZE_HOME:-}" ]]; then
+    printf '%s\n' "$PANELZE_HOME"
     return 0
   fi
   if [[ -n "$panel_root" ]]; then
     cd "$(dirname "$panel_root")" && pwd
     return 0
   fi
-  printf '%s\n' "/var/www/hostvim"
+  printf '%s\n' "/var/www/panelze"
 }
 
 hostvim_www_data_home() {

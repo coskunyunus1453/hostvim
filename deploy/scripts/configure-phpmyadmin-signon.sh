@@ -4,8 +4,8 @@ set -euo pipefail
 
 APP_URL="${1:-${APP_URL:-}}"
 if [[ -z "$APP_URL" ]]; then
-  if [[ -f /var/www/hostvim/panel/.env ]]; then
-    APP_URL="$(grep -E '^APP_URL=' /var/www/hostvim/panel/.env | head -1 | cut -d= -f2- | tr -d '\r"'\'')"
+  if [[ -f /var/www/panelze/panel/.env ]]; then
+    APP_URL="$(grep -E '^APP_URL=' /var/www/panelze/panel/.env | head -1 | cut -d= -f2- | tr -d '\r"'\'')"
   fi
 fi
 APP_URL="${APP_URL%/}"
@@ -15,7 +15,7 @@ if [[ -z "$APP_URL" ]]; then
 fi
 
 SIGNON_URL="${APP_URL}/pma-signon"
-CONF="/etc/phpmyadmin/conf.d/hostvim-signon.php"
+CONF="/etc/phpmyadmin/conf.d/panelze-signon.php"
 
 if [[ ! -d /etc/phpmyadmin ]]; then
   echo "phpMyAdmin kurulu değil (/etc/phpmyadmin yok)." >&2
@@ -25,7 +25,7 @@ fi
 cat > "$CONF" <<EOF
 <?php
 /**
- * Hostvim / Panelze — otomatik phpMyAdmin girişi (Pro lisans).
+ * Panelze / Panelze — otomatik phpMyAdmin girişi (Pro lisans).
  * Üretim: deploy/scripts/configure-phpmyadmin-signon.sh
  */
 \$i = 1;

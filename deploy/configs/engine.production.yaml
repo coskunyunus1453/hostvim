@@ -1,5 +1,5 @@
-# Hostvim Engine — üretim şablonu (/etc/hostvim/engine.yaml olarak kopyalanır)
-# Kurulum: install-production.sh otomatik doldurur (__INTERNAL_KEY__, __HOSTVIM_HOME__)
+# Panelze Engine — üretim şablonu (/etc/panelze/engine.yaml olarak kopyalanır)
+# Kurulum: install-production.sh otomatik doldurur (__INTERNAL_KEY__, __PANELZE_HOME__)
 
 server:
   port: 9090
@@ -16,14 +16,14 @@ server:
 database:
   host: "127.0.0.1"
   port: 5432
-  name: "hostvim"
-  user: "hostvim"
+  name: "panelze"
+  user: "panelze"
   password: "__ENGINE_DB_PASSWORD__"
 
 docker:
   enabled: false
   socket_path: "/var/run/docker.sock"
-  network: "hostvim_net"
+  network: "panelze_net"
 
 services:
   nginx:
@@ -61,12 +61,12 @@ security:
   fail2ban_enabled: true
 
 paths:
-  web_root: "__HOSTVIM_HOME__/data/www"
-  vhosts_dir: "__HOSTVIM_HOME__/data/vhosts"
-  ssl_dir: "__HOSTVIM_HOME__/data/ssl"
-  backup_dir: "__HOSTVIM_HOME__/data/backups"
-  log_dir: "__HOSTVIM_HOME__/data/logs"
-  temp_dir: "__HOSTVIM_HOME__/data/tmp"
+  web_root: "__PANELZE_HOME__/data/www"
+  vhosts_dir: "__PANELZE_HOME__/data/vhosts"
+  ssl_dir: "__PANELZE_HOME__/data/ssl"
+  backup_dir: "__PANELZE_HOME__/data/backups"
+  log_dir: "__PANELZE_HOME__/data/logs"
+  temp_dir: "__PANELZE_HOME__/data/tmp"
 
 hosting:
   nginx_manage_vhosts: true
@@ -93,7 +93,7 @@ hosting:
   composer_path: "/usr/bin/composer"
   npm_path: "/usr/bin/npm"
   pm2_path: "/usr/bin/pm2"
-  pm2_home: "/var/www/hostvim/data/pm2"
+  pm2_home: "/var/www/panelze/data/pm2"
   pm2_run_user: "www-data"
   node_watchdog_enabled: true
   node_watchdog_interval_seconds: 60

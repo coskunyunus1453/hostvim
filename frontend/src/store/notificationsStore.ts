@@ -61,7 +61,7 @@ export const useNotificationsStore = create<NotificationsState>()(
       clear: () => set({ items: [] }),
     }),
     {
-      name: 'hostvim-notifications',
+      name: 'panelze-notifications',
       storage: createJSONStorage(() => localStorage),
     }
   )

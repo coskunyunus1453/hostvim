@@ -1,11 +1,10 @@
 package monitoring
 
 import (
-	"os/exec"
-	"runtime"
+	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
@@ -16,10 +15,11 @@ import (
 
 // ProcessTop süreç özeti (panel dashboard).
 type ProcessTop struct {
-	PID        int32   `json:"pid"`
-	Name       string  `json:"name"`
-	CPUPercent float64 `json:"cpu_percent"`
-	RSSBytes   uint64  `json:"rss_bytes"`
+	PID               int32   `json:"pid"`
+	Name              string  `json:"name"`
+	CPUPercent        float64 `json:"cpu_percent"`          // tek çekirdek bazında (çok çekirdekte >100 olabilir)
+	CPUPercentOfTotal float64 `json:"cpu_percent_of_total"` // tüm çekirdeklere göre (üst kart ile aynı ölçek)
+	RSSBytes          uint64  `json:"rss_bytes"`
 }
 
 // MountUsage disk bölümü kullanımı.
@@ -92,6 +92,13 @@ func CollectExtended(rootPath string) ExtendedSnapshot {
 	out.NetTxBytesPerSec = tx
 
 	out.TopCPUProcesses = topCPUProcesses(3)
+	cores := float64(out.CPUCoresLogical)
+	if cores < 1 {
+		cores = 1
+	}
+	for i := range out.TopCPUProcesses {
+		out.TopCPUProcesses[i].CPUPercentOfTotal = out.TopCPUProcesses[i].CPUPercent / cores
+	}
 	out.TopMemoryProcesses = topMemoryProcesses(3)
 	out.TopDiskMounts = topDiskMountsByUsage(3, rootPath)
 
@@ -148,11 +155,6 @@ func topCPUProcesses(limit int) []ProcessTop {
 	if limit < 1 {
 		limit = 3
 	}
-	if runtime.GOOS == "linux" {
-		if rows := psTopLinux("pcpu", limit); len(rows) > 0 {
-			return rows
-		}
-	}
 	return topCPUProcessesGopsutil(limit)
 }
 
@@ -160,61 +162,16 @@ func topMemoryProcesses(limit int) []ProcessTop {
 	if limit < 1 {
 		limit = 3
 	}
-	if runtime.GOOS == "linux" {
-		if rows := psTopLinux("rss", limit); len(rows) > 0 {
-			return rows
-		}
-	}
 	return topMemoryProcessesGopsutil(limit)
 }
 
-// psTopLinux sort key: pcpu | rss (GNU ps).
-func psTopLinux(sortKey string, limit int) []ProcessTop {
-	args := []string{"-eo", "pid=,pcpu=,rss=,comm=", "--sort=-" + sortKey}
-	cmd := exec.Command("ps", args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var res []ProcessTop
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		pt := parsePsLine(line)
-		if pt == nil || pt.Name == "" {
-			continue
-		}
-		res = append(res, *pt)
-		if len(res) >= limit {
-			break
-		}
-	}
-	return res
-}
-
-func parsePsLine(line string) *ProcessTop {
-	fields := strings.Fields(line)
-	if len(fields) < 4 {
-		return nil
-	}
-	pid, err1 := strconv.ParseInt(fields[0], 10, 32)
-	pcpu, err2 := strconv.ParseFloat(fields[1], 64)
-	rssKb, err3 := strconv.ParseUint(fields[2], 10, 64)
-	if err1 != nil || err2 != nil || err3 != nil {
-		return nil
-	}
-	name := strings.Join(fields[3:], " ")
-	if len(name) > 120 {
-		name = name[:117] + "…"
-	}
-	return &ProcessTop{
-		PID:        int32(pid),
-		Name:       name,
-		CPUPercent: pcpu,
-		RSSBytes:   rssKb * 1024,
+func skipEphemeralProcess(name string) bool {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(name)))
+	switch base {
+	case "ps", "top", "htop", "btop", "pidof", "pgrep", "sort":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -231,11 +188,18 @@ func topCPUProcessesGopsutil(limit int) []ProcessTop {
 	}
 	var rows []row
 	for _, p := range procs {
+		_, _ = p.CPUPercent()
+	}
+	time.Sleep(300 * time.Millisecond)
+	for _, p := range procs {
 		cpuP, err := p.CPUPercent()
-		if err != nil {
+		if err != nil || cpuP <= 0 {
 			continue
 		}
 		nm, _ := p.Name()
+		if skipEphemeralProcess(nm) {
+			continue
+		}
 		var rss uint64
 		if mi, _ := p.MemoryInfo(); mi != nil {
 			rss = mi.RSS
@@ -246,7 +210,7 @@ func topCPUProcessesGopsutil(limit int) []ProcessTop {
 		return rows[i].cpu > rows[j].cpu
 	})
 	var out []ProcessTop
-	for i := 0; i < len(rows) && i < limit; i++ {
+	for i := 0; i < len(rows) && len(out) < limit; i++ {
 		out = append(out, ProcessTop{
 			PID:        rows[i].p.Pid,
 			Name:       rows[i].nm,

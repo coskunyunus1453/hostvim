@@ -14,7 +14,7 @@ func New() *logrus.Logger {
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
-	level := os.Getenv("HOSTVIM_LOG_LEVEL")
+	level := os.Getenv("PANELZE_LOG_LEVEL")
 	if level == "" {
 		level = os.Getenv("PANELSAR_LOG_LEVEL")
 	}

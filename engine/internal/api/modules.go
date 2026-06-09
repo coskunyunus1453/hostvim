@@ -41,7 +41,7 @@ func engineDataDir(cfg *config.Config) string {
 	if d := strings.TrimSpace(cfg.Paths.LogDir); d != "" {
 		return filepath.Join(filepath.Dir(d), "engine-data")
 	}
-	return "/var/lib/hostvim/engine-data"
+	return "/var/lib/panelze/engine-data"
 }
 
 func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterGroup, log *logrus.Logger) {
@@ -278,7 +278,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			}
 		}
 		nginxAccess := filepath.Join(cfg.Paths.LogDir, d+"_access.log")
-		apacheAccess := filepath.Join("/var/log/apache2", "hostvim-"+d+"-access.log")
+		apacheAccess := filepath.Join("/var/log/apache2", "panelze-"+d+"-access.log")
 		sum := monitoring.AnalyzeSiteTraffic(nginxAccess, apacheAccess, lines)
 		c.JSON(http.StatusOK, gin.H{"domain": d, "traffic": sum})
 	})
@@ -484,7 +484,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			"fail2ban": gin.H{
 				"enabled":   fail2banOn,
 				"installed": fbInstalled,
-				"jails":     []string{"sshd", "hostvim-auth", "panelsar-auth"}, // panelsar-auth: eski fail2ban jail adı
+				"jails":     []string{"sshd", "panelze-auth", "panelsar-auth"}, // panelsar-auth: eski fail2ban jail adı
 				"settings": func() gin.H {
 					b, f, m, e := security.Fail2banJailGet()
 					_, jailErr := normalizeSecurityComponent(e)
@@ -1010,7 +1010,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	})
 	api.POST("/installer/install", handleInstallerInstall(cfg))
 
-	// Performance mode (per-site; stored in .hostvim/site.json)
+	// Performance mode (per-site; stored in .panelze/site.json)
 	api.GET("/sites/:domain/performance", func(c *gin.Context) {
 		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
 		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
@@ -1167,7 +1167,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"domain": d, "force_https": meta.ForceHTTPSRedirect(), "ok": true})
 	})
 
-	// Site bazlı nginx vhost (paths.vhosts_dir/hostvim-<domain>.conf + .hostvim-prev geri alma)
+	// Site bazlı nginx vhost (paths.vhosts_dir/panelze-<domain>.conf + .panelze-prev geri alma)
 	api.POST("/sites/:domain/nginx-vhost/revert", func(c *gin.Context) {
 		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
 		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
@@ -1568,7 +1568,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 
 		// Nginx.
-		nginxBin := strings.TrimSpace(os.Getenv("HOSTVIM_NGINX_BIN"))
+		nginxBin := strings.TrimSpace(os.Getenv("PANELZE_NGINX_BIN"))
 		if nginxBin == "" {
 			nginxBin = strings.TrimSpace(os.Getenv("PANELSAR_NGINX_BIN"))
 		}
@@ -1579,7 +1579,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		nginxActive := pgrepHasProc("nginx")
 
 		// Apache.
-		httpdBin := strings.TrimSpace(os.Getenv("HOSTVIM_HTTPD_BIN"))
+		httpdBin := strings.TrimSpace(os.Getenv("PANELZE_HTTPD_BIN"))
 		if httpdBin == "" {
 			httpdBin = strings.TrimSpace(os.Getenv("PANELSAR_HTTPD_BIN"))
 		}
@@ -1842,7 +1842,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 
 		// Fallback: /etc/php yok (macOS/XAMPP). php CLI'den ana+minör sürümü çek.
-		phpBin := strings.TrimSpace(os.Getenv("HOSTVIM_PHP_BIN"))
+		phpBin := strings.TrimSpace(os.Getenv("PANELZE_PHP_BIN"))
 		if phpBin == "" {
 			phpBin = strings.TrimSpace(os.Getenv("PANELSAR_PHP_BIN"))
 		}
@@ -1884,7 +1884,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 
 		// macOS/XAMPP fallback: php --ini içinden Loaded Configuration File parse et.
-		phpBin := strings.TrimSpace(os.Getenv("HOSTVIM_PHP_BIN"))
+		phpBin := strings.TrimSpace(os.Getenv("PANELZE_PHP_BIN"))
 		if phpBin == "" {
 			phpBin = strings.TrimSpace(os.Getenv("PANELSAR_PHP_BIN"))
 		}
@@ -2182,7 +2182,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		})
 
 		engineInternal.POST("/system/reboot", func(c *gin.Context) {
-			cmd := exec.Command("sudo", "-n", "/usr/local/sbin/hostvim-security", "reboot")
+			cmd := exec.Command("sudo", "-n", "/usr/local/sbin/panelze-security", "reboot")
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				log.WithError(err).WithField("output", strings.TrimSpace(string(out))).Warn("system reboot request failed")

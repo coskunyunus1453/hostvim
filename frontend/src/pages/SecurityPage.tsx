@@ -753,11 +753,11 @@ export default function SecurityPage() {
     const needBootstrap =
       !overview.firewall?.enabled || !overview.fail2ban?.enabled || !overview.modsecurity?.enabled
     if (!needBootstrap) return
-    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('hostvim-security-bootstrap-v1') === '1') {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('panelze-security-bootstrap-v1') === '1') {
       return
     }
     if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('hostvim-security-bootstrap-v1', '1')
+      sessionStorage.setItem('panelze-security-bootstrap-v1', '1')
     }
     bootstrapM.mutate()
   }, [isAdmin, q.isLoading, q.isError, overview])

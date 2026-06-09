@@ -24,14 +24,14 @@
         <div class="font-medium text-slate-900 dark:text-slate-100">Lisans API (müşteri paneli)</div>
         <p class="mt-1 text-slate-600 dark:text-slate-400">POST JSON <code class="text-xs">{"key":"hv_..."}</code></p>
         <code class="mt-2 block break-all rounded-lg bg-slate-100 p-3 text-xs dark:bg-slate-950">{{ $api_endpoint }}</code>
-        <p class="mt-2 text-xs text-slate-500">Panel tarafı: <code>LICENSE_SERVER_URL</code> bu siteye işaret etmeli. Bearer: landing <code>HOSTVIM_LICENSE_API_SECRET</code> = panel <code>LICENSE_SERVER_API_SECRET</code> (veya <code>HOSTVIM_LICENSE_API_SECRET</code>).</p>
+        <p class="mt-2 text-xs text-slate-500">Panel tarafı: <code>LICENSE_SERVER_URL</code> bu siteye işaret etmeli. Bearer: landing <code>PANELZE_LICENSE_API_SECRET</code> = panel <code>LICENSE_SERVER_API_SECRET</code> (veya <code>PANELZE_LICENSE_API_SECRET</code>).</p>
     </div>
 
     <div class="mt-4 rounded-2xl border border-slate-200/90 bg-white/90 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/60">
         <div class="font-medium text-slate-900 dark:text-slate-100">Panel güncelleme API</div>
         <p class="mt-1 text-slate-600 dark:text-slate-400">GET <code class="text-xs">?current=1.0.0&amp;profile=customer&amp;channel=stable</code></p>
         <code class="mt-2 block break-all rounded-lg bg-slate-100 p-3 text-xs dark:bg-slate-950">{{ $updates_endpoint }}</code>
-        <p class="mt-2 text-xs text-slate-500">Sürümleri <a href="{{ route('admin.panel-releases.index') }}" class="text-sky-600 underline">Panel sürümleri</a> ekranından yayınlayın. Bearer: <code>HOSTVIM_PANEL_UPDATES_API_SECRET</code> (boşsa lisans secret’ı kullanılır).</p>
+        <p class="mt-2 text-xs text-slate-500">Sürümleri <a href="{{ route('admin.panel-releases.index') }}" class="text-sky-600 underline">Panel sürümleri</a> ekranından yayınlayın. Bearer: <code>PANELZE_PANEL_UPDATES_API_SECRET</code> (boşsa lisans secret’ı kullanılır).</p>
     </div>
 
     <div class="mt-4 rounded-2xl border border-slate-200/90 bg-white/90 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/60">

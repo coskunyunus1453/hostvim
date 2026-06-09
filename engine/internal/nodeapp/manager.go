@@ -90,7 +90,7 @@ func npmBin(cfg *config.Config) string {
 func pm2Name(domain string) string {
 	s := strings.ToLower(strings.TrimSpace(domain))
 	s = strings.ReplaceAll(s, ".", "-")
-	return "hostvim-" + s
+	return "panelze-" + s
 }
 
 func runUser(cfg *config.Config) string {
@@ -102,7 +102,7 @@ func runUser(cfg *config.Config) string {
 }
 
 func pm2Wrapper(cfg *config.Config) string {
-	return "/usr/local/sbin/hostvim-node-pm2"
+	return "/usr/local/sbin/panelze-node-pm2"
 }
 
 func ensurePm2Home(cfg *config.Config) error {
@@ -115,9 +115,9 @@ func pm2Cmd(cfg *config.Config, args ...string) *exec.Cmd {
 	cmdArgs := append([]string{wrapper}, args...)
 	cmd := exec.Command("sudo", cmdArgs...)
 	cmd.Env = append(os.Environ(),
-		"HOSTVIM_PM2_HOME="+pm2Home(cfg),
-		"HOSTVIM_PM2_USER="+runUser(cfg),
-		"HOSTVIM_PM2_BIN="+pm2Bin(cfg),
+		"PANELZE_PM2_HOME="+pm2Home(cfg),
+		"PANELZE_PM2_USER="+runUser(cfg),
+		"PANELZE_PM2_BIN="+pm2Bin(cfg),
 	)
 	return cmd
 }

@@ -1,0 +1,553 @@
+<?php
+/**
+ * Panelze — WHMCS provisioning module (server / hosting product).
+ *
+ * Kurulum:
+ * 1) Bu klasörü WHMCS sunucusuna kopyalayın: modules/servers/panelze/
+ * 2) Panelze panel .env: PANELZE_WHMCS_SECRET=uzun-rastgele-gizli-deger
+ *    İsteğe bağlı: PANELZE_SSO_PANEL_URL=https://panel.example.com/admin
+ * 3) WHMCS → Yapılandırma → Sunucular → Yeni sunucu: Modül=panelze
+ *    - Hostname: panel kök URL (örn. https://panel.ornek.com veya IP)
+ *    - Şifre: PANELZE_WHMCS_SECRET ile aynı (WHMCS şifre alanında saklanır)
+ *    - Kullanıcı adı (yönetici SSO için): Panelze admin hesabının e-postası
+ * 4) Ürün → Modül ayarları: Hosting Package ID, PHP, web sunucusu, Let’s Encrypt
+ * 5) Siparişte alan adı (WHMCS “Domain” alanı) dolu olmalı — engine’de site açılır
+ *
+ * Panel oturumu: WHMCS müşteri e-postası = panel giriş e-postası (clientsdetails.email).
+ *
+ * Ek API uçları (Bearer PANELZE_WHMCS_SECRET):
+ *   GET  .../usage/accounts          — WHMCS UsageUpdate (tüm siteler)
+ *   GET  .../usage/domain?email=&domain=
+ *   POST .../email/create|delete
+ *   POST .../ftp/create|delete
+ *   POST .../database/create|delete
+ *   GET  .../cron/list?email=
+ *   POST .../cron/create|delete
+ *   POST .../sso/mint | sso/mint-admin
+ *   GET  .../dns/list?email=&domain=
+ *   POST .../dns/create|import|import-zone|delete
+ *   POST .../ssl/issue|renew
+ *   POST .../backup/queue
+ *   POST .../email/forwarder/create|delete
+ *   POST .../database/rotate-password
+ *   POST .../change-domain | service/renew
+ *
+ * Müşteri SSO: WHMCS ürün detayında ?dosinglesignon=1 (ServiceSingleSignOn).
+ *
+ * @see https://developers.whmcs.com/provisioning-modules/
+ * @see https://developers.whmcs.com/provisioning-modules/usage-update/
+ */
+
+if (! defined('WHMCS')) {
+    exit('This file cannot be accessed directly');
+}
+
+function panelze_MetaData()
+{
+    return [
+        'DisplayName' => 'Panelze Panel',
+        'APIVersion' => '1.1',
+        'RequiresServer' => true,
+    ];
+}
+
+function panelze_ConfigOptions()
+{
+    return [
+        'Hosting Package ID' => [
+            'Type' => 'text',
+            'Size' => '8',
+            'Default' => '',
+            'Description' => 'Panelze panel: hosting_packages tablosundaki sayısal id (boş = paket atanmaz)',
+        ],
+        'PHP Version' => [
+            'Type' => 'dropdown',
+            'Options' => '8.2,8.3,8.4,8.1,8.0,7.4',
+            'Default' => '8.2',
+            'Description' => 'PHP-FPM sürümü (engine + vhost)',
+        ],
+        'Web Server' => [
+            'Type' => 'dropdown',
+            'Options' => 'nginx,apache,openlitespeed',
+            'Default' => 'nginx',
+            'Description' => 'Site ön uç (nginx/apache/OLS)',
+        ],
+        'Issue Lets Encrypt' => [
+            'Type' => 'yesno',
+            'Description' => 'Kurulumda DV sertifika dene (DNS doğru olmalı)',
+        ],
+    ];
+}
+
+function panelze_TestConnection(array $params)
+{
+    try {
+        panelze_apiGet($params, 'test');
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+function panelze_CreateAccount(array $params)
+{
+    try {
+        $email = panelze_clientEmail($params);
+        $name = panelze_clientFullName($params);
+        $password = (string) ($params['password'] ?? '');
+        if ($password === '') {
+            return 'Ürün şifresi boş; WHMCS otomatik şifre üretimini açın veya şifre girin.';
+        }
+
+        $domain = strtolower(trim((string) ($params['domain'] ?? '')));
+        if ($domain === '') {
+            return 'Alan adı (domain) boş; hosting ürününde birincil alan adı girilmeli.';
+        }
+
+        $pkg = panelze_intOrNull($params['configoption1'] ?? null);
+        $php = trim((string) ($params['configoption2'] ?? ''));
+        if ($php === '') {
+            $php = '8.2';
+        }
+        $server = trim((string) ($params['configoption3'] ?? ''));
+        if ($server === '') {
+            $server = 'nginx';
+        }
+        $issueSsl = panelze_truthy($params['configoption4'] ?? '');
+
+        $payload = [
+            'email' => $email,
+            'name' => $name,
+            'password' => $password,
+            'domain' => $domain,
+            'php_version' => $php,
+            'server_type' => $server,
+            'issue_lets_encrypt' => $issueSsl,
+        ];
+        if ($pkg !== null) {
+            $payload['hosting_package_id'] = $pkg;
+        }
+
+        panelze_apiPost($params, 'provision', $payload);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+function panelze_SuspendAccount(array $params)
+{
+    try {
+        panelze_apiPost($params, 'suspend', ['email' => panelze_clientEmail($params)]);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+function panelze_UnsuspendAccount(array $params)
+{
+    try {
+        panelze_apiPost($params, 'unsuspend', ['email' => panelze_clientEmail($params)]);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+function panelze_TerminateAccount(array $params)
+{
+    try {
+        panelze_apiPost($params, 'terminate', [
+            'email' => panelze_clientEmail($params),
+            'delete_sites' => true,
+        ]);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+function panelze_ChangePassword(array $params)
+{
+    try {
+        $password = (string) ($params['password'] ?? '');
+        if ($password === '') {
+            return 'Yeni şifre boş.';
+        }
+        panelze_apiPost($params, 'change-password', [
+            'email' => panelze_clientEmail($params),
+            'password' => $password,
+        ]);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+function panelze_ChangePackage(array $params)
+{
+    try {
+        $pkg = panelze_intOrNull($params['configoption1'] ?? null);
+        $payload = ['email' => panelze_clientEmail($params)];
+        if ($pkg !== null) {
+            $payload['hosting_package_id'] = $pkg;
+        } else {
+            $payload['hosting_package_id'] = null;
+        }
+        panelze_apiPost($params, 'change-package', $payload);
+
+        $domain = strtolower(trim((string) ($params['domain'] ?? '')));
+        if ($domain !== '') {
+            $php = trim((string) ($params['configoption2'] ?? ''));
+            if ($php === '') {
+                $php = '8.2';
+            }
+            $server = trim((string) ($params['configoption3'] ?? ''));
+            if ($server === '') {
+                $server = 'nginx';
+            }
+            panelze_apiPost($params, 'site/update', [
+                'email' => panelze_clientEmail($params),
+                'domain' => $domain,
+                'php_version' => $php,
+                'server_type' => $server,
+            ]);
+        }
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+/**
+ * Birincil barındırma alan adı değişimi (WHMCS Change Domain).
+ * Parametreler: genelde domain = eski FQDN, newdomain = yeni FQDN (WHMCS sürümüne göre değişebilir).
+ */
+function panelze_ChangeDomain(array $params)
+{
+    try {
+        $new = strtolower(trim((string) ($params['newdomain'] ?? $params['new_domain'] ?? $params['newDomain'] ?? '')));
+        $old = strtolower(trim((string) ($params['olddomain'] ?? $params['originaldomain'] ?? $params['domain'] ?? '')));
+        if ($new === '') {
+            $new = strtolower(trim((string) ($params['domain'] ?? '')));
+            $old = strtolower(trim((string) ($params['olddomain'] ?? $params['originaldomain'] ?? '')));
+        }
+        if ($old === '' || $new === '') {
+            return 'Alan adı değişimi: eski veya yeni FQDN eksik (WHMCS newdomain + domain/olddomain).';
+        }
+        panelze_apiPost($params, 'change-domain', [
+            'email' => panelze_clientEmail($params),
+            'old_domain' => $old,
+            'new_domain' => $new,
+        ], 180);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+/** Hizmet yenileme (faturalama); panelde denetim günlüğü. */
+function panelze_Renew(array $params)
+{
+    try {
+        $domain = strtolower(trim((string) ($params['domain'] ?? '')));
+        $payload = ['email' => panelze_clientEmail($params)];
+        if ($domain !== '') {
+            $payload['domain'] = $domain;
+        }
+        panelze_apiPost($params, 'service/renew', $payload);
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+/**
+ * Müşteri ürün sayfasında Panelze SSO bağlantısı (templates/clientarea.tpl).
+ *
+ * @see https://developers.whmcs.com/provisioning-modules/single-sign-on/
+ */
+function panelze_ClientArea(array $params)
+{
+    $sid = (int) ($params['serviceid'] ?? 0);
+
+    return [
+        'templatefile' => 'clientarea',
+        'vars' => [
+            'ssourl' => 'clientarea.php?action=productdetails&id='.$sid.'&dosinglesignon=1',
+        ],
+    ];
+}
+
+/**
+ * WHMCS yönetim → Panelze panel (sunucu kaydındaki “Kullanıcı adı” = admin e-postası).
+ *
+ * @see https://developers.whmcs.com/provisioning-modules/single-sign-on/
+ */
+function panelze_AdminSingleSignOn(array $params)
+{
+    $return = [
+        'success' => false,
+    ];
+    $response = null;
+    $formatted = null;
+    try {
+        $email = strtolower(trim((string) ($params['serverusername'] ?? '')));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Sunucu “Kullanıcı adı” alanına Panelze admin e-postasını girin.');
+        }
+        $data = panelze_apiPost($params, 'sso/mint-admin', ['email' => $email]);
+        $url = trim((string) ($data['redirect_url'] ?? ''));
+        if ($url === '') {
+            throw new RuntimeException('Admin SSO: redirect_url eksik.');
+        }
+        $return = [
+            'success' => true,
+            'redirectTo' => $url,
+        ];
+        $response = $data;
+        $formatted = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        $return['errorMsg'] = $e->getMessage();
+        $response = $e->getMessage();
+        $formatted = $e->getMessage();
+    }
+
+    if (function_exists('logModuleCall')) {
+        logModuleCall('hostvim', __FUNCTION__, $params, $response, $formatted, ['serverpassword']);
+    }
+
+    return $return;
+}
+
+function panelze_ServiceSingleSignOn(array $params)
+{
+    $return = [
+        'success' => false,
+    ];
+    $response = null;
+    $formatted = null;
+    try {
+        $email = panelze_clientEmail($params);
+        $data = panelze_apiPost($params, 'sso/mint', ['email' => $email]);
+        $url = trim((string) ($data['redirect_url'] ?? ''));
+        if ($url === '') {
+            throw new RuntimeException('SSO: redirect_url eksik.');
+        }
+        $return = [
+            'success' => true,
+            'redirectTo' => $url,
+        ];
+        $response = $data;
+        $formatted = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        $return['errorMsg'] = $e->getMessage();
+        $response = $e->getMessage();
+        $formatted = $e->getMessage();
+    }
+
+    if (function_exists('logModuleCall')) {
+        logModuleCall('hostvim', __FUNCTION__, $params, $response, $formatted, ['serverpassword']);
+    }
+
+    return $return;
+}
+
+function panelze_UsageUpdate(array $params)
+{
+    try {
+        $serverId = (int) ($params['serverid'] ?? 0);
+        if ($serverId <= 0) {
+            return 'Geçersiz sunucu kimliği.';
+        }
+
+        $data = panelze_apiGet($params, 'usage/accounts');
+        $accounts = $data['accounts'] ?? [];
+        if (! is_array($accounts)) {
+            return 'usage/accounts beklenmeyen yanıt.';
+        }
+
+        foreach ($accounts as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $domain = strtolower(trim((string) ($row['domain'] ?? '')));
+            if ($domain === '') {
+                continue;
+            }
+
+            \WHMCS\Database\Capsule::table('tblhosting')
+                ->where('server', $serverId)
+                ->where('domain', $domain)
+                ->update([
+                    'diskusage' => (int) ($row['diskusage'] ?? 0),
+                    'disklimit' => (int) ($row['disklimit'] ?? 0),
+                    'bwusage' => (int) ($row['bandwidth'] ?? 0),
+                    'bwlimit' => (int) ($row['bwlimit'] ?? 0),
+                    'lastupdate' => \WHMCS\Database\Capsule::raw('now()'),
+                ]);
+        }
+
+        return 'success';
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+}
+
+/* -------------------------------------------------------------------------
+ * Yardımcılar
+ * ------------------------------------------------------------------------- */
+
+function panelze_clientEmail(array $params): string
+{
+    $e = trim((string) ($params['clientsdetails']['email'] ?? ''));
+    if ($e === '') {
+        throw new RuntimeException('WHMCS müşteri e-postası boş; panel kullanıcısı e-posta ile eşlenir.');
+    }
+
+    return $e;
+}
+
+function panelze_clientFullName(array $params): string
+{
+    $c = $params['clientsdetails'] ?? [];
+    $first = trim((string) ($c['firstname'] ?? ''));
+    $last = trim((string) ($c['lastname'] ?? ''));
+    $n = trim($first.' '.$last);
+    if ($n !== '') {
+        return $n;
+    }
+    $company = trim((string) ($c['companyname'] ?? ''));
+
+    return $company !== '' ? $company : 'Hosting Customer';
+}
+
+function panelze_intOrNull($v): ?int
+{
+    if ($v === null || $v === '') {
+        return null;
+    }
+    if (is_numeric($v)) {
+        return (int) $v;
+    }
+
+    return null;
+}
+
+function panelze_truthy($v): bool
+{
+    $s = strtolower(trim((string) $v));
+
+    return in_array($s, ['1', 'yes', 'y', 'on', 'true'], true);
+}
+
+function panelze_apiBase(array $params): string
+{
+    $raw = trim((string) ($params['serverhostname'] ?? ''));
+    if ($raw === '') {
+        $raw = trim((string) ($params['serverip'] ?? ''));
+    }
+    $raw = rtrim($raw, '/');
+    if ($raw === '') {
+        throw new RuntimeException('Sunucu Hostname veya IP dolu olmalı.');
+    }
+    if (! preg_match('#^https?://#i', $raw)) {
+        $secure = ! empty($params['serversecure']);
+        $raw = ($secure ? 'https://' : 'http://').$raw;
+    }
+
+    return $raw.'/index.php/api/integrations/whmcs';
+}
+
+function panelze_bearerSecret(array $params): string
+{
+    $s = (string) ($params['serverpassword'] ?? '');
+    if ($s === '') {
+        throw new RuntimeException('Sunucu şifresi (PANELZE_WHMCS_SECRET) tanımlı değil.');
+    }
+
+    return $s;
+}
+
+function panelze_apiGet(array $params, string $path): array
+{
+    $url = panelze_apiBase($params).'/'.ltrim($path, '/');
+    $ch = curl_init($url);
+    if ($ch === false) {
+        throw new RuntimeException('cURL başlatılamadı.');
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'Authorization: Bearer '.panelze_bearerSecret($params),
+        ],
+    ]);
+    $body = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($body === false) {
+        throw new RuntimeException('HTTP isteği başarısız: '.$err);
+    }
+
+    return panelze_parseJsonResponse($body, $code);
+}
+
+function panelze_apiPost(array $params, string $path, array $payload, int $timeoutSeconds = 120): array
+{
+    $url = panelze_apiBase($params).'/'.ltrim($path, '/');
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        throw new RuntimeException('JSON kodlama hatası.');
+    }
+    $ch = curl_init($url);
+    if ($ch === false) {
+        throw new RuntimeException('cURL başlatılamadı.');
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $json,
+        CURLOPT_TIMEOUT => $timeoutSeconds,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Bearer '.panelze_bearerSecret($params),
+        ],
+    ]);
+    $body = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($body === false) {
+        throw new RuntimeException('HTTP isteği başarısız: '.$err);
+    }
+
+    return panelze_parseJsonResponse($body, $code);
+}
+
+function panelze_parseJsonResponse(string $body, int $httpCode): array
+{
+    $data = json_decode($body, true);
+    if (! is_array($data)) {
+        throw new RuntimeException('Geçersiz JSON yanıt (HTTP '.$httpCode.'): '.substr($body, 0, 500));
+    }
+    if ($httpCode >= 400) {
+        $msg = (string) ($data['message'] ?? json_encode($data));
+        throw new RuntimeException($msg.' (HTTP '.$httpCode.')');
+    }
+
+    return $data;
+}

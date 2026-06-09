@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hostvim — tam posta yığını: Postfix (25/587/465) + Dovecot (IMAP) + OpenDKIM + Nginx + Roundcube (SQLite)
+# Panelze — tam posta yığını: Postfix (25/587/465) + Dovecot (IMAP) + OpenDKIM + Nginx + Roundcube (SQLite)
 # Debian 12 / Ubuntu 22.04+ (Ubuntu: universe etkin olmalı — Roundcube için).
 # Üretimde TLS için Let's Encrypt önerilir; ilk kurulum ssl-cert snakeoil kullanır.
 #
@@ -9,7 +9,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 if [[ "$(id -u)" -ne 0 ]]; then
-  echo "hostvim-mail-stack-setup: root ile çalıştırılmalı" >&2
+  echo "panelze-mail-stack-setup: root ile çalıştırılmalı" >&2
   exit 1
 fi
 
@@ -48,7 +48,7 @@ fi
 
 echo "==> Postfix (TLS, SASL → Dovecot, OpenDKIM milter ${OPENDKIM_MILTER})..."
 postconf -e "compatibility_level=3.6"
-postconf -e "smtpd_banner=\$myhostname ESMTP Hostvim"
+postconf -e "smtpd_banner=\$myhostname ESMTP Panelze"
 postconf -e "biff=no"
 postconf -e "append_dot_mydomain=no"
 postconf -e "readme_directory=no"
@@ -78,7 +78,7 @@ fi
 if ! grep -qE '^submission[[:space:]]+inet' "$MASTER_CF" 2>/dev/null; then
   cat >>"$MASTER_CF" <<EOF
 
-# hostvim-mail-stack
+# panelze-mail-stack
 submission inet n       -       y       -       -       smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
@@ -103,7 +103,7 @@ EOF
 fi
 
 echo "==> Dovecot (Postfix SASL soketi; TLS snakeoil)..."
-cat >/etc/dovecot/conf.d/99-hostvim-mail-stack.conf <<EOF
+cat >/etc/dovecot/conf.d/99-panelze-mail-stack.conf <<EOF
 ssl_cert = <${SNAKE_CERT}
 ssl_key = <${SNAKE_KEY}
 
@@ -161,7 +161,7 @@ echo "==> Roundcube (localhost IMAPS/SMTP submission)..."
 install -d -m 0755 /etc/roundcube
 cat >/etc/roundcube/config.local.inc.php <<'PHP'
 <?php
-$config['product_name'] = 'Hostvim Webmail';
+$config['product_name'] = 'Panelze Webmail';
 $config['default_host'] = 'ssl://127.0.0.1';
 $config['default_port'] = 993;
 $config['imap_conn_options'] = [
@@ -185,7 +185,7 @@ $config['smtp_conn_options'] = [
 PHP
 
 echo "==> Nginx (webmail.* — panel varsayılanına dokunulmadı)..."
-cat >/etc/nginx/snippets/hostvim-roundcube-php.conf <<'NGX'
+cat >/etc/nginx/snippets/panelze-roundcube-php.conf <<'NGX'
 location ~ ^/(bin|SQL|config|temp|logs)/ {
   deny all;
 }
@@ -196,9 +196,9 @@ location ~ \.php$ {
   include fastcgi_params;
 }
 NGX
-sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" /etc/nginx/snippets/hostvim-roundcube-php.conf
+sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" /etc/nginx/snippets/panelze-roundcube-php.conf
 
-cat >/etc/nginx/sites-available/hostvim-roundcube <<'NGX'
+cat >/etc/nginx/sites-available/panelze-roundcube <<'NGX'
 server {
   listen 80;
   listen [::]:80;
@@ -209,11 +209,11 @@ server {
   location / {
     try_files $uri $uri/ /index.php?$query_string;
   }
-  include snippets/hostvim-roundcube-php.conf;
+  include snippets/panelze-roundcube-php.conf;
 }
 NGX
 
-ln -sf /etc/nginx/sites-available/hostvim-roundcube /etc/nginx/sites-enabled/50-hostvim-roundcube.conf
+ln -sf /etc/nginx/sites-available/panelze-roundcube /etc/nginx/sites-enabled/50-panelze-roundcube.conf
 
 echo "==> Servisler..."
 systemctl enable postfix dovecot opendkim nginx
@@ -226,7 +226,7 @@ systemctl restart "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-
 nginx -t
 
 echo ""
-echo "=== Hostvim mail stack tamam (mail-stack-webmail) ==="
+echo "=== Panelze mail stack tamam (mail-stack-webmail) ==="
 echo "FQDN: ${HOST_FQDN}"
 echo "Güvenlik duvarı önerisi: ufw allow 25,80,443,143,465,587,993/tcp"
 echo ""

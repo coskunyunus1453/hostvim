@@ -130,6 +130,8 @@ export interface ProcessTopRow {
   pid: number
   name: string
   cpu_percent: number
+  /** Tüm mantıksal çekirdeklere göre pay (üst CPU % ile aynı ölçek). */
+  cpu_percent_of_total?: number
   rss_bytes: number
 }
 

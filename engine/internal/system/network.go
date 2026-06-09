@@ -62,7 +62,7 @@ func skipInterface(name string) bool {
 func aliasesPath(dataDir string) string {
 	base := strings.TrimSpace(dataDir)
 	if base == "" {
-		base = "/var/lib/hostvim"
+		base = "/var/lib/panelze"
 	}
 	return filepath.Join(base, "network-aliases.json")
 }

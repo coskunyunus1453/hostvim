@@ -550,8 +550,8 @@ func handleSiteLogs(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 
 		nginxAccess := filepath.Join(cfg.Paths.LogDir, domain+"_access.log")
 		nginxError := filepath.Join(cfg.Paths.LogDir, domain+"_error.log")
-		apacheAccess := filepath.Join("/var/log/apache2", "hostvim-"+domain+"-access.log")
-		apacheError := filepath.Join("/var/log/apache2", "hostvim-"+domain+"-error.log")
+		apacheAccess := filepath.Join("/var/log/apache2", "panelze-"+domain+"-access.log")
+		apacheError := filepath.Join("/var/log/apache2", "panelze-"+domain+"-error.log")
 
 		entries := []gin.H{}
 		for _, item := range []struct {
@@ -666,7 +666,7 @@ func tailFileElevated(path string, lines int) (string, error) {
 	if lines > 5000 {
 		lines = 5000
 	}
-	cmd := exec.Command("sudo", "-n", "/usr/local/sbin/hostvim-security", "log-tail", path, strconv.Itoa(lines))
+	cmd := exec.Command("sudo", "-n", "/usr/local/sbin/panelze-security", "log-tail", path, strconv.Itoa(lines))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))

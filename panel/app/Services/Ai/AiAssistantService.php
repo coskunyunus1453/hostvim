@@ -378,7 +378,7 @@ class AiAssistantService
      */
     private function parseActions(string $content): array
     {
-        if (! preg_match('/```hostvim-actions\s*([\s\S]*?)```/i', $content, $m)) {
+        if (! preg_match('/```panelze-actions\s*([\s\S]*?)```/i', $content, $m)) {
             return [];
         }
         $json = trim($m[1]);

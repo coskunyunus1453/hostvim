@@ -5,24 +5,24 @@ return [
      * Boş: yalnızca geçerli lisans anahtarı yeterli (rate limit önerilir).
      * Dolu: POST /api/v1/license/validate için Authorization: Bearer <değer> zorunlu.
      */
-    'license_api_secret' => env('HOSTVIM_LICENSE_API_SECRET', ''),
+    'license_api_secret' => env('PANELZE_LICENSE_API_SECRET', ''),
 
     /**
      * Panel güncelleme hub API (GET /api/v1/panel-updates/check).
      * Dolu ise Authorization: Bearer zorunlu.
      */
-    'panel_updates_api_secret' => env('HOSTVIM_PANEL_UPDATES_API_SECRET', env('HOSTVIM_LICENSE_API_SECRET', '')),
+    'panel_updates_api_secret' => env('PANELZE_PANEL_UPDATES_API_SECRET', env('PANELZE_LICENSE_API_SECRET', '')),
 
     /**
      * Ödeme: Türkiye → PayTR, diğer → Stripe (locale veya zorlama ile).
      */
     'billing' => [
         /** auto | paytr | stripe — auto iken locale ve force_provider’a bakılır */
-        'default_provider' => env('HOSTVIM_BILLING_DEFAULT', 'auto'),
+        'default_provider' => env('PANELZE_BILLING_DEFAULT', 'auto'),
         /** Boş değilse (paytr|stripe) her zaman bu sağlayıcı kullanılır */
-        'force_provider' => env('HOSTVIM_BILLING_FORCE_PROVIDER', ''),
+        'force_provider' => env('PANELZE_BILLING_FORCE_PROVIDER', ''),
         /** default_provider=auto iken bu locale’ler PayTR seçer */
-        'turkish_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('HOSTVIM_BILLING_TR_LOCALES', 'tr'))))),
+        'turkish_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('PANELZE_BILLING_TR_LOCALES', 'tr'))))),
     ],
 
     'paytr' => [

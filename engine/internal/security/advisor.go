@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ApplyFirewallRule iptables HOSTVIM-FW zincirine kural ekler (hostvim-security).
+// ApplyFirewallRule iptables PANELZE-FW zincirine kural ekler (panelze-security).
 func ApplyFirewallRule(action, protocol, port, source string) error {
 	action = strings.ToLower(strings.TrimSpace(action))
 	protocol = strings.ToLower(strings.TrimSpace(protocol))
@@ -116,7 +116,7 @@ func BuildAdvisorReport(overview map[string]interface{}) (score int, items []Adv
 		Key: "firewall", Severity: "medium", Tab: "firewall", ActionKey: "review_firewall",
 		Ok: fwOn,
 		Title: "Güvenlik duvarı koruması",
-		Detail: pick(fwOn, pick(ruleCount > 0, fmt.Sprintf("HOSTVIM-FW aktif (%d kayıtlı kural).", ruleCount), "Güvenlik duvarı zinciri aktif."), "Güvenlik duvarı kapalı veya yapılandırılmamış — Güvenlik Duvarı sekmesinden etkinleştirin."),
+		Detail: pick(fwOn, pick(ruleCount > 0, fmt.Sprintf("PANELZE-FW aktif (%d kayıtlı kural).", ruleCount), "Güvenlik duvarı zinciri aktif."), "Güvenlik duvarı kapalı veya yapılandırılmamış — Güvenlik Duvarı sekmesinden etkinleştirin."),
 	})
 
 	if score < 0 {

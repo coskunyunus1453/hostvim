@@ -33,7 +33,7 @@ func ReplaceHostRootSuffix(host, oldRoot, newRoot string) string {
 }
 
 func listSubdomainPathSegments(webRoot, parent string) ([]string, error) {
-	subDir := filepath.Join(webRoot, parent, ".hostvim", "subdomains")
+	subDir := filepath.Join(webRoot, parent, ".panelze", "subdomains")
 	entries, err := os.ReadDir(subDir)
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -57,7 +57,7 @@ Aşağıdaki **Güncel kurulum komutları** bölümünde deploy betikleriyle uyu
 
 > **Üretim:** Betiği çalıştırmadan önce imza / checksum doğrulaması ve betik içeriğinin incelemesi şart sayılmalıdır. Test ortamında önce deneyin. Komutları yalnızca Debian/Ubuntu VPS üzerinde root veya sudo ile çalıştırın.
 
-Kurulum betiği tipik olarak şunları yapar: `git` ile `/var/www/hostvim` altına kodu çeker, `deploy/bootstrap/install-production.sh` ile Nginx, PHP, MariaDB, Engine derlemesi ve frontend build çalıştırır. İlk yönetici bilgisi `/root/hostvim-admin-login.txt` dosyasına yazılır.
+Kurulum betiği tipik olarak şunları yapar: `git` ile `/var/www/panelze` altına kodu çeker, `deploy/bootstrap/install-production.sh` ile Nginx, PHP, MariaDB, Engine derlemesi ve frontend build çalıştırır. İlk yönetici bilgisi `/root/panelze-admin-login.txt` dosyasına yazılır.
 
 ---
 
@@ -132,7 +132,7 @@ Use the **Current install commands** section below — it lists every supported 
 
 > **Production:** Treat every `curl | bash` as privileged code execution — verify checksums / signatures and review the script before it touches production. Always pilot in staging on Debian/Ubuntu with root or sudo.
 
-The installer typically clones into `/var/www/hostvim`, then runs `deploy/bootstrap/install-production.sh` (Nginx, PHP, MariaDB, Engine build, frontend). First admin credentials are written to `/root/hostvim-admin-login.txt`.
+The installer typically clones into `/var/www/panelze`, then runs `deploy/bootstrap/install-production.sh` (Nginx, PHP, MariaDB, Engine build, frontend). First admin credentials are written to `/root/panelze-admin-login.txt`.
 
 ---
 
@@ -330,8 +330,8 @@ Güncel komutlar sayfanın altındaki **Kurulum komutları** bölümünde listel
 
 Betiğin tamamlandıktan sonra:
 
-- `sudo systemctl status hostvim-engine` — Engine servisi **active** olmalı
-- `sudo cat /root/hostvim-admin-login.txt` — ilk yönetici e-posta/parola
+- `sudo systemctl status panelze-engine` — Engine servisi **active** olmalı
+- `sudo cat /root/panelze-admin-login.txt` — ilk yönetici e-posta/parola
 - Tarayıcıdan panel URL’si (Nginx varsayılanında sunucu IP veya `SERVER_NAME`)
 
 ---
@@ -416,8 +416,8 @@ Exact commands are listed in the **Install commands** block at the bottom of thi
 
 After the script finishes:
 
-- `sudo systemctl status hostvim-engine` — Engine unit should be **active**
-- `sudo cat /root/hostvim-admin-login.txt` — first admin email/password
+- `sudo systemctl status panelze-engine` — Engine unit should be **active**
+- `sudo cat /root/panelze-admin-login.txt` — first admin email/password
 - Open the panel URL in a browser (server IP or your `SERVER_NAME` in Nginx)
 
 ---

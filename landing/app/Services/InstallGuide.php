@@ -47,21 +47,21 @@ final class InstallGuide
     {
         $url = self::settings()['pro_script'];
 
-        return "HOSTVIM_LICENSE_KEY=\"{$licensePlaceholder}\" curl -fsSL {$url} | sudo bash";
+        return "PANELZE_LICENSE_KEY=\"{$licensePlaceholder}\" curl -fsSL {$url} | sudo bash";
     }
 
     public static function updateCommunity(): string
     {
         $url = self::settings()['update_community_script'];
 
-        return "curl -fsSL {$url} -o /tmp/hostvim-update.sh && sudo bash /tmp/hostvim-update.sh";
+        return "curl -fsSL {$url} -o /tmp/panelze-update.sh && sudo bash /tmp/panelze-update.sh";
     }
 
     public static function updatePro(string $licensePlaceholder = 'hv_...'): string
     {
         $url = self::settings()['update_pro_script'];
 
-        return "curl -fsSL {$url} -o /tmp/hostvim-update.sh && HOSTVIM_LICENSE_KEY=\"{$licensePlaceholder}\" sudo bash /tmp/hostvim-update.sh";
+        return "curl -fsSL {$url} -o /tmp/panelze-update.sh && PANELZE_LICENSE_KEY=\"{$licensePlaceholder}\" sudo bash /tmp/panelze-update.sh";
     }
 
     public static function remote(): string
@@ -150,14 +150,14 @@ BASH,
                     'label' => 'Rebuild Engine binary',
                     'command' => <<<BASH
 cd {$home}/engine
-sudo go build -buildvcs=false -o /usr/local/bin/hostvim-engine ./cmd/hostvim-engine
-sudo systemctl restart hostvim-engine
+sudo go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine
+sudo systemctl restart panelze-engine
 BASH,
                     'note' => 'Run when Go/engine code changed.',
                 ],
                 [
                     'label' => 'Post-install repair',
-                    'command' => 'sudo hostvim-post-install',
+                    'command' => 'sudo panelze-post-install',
                     'note' => 'Fixes common MySQL credential drift, permissions, and service wiring after upgrades.',
                 ],
                 [
@@ -219,14 +219,14 @@ BASH,
                 'label' => 'Engine yeniden derleme',
                 'command' => <<<BASH
 cd {$home}/engine
-sudo go build -buildvcs=false -o /usr/local/bin/hostvim-engine ./cmd/hostvim-engine
-sudo systemctl restart hostvim-engine
+sudo go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine
+sudo systemctl restart panelze-engine
 BASH,
                 'note' => 'Go/engine kodu değiştiyse çalıştırın.',
             ],
             [
                 'label' => 'Kurulum sonrası onarım',
-                'command' => 'sudo hostvim-post-install',
+                'command' => 'sudo panelze-post-install',
                 'note' => 'MySQL kimlik bilgisi, izinler ve servis eşlemesi sorunlarını giderir.',
             ],
             [

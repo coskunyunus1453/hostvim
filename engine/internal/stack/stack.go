@@ -11,7 +11,7 @@ import (
 	"hostvim/engine/internal/config"
 )
 
-const defaultInstallScript = "/usr/local/sbin/hostvim-stack-install"
+const defaultInstallScript = "/usr/local/sbin/panelze-stack-install"
 
 func stackInstallScriptPath(cfg *config.Config) string {
 	if cfg == nil {

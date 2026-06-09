@@ -30,7 +30,7 @@ class SeoAnalyzerService
                 'allow_redirects' => ['max' => 5, 'strict' => false],
             ])
                 ->withHeaders([
-                    'User-Agent' => 'Hostvim-SEO-Analyzer/1.0 (+https://hostvim.com)',
+                    'User-Agent' => 'Panelze-SEO-Analyzer/1.0 (+https://panelze.com)',
                     'Accept' => 'text/html,application/xhtml+xml',
                 ])
                 ->timeout(max(5, (int) config('hostvim.curious.seo_timeout', 20)))

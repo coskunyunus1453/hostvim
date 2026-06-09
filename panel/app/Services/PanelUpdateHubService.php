@@ -21,7 +21,7 @@ class PanelUpdateHubService
             return null;
         }
 
-        $cacheKey = 'hostvim:panel-update-check:'.md5($hub.'|'.$current.'|'.$profile.'|'.$channel);
+        $cacheKey = 'panelze:panel-update-check:'.md5($hub.'|'.$current.'|'.$profile.'|'.$channel);
         $ttl = max(60, (int) config('hostvim.updates.check_cache_seconds', 300));
 
         return Cache::remember($cacheKey, $ttl, function () use ($hub, $current, $profile, $channel): ?array {
@@ -51,7 +51,7 @@ class PanelUpdateHubService
                     return [
                         'ok' => false,
                         'code' => 'hub_unauthorized',
-                        'message' => 'Update hub rejected API token. Match HOSTVIM_PANEL_UPDATES_API_SECRET / HOSTVIM_LICENSE_API_SECRET between landing and panel.',
+                        'message' => 'Update hub rejected API token. Match PANELZE_PANEL_UPDATES_API_SECRET / PANELZE_LICENSE_API_SECRET between landing and panel.',
                         'http_status' => $response->status(),
                     ];
                 }

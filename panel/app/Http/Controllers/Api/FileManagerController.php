@@ -21,11 +21,11 @@ class FileManagerController extends Controller
     use AuthorizesUserDomain;
     use ResolvesHostingSiteTarget;
 
-    private const TRASH_DIR = '.hostvim-trash';
+    private const TRASH_DIR = '.panelze-trash';
 
-    private const TRASH_ITEMS_DIR = '.hostvim-trash/items';
+    private const TRASH_ITEMS_DIR = '.panelze-trash/items';
 
-    private const TRASH_META_DIR = '.hostvim-trash/meta';
+    private const TRASH_META_DIR = '.panelze-trash/meta';
 
     public function __construct(
         private EngineApiService $engine,
@@ -144,7 +144,7 @@ class FileManagerController extends Controller
             if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '/')) {
                 continue;
             }
-            if ($name === self::TRASH_DIR || $name === '.hostvim-trash') {
+            if ($name === self::TRASH_DIR || $name === '.panelze-trash') {
                 continue;
             }
             $childRel = $rel === '' ? $name : $rel.'/'.$name;

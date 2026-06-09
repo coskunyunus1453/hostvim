@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import publicApi from '../services/publicApi'
 
 /** Oturum boyunca ?wl= ile seçilen bayi (aynı origin üzerinde white-label). */
-export const WL_SESSION_KEY = 'hostvim-wl-slug'
+export const WL_SESSION_KEY = 'panelze-wl-slug'
 
 export interface BrandingPayload {
   logo_customer_url: string | null

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Hostvim: engine + Laravel API + Vite (macOS / Homebrew PHP & Go)
+# Panelze: engine + Laravel API + Vite (macOS / Homebrew PHP & Go)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export HOSTVIM_HOME="$ROOT"
+export PANELZE_HOME="$ROOT"
 export PANELSAR_HOME="$ROOT"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-echo "Hostvim geliştirme ortamı başlatılıyor…"
+echo "Panelze geliştirme ortamı başlatılıyor…"
 echo "Kök: $ROOT"
 
 lsof -ti :9090 | xargs kill -9 2>/dev/null || true
@@ -14,11 +14,11 @@ lsof -ti :8000 | xargs kill -9 2>/dev/null || true
 lsof -ti :3000 | xargs kill -9 2>/dev/null || true
 sleep 1
 
-if [[ ! -f "$ROOT/engine/bin/hostvim-engine" ]]; then
-  (cd "$ROOT/engine" && go mod tidy && go build -o bin/hostvim-engine ./cmd/hostvim-engine/)
+if [[ ! -f "$ROOT/engine/bin/panelze-engine" ]]; then
+  (cd "$ROOT/engine" && go mod tidy && go build -o bin/panelze-engine ./cmd/panelze-engine/)
 fi
 
-HOSTVIM_CONFIG_DIR="$ROOT/engine/configs" PANELSAR_CONFIG_DIR="$ROOT/engine/configs" "$ROOT/engine/bin/hostvim-engine" &
+PANELZE_CONFIG_DIR="$ROOT/engine/configs" PANELSAR_CONFIG_DIR="$ROOT/engine/configs" "$ROOT/engine/bin/panelze-engine" &
 echo "Engine → http://127.0.0.1:9090"
 
 (cd "$ROOT/panel" && php artisan serve --host=127.0.0.1 --port=8000) &
@@ -31,6 +31,6 @@ sleep 3
 open "http://127.0.0.1:3000/login" 2>/dev/null || true
 
 echo ""
-echo "Giriş: admin@hostvim.com / password"
+echo "Giriş: admin@panelze.com / password"
 echo "Durdurmak için: kill \$(lsof -ti :9090) \$(lsof -ti :8000) \$(lsof -ti :3000)"
 wait

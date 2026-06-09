@@ -7,7 +7,7 @@ return [
     'repo_branch' => env('PANELZE_REPO_BRANCH', 'main'),
 
     /** Panel + engine kurulum kökü. */
-    'install_home' => env('PANELZE_INSTALL_HOME', '/var/www/hostvim'),
+    'install_home' => env('PANELZE_INSTALL_HOME', '/var/www/panelze'),
 
     /** Tek satır kısa domain: curl -fsSL … | bash */
     'install_one_liner_url' => env('PANELZE_GET_INSTALL_URL', 'https://get.panelze.sh'),
@@ -45,5 +45,5 @@ return [
     ),
 
     /** İlk admin bilgisi dosyası (install.sh sonrası). */
-    'admin_login_file' => env('PANELZE_ADMIN_LOGIN_FILE', '/root/hostvim-admin-login.txt'),
+    'admin_login_file' => env('PANELZE_ADMIN_LOGIN_FILE', '/root/panelze-admin-login.txt'),
 ];

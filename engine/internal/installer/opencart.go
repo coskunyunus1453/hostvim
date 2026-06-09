@@ -46,7 +46,7 @@ func installOpenCart(cfg *config.Config, domain string, db *DBConfig) error {
 	if err := os.MkdirAll(cfg.Paths.TempDir, 0o755); err != nil {
 		return fmt.Errorf("temp dir: %w", err)
 	}
-	zipFile := filepath.Join(cfg.Paths.TempDir, "hostvim-opencart-"+domain+".zip")
+	zipFile := filepath.Join(cfg.Paths.TempDir, "panelze-opencart-"+domain+".zip")
 	if err := downloadFile(zipURL, zipFile, 20*time.Minute); err != nil {
 		return err
 	}
@@ -89,8 +89,8 @@ func writeOpenCartInstallHint(webRoot, domain string, db *DBConfig) error {
 		return fmt.Errorf("opencart hint: db adı veya kullanıcı boş")
 	}
 	body := fmt.Sprintf(
-		"# Hostvim — OpenCart kurulum sihirbazı için veritabanı özeti (şifre yok).\n"+
-			"# Konum: alan_adı/.hostvim/opencart-db-hint.txt (genelde public_html dışında)\n"+
+		"# Panelze — OpenCart kurulum sihirbazı için veritabanı özeti (şifre yok).\n"+
+			"# Konum: alan_adı/.panelze/opencart-db-hint.txt (genelde public_html dışında)\n"+
 			"# Kurulumdan sonra silebilirsiniz.\n\n"+
 			"DB_HOST=%s\nDB_PORT=%d\nDB_NAME=%s\nDB_USER=%s\n",
 		host, port, dbName, dbUser,

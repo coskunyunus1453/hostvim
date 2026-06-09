@@ -57,7 +57,7 @@ func BuildServerNamesLine(primary string, aliases []string) string {
 	return strings.Join(parts, " ")
 }
 
-const vhostTemplateSSL = `# Hostvim — {{.PrimaryLabel}} (HTTPS)
+const vhostTemplateSSL = `# Panelze — {{.PrimaryLabel}} (HTTPS)
 server {
     listen 80;
     listen [::]:80;
@@ -82,11 +82,11 @@ server {
     ssl_certificate {{.SSLFullChain}};
     ssl_certificate_key {{.SSLPrivKey}};
     ssl_session_timeout 1d;
-    ssl_session_cache shared:HostvimSSL:10m;
+    ssl_session_cache shared:PanelzeSSL:10m;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
 {{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
-    # Hostvim Performance Mode (standard)
+    # Panelze Performance Mode (standard)
     gzip on;
     gzip_static on;
     gzip_vary on;
@@ -103,7 +103,7 @@ server {
         access_log off;
         try_files $uri =404;
     }
-    add_header X-Hostvim-Perf "standard" always;
+    add_header X-Panelze-Perf "standard" always;
 {{end}}
 
     root {{.DocRoot}};
@@ -186,13 +186,13 @@ server {
 `
 
 // vhostTemplateSSLDual — HTTP içerik servisi + HTTPS (zorla yönlendirme kapalı).
-const vhostTemplateSSLDual = `# Hostvim — {{.PrimaryLabel}} (HTTP + HTTPS)
+const vhostTemplateSSLDual = `# Panelze — {{.PrimaryLabel}} (HTTP + HTTPS)
 server {
     listen 80;
     listen [::]:80;
     server_name {{.ServerNames}};
 {{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
-    # Hostvim Performance Mode (standard)
+    # Panelze Performance Mode (standard)
     gzip on;
     gzip_static on;
     gzip_vary on;
@@ -209,7 +209,7 @@ server {
         access_log off;
         try_files $uri =404;
     }
-    add_header X-Hostvim-Perf "standard" always;
+    add_header X-Panelze-Perf "standard" always;
 {{end}}
     root {{.DocRoot}};
     index index.php index.html;
@@ -300,7 +300,7 @@ server {
     ssl_certificate {{.SSLFullChain}};
     ssl_certificate_key {{.SSLPrivKey}};
     ssl_session_timeout 1d;
-    ssl_session_cache shared:HostvimSSL:10m;
+    ssl_session_cache shared:PanelzeSSL:10m;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
 {{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
@@ -320,7 +320,7 @@ server {
         access_log off;
         try_files $uri =404;
     }
-    add_header X-Hostvim-Perf "standard" always;
+    add_header X-Panelze-Perf "standard" always;
 {{end}}
 
     root {{.DocRoot}};
@@ -398,13 +398,13 @@ server {
 }
 `
 
-const vhostTemplateHTTP = `# Hostvim — {{.PrimaryLabel}}
+const vhostTemplateHTTP = `# Panelze — {{.PrimaryLabel}}
 server {
     listen 80;
     listen [::]:80;
     server_name {{.ServerNames}};
 {{if and (eq .PerfMode "standard") (eq .ProxyPort 0)}}
-    # Hostvim Performance Mode (standard)
+    # Panelze Performance Mode (standard)
     gzip on;
     gzip_static on;
     gzip_vary on;
@@ -421,7 +421,7 @@ server {
         access_log off;
         try_files $uri =404;
     }
-    add_header X-Hostvim-Perf "standard" always;
+    add_header X-Panelze-Perf "standard" always;
 {{end}}
     root {{.DocRoot}};
     index index.php index.html;
@@ -556,7 +556,7 @@ func EffectivePHPSocket(phpVersion, socketOverride string) string {
 }
 
 func confBaseName(domain string) string {
-	return "hostvim-" + strings.ToLower(domain) + ".conf"
+	return "panelze-" + strings.ToLower(domain) + ".conf"
 }
 
 // ApplyVhost sites-available altına conf yazar ve istenirse sites-enabled’a sembolik bağ oluşturur.
@@ -654,7 +654,7 @@ func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, 
 		return fmt.Errorf("write vhost: %w", err)
 	}
 
-	// www-data /etc/nginx/sites-enabled altına yazamaz; sudo + deploy/host/hostvim-nginx-vhost
+	// www-data /etc/nginx/sites-enabled altına yazamaz; sudo + deploy/host/panelze-nginx-vhost
 	if err := runNginxVhostHelper(cfg, "enable", avail); err != nil {
 		_ = runNginxVhostHelper(cfg, "disable", base)
 		if hadOld {
@@ -673,7 +673,7 @@ func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, 
 	return nil
 }
 
-const defaultNginxVhostHelper = "/usr/local/sbin/hostvim-nginx-vhost"
+const defaultNginxVhostHelper = "/usr/local/sbin/panelze-nginx-vhost"
 
 func nginxVhostHelperPath(cfg *config.Config) string {
 	if cfg == nil {
@@ -730,7 +730,7 @@ func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 const maxRawVhostBytes = 512 << 10
 
 func vhostPrevPath(main string) string {
-	return main + ".hostvim-prev"
+	return main + ".panelze-prev"
 }
 
 // VhostCanRevert son başarılı kayıttan önceki içerik dosyası var mı.
@@ -749,7 +749,7 @@ func VhostCanRevert(cfg *config.Config, domain string) (bool, error) {
 	return fi.Size() > 0, nil
 }
 
-// VhostFilePath yönetilen nginx sanal host dosyasının mutlak yolunu döndürür (hostvim-<domain>.conf).
+// VhostFilePath yönetilen nginx sanal host dosyasının mutlak yolunu döndürür (panelze-<domain>.conf).
 func VhostFilePath(cfg *config.Config, domain string) (string, error) {
 	domain = strings.ToLower(strings.TrimSpace(domain))
 	if domain == "" || strings.Contains(domain, "..") || !domainSafe.MatchString(domain) {
@@ -785,7 +785,7 @@ func ReadVhostFile(cfg *config.Config, domain string) ([]byte, error) {
 	return os.ReadFile(p)
 }
 
-// WriteVhostRaw vhost içeriğini yazar, nginx -t ve reload için hostvim-nginx-vhost enable çalıştırır.
+// WriteVhostRaw vhost içeriğini yazar, nginx -t ve reload için panelze-nginx-vhost enable çalıştırır.
 // Başarısızlıkta önceki içerik geri yüklenmeye çalışılır.
 func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 	if !cfg.Hosting.NginxManageVhosts {
@@ -844,7 +844,7 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 }
 
 // RevertVhostRaw son başarılı kayıttan önceki içeriği geri yükler (nginx -t + reload).
-// Başarılı olursa şu anki içerik .hostvim-prev içine alınır; tekrar geri al ile iki sürüm arasında geçilebilir.
+// Başarılı olursa şu anki içerik .panelze-prev içine alınır; tekrar geri al ile iki sürüm arasında geçilebilir.
 func RevertVhostRaw(cfg *config.Config, domain string) error {
 	if !cfg.Hosting.NginxManageVhosts {
 		return fmt.Errorf("nginx vhost management is disabled")

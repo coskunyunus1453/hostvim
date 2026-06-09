@@ -135,9 +135,9 @@ type HostingConfig struct {
 	WordPressZipURL  string `mapstructure:"wordpress_zip_url"`
 	OpenCartZipURL   string `mapstructure:"opencart_zip_url"`
 
-	// NginxVhostHelper — sudo ile çağrılan betik (varsayılan: /usr/local/sbin/hostvim-nginx-vhost).
+	// NginxVhostHelper — sudo ile çağrılan betik (varsayılan: /usr/local/sbin/panelze-nginx-vhost).
 	NginxVhostHelper string `mapstructure:"nginx_vhost_helper"`
-	// StackInstallScript — panel stack demetleri için sudo betiği (varsayılan: /usr/local/sbin/hostvim-stack-install).
+	// StackInstallScript — panel stack demetleri için sudo betiği (varsayılan: /usr/local/sbin/panelze-stack-install).
 	StackInstallScript string `mapstructure:"stack_install_script"`
 
 	// Faz 6 — gerçek dosya yedeği (Linux prod: execute_backups true; XAMPP’te false bırakın)
@@ -151,15 +151,15 @@ func Load() (*Config, error) {
 	viper.SetConfigName("engine")
 	viper.SetConfigType("yaml")
 
-	configDir := strings.TrimSpace(os.Getenv("HOSTVIM_CONFIG_DIR"))
+	configDir := strings.TrimSpace(os.Getenv("PANELZE_CONFIG_DIR"))
 	if configDir == "" {
 		configDir = strings.TrimSpace(os.Getenv("PANELSAR_CONFIG_DIR")) // eski kurulumlar
 	}
 	if configDir == "" {
-		configDir = "/etc/hostvim"
+		configDir = "/etc/panelze"
 	}
 	viper.AddConfigPath(configDir)
-	viper.AddConfigPath("/etc/hostvim")
+	viper.AddConfigPath("/etc/panelze")
 	viper.AddConfigPath("/etc/panelsar")
 	viper.AddConfigPath(filepath.Join(".", "configs"))
 	viper.AddConfigPath(".")
@@ -190,7 +190,7 @@ func (c *Config) resolvePaths() {
 	if c.Paths.WebRoot != "" {
 		return
 	}
-	home := strings.TrimSpace(os.Getenv("HOSTVIM_HOME"))
+	home := strings.TrimSpace(os.Getenv("PANELZE_HOME"))
 	if home == "" {
 		home = strings.TrimSpace(os.Getenv("PANELSAR_HOME")) // eski kurulumlar
 	}
@@ -212,7 +212,7 @@ func (c *Config) resolvePaths() {
 	if c.Paths.TempDir == "" || c.Paths.TempDir == "/tmp/panelsar" || c.Paths.TempDir == "/tmp/hostvim" {
 		c.Paths.TempDir = filepath.Join(home, "data", "tmp")
 	}
-	if c.Paths.SSLDir == "" || c.Paths.SSLDir == "/etc/panelsar/ssl" || c.Paths.SSLDir == "/etc/hostvim/ssl" {
+	if c.Paths.SSLDir == "" || c.Paths.SSLDir == "/etc/panelsar/ssl" || c.Paths.SSLDir == "/etc/panelze/ssl" {
 		c.Paths.SSLDir = filepath.Join(home, "data", "ssl")
 	}
 }
@@ -243,7 +243,7 @@ func setDefaults() {
 
 	viper.SetDefault("paths.web_root", "")
 	viper.SetDefault("paths.vhosts_dir", "/etc/nginx/sites-available")
-	viper.SetDefault("paths.ssl_dir", "/etc/hostvim/ssl")
+	viper.SetDefault("paths.ssl_dir", "/etc/panelze/ssl")
 	viper.SetDefault("paths.backup_dir", "/var/backups/hostvim")
 	viper.SetDefault("paths.log_dir", "/var/log/hostvim")
 	viper.SetDefault("paths.temp_dir", "/tmp/hostvim")
@@ -289,8 +289,8 @@ func setDefaults() {
 	viper.SetDefault("hosting.node_watchdog_interval_seconds", 60)
 	viper.SetDefault("hosting.tools_max_seconds", 300)
 	viper.SetDefault("hosting.wordpress_zip_url", "https://wordpress.org/latest.zip")
-	viper.SetDefault("hosting.nginx_vhost_helper", "/usr/local/sbin/hostvim-nginx-vhost")
-	viper.SetDefault("hosting.stack_install_script", "/usr/local/sbin/hostvim-stack-install")
+	viper.SetDefault("hosting.nginx_vhost_helper", "/usr/local/sbin/panelze-nginx-vhost")
+	viper.SetDefault("hosting.stack_install_script", "/usr/local/sbin/panelze-stack-install")
 
 	viper.SetDefault("hosting.execute_backups", false)
 	viper.SetDefault("hosting.backup_tar_path", "tar")

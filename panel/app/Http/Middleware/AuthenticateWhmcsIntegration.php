@@ -13,7 +13,7 @@ class AuthenticateWhmcsIntegration
         $expected = (string) config('hostvim.whmcs_integration.secret', '');
         if ($expected === '') {
             abort(response()->json([
-                'message' => 'WHMCS entegrasyonu yapılandırılmadı (HOSTVIM_WHMCS_SECRET).',
+                'message' => 'WHMCS entegrasyonu yapılandırılmadı (PANELZE_WHMCS_SECRET).',
             ], 503));
         }
 
@@ -25,6 +25,9 @@ class AuthenticateWhmcsIntegration
             $token = trim($auth);
         }
 
+        if ($token === '') {
+            $token = trim((string) $request->header('X-Panelze-Integration', ''));
+        }
         if ($token === '') {
             $token = trim((string) $request->header('X-Hostvim-Integration', ''));
         }

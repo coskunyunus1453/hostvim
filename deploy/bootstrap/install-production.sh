@@ -5,15 +5,15 @@
 # Hedef: güvenlik (engine yalnızca loopback), hız (gzip, static cache), kolaylık (tek komut iskeleti)
 #
 # Kullanım (root) — sıfır sunucu:
-#   git clone <repo> /var/www/hostvim && cd /var/www/hostvim
+#   git clone <repo> /var/www/panelze && cd /var/www/panelze
 #   sudo bash deploy/bootstrap/install-production.sh
 #
 # Sadece kod/config güncellemesi (paket kurulumu atlanır):
-#   cd /var/www/hostvim && git pull --ff-only
+#   cd /var/www/panelze && git pull --ff-only
 #   SKIP_APT=1 sudo -E bash deploy/bootstrap/install-production.sh
 #
 # Ortam değişkenleri (isteğe bağlı):
-#   HOSTVIM_HOME=/var/www/hostvim   (verilmezse repo kökü = betiğin bulunduğu proje; eski: PANELSAR_HOME yedeği)
+#   PANELZE_HOME=/var/www/panelze   (verilmezse repo kökü = betiğin bulunduğu proje; eski: PANELSAR_HOME yedeği)
 #   SERVER_NAME=_          # sadece IP ile erişim için default_server (nginx şablonunda _)
 #   LETS_ENCRYPT_EMAIL=admin@ornek.com
 #   SKIP_APT=1             # paket kurulumunu atla (yeniden çalıştırma)
@@ -21,34 +21,34 @@
 #   WITH_MARIADB=1         # MariaDB kur ve panel veritabanını oluştur (önerilir)
 #   WITH_POSTGRES=1        # Engine için PostgreSQL (isteğe bağlı)
 #   WITH_NODE_REPO=1       # NodeSource 20.x ekle (frontend build için önerilir)
-#   HOSTVIM_GO_VERSION=1.23.4  # engine/go.mod ile uyumlu (varsayılan; go.dev'den kurulur)
-#   HOSTVIM_PHP_VERSION=8.4    # panel/composer.lock (Ondrej/Sury); Symfony 8 için 8.4 önerilir
-#   HOSTVIM_EXTRA_PHP_FPM_VERSIONS="8.3 8.2"  # ek FPM (boş = yalnız ana sürüm)
+#   PANELZE_GO_VERSION=1.23.4  # engine/go.mod ile uyumlu (varsayılan; go.dev'den kurulur)
+#   PANELZE_PHP_VERSION=8.4    # panel/composer.lock (Ondrej/Sury); Symfony 8 için 8.4 önerilir
+#   PANELZE_EXTRA_PHP_FPM_VERSIONS="8.3 8.2"  # ek FPM (boş = yalnız ana sürüm)
 #   WITH_PHPMYADMIN=1           # apt phpMyAdmin + Nginx /phpmyadmin + PHPMYADMIN_URL
 #   WITH_CERTBOT=1              # certbot + python3-certbot-nginx (Let's Encrypt)
 #   WITH_APACHE=1               # apache2; Nginx 80 ile çakışmaz — Apache :8080 + engine apache_http_port: 8080
 #   WITH_LOCAL_POSTFIX=1        # Postfix + mailutils (panel giden posta: sendmail; Admin → Giden posta’dan SMTP’ye geçilebilir)
 #   SKIP_DB_SEED=1              # migrate sonrası db:seed atla
-#   HOSTVIM_UPDATE_ONLY=1       # Güncelleme kilidi: RESET_PANEL_DB=0, data/www ve migrate:fresh yok (install-update*.sh)
+#   PANELZE_UPDATE_ONLY=1       # Güncelleme kilidi: RESET_PANEL_DB=0, data/www ve migrate:fresh yok (install-update*.sh)
 #   RESET_PANEL_DB=1            # DİKKAT: migrate:fresh + (varsayılan) data/www vb. temizlik — üretimde yalnızca gerektiğinde
-#   HOSTVIM_FRESH_INSTALL=1     # RESET_PANEL_DB=1 ile aynı (fabrika / boş lab sunucusu; müşteri “onarım”unda kullanmayın)
-#   HOSTVIM_SEED_DEMO_USERS=1  # Demo reseller/user hesaplarını da seed et (varsayılan: 0)
-#   (engine systemd drop-in) HOSTVIM_TERMINAL_NO_ROOT=1  # web terminali www-data kabuğunda (varsayılan: root sudo)
-#   HOSTVIM_ADMIN_EMAIL=...       # ilk admin e-posta (verilirse her şeyi geçer; önerilir)
-#   HOSTVIM_ADMIN_EMAIL_DOMAIN=…  # örn. ornek.com → admin@ornek.com (açık e-posta yoksa)
-#   HOSTVIM_APP_URL=…             # örn. https://panel.ornek.com — .env APP_URL + e-posta türetimi için
-#   HOSTVIM_PUBLIC_HOST=panel.ornek.com  # nginx server_name + otomatik Let's Encrypt; APP_URL bos ise http://HOST kullanilir
-#   HOSTVIM_RUN_CERTBOT=1         # 0: certbot calistirma (DNS hazir degilken)
-#   HOSTVIM_LICENSE_KEY=…         # İsteğe bağlı; bos birakilabilir (müşteri Admin → Lisans’tan yapistirir)
-#   LETS_ENCRYPT_EMAIL=…          # ACME; HOSTVIM_ADMIN_EMAIL yoksa ilk admin e-postası olarak da kullanılabilir
-#   HOSTVIM_DEFAULT_TIMEZONE=Europe/Istanbul  # kurulumda timedatectl (varsayılan UTC)
-#   HOSTVIM_PRESERVE_ADMIN_PASSWORD=1  # DB’de kullanıcı varken şifreyi değiştirme / dosyada gösterme (otomasyon güncellemesi için)
+#   PANELZE_FRESH_INSTALL=1     # RESET_PANEL_DB=1 ile aynı (fabrika / boş lab sunucusu; müşteri “onarım”unda kullanmayın)
+#   PANELZE_SEED_DEMO_USERS=1  # Demo reseller/user hesaplarını da seed et (varsayılan: 0)
+#   (engine systemd drop-in) PANELZE_TERMINAL_NO_ROOT=1  # web terminali www-data kabuğunda (varsayılan: root sudo)
+#   PANELZE_ADMIN_EMAIL=...       # ilk admin e-posta (verilirse her şeyi geçer; önerilir)
+#   PANELZE_ADMIN_EMAIL_DOMAIN=…  # örn. ornek.com → admin@ornek.com (açık e-posta yoksa)
+#   PANELZE_APP_URL=…             # örn. https://panel.ornek.com — .env APP_URL + e-posta türetimi için
+#   PANELZE_PUBLIC_HOST=panel.ornek.com  # nginx server_name + otomatik Let's Encrypt; APP_URL bos ise http://HOST kullanilir
+#   PANELZE_RUN_CERTBOT=1         # 0: certbot calistirma (DNS hazir degilken)
+#   PANELZE_LICENSE_KEY=…         # İsteğe bağlı; bos birakilabilir (müşteri Admin → Lisans’tan yapistirir)
+#   LETS_ENCRYPT_EMAIL=…          # ACME; PANELZE_ADMIN_EMAIL yoksa ilk admin e-postası olarak da kullanılabilir
+#   PANELZE_DEFAULT_TIMEZONE=Europe/Istanbul  # kurulumda timedatectl (varsayılan UTC)
+#   PANELZE_PRESERVE_ADMIN_PASSWORD=1  # DB’de kullanıcı varken şifreyi değiştirme / dosyada gösterme (otomasyon güncellemesi için)
 #
 set -euo pipefail
 
 _SCRIPT_DIR_BOOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _REPO_EARLY="$(cd "$_SCRIPT_DIR_BOOT/../.." && pwd)"
-_HOSTVIM_EARLY="${HOSTVIM_HOME:-${PANELSAR_HOME:-$_REPO_EARLY}}"
+_PANELZE_EARLY="${PANELZE_HOME:-${PANELSAR_HOME:-$_REPO_EARLY}}"
 
 # Harici lib yoksa da çalışsın (sunucuda eski checkout / eksik deploy/host/lib)
 if [[ -f "$_SCRIPT_DIR_BOOT/../host/lib/install-mode.sh" ]]; then
@@ -59,10 +59,10 @@ elif [[ -f "$_REPO_EARLY/deploy/host/lib/install-mode.sh" ]]; then
   source "$_REPO_EARLY/deploy/host/lib/install-mode.sh"
 else
   hostvim_resolve_install_mode() {
-    local home="${HOSTVIM_HOME:-${PANELSAR_HOME:-/var/www/hostvim}}"
-    if [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "1" ]] || [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "yes" ]]; then echo "fresh"; return; fi
+    local home="${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
+    if [[ "${PANELZE_FRESH_INSTALL:-0}" == "1" ]] || [[ "${PANELZE_FRESH_INSTALL:-0}" == "yes" ]]; then echo "fresh"; return; fi
     if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then echo "fresh"; return; fi
-    if [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "1" ]] || [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "yes" ]]; then echo "update"; return; fi
+    if [[ "${PANELZE_UPDATE_ONLY:-0}" == "1" ]] || [[ "${PANELZE_UPDATE_ONLY:-0}" == "yes" ]]; then echo "update"; return; fi
     if [[ -f "$home/panel/.env" ]]; then echo "update"; return; fi
     if [[ -d "$home/data/www" ]] && find "$home/data/www" -mindepth 1 -maxdepth 1 \( -type d -o -type f \) -print -quit 2>/dev/null | grep -q .; then
       echo "update"; return
@@ -70,36 +70,36 @@ else
     echo "fresh"
   }
   hostvim_apply_update_safe_env() {
-    export HOSTVIM_UPDATE_ONLY=1 RESET_PANEL_DB=0 HOSTVIM_FRESH_INSTALL=0 CLEAN_HOSTING_STATE_ON_RESET=0
-    export HOSTVIM_PRESERVE_ADMIN_PASSWORD="${HOSTVIM_PRESERVE_ADMIN_PASSWORD:-1}"
-    export SKIP_APT="${SKIP_APT:-${HOSTVIM_SKIP_APT_ON_UPDATE:-1}}"
+    export PANELZE_UPDATE_ONLY=1 RESET_PANEL_DB=0 PANELZE_FRESH_INSTALL=0 CLEAN_HOSTING_STATE_ON_RESET=0
+    export PANELZE_PRESERVE_ADMIN_PASSWORD="${PANELZE_PRESERVE_ADMIN_PASSWORD:-1}"
+    export SKIP_APT="${SKIP_APT:-${PANELZE_SKIP_APT_ON_UPDATE:-1}}"
   }
   hostvim_print_install_mode_banner() {
     if [[ "$1" == "update" ]]; then
       echo "╔══════════════════════════════════════════════════════════════╗"
-      echo "║  Hostvim GÜNCELLEME — panel DB, siteler ve MySQL korunur       ║"
+      echo "║  Panelze GÜNCELLEME — panel DB, siteler ve MySQL korunur       ║"
       echo "╚══════════════════════════════════════════════════════════════╝"
     else
       echo "╔══════════════════════════════════════════════════════════════╗"
-      echo "║  Hostvim YENİ KURULUM                                         ║"
+      echo "║  Panelze YENİ KURULUM                                         ║"
       echo "╚══════════════════════════════════════════════════════════════╝"
     fi
   }
 fi
 
-echo "==> install-production.sh başladı ($_HOSTVIM_EARLY)"
+echo "==> install-production.sh başladı ($_PANELZE_EARLY)"
 
-HOSTVIM_INSTALL_MODE="$(hostvim_resolve_install_mode)"
-if [[ "$HOSTVIM_INSTALL_MODE" == "update" ]]; then
+PANELZE_INSTALL_MODE="$(hostvim_resolve_install_mode)"
+if [[ "$PANELZE_INSTALL_MODE" == "update" ]]; then
   hostvim_apply_update_safe_env
   hostvim_print_install_mode_banner "update"
 else
-  if [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "1" ]] || [[ "${HOSTVIM_FRESH_INSTALL:-0}" == "yes" ]]; then
+  if [[ "${PANELZE_FRESH_INSTALL:-0}" == "1" ]] || [[ "${PANELZE_FRESH_INSTALL:-0}" == "yes" ]]; then
     export RESET_PANEL_DB=1
   fi
   hostvim_print_install_mode_banner "fresh"
 fi
-export RESET_PANEL_DB HOSTVIM_UPDATE_ONLY HOSTVIM_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
+export RESET_PANEL_DB PANELZE_UPDATE_ONLY PANELZE_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
 
 trap 'echo "HATA: install-production satır \$LINENO, çıkış \$?" >&2' ERR
 
@@ -115,10 +115,10 @@ source "$SCRIPT_DIR/ensure-go-toolchain.sh"
 # shellcheck source=ensure-php-packages.sh
 source "$SCRIPT_DIR/ensure-php-packages.sh"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-# Varsayılan: klon/kök dizin = repo (HOSTVIM_HOME uyarısı olmaması için). Üretimde isterseniz /var/www/hostvim verin.
-HOSTVIM_HOME="${HOSTVIM_HOME:-${PANELSAR_HOME:-$REPO_ROOT}}"
-HOSTVIM_BRANCH="${HOSTVIM_BRANCH:-${PANELSAR_BRANCH:-main}}"
-HOSTVIM_AUTO_SYNC_GIT="${HOSTVIM_AUTO_SYNC_GIT:-1}"
+# Varsayılan: klon/kök dizin = repo (PANELZE_HOME uyarısı olmaması için). Üretimde isterseniz /var/www/panelze verin.
+PANELZE_HOME="${PANELZE_HOME:-${PANELSAR_HOME:-$REPO_ROOT}}"
+PANELZE_BRANCH="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
+PANELZE_AUTO_SYNC_GIT="${PANELZE_AUTO_SYNC_GIT:-1}"
 SERVER_NAME="${SERVER_NAME:-_}"
 LETS_ENCRYPT_EMAIL="${LETS_ENCRYPT_EMAIL:-}"
 APP_PROFILE="${APP_PROFILE:-customer}"
@@ -128,30 +128,30 @@ if [[ "${ENFORCE_ADMIN_2FA:-}" == "" ]]; then
 fi
 
 if [[ ! -d "$REPO_ROOT/panel" ]] || [[ ! -d "$REPO_ROOT/engine" ]]; then
-  echo "Hata: panel/ veya engine/ bulunamadı. Bu betiği repo kökünden çalıştırın (HOSTVIM_HOME=$HOSTVIM_HOME)." >&2
+  echo "Hata: panel/ veya engine/ bulunamadı. Bu betiği repo kökünden çalıştırın (PANELZE_HOME=$PANELZE_HOME)." >&2
   exit 1
 fi
 
-if [[ "$HOSTVIM_HOME" != "$REPO_ROOT" ]]; then
-  echo "Uyarı: HOSTVIM_HOME ($HOSTVIM_HOME) ile repo ($REPO_ROOT) farklı. Aynı yapın önerilir." >&2
+if [[ "$PANELZE_HOME" != "$REPO_ROOT" ]]; then
+  echo "Uyarı: PANELZE_HOME ($PANELZE_HOME) ile repo ($REPO_ROOT) farklı. Aynı yapın önerilir." >&2
 fi
 
 # Tek komut güncelleme garantisi: install-production doğrudan çalıştırılsa bile önce repo güncellensin.
-# Varsayılan açık (HOSTVIM_AUTO_SYNC_GIT=1). Kapatmak için: HOSTVIM_AUTO_SYNC_GIT=0
-if [[ "$HOSTVIM_AUTO_SYNC_GIT" == "1" ]] || [[ "$HOSTVIM_AUTO_SYNC_GIT" == "yes" ]]; then
+# Varsayılan açık (PANELZE_AUTO_SYNC_GIT=1). Kapatmak için: PANELZE_AUTO_SYNC_GIT=0
+if [[ "$PANELZE_AUTO_SYNC_GIT" == "1" ]] || [[ "$PANELZE_AUTO_SYNC_GIT" == "yes" ]]; then
   if [[ -d "$REPO_ROOT/.git" ]]; then
-    echo "==> Git otomatik senkron: branch=$HOSTVIM_BRANCH"
+    echo "==> Git otomatik senkron: branch=$PANELZE_BRANCH"
     git config --system --add safe.directory "$REPO_ROOT" 2>/dev/null || true
-    if git -C "$REPO_ROOT" fetch origin "$HOSTVIM_BRANCH" --depth 1 >/dev/null 2>&1; then
-      if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/remotes/origin/$HOSTVIM_BRANCH"; then
-        git -C "$REPO_ROOT" checkout "$HOSTVIM_BRANCH" >/dev/null 2>&1 || true
-        if git -C "$REPO_ROOT" merge --ff-only "origin/$HOSTVIM_BRANCH" >/dev/null 2>&1; then
+    if git -C "$REPO_ROOT" fetch origin "$PANELZE_BRANCH" --depth 1 >/dev/null 2>&1; then
+      if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/remotes/origin/$PANELZE_BRANCH"; then
+        git -C "$REPO_ROOT" checkout "$PANELZE_BRANCH" >/dev/null 2>&1 || true
+        if git -C "$REPO_ROOT" merge --ff-only "origin/$PANELZE_BRANCH" >/dev/null 2>&1; then
           echo "==> Git senkron tamam: $(git -C "$REPO_ROOT" rev-parse --short HEAD)"
         else
           echo "Uyarı: FF merge yapılamadı; mevcut checkout ile devam ediliyor." >&2
         fi
       else
-        echo "Uyarı: origin/$HOSTVIM_BRANCH bulunamadı; mevcut checkout ile devam." >&2
+        echo "Uyarı: origin/$PANELZE_BRANCH bulunamadı; mevcut checkout ile devam." >&2
       fi
     else
       echo "Uyarı: git fetch başarısız; mevcut checkout ile devam." >&2
@@ -162,7 +162,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 
 detect_php_fpm_sock() {
-  local pv="${HOSTVIM_PHP_VERSION:-${PANELSAR_PHP_VERSION:-8.4}}"
+  local pv="${PANELZE_PHP_VERSION:-${PANELSAR_PHP_VERSION:-8.4}}"
   local s
   for s in "/run/php/php${pv}-fpm.sock" /run/php/php8.4-fpm.sock /run/php/php8.3-fpm.sock /run/php/php8.2-fpm.sock /run/php/php-fpm.sock; do
     if [[ -S "$s" ]]; then
@@ -182,7 +182,7 @@ ensure_engine_port_free() {
   echo "$pids" | xargs -r ps -o pid=,user=,comm= -p || true
 
   # Önce servisleri durdur (varsa)
-  systemctl stop hostvim-engine 2>/dev/null || true
+  systemctl stop panelze-engine 2>/dev/null || true
   systemctl stop panelsar-engine 2>/dev/null || true
   sleep 1
 
@@ -192,7 +192,7 @@ ensure_engine_port_free() {
   foreign=0
   for pid in $pids; do
     comm="$(ps -p "$pid" -o comm= 2>/dev/null | tr -d '[:space:]')"
-    if [[ "$comm" =~ ^(hostvim-engine|panelsar-engine|go)$ ]]; then
+    if [[ "$comm" =~ ^(panelze-engine|panelsar-engine|go)$ ]]; then
       kill -TERM "$pid" 2>/dev/null || true
     else
       foreign=1
@@ -206,7 +206,7 @@ ensure_engine_port_free() {
     foreign=0
     for pid in $pids; do
       comm="$(ps -p "$pid" -o comm= 2>/dev/null | tr -d '[:space:]')"
-      if [[ "$comm" =~ ^(hostvim-engine|panelsar-engine|go)$ ]]; then
+      if [[ "$comm" =~ ^(panelze-engine|panelsar-engine|go)$ ]]; then
         kill -KILL "$pid" 2>/dev/null || true
       else
         foreign=1
@@ -382,34 +382,34 @@ else
 fi
 
 # Sunucu saat dilimi (panel engine www-data ile timedatectl kullanır)
-HOSTVIM_DEFAULT_TIMEZONE="${HOSTVIM_DEFAULT_TIMEZONE:-UTC}"
+PANELZE_DEFAULT_TIMEZONE="${PANELZE_DEFAULT_TIMEZONE:-UTC}"
 if command -v timedatectl >/dev/null 2>&1; then
-  echo "==> Sistem saat dilimi: $HOSTVIM_DEFAULT_TIMEZONE"
-  timedatectl set-timezone "$HOSTVIM_DEFAULT_TIMEZONE" 2>/dev/null || true
-elif [[ -f "/usr/share/zoneinfo/${HOSTVIM_DEFAULT_TIMEZONE}" ]]; then
-  echo "$HOSTVIM_DEFAULT_TIMEZONE" >/etc/timezone
-  ln -sf "/usr/share/zoneinfo/${HOSTVIM_DEFAULT_TIMEZONE}" /etc/localtime
+  echo "==> Sistem saat dilimi: $PANELZE_DEFAULT_TIMEZONE"
+  timedatectl set-timezone "$PANELZE_DEFAULT_TIMEZONE" 2>/dev/null || true
+elif [[ -f "/usr/share/zoneinfo/${PANELZE_DEFAULT_TIMEZONE}" ]]; then
+  echo "$PANELZE_DEFAULT_TIMEZONE" >/etc/timezone
+  ln -sf "/usr/share/zoneinfo/${PANELZE_DEFAULT_TIMEZONE}" /etc/localtime
 fi
 
 # PHP-FPM soketi (apt sonrası)
 PHP_FPM_SOCK="$(detect_php_fpm_sock)"
 
-mkdir -p "$HOSTVIM_HOME/data"/{www,tmp,ssl,backups,logs,vhosts}
-mkdir -p /etc/hostvim
-chown -R www-data:www-data "$HOSTVIM_HOME/data"
+mkdir -p "$PANELZE_HOME/data"/{www,tmp,ssl,backups,logs,vhosts}
+mkdir -p /etc/panelze
+chown -R www-data:www-data "$PANELZE_HOME/data"
 
 # RESET modunda eski hosting kalıntılarını da temizle (plesk benzeri "silince anında düşsün" davranışı).
 if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then
   CLEAN_HOSTING_STATE_ON_RESET="${CLEAN_HOSTING_STATE_ON_RESET:-1}"
   if [[ "$CLEAN_HOSTING_STATE_ON_RESET" == "1" ]] || [[ "$CLEAN_HOSTING_STATE_ON_RESET" == "yes" ]]; then
     echo "==> RESET_PANEL_DB=1: eski hosting state temizleniyor (webroot/vhost/ssl/backup)."
-    rm -rf "$HOSTVIM_HOME/data/www/"* 2>/dev/null || true
-    rm -rf "$HOSTVIM_HOME/data/ssl/"* 2>/dev/null || true
-    rm -rf "$HOSTVIM_HOME/data/backups/"* 2>/dev/null || true
+    rm -rf "$PANELZE_HOME/data/www/"* 2>/dev/null || true
+    rm -rf "$PANELZE_HOME/data/ssl/"* 2>/dev/null || true
+    rm -rf "$PANELZE_HOME/data/backups/"* 2>/dev/null || true
     rm -rf /var/backups/hostvim/* /var/backups/panelsar/* 2>/dev/null || true
-    rm -f /etc/nginx/sites-enabled/hostvim-*.conf /etc/nginx/sites-enabled/panelsar-*.conf 2>/dev/null || true
-    rm -f /etc/apache2/sites-enabled/hostvim-*.conf /etc/apache2/sites-enabled/panelsar-*.conf 2>/dev/null || true
-    rm -f /etc/apache2/sites-available/hostvim-*.conf /etc/apache2/sites-available/panelsar-*.conf 2>/dev/null || true
+    rm -f /etc/nginx/sites-enabled/panelze-*.conf /etc/nginx/sites-enabled/panelsar-*.conf 2>/dev/null || true
+    rm -f /etc/apache2/sites-enabled/panelze-*.conf /etc/apache2/sites-enabled/panelsar-*.conf 2>/dev/null || true
+    rm -f /etc/apache2/sites-available/panelze-*.conf /etc/apache2/sites-available/panelsar-*.conf 2>/dev/null || true
     nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
     if command -v apache2ctl >/dev/null 2>&1; then
       apache2ctl configtest >/dev/null 2>&1 && systemctl reload apache2 || true
@@ -419,9 +419,9 @@ fi
 
 # Kimlik anahtarları:
 # - İlk kurulumda güvenli rastgele üretilir.
-# - Sonraki kurulum/güncellemelerde mevcut /etc/hostvim/engine.yaml (veya eski /etc/panelsar/engine.yaml) içinden okunup korunur.
+# - Sonraki kurulum/güncellemelerde mevcut /etc/panelze/engine.yaml (veya eski /etc/panelsar/engine.yaml) içinden okunup korunur.
 #   Böylece panel↔engine auth kopmaz.
-ENGINE_DST="/etc/hostvim/engine.yaml"
+ENGINE_DST="/etc/panelze/engine.yaml"
 ENGINE_LEGACY_DST="/etc/panelsar/engine.yaml"
 FORCE_ROTATE_ENGINE_KEYS="${FORCE_ROTATE_ENGINE_KEYS:-0}"
 
@@ -455,7 +455,7 @@ if [[ "$SERVER_NAME" != "_" ]]; then
 fi
 
 # Önceki kurulumlardan kalan zayıf/placeholder anahtarlar yayın güvenliği için döndürülür.
-if [[ "$INTERNAL_KEY" == "hostvim-engine-internal-dev" ]] || [[ "$INTERNAL_KEY" == "panelsar-engine-internal-dev" ]] || [[ "$INTERNAL_KEY" == *"change"* ]]; then
+if [[ "$INTERNAL_KEY" == "panelze-engine-internal-dev" ]] || [[ "$INTERNAL_KEY" == "panelsar-engine-internal-dev" ]] || [[ "$INTERNAL_KEY" == *"change"* ]]; then
   INTERNAL_KEY="$(openssl rand -hex 32)"
 fi
 if [[ "$ENGINE_SECRET" == *"change"* ]]; then
@@ -472,7 +472,7 @@ sed \
   -e "s|__ENGINE_SECRET_KEY__|$ENGINE_SECRET|g" \
   -e "s|__ENGINE_JWT_SECRET__|$ENGINE_JWT|g" \
   -e "s|__ENGINE_DB_PASSWORD__|$ENGINE_DB_PASS|g" \
-  -e "s|__HOSTVIM_HOME__|$HOSTVIM_HOME|g" \
+  -e "s|__PANELZE_HOME__|$PANELZE_HOME|g" \
   -e "s|__LETS_ENCRYPT_EMAIL__|$LETS_ENCRYPT_EMAIL|g" \
   -e "s|__PHP_FPM_SOCKET__|$PHP_FPM_SOCK|g" \
   -e "s|__PANEL_ORIGINS__|$PANEL_ORIGINS|g" \
@@ -490,115 +490,115 @@ fi
 
 # Go engine derle (apt'teki golang-go genelde esiktir; ensure-go-toolchain.sh go.dev sürümünü kurar)
 ensure_go_toolchain
-(cd "$REPO_ROOT/engine" && go build -buildvcs=false -o /usr/local/bin/hostvim-engine ./cmd/hostvim-engine)
-chmod 755 /usr/local/bin/hostvim-engine
+(cd "$REPO_ROOT/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine)
+chmod 755 /usr/local/bin/panelze-engine
 
 # systemd
 sed \
-  -e "s|__HOSTVIM_HOME__|$HOSTVIM_HOME|g" \
-  -e "s|__ENGINE_BINARY__|/usr/local/bin/hostvim-engine|g" \
-  "$REPO_ROOT/deploy/systemd/hostvim-engine.service" > /etc/systemd/system/hostvim-engine.service
+  -e "s|__PANELZE_HOME__|$PANELZE_HOME|g" \
+  -e "s|__ENGINE_BINARY__|/usr/local/bin/panelze-engine|g" \
+  "$REPO_ROOT/deploy/systemd/panelze-engine.service" > /etc/systemd/system/panelze-engine.service
 systemctl daemon-reload
-if [[ -x /usr/local/bin/hostvim-engine ]]; then
+if [[ -x /usr/local/bin/panelze-engine ]]; then
   ensure_engine_port_free
-  systemctl enable hostvim-engine
-  if ! systemctl restart hostvim-engine; then
-    echo "Hata: hostvim-engine başlatılamadı. Son loglar:" >&2
-    journalctl -u hostvim-engine -n 80 --no-pager >&2 || true
+  systemctl enable panelze-engine
+  if ! systemctl restart panelze-engine; then
+    echo "Hata: panelze-engine başlatılamadı. Son loglar:" >&2
+    journalctl -u panelze-engine -n 80 --no-pager >&2 || true
   fi
 fi
 
 # Engine www-data iken nginx sites-enabled'a yazamaz; sudo ile izinli betikler
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-nginx-vhost" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-nginx-vhost" /usr/local/sbin/hostvim-nginx-vhost
-  ln -sfn /usr/local/sbin/hostvim-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
+if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-nginx-vhost" /usr/local/sbin/panelze-nginx-vhost
+  ln -sfn /usr/local/sbin/panelze-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-stack-install" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-stack-install" /usr/local/sbin/hostvim-stack-install
-  ln -sfn /usr/local/sbin/hostvim-stack-install /usr/local/sbin/panelsar-stack-install
+if [[ -f "$REPO_ROOT/deploy/host/panelze-stack-install" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-stack-install" /usr/local/sbin/panelze-stack-install
+  ln -sfn /usr/local/sbin/panelze-stack-install /usr/local/sbin/panelsar-stack-install
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-mail-stack-setup.sh" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-mail-stack-setup.sh" /usr/local/sbin/hostvim-mail-stack-setup.sh
-  ln -sfn /usr/local/sbin/hostvim-mail-stack-setup.sh /usr/local/sbin/panelsar-mail-stack-setup.sh
+if [[ -f "$REPO_ROOT/deploy/host/panelze-mail-stack-setup.sh" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-mail-stack-setup.sh" /usr/local/sbin/panelze-mail-stack-setup.sh
+  ln -sfn /usr/local/sbin/panelze-mail-stack-setup.sh /usr/local/sbin/panelsar-mail-stack-setup.sh
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-terminal-root" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-terminal-root" /usr/local/sbin/hostvim-terminal-root
-  ln -sfn /usr/local/sbin/hostvim-terminal-root /usr/local/sbin/panelsar-terminal-root
+if [[ -f "$REPO_ROOT/deploy/host/panelze-terminal-root" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-terminal-root" /usr/local/sbin/panelze-terminal-root
+  ln -sfn /usr/local/sbin/panelze-terminal-root /usr/local/sbin/panelsar-terminal-root
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-php-ini" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-php-ini" /usr/local/sbin/hostvim-php-ini
-  ln -sfn /usr/local/sbin/hostvim-php-ini /usr/local/sbin/panelsar-php-ini
+if [[ -f "$REPO_ROOT/deploy/host/panelze-php-ini" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-php-ini" /usr/local/sbin/panelze-php-ini
+  ln -sfn /usr/local/sbin/panelze-php-ini /usr/local/sbin/panelsar-php-ini
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-security" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-security" /usr/local/sbin/hostvim-security
-  ln -sfn /usr/local/sbin/hostvim-security /usr/local/sbin/panelsar-security
+if [[ -f "$REPO_ROOT/deploy/host/panelze-security" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-security" /usr/local/sbin/panelze-security
+  ln -sfn /usr/local/sbin/panelze-security /usr/local/sbin/panelsar-security
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-cleaner" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-cleaner" /usr/local/sbin/hostvim-cleaner
-  ln -sfn /usr/local/sbin/hostvim-cleaner /usr/local/sbin/panelsar-cleaner
+if [[ -f "$REPO_ROOT/deploy/host/panelze-cleaner" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-cleaner" /usr/local/sbin/panelze-cleaner
+  ln -sfn /usr/local/sbin/panelze-cleaner /usr/local/sbin/panelsar-cleaner
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-panel-update" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-panel-update" /usr/local/sbin/hostvim-panel-update
+if [[ -f "$REPO_ROOT/deploy/host/panelze-panel-update" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-panel-update" /usr/local/sbin/panelze-panel-update
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-system-settings" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-system-settings" /usr/local/sbin/hostvim-system-settings
-  ln -sfn /usr/local/sbin/hostvim-system-settings /usr/local/sbin/panelsar-system-settings
+if [[ -f "$REPO_ROOT/deploy/host/panelze-system-settings" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-system-settings" /usr/local/sbin/panelze-system-settings
+  ln -sfn /usr/local/sbin/panelze-system-settings /usr/local/sbin/panelsar-system-settings
 fi
-if [[ -f "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" /usr/local/sbin/hostvim-post-install
-  ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelsar-post-install
+if [[ -f "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" /usr/local/sbin/panelze-post-install
+  ln -sfn /usr/local/sbin/panelze-post-install /usr/local/sbin/panelsar-post-install
 fi
 if [[ -f "$REPO_ROOT/deploy/scripts/repair-mysql-users.sh" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/scripts/repair-mysql-users.sh" /usr/local/sbin/hostvim-repair-mysql
-  ln -sfn /usr/local/sbin/hostvim-repair-mysql /usr/local/sbin/panelsar-repair-mysql
+  install -m 755 "$REPO_ROOT/deploy/scripts/repair-mysql-users.sh" /usr/local/sbin/panelze-repair-mysql
+  ln -sfn /usr/local/sbin/panelze-repair-mysql /usr/local/sbin/panelsar-repair-mysql
 fi
 if [[ -f "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/hostvim-fix-hosting-perms
-  ln -sfn /usr/local/sbin/hostvim-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
+  install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/panelze-fix-hosting-perms
+  ln -sfn /usr/local/sbin/panelze-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
 fi
-if [[ -f "$REPO_ROOT/deploy/host/hostvim-node-pm2" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/hostvim-node-pm2" /usr/local/sbin/hostvim-node-pm2
-  ln -sfn /usr/local/sbin/hostvim-node-pm2 /usr/local/sbin/panelsar-node-pm2
+if [[ -f "$REPO_ROOT/deploy/host/panelze-node-pm2" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-node-pm2" /usr/local/sbin/panelze-node-pm2
+  ln -sfn /usr/local/sbin/panelze-node-pm2 /usr/local/sbin/panelsar-node-pm2
 fi
 # PM2 global (Node uygulamaları)
 if command -v npm >/dev/null 2>&1 && ! command -v pm2 >/dev/null 2>&1; then
   npm install -g pm2 2>/dev/null || true
 fi
 # Sunucu açılışında PM2 resurrect (www-data)
-PM2_HOME_DIR="${HOSTVIM_PM2_HOME:-${HOSTVIM_HOME:-/var/www/hostvim}/data/pm2}"
+PM2_HOME_DIR="${PANELZE_PM2_HOME:-${PANELZE_HOME:-/var/www/panelze}/data/pm2}"
 mkdir -p "$PM2_HOME_DIR"
 chown -R www-data:www-data "$PM2_HOME_DIR" 2>/dev/null || true
-if [[ -f "$REPO_ROOT/deploy/systemd/hostvim-pm2.service" ]]; then
-  sed "s|@PM2_HOME@|${PM2_HOME_DIR}|g" "$REPO_ROOT/deploy/systemd/hostvim-pm2.service" > /etc/systemd/system/hostvim-pm2.service
+if [[ -f "$REPO_ROOT/deploy/systemd/panelze-pm2.service" ]]; then
+  sed "s|@PM2_HOME@|${PM2_HOME_DIR}|g" "$REPO_ROOT/deploy/systemd/panelze-pm2.service" > /etc/systemd/system/panelze-pm2.service
   systemctl daemon-reload
-  systemctl enable hostvim-pm2.service 2>/dev/null || true
+  systemctl enable panelze-pm2.service 2>/dev/null || true
 fi
-cat > /etc/sudoers.d/hostvim-engine <<'SUDOERS'
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-nginx-vhost
+cat > /etc/sudoers.d/panelze-engine <<'SUDOERS'
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-terminal-root
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-php-ini
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-php-ini
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-php-ini
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-security
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-security
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-security
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-system-settings
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-panel-update
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-node-pm2
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 SUDOERS
-chmod 440 /etc/sudoers.d/hostvim-engine
-visudo -cf /etc/sudoers.d/hostvim-engine
+chmod 440 /etc/sudoers.d/panelze-engine
+visudo -cf /etc/sudoers.d/panelze-engine
 
 # Panel .env
 PANEL_ROOT="$REPO_ROOT/panel"
-export PANEL_ROOT HOSTVIM_HOME
+export PANEL_ROOT PANELZE_HOME
 DEPLOY_SCRIPTS="$REPO_ROOT/deploy/scripts"
-# shellcheck source=../scripts/lib/hostvim-deploy-common.sh
-source "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh"
+# shellcheck source=../scripts/lib/panelze-deploy-common.sh
+source "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh"
 ENV_EXAMPLE="$PANEL_ROOT/.env.production.example"
 ENV_FILE="$PANEL_ROOT/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -623,17 +623,17 @@ update_env() {
 }
 
 # İlk yönetici e-postası (Plesk benzeri: mümkünse gerçek alan / iletişim adresi).
-# Sıra: HOSTVIM_ADMIN_EMAIL > PANELSAR_… > HOSTVIM_ADMIN_EMAIL_DOMAIN > LETS_ENCRYPT_EMAIL >
+# Sıra: PANELZE_ADMIN_EMAIL > PANELSAR_… > PANELZE_ADMIN_EMAIL_DOMAIN > LETS_ENCRYPT_EMAIL >
 #       APP_URL ana makinesi (IP/localhost değilse → admin@host) > admin@<hostname -f>
 hostvim_resolve_admin_email() {
   local explicit domain le app_url host fqdn
-  explicit="${HOSTVIM_ADMIN_EMAIL:-${PANELSAR_ADMIN_EMAIL:-}}"
+  explicit="${PANELZE_ADMIN_EMAIL:-${PANELSAR_ADMIN_EMAIL:-}}"
   explicit="${explicit//[[:space:]]/}"
   if [[ -n "$explicit" ]]; then
     echo "$explicit"
     return 0
   fi
-  domain="${HOSTVIM_ADMIN_EMAIL_DOMAIN:-${PANELSAR_ADMIN_EMAIL_DOMAIN:-}}"
+  domain="${PANELZE_ADMIN_EMAIL_DOMAIN:-${PANELSAR_ADMIN_EMAIL_DOMAIN:-}}"
   domain="${domain//[[:space:]]/}"
   if [[ -n "$domain" && "$domain" == *.* && "$domain" != *"@"* ]]; then
     echo "admin@${domain}"
@@ -674,7 +674,7 @@ hostvim_resolve_admin_email() {
       return 0
     fi
   fi
-  fqdn="$(hostname -f 2>/dev/null || hostname || echo hostvim.local)"
+  fqdn="$(hostname -f 2>/dev/null || hostname || echo panelze.local)"
   fqdn="${fqdn// /}"
   echo "admin@${fqdn}"
 }
@@ -685,12 +685,12 @@ update_env "APP_PROFILE" "$APP_PROFILE"
 # Çok kiracılı vendor kontrol düzlemi bu kurulumda kullanılmaz; lisans/müşteri merkezi sitede.
 update_env "VENDOR_ENABLED" "false"
 update_env "ENFORCE_ADMIN_2FA" "$ENFORCE_ADMIN_2FA"
-if [[ -n "${HOSTVIM_LICENSE_KEY:-}" ]]; then
-  update_env "LICENSE_KEY" "$HOSTVIM_LICENSE_KEY"
+if [[ -n "${PANELZE_LICENSE_KEY:-}" ]]; then
+  update_env "LICENSE_KEY" "$PANELZE_LICENSE_KEY"
 fi
-_PANEL_APP_URL="${HOSTVIM_APP_URL:-${PANEL_APP_URL:-}}"
-if [[ -z "$_PANEL_APP_URL" && -n "${HOSTVIM_PUBLIC_HOST:-}" ]]; then
-  _PANEL_APP_URL="http://${HOSTVIM_PUBLIC_HOST}"
+_PANEL_APP_URL="${PANELZE_APP_URL:-${PANEL_APP_URL:-}}"
+if [[ -z "$_PANEL_APP_URL" && -n "${PANELZE_PUBLIC_HOST:-}" ]]; then
+  _PANEL_APP_URL="http://${PANELZE_PUBLIC_HOST}"
 fi
 if [[ -z "$_PANEL_APP_URL" ]]; then
   _PANEL_APP_URL="http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo localhost)"
@@ -718,8 +718,8 @@ fi
 # MariaDB panel DB + provision kullanıcıları (.env, secret, @localhost + @127.0.0.1)
 if [[ "${WITH_MARIADB}" == "1" ]] || [[ "${WITH_MARIADB}" == "yes" ]]; then
   bash "$DEPLOY_SCRIPTS/repair-mysql-users.sh"
-  echo "Panel MySQL şifresi: /root/hostvim-panel-mysql.secret"
-  echo "MySQL provision şifresi: /root/hostvim-mysql-provision.secret"
+  echo "Panel MySQL şifresi: /root/panelze-panel-mysql.secret"
+  echo "MySQL provision şifresi: /root/panelze-mysql-provision.secret"
 fi
 
 # Composer www-data ile çalışır; panel/ yalnızca storage/cache www-data ise vendor/ oluşturulamaz
@@ -772,7 +772,7 @@ else
   echo "==> Panel veritabanı korunuyor: migrate --force (yeniden kurulum / güncelleme; kullanıcı ve site kayıtları silinmez)."
   hostvim_run_artisan migrate --force
 fi
-hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan hostvim:init-outbound-mail --no-interaction 2>/dev/null || true
+hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
 
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   RESET_DB_MODE=0
@@ -780,10 +780,10 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
     RESET_DB_MODE=1
   fi
 
-  HOST_FQDN="$(hostname -f 2>/dev/null || hostname || echo hostvim.local)"
+  HOST_FQDN="$(hostname -f 2>/dev/null || hostname || echo panelze.local)"
   HOST_FQDN="${HOST_FQDN// /}"
   ADMIN_EMAIL="$(hostvim_resolve_admin_email)"
-  SEED_DEMO_USERS="${HOSTVIM_SEED_DEMO_USERS:-${PANELSAR_SEED_DEMO_USERS:-0}}"
+  SEED_DEMO_USERS="${PANELZE_SEED_DEMO_USERS:-${PANELSAR_SEED_DEMO_USERS:-0}}"
   USER_COUNT=""
   if [[ "$RESET_DB_MODE" == "0" ]] && { [[ "${WITH_MARIADB}" == "1" ]] || [[ "${WITH_MARIADB}" == "yes" ]]; }; then
     DB_PW=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d= -f2- | tr -d '\r')
@@ -801,12 +801,12 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   fi
   [[ -n "$USER_COUNT" ]] || USER_COUNT=0
 
-  # Varsayılan: her kurulum/güncellemede yeni şifre (müşteri öncekini unuttuğunda sorun olmasın). Sabit için HOSTVIM_ADMIN_PASSWORD=...
-  # Otomasyon: HOSTVIM_PRESERVE_ADMIN_PASSWORD=1 → mevcut kullanıcı varken şifre dokunulmaz / dosyada gösterilmez.
+  # Varsayılan: her kurulum/güncellemede yeni şifre (müşteri öncekini unuttuğunda sorun olmasın). Sabit için PANELZE_ADMIN_PASSWORD=...
+  # Otomasyon: PANELZE_PRESERVE_ADMIN_PASSWORD=1 → mevcut kullanıcı varken şifre dokunulmaz / dosyada gösterilmez.
   ADMIN_PASSWORD=""
-  if [[ -n "${HOSTVIM_ADMIN_PASSWORD:-}" ]]; then
-    ADMIN_PASSWORD="$HOSTVIM_ADMIN_PASSWORD"
-  elif [[ "${HOSTVIM_PRESERVE_ADMIN_PASSWORD:-0}" == "1" ]] || [[ "${HOSTVIM_PRESERVE_ADMIN_PASSWORD:-0}" == "yes" ]]; then
+  if [[ -n "${PANELZE_ADMIN_PASSWORD:-}" ]]; then
+    ADMIN_PASSWORD="$PANELZE_ADMIN_PASSWORD"
+  elif [[ "${PANELZE_PRESERVE_ADMIN_PASSWORD:-0}" == "1" ]] || [[ "${PANELZE_PRESERVE_ADMIN_PASSWORD:-0}" == "yes" ]]; then
     if [[ "$RESET_DB_MODE" == "1" ]]; then
       ADMIN_PASSWORD="$(openssl rand -hex 12)"
     elif [[ "$USER_COUNT" == "0" ]]; then
@@ -816,7 +816,7 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
     ADMIN_PASSWORD="$(openssl rand -hex 12)"
   fi
 
-  LOGIN_FILE="/root/hostvim-admin-login.txt"
+  LOGIN_FILE="/root/panelze-admin-login.txt"
   PANEL_URL_HINT="$(grep -E '^APP_URL=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true)"
   [[ -n "$PANEL_URL_HINT" ]] || PANEL_URL_HINT="http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo localhost)"
 
@@ -828,13 +828,13 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
       echo "Şifre:     ${ADMIN_PASSWORD}"
       echo "İlk girişten sonra şifreyi değiştirin."
     else
-      echo "Şifre:     (korundu — HOSTVIM_PRESERVE_ADMIN_PASSWORD=1; mevcut admin şifresi değişmedi)"
-      echo "Not: Şifreyi bilmiyorsanız panelden sıfırlayın veya bir kez HOSTVIM_PRESERVE_ADMIN_PASSWORD vermeden kurulumu çalıştırın."
+      echo "Şifre:     (korundu — PANELZE_PRESERVE_ADMIN_PASSWORD=1; mevcut admin şifresi değişmedi)"
+      echo "Not: Şifreyi bilmiyorsanız panelden sıfırlayın veya bir kez PANELZE_PRESERVE_ADMIN_PASSWORD vermeden kurulumu çalıştırın."
     fi
   } > "$LOGIN_FILE"
   chmod 600 "$LOGIN_FILE"
 
-  SHOW_CREDS_IN_TERMINAL="${HOSTVIM_SHOW_ADMIN_CREDENTIALS:-1}"
+  SHOW_CREDS_IN_TERMINAL="${PANELZE_SHOW_ADMIN_CREDENTIALS:-1}"
   if [[ "$SHOW_CREDS_IN_TERMINAL" == "1" ]] || [[ "$SHOW_CREDS_IN_TERMINAL" == "yes" ]]; then
     echo ""
     echo "################################################################"
@@ -856,16 +856,16 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
     sudo -u www-data env \
       HOME="$(hostvim_www_data_home "$PANEL_ROOT")" \
       XDG_CONFIG_HOME="$(hostvim_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
-      HOSTVIM_ADMIN_EMAIL="$ADMIN_EMAIL" \
-      HOSTVIM_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-      HOSTVIM_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
+      PANELZE_ADMIN_EMAIL="$ADMIN_EMAIL" \
+      PANELZE_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+      PANELZE_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
       php "$PANEL_ROOT/artisan" db:seed --force
   else
     sudo -u www-data env \
       HOME="$(hostvim_www_data_home "$PANEL_ROOT")" \
       XDG_CONFIG_HOME="$(hostvim_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
-      HOSTVIM_ADMIN_EMAIL="$ADMIN_EMAIL" \
-      HOSTVIM_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
+      PANELZE_ADMIN_EMAIL="$ADMIN_EMAIL" \
+      PANELZE_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
       php "$PANEL_ROOT/artisan" db:seed --force
   fi
 fi
@@ -873,34 +873,34 @@ fi
 hostvim_run_artisan config:cache
 hostvim_run_artisan route:cache
 hostvim_run_artisan view:cache
-hostvim_run_artisan hostvim:ensure-system-cron || true
+hostvim_run_artisan panelze:ensure-system-cron || true
 
 # OS-level scheduler: Laravel schedule:run her dakika tetiklensin.
 rm -f /etc/cron.d/panelsar-panel-scheduler 2>/dev/null || true
-cat > /etc/cron.d/hostvim-panel-scheduler <<EOF
+cat > /etc/cron.d/panelze-panel-scheduler <<EOF
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * * www-data cd "$PANEL_ROOT" && env HOME="$PANEL_ROOT" XDG_CONFIG_HOME="$PANEL_ROOT/storage/framework/.config" /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 EOF
-chmod 644 /etc/cron.d/hostvim-panel-scheduler
+chmod 644 /etc/cron.d/panelze-panel-scheduler
 systemctl enable --now cron 2>/dev/null || systemctl enable --now crond 2>/dev/null || true
 
 # Geçici .tmp_* dizinleri (yarım unzip/copy): günlük temizlik
 rm -f /etc/cron.d/panelsar-cleaner 2>/dev/null || true
-if [[ -x /usr/local/sbin/hostvim-cleaner ]]; then
-  HOSTVIM_CLEANER_WEB_ROOT="${HOSTVIM_HOSTING_WEB_ROOT:-${HOSTVIM_HOME}/data/www}"
-  cat > /etc/cron.d/hostvim-cleaner <<CRON
+if [[ -x /usr/local/sbin/panelze-cleaner ]]; then
+  PANELZE_CLEANER_WEB_ROOT="${PANELZE_HOSTING_WEB_ROOT:-${PANELZE_HOME}/data/www}"
+  cat > /etc/cron.d/panelze-cleaner <<CRON
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Her gün 04:17 — 2 saatten eski .tmp_* ( /tmp + web_root )
-17 4 * * * root HOSTVIM_HOSTING_WEB_ROOT=${HOSTVIM_CLEANER_WEB_ROOT} /usr/local/sbin/hostvim-cleaner 2>&1 | logger -t hostvim-cleaner
+17 4 * * * root PANELZE_HOSTING_WEB_ROOT=${PANELZE_CLEANER_WEB_ROOT} /usr/local/sbin/panelze-cleaner 2>&1 | logger -t panelze-cleaner
 CRON
-  chmod 644 /etc/cron.d/hostvim-cleaner
+  chmod 644 /etc/cron.d/panelze-cleaner
 fi
 
 # Queue worker: uzun süren işleri request dışına alır (installer/deploy/stack vb.).
 systemctl disable --now panelsar-panel-queue.service 2>/dev/null || true
-cat > /etc/systemd/system/hostvim-panel-queue.service <<EOF
+cat > /etc/systemd/system/panelze-panel-queue.service <<EOF
 [Unit]
 Description=Panelze Laravel Queue Worker
 After=network.target
@@ -922,37 +922,37 @@ TimeoutStopSec=30
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable --now hostvim-panel-queue.service
+systemctl enable --now panelze-panel-queue.service
 
 # Nginx — eski panelsar.conf site dosyası default_server ile çakışmasın (duplicate default server hatası)
 rm -f /etc/nginx/sites-enabled/panelsar.conf /etc/nginx/sites-enabled/panelsar 2>/dev/null || true
 rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 
 # Acik alan adi: nginx server_name + (asagida) otomatik Let's Encrypt
-HOSTVIM_EFFECTIVE_PUBLIC_HOST=""
-if [[ -n "${HOSTVIM_PUBLIC_HOST:-}" ]]; then
-  HOSTVIM_EFFECTIVE_PUBLIC_HOST="${HOSTVIM_PUBLIC_HOST}"
-elif [[ -n "${HOSTVIM_APP_URL:-}" ]]; then
-  HOSTVIM_EFFECTIVE_PUBLIC_HOST="$(hostvim_url_hostname "${HOSTVIM_APP_URL}" || true)"
+PANELZE_EFFECTIVE_PUBLIC_HOST=""
+if [[ -n "${PANELZE_PUBLIC_HOST:-}" ]]; then
+  PANELZE_EFFECTIVE_PUBLIC_HOST="${PANELZE_PUBLIC_HOST}"
+elif [[ -n "${PANELZE_APP_URL:-}" ]]; then
+  PANELZE_EFFECTIVE_PUBLIC_HOST="$(hostvim_url_hostname "${PANELZE_APP_URL}" || true)"
 fi
-if [[ -n "$HOSTVIM_EFFECTIVE_PUBLIC_HOST" ]]; then
-  SERVER_NAME="$HOSTVIM_EFFECTIVE_PUBLIC_HOST"
+if [[ -n "$PANELZE_EFFECTIVE_PUBLIC_HOST" ]]; then
+  SERVER_NAME="$PANELZE_EFFECTIVE_PUBLIC_HOST"
 fi
 
 # Nginx
-NGX_DST="/etc/nginx/sites-available/hostvim.conf"
+NGX_DST="/etc/nginx/sites-available/panelze.conf"
 sed \
   -e "s|__SERVER_NAME__|$SERVER_NAME|g" \
   -e "s|__PANEL_PUBLIC__|$PANEL_ROOT/public|g" \
   -e "s|__PHP_FPM_SOCK__|$PHP_FPM_SOCK|g" \
-  "$REPO_ROOT/deploy/nginx/hostvim.conf" > "$NGX_DST"
+  "$REPO_ROOT/deploy/nginx/panelze.conf" > "$NGX_DST"
 
 if [[ "$SERVER_NAME" == "_" ]]; then
   sed -i 's/listen 80;/listen 80 default_server;/' "$NGX_DST" || true
   sed -i 's/listen \[::\]:80;/listen [::]:80 default_server;/' "$NGX_DST" || true
 fi
 
-ln -sf "$NGX_DST" /etc/nginx/sites-enabled/hostvim.conf
+ln -sf "$NGX_DST" /etc/nginx/sites-enabled/panelze.conf
 nginx -t
 systemctl reload nginx
 systemctl enable nginx
@@ -968,7 +968,7 @@ if [[ "${SKIP_UFW:-}" != "1" ]] && command -v ufw >/dev/null 2>&1; then
 fi
 
 # --- Sonlandirma: PHPMYADMIN_URL senkronu, Let's Encrypt (alan adi verildiyse), Laravel onbellek + saglik kontrolu ---
-HOSTVIM_RUN_CERTBOT="${HOSTVIM_RUN_CERTBOT:-1}"
+PANELZE_RUN_CERTBOT="${PANELZE_RUN_CERTBOT:-1}"
 refresh_phpmysql_url_in_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
     return 0
@@ -990,20 +990,20 @@ hostvim_is_ip_address() {
 }
 
 run_certbot_if_configured() {
-  if [[ "${HOSTVIM_RUN_CERTBOT:-1}" != "1" ]] && [[ "${HOSTVIM_RUN_CERTBOT:-1}" != "yes" ]]; then
+  if [[ "${PANELZE_RUN_CERTBOT:-1}" != "1" ]] && [[ "${PANELZE_RUN_CERTBOT:-1}" != "yes" ]]; then
     return 0
   fi
   if ! command -v certbot >/dev/null 2>&1; then
     echo "==> SSL: certbot yok (WITH_CERTBOT=1 ile kurulur); HTTP ile devam."
     return 0
   fi
-  [[ -n "${HOSTVIM_EFFECTIVE_PUBLIC_HOST:-}" ]] || return 0
-  if hostvim_is_ip_address "${HOSTVIM_EFFECTIVE_PUBLIC_HOST}"; then
+  [[ -n "${PANELZE_EFFECTIVE_PUBLIC_HOST:-}" ]] || return 0
+  if hostvim_is_ip_address "${PANELZE_EFFECTIVE_PUBLIC_HOST}"; then
     echo "==> SSL: IP adresi için otomatik Let's Encrypt atlanıyor; panel HTTP ile kalır."
     return 0
   fi
 
-  local dom="$HOSTVIM_EFFECTIVE_PUBLIC_HOST"
+  local dom="$PANELZE_EFFECTIVE_PUBLIC_HOST"
   local em="${LETS_ENCRYPT_EMAIL:-}"
   [[ "$em" == *"@"* ]] || em="admin@${dom}"
 
@@ -1021,12 +1021,12 @@ run_certbot_if_configured() {
       -e "s|__SERVER_NAME__|${SERVER_NAME}|g" \
       -e "s|__PANEL_PUBLIC__|$PANEL_ROOT/public|g" \
       -e "s|__PHP_FPM_SOCK__|$PHP_FPM_SOCK|g" \
-      "$REPO_ROOT/deploy/nginx/hostvim.conf" > "$NGX_DST"
+      "$REPO_ROOT/deploy/nginx/panelze.conf" > "$NGX_DST"
     if [[ "$SERVER_NAME" == "_" ]]; then
       sed -i 's/listen 80;/listen 80 default_server;/' "$NGX_DST" || true
       sed -i 's/listen \[::\]:80;/listen [::]:80 default_server;/' "$NGX_DST" || true
     fi
-    ln -sf "$NGX_DST" /etc/nginx/sites-enabled/hostvim.conf
+    ln -sf "$NGX_DST" /etc/nginx/sites-enabled/panelze.conf
     nginx -t && systemctl reload nginx
   fi
 }
@@ -1034,37 +1034,37 @@ run_certbot_if_configured() {
 refresh_phpmysql_url_in_env
 run_certbot_if_configured
 
-if [[ -x /usr/local/sbin/hostvim-security ]]; then
+if [[ -x /usr/local/sbin/panelze-security ]]; then
   echo "==> Security helper self-test"
-  if ! /usr/local/sbin/hostvim-security self-test; then
-    echo "Hata: hostvim-security self-test basarisiz. Geri alma icin son iyi yapiyi tekrar calistirin." >&2
+  if ! /usr/local/sbin/panelze-security self-test; then
+    echo "Hata: panelze-security self-test basarisiz. Geri alma icin son iyi yapiyi tekrar calistirin." >&2
     exit 1
   fi
   echo "==> Varsayilan guvenlik: guvenlik duvari, Fail2ban, ModSecurity (WAF)"
-  /usr/local/sbin/hostvim-security security-bootstrap-defaults || echo "Uyari: security-bootstrap-defaults tamamlanamadi (manuel: hostvim-security security-bootstrap-defaults)"
+  /usr/local/sbin/panelze-security security-bootstrap-defaults || echo "Uyari: security-bootstrap-defaults tamamlanamadi (manuel: panelze-security security-bootstrap-defaults)"
 fi
 
 echo "==> Laravel onbellek + kurulum kontrolu (musterinin manuel komut calistirmasi gerekmez)"
-if [[ "${HOSTVIM_UPDATE_ONLY:-0}" == "1" ]]; then
-  export HOSTVIM_QUICK_PERM_FIX=1
+if [[ "${PANELZE_UPDATE_ONLY:-0}" == "1" ]]; then
+  export PANELZE_QUICK_PERM_FIX=1
 fi
 bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
 hostvim_run_artisan config:cache
 hostvim_run_artisan route:cache
 hostvim_run_artisan view:cache || true
-if hostvim_run_artisan hostvim:install-check --ping; then
-  echo "==> hostvim:install-check: tamam"
+if hostvim_run_artisan panelze:install-check --ping; then
+  echo "==> panelze:install-check: tamam"
 else
-  echo "==> hostvim:install-check: uyari — yukaridaki ciktiyi inceleyin (kurulum tamamlandi)."
+  echo "==> panelze:install-check: uyari — yukaridaki ciktiyi inceleyin (kurulum tamamlandi)."
 fi
 
 echo ""
 echo "=== Panelze kurulum özeti ==="
-echo "  Panel kökü:     $HOSTVIM_HOME"
+echo "  Panel kökü:     $PANELZE_HOME"
 if [[ "${SKIP_DB_SEED:-}" != "1" ]] && [[ -n "${ADMIN_EMAIL:-}" ]]; then
   case "$ADMIN_EMAIL" in
     admin@*contaboserver*|admin@vmi*)
-      echo "  İpucu: İlk admin e-postası sunucu FQDN. Üretimde: HOSTVIM_ADMIN_EMAIL=... veya HOSTVIM_APP_URL=https://panel.alanadin.com"
+      echo "  İpucu: İlk admin e-postası sunucu FQDN. Üretimde: PANELZE_ADMIN_EMAIL=... veya PANELZE_APP_URL=https://panel.alanadin.com"
       ;;
   esac
 fi
@@ -1082,11 +1082,11 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   echo "################################################################"
   echo "#  PANEL GİRİŞİ"
   echo "################################################################"
-  if [[ -f /root/hostvim-admin-login.txt ]]; then
-    sed 's/^/#  /' /root/hostvim-admin-login.txt
+  if [[ -f /root/panelze-admin-login.txt ]]; then
+    sed 's/^/#  /' /root/panelze-admin-login.txt
     echo "#"
     echo "#  İlk girişten sonra şifreyi değiştirin; dosyayı silin veya:"
-    echo "#    sudo shred -u /root/hostvim-admin-login.txt 2>/dev/null || sudo rm -f /root/hostvim-admin-login.txt"
+    echo "#    sudo shred -u /root/panelze-admin-login.txt 2>/dev/null || sudo rm -f /root/panelze-admin-login.txt"
   elif [[ -f /root/panelsar-admin-login.txt ]]; then
     echo "#  UYARI: Eski panelsar-admin-login.txt — güvenilir olmayabilir."
     echo "#    sudo cat /root/panelsar-admin-login.txt"
@@ -1098,13 +1098,13 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
 fi
 echo "Sonraki adımlar (çoğu kurulumda yalnızca DNS):"
 echo "  1) Alan adınızı bu sunucunun IP adresine yönlendirin (A kaydı). Sağlayıcı panelinden yapılır."
-if [[ -n "${HOSTVIM_EFFECTIVE_PUBLIC_HOST:-}" ]]; then
-  echo "     Bu kurulumda panel alan adı: ${HOSTVIM_EFFECTIVE_PUBLIC_HOST} — DNS yayıldıktan sonra SSL için betiği tekrar çalıştırabilir veya certbot çıktısındaki komutu kullanabilirsiniz."
+if [[ -n "${PANELZE_EFFECTIVE_PUBLIC_HOST:-}" ]]; then
+  echo "     Bu kurulumda panel alan adı: ${PANELZE_EFFECTIVE_PUBLIC_HOST} — DNS yayıldıktan sonra SSL için betiği tekrar çalıştırabilir veya certbot çıktısındaki komutu kullanabilirsiniz."
 else
   echo "     Ücretsiz SSL ve dogru APP_URL icin yeniden kurulum/guncellemede verin:"
-  echo "       HOSTVIM_PUBLIC_HOST=panel.ornek.com LETS_ENCRYPT_EMAIL=size@ornek.com sudo -E bash deploy/bootstrap/install-production.sh"
-  echo "     (veya HOSTVIM_APP_URL=https://panel.ornek.com — FQDN otomatik algilanir.)"
+  echo "       PANELZE_PUBLIC_HOST=panel.ornek.com LETS_ENCRYPT_EMAIL=size@ornek.com sudo -E bash deploy/bootstrap/install-production.sh"
+  echo "     (veya PANELZE_APP_URL=https://panel.ornek.com — FQDN otomatik algilanir.)"
 fi
-echo "  2) Otomatik yapildi: MySQL kullanicilari, site izinleri, APP_URL / PHPMYADMIN_URL, config:cache, hostvim:install-check."
-echo "     Sorun olursa (1045, permission denied): sudo hostvim-post-install"
+echo "  2) Otomatik yapildi: MySQL kullanicilari, site izinleri, APP_URL / PHPMYADMIN_URL, config:cache, panelze:install-check."
+echo "     Sorun olursa (1045, permission denied): sudo panelze-post-install"
 echo ""

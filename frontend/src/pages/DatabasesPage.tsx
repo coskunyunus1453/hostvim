@@ -360,7 +360,7 @@ export default function DatabasesPage() {
       normalizeImportConfirm(t('databases.import_confirm_expected')),
       'TUMVERISILINECEK',
       'REPLACEALLDATA',
-      'HOSTVIM_REPLACE_DB',
+      'PANELZE_REPLACE_DB',
     ]
     return phrases.includes(g)
   }

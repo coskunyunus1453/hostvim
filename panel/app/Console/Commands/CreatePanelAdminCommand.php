@@ -8,7 +8,7 @@ use Spatie\Permission\Models\Role;
 
 class CreatePanelAdminCommand extends Command
 {
-    protected $signature = 'hostvim:create-admin
+    protected $signature = 'panelze:create-admin
                             {email : Admin e-posta}
                             {--password= : Şifre (yoksa sorulur)}
                             {--name=Admin : Görünen ad}';
@@ -48,7 +48,7 @@ class CreatePanelAdminCommand extends Command
             $user->assignRole($role);
         }
 
-        $this->call('hostvim:sync-abilities', [], $this->output);
+        $this->call('panelze:sync-abilities', [], $this->output);
 
         $this->info('Admin rolü atandı.');
 

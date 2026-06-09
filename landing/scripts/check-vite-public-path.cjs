@@ -27,7 +27,7 @@ for (const name of fs.readdirSync(assetsDir)) {
         if (content.includes(needle)) {
             console.error(
                 `[vite] ${name} içinde yerel taban "${needle}" gömülü.\n` +
-                    'Çözüm: .env → ASSET_URL boş, APP_URL=https://hostvim.com; npm run build; sonra sunucudaki public/build klasörünü tamamen değiştir.'
+                    'Çözüm: .env → ASSET_URL boş, APP_URL=https://panelze.com; npm run build; sonra sunucudaki public/build klasörünü tamamen değiştir.'
             );
             failed = true;
         }
