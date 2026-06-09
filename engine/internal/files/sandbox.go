@@ -707,6 +707,20 @@ func normalizeUnzipIfExists(s string) string {
 	}
 }
 
+// NormalizeIfExistsMode maps client if_exists to overwrite | skip | fail (default overwrite for uploads).
+func NormalizeIfExistsMode(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "overwrite":
+		return "overwrite"
+	case "skip":
+		return "skip"
+	case "fail":
+		return "fail"
+	default:
+		return "overwrite"
+	}
+}
+
 func collectUnzipConflicts(srcDir, dstDir string) ([]string, error) {
 	conflicts := make([]string, 0, 8)
 	err := filepath.Walk(srcDir, func(path string, info fs.FileInfo, err error) error {

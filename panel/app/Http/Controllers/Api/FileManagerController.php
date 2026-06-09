@@ -648,7 +648,9 @@ class FileManagerController extends Controller
         $validated = $request->validate([
             'path' => 'nullable|string',
             'file' => 'required|file|max:'.$maxKb,
+            'if_exists' => 'nullable|string|in:fail,overwrite,skip',
         ]);
+        $ifExists = (string) ($validated['if_exists'] ?? 'overwrite');
         $relPath = (string) ($validated['path'] ?? '');
         $engineRelPath = $this->panelRelToEngineRel($hostingTarget, $relPath);
         // Klasör sürükle-bırakta derin/yeni dizinler gelebilir; upload öncesi dizini server tarafında garanti et.
@@ -664,13 +666,14 @@ class FileManagerController extends Controller
         $templateMode = $this->inferSiblingMode($hostingTarget, $engineTargetPath, false);
         $this->quota->ensureDiskHeadroom($request->user(), (int) $up->getSize());
         try {
-            $result = $this->engine->uploadFile($hostingTarget->engineSiteName, $engineRelPath, $up);
+            $result = $this->engine->uploadFile($hostingTarget->engineSiteName, $engineRelPath, $up, $ifExists);
+            $skipped = (bool) ($result['skipped'] ?? false);
             $ok = empty($result['error']);
             $auto = null;
-            if ($ok && $templateMode !== null) {
+            if ($ok && ! $skipped && $templateMode !== null) {
                 $this->engine->chmodFile($hostingTarget->engineSiteName, $engineTargetPath, $templateMode);
             }
-            if ($ok && $this->shouldAutoConfigureAfterUpload($baseName)) {
+            if ($ok && ! $skipped && $this->shouldAutoConfigureAfterUpload($baseName)) {
                 $auto = $this->autoWebConfigurator->detectAndApply($domain->fresh());
                 if (! ($auto['applied'] ?? false)) {
                     SafeAuditLogger::warning('hostvim.file_audit', [

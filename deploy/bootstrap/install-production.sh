@@ -28,6 +28,7 @@
 #   WITH_CERTBOT=1              # certbot + python3-certbot-nginx (Let's Encrypt)
 #   WITH_APACHE=1               # apache2; Nginx 80 ile çakışmaz — Apache :8080 + engine apache_http_port: 8080
 #   WITH_LOCAL_POSTFIX=1        # Postfix + mailutils (panel giden posta: sendmail; Admin → Giden posta’dan SMTP’ye geçilebilir)
+#   WITH_MAIL_STACK_WEBMAIL=1   # Tam posta + Roundcube webmail (müşteri e-posta sayfasından kullanım için; varsayılan: 1)
 #   SKIP_DB_SEED=1              # migrate sonrası db:seed atla
 #   PANELZE_UPDATE_ONLY=1       # Güncelleme kilidi: RESET_PANEL_DB=0, data/www ve migrate:fresh yok (install-update*.sh)
 #   RESET_PANEL_DB=1            # DİKKAT: migrate:fresh + (varsayılan) data/www vb. temizlik — üretimde yalnızca gerektiğinde
@@ -45,6 +46,22 @@
 #   PANELZE_PRESERVE_ADMIN_PASSWORD=1  # DB’de kullanıcı varken şifreyi değiştirme / dosyada gösterme (otomasyon güncellemesi için)
 #
 set -euo pipefail
+
+# hostvim-* veya panelze-* kaynak dosyasını /usr/local/sbin'e kurar; panelze/hostvim symlink.
+install_host_tool() {
+  local base="$1"
+  local src=""
+  if [[ -f "$REPO_ROOT/deploy/host/hostvim-${base}" ]]; then
+    src="$REPO_ROOT/deploy/host/hostvim-${base}"
+  elif [[ -f "$REPO_ROOT/deploy/host/panelze-${base}" ]]; then
+    src="$REPO_ROOT/deploy/host/panelze-${base}"
+  else
+    return 0
+  fi
+  install -m 755 "$src" "/usr/local/sbin/hostvim-${base}"
+  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelze-${base}"
+  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelsar-${base}" 2>/dev/null || true
+}
 
 _SCRIPT_DIR_BOOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _REPO_EARLY="$(cd "$_SCRIPT_DIR_BOOT/../.." && pwd)"
@@ -509,42 +526,24 @@ if [[ -x /usr/local/bin/panelze-engine ]]; then
 fi
 
 # Engine www-data iken nginx sites-enabled'a yazamaz; sudo ile izinli betikler
-if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-nginx-vhost" /usr/local/sbin/panelze-nginx-vhost
-  ln -sfn /usr/local/sbin/panelze-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-stack-install" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-stack-install" /usr/local/sbin/panelze-stack-install
-  ln -sfn /usr/local/sbin/panelze-stack-install /usr/local/sbin/panelsar-stack-install
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-mail-stack-setup.sh" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-mail-stack-setup.sh" /usr/local/sbin/panelze-mail-stack-setup.sh
-  ln -sfn /usr/local/sbin/panelze-mail-stack-setup.sh /usr/local/sbin/panelsar-mail-stack-setup.sh
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-terminal-root" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-terminal-root" /usr/local/sbin/panelze-terminal-root
-  ln -sfn /usr/local/sbin/panelze-terminal-root /usr/local/sbin/panelsar-terminal-root
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-php-ini" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-php-ini" /usr/local/sbin/panelze-php-ini
-  ln -sfn /usr/local/sbin/panelze-php-ini /usr/local/sbin/panelsar-php-ini
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-security" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-security" /usr/local/sbin/panelze-security
-  ln -sfn /usr/local/sbin/panelze-security /usr/local/sbin/panelsar-security
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-cleaner" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-cleaner" /usr/local/sbin/panelze-cleaner
-  ln -sfn /usr/local/sbin/panelze-cleaner /usr/local/sbin/panelsar-cleaner
-fi
+install_host_tool nginx-vhost
+install_host_tool stack-install
+install_host_tool mail-stack-setup.sh
+install_host_tool mail-provision
+install_host_tool terminal-root
+install_host_tool php-ini
+install_host_tool security
+install_host_tool cleaner
+install_host_tool node-pm2
 if [[ -f "$REPO_ROOT/deploy/host/panelze-panel-update" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/panelze-panel-update" /usr/local/sbin/panelze-panel-update
 fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-system-settings" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-system-settings" /usr/local/sbin/panelze-system-settings
-  ln -sfn /usr/local/sbin/panelze-system-settings /usr/local/sbin/panelsar-system-settings
-fi
-if [[ -f "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" ]]; then
+install_host_tool system-settings
+if [[ -f "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" /usr/local/sbin/hostvim-post-install
+  ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelze-post-install
+  ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelsar-post-install
+elif [[ -f "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" /usr/local/sbin/panelze-post-install
   ln -sfn /usr/local/sbin/panelze-post-install /usr/local/sbin/panelsar-post-install
 fi
@@ -555,10 +554,6 @@ fi
 if [[ -f "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/panelze-fix-hosting-perms
   ln -sfn /usr/local/sbin/panelze-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
-fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-node-pm2" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-node-pm2" /usr/local/sbin/panelze-node-pm2
-  ln -sfn /usr/local/sbin/panelze-node-pm2 /usr/local/sbin/panelsar-node-pm2
 fi
 # PM2 global (Node uygulamaları)
 if command -v npm >/dev/null 2>&1 && ! command -v pm2 >/dev/null 2>&1; then
@@ -578,6 +573,9 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-mail-provision
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-php-ini
@@ -592,6 +590,20 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
 visudo -cf /etc/sudoers.d/panelze-engine
+
+# Tam posta + Roundcube webmail (müşteri e-posta sayfası)
+if [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "1" ]] || [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "yes" ]]; then
+  if command -v dpkg-query >/dev/null 2>&1 && ! dpkg-query -W -f='${Status}' roundcube-core 2>/dev/null | grep -q 'install ok'; then
+    if [[ "${SKIP_APT:-}" != "1" ]] && command -v add-apt-repository >/dev/null 2>&1 && ! apt-cache show roundcube-core &>/dev/null 2>&1; then
+      add-apt-repository -y universe 2>/dev/null || true
+      apt-get update -qq 2>/dev/null || true
+    fi
+    if [[ -x /usr/local/sbin/panelze-stack-install ]]; then
+      echo "==> Tam posta + Roundcube webmail kuruluyor (mail-stack-webmail)..."
+      /usr/local/sbin/panelze-stack-install mail-stack-webmail || echo "UYARI: mail-stack-webmail kurulumu başarısız — kurulum sonrası: php artisan panelze:ensure-mail-stack" >&2
+    fi
+  fi
+fi
 
 # Panel .env
 PANEL_ROOT="$REPO_ROOT/panel"
@@ -773,6 +785,10 @@ else
   hostvim_run_artisan migrate --force
 fi
 hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
+hostvim_run_artisan panelze:repair-stack-installs --no-interaction 2>/dev/null || true
+if [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "1" ]] || [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "yes" ]]; then
+  hostvim_run_artisan panelze:ensure-mail-stack --no-interaction 2>/dev/null || true
+fi
 
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   RESET_DB_MODE=0
@@ -912,7 +928,7 @@ Group=www-data
 WorkingDirectory=$PANEL_ROOT
 Environment=HOME=$PANEL_ROOT
 Environment=XDG_CONFIG_HOME=$PANEL_ROOT/storage/framework/.config
-ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --timeout=120
+ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=1 --timeout=1900
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM

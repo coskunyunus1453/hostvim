@@ -14,6 +14,11 @@ class RunStackInstallJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /** mail-stack-webmail apt kurulumu uzun sürebilir */
+    public int $timeout = 1800;
+
+    public int $tries = 1;
+
     public function __construct(
         private readonly int $runId,
         private readonly string $bundleId
@@ -63,6 +68,19 @@ class RunStackInstallJob implements ShouldQueue
         $run->message = 'Kurulum tamamlandı';
         $run->output = is_string($res['output'] ?? null) ? $res['output'] : json_encode($res, JSON_UNESCAPED_UNICODE);
         $run->progress = 100;
+        $run->finished_at = now();
+        $run->save();
+    }
+
+    public function failed(\Throwable $e): void
+    {
+        $run = StackInstallRun::query()->find($this->runId);
+        if (! $run || in_array($run->status, ['success', 'failed', 'cancelled'], true)) {
+            return;
+        }
+        $run->status = 'failed';
+        $run->progress = 100;
+        $run->message = 'Kurulum zaman aşımına uğradı veya worker hatası: '.$e->getMessage();
         $run->finished_at = now();
         $run->save();
     }

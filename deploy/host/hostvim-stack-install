@@ -64,12 +64,19 @@ case "$BUNDLE" in
     ;;
   mail-stack-webmail)
     _HERE="$(cd "$(dirname "$0")" && pwd)"
-    MSETUP="${_HERE}/hostvim-mail-stack-setup.sh"
-    if [[ ! -f "$MSETUP" ]]; then
-      MSETUP="/usr/local/sbin/hostvim-mail-stack-setup.sh"
-    fi
-    if [[ ! -f "$MSETUP" ]]; then
-      echo "hostvim-stack-install: hostvim-mail-stack-setup.sh bulunamadı (beklenen: /usr/local/sbin/hostvim-mail-stack-setup.sh)" >&2
+    MSETUP=""
+    for candidate in \
+      "${_HERE}/hostvim-mail-stack-setup.sh" \
+      "${_HERE}/panelze-mail-stack-setup.sh" \
+      "/usr/local/sbin/hostvim-mail-stack-setup.sh" \
+      "/usr/local/sbin/panelze-mail-stack-setup.sh"; do
+      if [[ -f "$candidate" ]]; then
+        MSETUP="$candidate"
+        break
+      fi
+    done
+    if [[ -z "$MSETUP" ]]; then
+      echo "hostvim-stack-install: mail-stack-setup.sh bulunamadı" >&2
       exit 1
     fi
     bash "$MSETUP"

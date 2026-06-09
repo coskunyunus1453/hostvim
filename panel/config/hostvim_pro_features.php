@@ -31,7 +31,7 @@ return [
         'api_route_prefixes' => ['monitoring/server'],
     ],
     'stripe_billing' => [
-        'label' => 'Stripe faturalama',
+        'label' => 'Faturalama',
         'ui_paths' => ['/billing'],
         'api_route_prefixes' => ['billing/checkout'],
     ],

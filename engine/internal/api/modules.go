@@ -25,6 +25,7 @@ import (
 	"hostvim/engine/internal/files"
 	"hostvim/engine/internal/hosting"
 	"hostvim/engine/internal/installer"
+	engmail "hostvim/engine/internal/mail"
 	"hostvim/engine/internal/middleware"
 	"hostvim/engine/internal/monitoring"
 	"hostvim/engine/internal/nginx"
@@ -358,6 +359,10 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		if err := engmail.SyncProvision(cfg); err != nil {
+			c.JSON(http.StatusCreated, gin.H{"message": "mailbox stored", "provision_warning": err.Error()})
+			return
+		}
 		c.JSON(http.StatusCreated, gin.H{"message": "mailbox stored"})
 	})
 	api.DELETE("/mail/:domain/mailbox", func(c *gin.Context) {
@@ -370,6 +375,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		_ = engmail.SyncProvision(cfg)
 		c.JSON(http.StatusOK, gin.H{"message": "mailbox removed"})
 	})
 	api.POST("/mail/:domain/forwarder", func(c *gin.Context) {
@@ -382,6 +388,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		_ = engmail.SyncProvision(cfg)
 		c.JSON(http.StatusCreated, gin.H{"message": "forwarder stored"})
 	})
 	api.DELETE("/mail/:domain/forwarder", func(c *gin.Context) {
@@ -395,6 +402,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		_ = engmail.SyncProvision(cfg)
 		c.JSON(http.StatusOK, gin.H{"message": "forwarder removed"})
 	})
 	api.DELETE("/mail/:domain", func(c *gin.Context) {
@@ -429,7 +437,18 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		if err := engmail.SyncProvision(cfg); err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": "mailbox updated", "provision_warning": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "mailbox updated"})
+	})
+	api.POST("/mail/provision", func(c *gin.Context) {
+		if err := engmail.SyncProvision(cfg); err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "mail provisioned"})
 	})
 
 	api.GET("/security/advisor", func(c *gin.Context) {
@@ -2796,6 +2815,24 @@ func handleFileUpload(cfg *config.Config) gin.HandlerFunc {
 		dest, err := files.ResolveUnderRoot(root, rel)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		ifExists := files.NormalizeIfExistsMode(c.PostForm("if_exists"))
+		if st, statErr := os.Stat(dest); statErr == nil {
+			if st.IsDir() {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "target exists and is a directory"})
+				return
+			}
+			switch ifExists {
+			case "skip":
+				c.JSON(http.StatusOK, gin.H{"message": "skipped", "skipped": true, "path": rel})
+				return
+			case "fail":
+				c.JSON(http.StatusConflict, gin.H{"error": "file already exists"})
+				return
+			}
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": statErr.Error()})
 			return
 		}
 		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {

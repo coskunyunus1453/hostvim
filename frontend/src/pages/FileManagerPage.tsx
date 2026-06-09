@@ -70,11 +70,14 @@ type TrashItem = {
 
 type FileWithRelPath = File & { webkitRelativePath?: string }
 
+type UploadIfExists = 'overwrite' | 'skip' | 'fail'
+
 type NormalizedUploadItem = {
   file: File
   relFromBase: string
   parentRel: string
   baseName: string
+  ifExists?: UploadIfExists
 }
 
 type UploadConflictRow = NormalizedUploadItem & { existing: ListEntry }
@@ -352,31 +355,90 @@ async function walkDroppedEntry(
   }
 }
 
-async function getFilesFromDropEvent(evt: DropEvent): Promise<(File | DataTransferItem)[]> {
-  if ('target' in (evt as any) && (evt as any).target && (evt as any).dataTransfer == null) {
-    const input = (evt as any).target as HTMLInputElement
-    return Array.from(input?.files || [])
+function dropHasDirectoryEntry(items: DataTransferItem[]): boolean {
+  for (const item of items) {
+    const anyItem = item as DataTransferItem & { webkitGetAsEntry?: () => FsEntryLike | null }
+    if (typeof anyItem.webkitGetAsEntry !== 'function') continue
+    try {
+      const entry = anyItem.webkitGetAsEntry()
+      if (entry?.isDirectory) return true
+    } catch {
+      /* tarayıcı entry okuyamadı */
+    }
   }
+  return false
+}
+
+async function getFilesFromDropEvent(evt: DropEvent): Promise<File[]> {
+  const maybeInput = (evt as Event & { target?: EventTarget | null }).target
+  if (maybeInput instanceof HTMLInputElement && maybeInput.files?.length) {
+    return Array.from(maybeInput.files)
+  }
+
   const dragEvt = evt as DragEvent
   const dt = dragEvt.dataTransfer
   if (!dt) return []
 
+  const plainFiles = Array.from(dt.files || [])
   const items = Array.from(dt.items || [])
-  const hasWebkitEntries = items.some((it: any) => typeof it.webkitGetAsEntry === 'function')
+  const hasWebkitEntries = items.some(
+    (it) => typeof (it as DataTransferItem & { webkitGetAsEntry?: () => unknown }).webkitGetAsEntry === 'function',
+  )
+
+  // Çoklu düz dosya sürüklemesinde webkitGetAsEntry güvenilir değil; dt.files kullan.
+  if (
+    plainFiles.length > 0 &&
+    (!hasWebkitEntries || (!dropHasDirectoryEntry(items) && items.every((it) => it.kind === 'file')))
+  ) {
+    return plainFiles
+  }
+
   if (!hasWebkitEntries) {
-    return Array.from(dt.files || [])
+    return plainFiles
   }
 
   const out: FileWithRelPath[] = []
-  for (const item of items) {
-    const anyItem = item as any
-    const entry = (typeof anyItem.webkitGetAsEntry === 'function'
-      ? anyItem.webkitGetAsEntry()
-      : null) as FsEntryLike | null
-    if (!entry) continue
-    await walkDroppedEntry(entry, '', out)
+  const seen = new Set<string>()
+  const pushFile = (f: File, rel?: string) => {
+    const relPath = rel && rel.trim() !== '' ? rel.replace(/\\/g, '/') : ''
+    const key = relPath ? relPath : `${f.name}:${f.size}:${f.lastModified}`
+    if (seen.has(key)) return
+    seen.add(key)
+    if (relPath) {
+      try {
+        Object.defineProperty(f, 'webkitRelativePath', { value: relPath, configurable: true })
+      } catch {
+        /* ignore */
+      }
+    }
+    out.push(f as FileWithRelPath)
   }
-  return out
+
+  for (const item of items) {
+    const anyItem = item as DataTransferItem & { webkitGetAsEntry?: () => FsEntryLike | null }
+    let entry: FsEntryLike | null = null
+    if (typeof anyItem.webkitGetAsEntry === 'function') {
+      try {
+        entry = anyItem.webkitGetAsEntry()
+      } catch {
+        entry = null
+      }
+    }
+    if (entry) {
+      await walkDroppedEntry(entry, '', out)
+      continue
+    }
+    if (item.kind === 'file') {
+      const f = item.getAsFile()
+      if (f) pushFile(f)
+    }
+  }
+
+  if (out.length < plainFiles.length) {
+    for (const f of plainFiles) pushFile(f)
+  }
+
+  return out.length > 0 ? out : plainFiles
 }
 
 const FILEMGR_HELP_KEY = 'panelze_filemgr_help_seen'
@@ -914,12 +976,18 @@ export default function FileManagerPage() {
   })
 
   const postOneUpload = useCallback(
-    async (item: NormalizedUploadItem, onProgress?: (loaded: number, total: number) => void) => {
+    async (
+      item: NormalizedUploadItem,
+      onProgress?: (loaded: number, total: number) => void,
+      ifExists: UploadIfExists = 'overwrite',
+    ) => {
       const fd = new FormData()
       fd.append('file', item.file, item.baseName)
       fd.append('path', item.parentRel)
+      fd.append('if_exists', item.ifExists ?? ifExists)
       const sizeHint = item.file.size > 0 ? item.file.size : 0
       const res = await api.post<{
+        skipped?: boolean
         auto_web?: { applied?: boolean; profile?: string; variant?: string; error?: string }
       }>(`/domains/${domainId}/files/upload`, fd, {
         ...fileReqConfig(),
@@ -944,7 +1012,7 @@ export default function FileManagerPage() {
   )
 
   const runUploadItems = useCallback(
-    async (items: NormalizedUploadItem[]) => {
+    async (items: NormalizedUploadItem[], defaultIfExists: UploadIfExists = 'overwrite') => {
       if (items.length === 0) {
         await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
         return
@@ -975,6 +1043,7 @@ export default function FileManagerPage() {
       const overallTotal = weights.reduce((a, b) => a + b, 0)
 
       let ok = 0
+      let skipped = 0
       let failed = 0
       let completedSum = 0
       let autoAppliedProfile: string | null = null
@@ -1037,12 +1106,17 @@ export default function FileManagerPage() {
                     }
                   : null,
               )
-            })
-            if (uploaded?.auto_web?.applied && typeof uploaded.auto_web.profile === 'string') {
-              autoAppliedProfile = uploaded.auto_web.profile
+            }, defaultIfExists)
+            if (uploaded?.skipped) {
+              completedSum += w
+              skipped++
+            } else {
+              if (uploaded?.auto_web?.applied && typeof uploaded.auto_web.profile === 'string') {
+                autoAppliedProfile = uploaded.auto_web.profile
+              }
+              completedSum += w
+              ok++
             }
-            completedSum += w
-            ok++
           } catch (err: unknown) {
             failed++
             const ax = err as {
@@ -1056,8 +1130,12 @@ export default function FileManagerPage() {
 
         setOffset(0)
         await qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
-        if (failed === 0 && ok > 0) {
+        if (failed === 0 && ok > 0 && skipped === 0) {
           toast.success(t('files.upload_ok'))
+        } else if (failed === 0 && ok === 0 && skipped > 0) {
+          toast.success(t('files.upload_skipped_only', { n: skipped }))
+        } else if (failed === 0 && ok > 0 && skipped > 0) {
+          toast.success(t('files.upload_ok_with_skipped', { ok, skipped }))
         } else if (ok > 0 && failed > 0) {
           toast.success(t('files.upload_partial_ok', { ok, failed: t('files.upload_partial_fail', { n: failed }) }))
         } else if (failed > 0 && ok === 0) {
@@ -1098,7 +1176,7 @@ export default function FileManagerPage() {
         setUploadProgressView(null)
       }
     },
-    [domainId, path, postOneUpload, qc, t],
+    [domainId, path, postOneUpload, qc, subdomainId, t],
   )
 
   const processIncomingFiles = useCallback(
@@ -1126,16 +1204,18 @@ export default function FileManagerPage() {
       setUploadBusy(true)
       try {
         const rootListing = await fetchAllFileEntries(domainId, basePath, subdomainId)
+        const allowed: NormalizedUploadItem[] = []
         for (const it of items) {
           const segs = it.relFromBase.split('/').filter(Boolean)
           const top = segs[0]
           const te = rootListing.find((e) => e.name === top)
           if (segs.length > 1 && te && !te.is_dir) {
             toast.error(t('files.upload_path_blocked', { name: top }))
-            setUploadBusy(false)
-            return
+            continue
           }
+          allowed.push(it)
         }
+        if (allowed.length === 0) return
 
         const parentCache = new Map<string, ListEntry[]>()
         parentCache.set(basePath, rootListing)
@@ -1148,7 +1228,7 @@ export default function FileManagerPage() {
 
         const noConflict: NormalizedUploadItem[] = []
         const conflicts: UploadConflictRow[] = []
-        for (const it of items) {
+        for (const it of allowed) {
           const list = await loadParent(it.parentRel)
           const ex = list.find((e) => e.name === it.baseName)
           if (ex) {
@@ -1159,7 +1239,7 @@ export default function FileManagerPage() {
         }
 
         if (conflicts.length === 0) {
-          await runUploadItems(items)
+          await runUploadItems(allowed)
         } else {
           setUploadConflictDialog({
             open: true,
@@ -3543,10 +3623,13 @@ export default function FileManagerPage() {
                   setUploadBusy(true)
                   try {
                     for (const c of dlg.conflicts) {
-                      const targetRel = c.parentRel ? joinRel(c.parentRel, c.baseName) : c.baseName
-                      await deleteRemotePath(targetRel)
+                      if (c.existing.is_dir) {
+                        const targetRel = c.parentRel ? joinRel(c.parentRel, c.baseName) : c.baseName
+                        await deleteRemotePath(targetRel)
+                      }
                     }
-                    await runUploadItems([...dlg.noConflict, ...dlg.conflicts])
+                    const conflictItems = dlg.conflicts.map((c) => ({ ...c, ifExists: 'overwrite' as const }))
+                    await runUploadItems([...dlg.noConflict, ...conflictItems], 'overwrite')
                   } catch (err: unknown) {
                     const ax = err as { response?: { data?: { message?: string } } }
                     toast.error(ax.response?.data?.message ?? String(err))

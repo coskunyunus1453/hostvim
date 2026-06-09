@@ -987,8 +987,9 @@ class EngineApiService
         ]);
     }
 
-    public function uploadFile(string $domain, string $path, UploadedFile $file): array
+    public function uploadFile(string $domain, string $path, UploadedFile $file, string $ifExists = 'overwrite'): array
     {
+        $ifExists = in_array($ifExists, ['fail', 'overwrite', 'skip'], true) ? $ifExists : 'overwrite';
         try {
             $req = Http::timeout(120)->acceptJson();
             if ($this->internalKey !== '') {
@@ -1003,6 +1004,7 @@ class EngineApiService
             )->post($this->baseUrl.'/api/v1/files/upload', [
                 'domain' => $domain,
                 'path' => $path,
+                'if_exists' => $ifExists,
             ]);
             $json = $response->json() ?? [];
             if (! $response->successful()) {
@@ -1195,6 +1197,11 @@ class EngineApiService
     public function mailPatchMailbox(string $domain, array $data): array
     {
         return $this->patchJson('/api/v1/mail/'.rawurlencode($domain).'/mailbox', $data);
+    }
+
+    public function mailProvisionSync(): array
+    {
+        return $this->postLongChecked('/api/v1/mail/provision', [], 120);
     }
 
     public function securityOverview(): array

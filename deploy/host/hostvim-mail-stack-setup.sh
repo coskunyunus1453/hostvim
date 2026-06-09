@@ -23,6 +23,20 @@ run_apt() {
   apt-get install -y -qq "$@"
 }
 
+echo "==> vmail kullanıcısı (sanal posta kutuları)..."
+if ! getent group vmail >/dev/null 2>&1; then
+  groupadd -g 5000 vmail
+fi
+if ! id vmail >/dev/null 2>&1; then
+  useradd -u 5000 -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail
+fi
+install -d -o vmail -g vmail -m 0750 /var/mail/vmail
+touch /etc/dovecot/passwd
+chown root:dovecot /etc/dovecot/passwd
+chmod 640 /etc/dovecot/passwd
+touch /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
+chmod 644 /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
+
 echo "==> Paketler (Postfix, Dovecot, OpenDKIM, Nginx, PHP-FPM, Roundcube)..."
 run_apt \
   ca-certificates openssl ssl-cert \
@@ -70,6 +84,15 @@ postconf -e "milter_default_action=accept"
 postconf -e "milter_protocol=6"
 postconf -e "smtpd_milters=${OPENDKIM_MILTER}"
 postconf -e "non_smtpd_milters=${OPENDKIM_MILTER}"
+postconf -e "virtual_mailbox_domains=/etc/postfix/virtual_mailbox_domains"
+postconf -e "virtual_mailbox_maps=hash:/etc/postfix/virtual_mailbox_maps"
+postconf -e "virtual_alias_maps=hash:/etc/postfix/virtual_alias_maps"
+postconf -e "virtual_mailbox_base=/var/mail/vmail"
+postconf -e "virtual_minimum_uid=5000"
+postconf -e "virtual_uid_maps=static:5000"
+postconf -e "virtual_gid_maps=static:5000"
+postmap /etc/postfix/virtual_mailbox_maps 2>/dev/null || true
+postmap /etc/postfix/virtual_alias_maps 2>/dev/null || true
 
 MASTER_CF="/etc/postfix/master.cf"
 if grep -qE '^#submission' "$MASTER_CF" 2>/dev/null; then
@@ -102,10 +125,25 @@ smtps     inet  n       -       y       -       -       smtpd
 EOF
 fi
 
-echo "==> Dovecot (Postfix SASL soketi; TLS snakeoil)..."
-cat >/etc/dovecot/conf.d/99-panelze-mail-stack.conf <<EOF
-ssl_cert = <${SNAKE_CERT}
-ssl_key = <${SNAKE_KEY}
+echo "==> Dovecot (sanal kutular + Postfix SASL; TLS snakeoil)..."
+cat >/etc/dovecot/conf.d/99-panelze-mail-stack.conf <<'EOF'
+mail_location = maildir:/var/mail/vmail/%d/%n
+mail_privileged_group = mail
+auth_mechanisms = plain login
+disable_plaintext_auth = no
+
+passdb {
+  driver = passwd-file
+  args = scheme=SHA512-CRYPT username_format=%u /etc/dovecot/passwd
+}
+
+userdb {
+  driver = static
+  args = uid=vmail gid=vmail home=/var/mail/vmail/%d/%n
+}
+
+ssl_cert = </etc/ssl/certs/ssl-cert-snakeoil.pem
+ssl_key = </etc/ssl/private/ssl-cert-snakeoil.key
 
 service auth {
   unix_listener /var/spool/postfix/private/auth {
@@ -224,6 +262,15 @@ systemctl restart opendkim
 systemctl restart nginx
 systemctl restart "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm"
 nginx -t
+
+echo "==> Mail provision betiği..."
+_HERE="$(cd "$(dirname "$0")" && pwd)"
+MPROV="${_HERE}/hostvim-mail-provision"
+[[ -f "$MPROV" ]] || MPROV="/usr/local/sbin/hostvim-mail-provision"
+if [[ -x "$MPROV" ]]; then
+  ENGINE_STATE="${HOSTVIM_HOME:-/var/www/hostvim}/engine-state"
+  [[ -d "$ENGINE_STATE/mail" ]] && bash "$MPROV" "$ENGINE_STATE" || true
+fi
 
 echo ""
 echo "=== Panelze mail stack tamam (mail-stack-webmail) ==="

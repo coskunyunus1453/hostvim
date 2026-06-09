@@ -39,18 +39,39 @@ bash "$SCRIPT_DIR/fix-hosting-permissions.sh"
 
 if [[ -f "$PANEL_ROOT/artisan" ]]; then
   hostvim_run_artisan optimize:clear || true
+  hostvim_run_artisan panelze:repair-stack-installs --no-interaction || true
+  hostvim_run_artisan panelze:ensure-mail-stack --no-interaction || true
   hostvim_run_artisan panelze:install-check --ping || true
 fi
 
-# Sudoers / panelze-system-settings (mevcut kurulumlarda eksik olabilir)
-if [[ -f "${PANELZE_HOME}/deploy/host/panelze-system-settings" ]]; then
-  install -m 755 "${PANELZE_HOME}/deploy/host/panelze-system-settings" /usr/local/sbin/panelze-system-settings
-  ln -sfn /usr/local/sbin/panelze-system-settings /usr/local/sbin/panelsar-system-settings 2>/dev/null || true
-fi
-if [[ -f "${PANELZE_HOME}/deploy/host/panelze-node-pm2" ]]; then
-  install -m 755 "${PANELZE_HOME}/deploy/host/panelze-node-pm2" /usr/local/sbin/panelze-node-pm2
-  ln -sfn /usr/local/sbin/panelze-node-pm2 /usr/local/sbin/panelsar-node-pm2 2>/dev/null || true
-fi
+install_host_tool() {
+  local base="$1"
+  local src=""
+  if [[ -f "${PANELZE_HOME}/deploy/host/hostvim-${base}" ]]; then
+    src="${PANELZE_HOME}/deploy/host/hostvim-${base}"
+  elif [[ -f "${PANELZE_HOME}/deploy/host/panelze-${base}" ]]; then
+    src="${PANELZE_HOME}/deploy/host/panelze-${base}"
+  else
+    return 0
+  fi
+  install -m 755 "$src" "/usr/local/sbin/hostvim-${base}"
+  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelze-${base}"
+  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelsar-${base}" 2>/dev/null || true
+}
+
+install_host_tool stack-install
+install_host_tool mail-stack-setup.sh
+install_host_tool mail-provision
+install_host_tool system-settings
+install_host_tool node-pm2
+
+# Sudoers (mail provision + stack)
+if [[ -f /etc/sudoers.d/panelze-engine ]]; then
+  if ! grep -q 'hostvim-mail-provision' /etc/sudoers.d/panelze-engine 2>/dev/null; then
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-mail-provision' >>/etc/sudoers.d/panelze-engine
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision' >>/etc/sudoers.d/panelze-engine
+    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install' >>/etc/sudoers.d/panelze-engine
+  fi
 if [[ -f /etc/sudoers.d/panelze-engine ]]; then
   if ! grep -q 'panelze-system-settings' /etc/sudoers.d/panelze-engine 2>/dev/null; then
     echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-system-settings' >>/etc/sudoers.d/panelze-engine

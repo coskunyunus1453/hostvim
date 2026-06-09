@@ -153,11 +153,11 @@ export default function CuriousPage() {
 
   const measurePing = async (): Promise<number> => {
     const samples: number[] = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const t0 = performance.now()
       await api.get('/curious/speed/ping')
       samples.push(performance.now() - t0)
-      await sleep(80)
+      if (i < 2) await sleep(80)
     }
     samples.sort((a, b) => a - b)
 
@@ -255,8 +255,14 @@ export default function CuriousPage() {
       setSpeedPhase('done')
       toast.success(t('curious.speed.done'))
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const ax = err as { response?: { status?: number; data?: { message?: string } } }
+      const status = ax.response?.status ?? 0
+      const msg = ax.response?.data?.message ?? String(err)
+      toast.error(
+        status === 429
+          ? t('curious.speed.rate_limited', { defaultValue: 'Çok sık deneme. Bir dakika bekleyip tekrar deneyin.' })
+          : msg,
+      )
       setSpeedPhase('idle')
       await runCleanup()
     } finally {

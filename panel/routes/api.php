@@ -234,6 +234,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:email:read')->get('domains/{domain}/email', [EmailAccountController::class, 'index']);
     Route::middleware('ability:email:write')->group(function () {
         Route::post('domains/{domain}/email', [EmailAccountController::class, 'store']);
+        Route::post('domains/{domain}/email/ensure-dns', [EmailAccountController::class, 'ensureDns']);
         Route::post('domains/{domain}/email/forwarders', [EmailAccountController::class, 'storeForwarder']);
         Route::patch('email/{emailAccount}', [EmailAccountController::class, 'update']);
         Route::delete('email/{emailAccount}', [EmailAccountController::class, 'destroy']);
@@ -309,16 +310,19 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:security:read')->get('security/fim/status', [SecurityController::class, 'fimStatus']);
     Route::middleware('ability:security:read')->get('security/alerts', [SecurityController::class, 'alerts']);
 
-    Route::middleware(['ability:curious:read', 'pro.feature:curious_tools', 'throttle:60,1'])->prefix('curious')->group(function () {
-        Route::get('speed/ping', [CuriousController::class, 'ping']);
-        Route::post('speed/download/prepare', [CuriousController::class, 'prepareDownload']);
-        Route::get('speed/download/{token}', [CuriousController::class, 'download'])->where('token', '[a-zA-Z0-9]{20,64}');
-        Route::post('speed/upload', [CuriousController::class, 'upload']);
-        Route::post('speed/cleanup', [CuriousController::class, 'cleanup']);
-        Route::get('speed/history', [CuriousController::class, 'speedHistory']);
+    Route::middleware(['ability:curious:read', 'pro.feature:curious_tools'])->prefix('curious')->group(function () {
+        Route::middleware('throttle:curious-speed')->group(function () {
+            Route::get('speed/ping', [CuriousController::class, 'ping']);
+            Route::post('speed/download/prepare', [CuriousController::class, 'prepareDownload']);
+            Route::get('speed/download/{token}', [CuriousController::class, 'download'])->where('token', '[a-zA-Z0-9]{20,64}');
+            Route::post('speed/upload', [CuriousController::class, 'upload']);
+            Route::post('speed/cleanup', [CuriousController::class, 'cleanup']);
+            Route::get('speed/history', [CuriousController::class, 'speedHistory']);
+        });
         Route::post('speed/complete', [CuriousController::class, 'completeSpeed'])
-            ->middleware('throttle:3,60');
-        Route::post('seo/analyze', [CuriousController::class, 'analyzeSeo'])->middleware('throttle:10,1');
+            ->middleware('throttle:curious-speed-complete');
+        Route::post('seo/analyze', [CuriousController::class, 'analyzeSeo'])
+            ->middleware('throttle:curious-seo');
     });
 
     Route::middleware(['role:admin', 'ability:security:write'])->group(function () {

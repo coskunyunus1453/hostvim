@@ -107,6 +107,24 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($request->ip());
         });
 
+        RateLimiter::for('curious-speed', function (Request $request) {
+            $perMinute = max(40, (int) config('hostvim.rate_limits.curious_speed_per_minute', 200));
+
+            return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('curious-speed-complete', function (Request $request) {
+            $perHour = max(6, (int) config('hostvim.rate_limits.curious_speed_complete_per_hour', 30));
+
+            return Limit::perHour($perHour)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('curious-seo', function (Request $request) {
+            $perMinute = max(5, (int) config('hostvim.rate_limits.curious_seo_per_minute', 10));
+
+            return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
+        });
+
         Gate::policy(Domain::class, DomainPolicy::class);
         Gate::policy(Database::class, DatabasePolicy::class);
 

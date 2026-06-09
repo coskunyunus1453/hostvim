@@ -9,6 +9,8 @@ use App\Models\EmailAccount;
 use App\Models\EmailForwarder;
 use App\Services\EngineApiService;
 use App\Services\HostingQuotaService;
+use App\Services\MailDnsService;
+use App\Services\MailStackService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -22,6 +24,8 @@ class EmailAccountController extends Controller
     public function __construct(
         private EngineApiService $engine,
         private HostingQuotaService $quota,
+        private MailStackService $mailStack,
+        private MailDnsService $mailDns,
     ) {}
 
     public function index(Request $request, Domain $domain): JsonResponse
@@ -50,8 +54,11 @@ class EmailAccountController extends Controller
             }
         }
 
+        $mailStackReady = $this->mailStack->isWebmailStackInstalled();
+
         return response()->json([
             'mail' => $this->engine->mailOverview($domain->name),
+            'mail_stack_ready' => $mailStackReady,
             'accounts' => $request->user()->emailAccounts()->where('domain_id', $domain->id)->get(),
             'forwarders' => EmailForwarder::query()
                 ->where('domain_id', $domain->id)
@@ -87,6 +94,19 @@ class EmailAccountController extends Controller
 
         $this->quota->ensureCanCreateEmailAccount($request->user());
 
+        if (! $this->mailStack->isWebmailStackInstalled()) {
+            $stack = $this->mailStack->ensureWebmailStack();
+            if (! ($stack['ok'] ?? false)) {
+                return response()->json([
+                    'message' => __('email.stack_install_failed'),
+                    'detail' => $stack['error'] ?? 'mail-stack-webmail',
+                    'output' => $stack['output'] ?? null,
+                ], 422);
+            }
+        }
+
+        $this->mailDns->ensureMailDns($domain);
+
         $email = $validated['local_part'].'@'.$domain->name;
         $password = Str::random(16);
 
@@ -99,16 +119,34 @@ class EmailAccountController extends Controller
             'status' => 'active',
         ]);
 
+        $engine = $this->engine->mailCreateMailbox($domain->name, [
+            'email' => $email,
+            'password' => $password,
+            'quota_mb' => $account->quota_mb,
+        ]);
+
         return response()->json([
             'message' => __('email.created'),
             'account' => $account,
             'password_plain' => $password,
-            'engine' => $this->engine->mailCreateMailbox($domain->name, [
-                'email' => $email,
-                'password' => $password,
-                'quota_mb' => $account->quota_mb,
-            ]),
+            'engine' => $engine,
+            'mail_stack_ready' => true,
         ], 201);
+    }
+
+    public function ensureDns(Request $request, Domain $domain): JsonResponse
+    {
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+
+        $result = $this->mailDns->ensureMailDns($domain);
+
+        return response()->json([
+            'message' => __('email.dns_applied'),
+            'created' => $result['created'],
+            'skipped' => $result['skipped'],
+        ]);
     }
 
     public function update(Request $request, EmailAccount $emailAccount): JsonResponse

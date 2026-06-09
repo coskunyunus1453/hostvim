@@ -279,8 +279,21 @@ export default function EmailPage() {
 
   const accounts: MailRow[] = q.data?.accounts ?? []
   const forwarders: ForwarderRow[] = q.data?.forwarders ?? []
+  const mailStackReady = Boolean(q.data?.mail_stack_ready)
   const webmailUrl: string | undefined = safeExternalHttpUrl(q.data?.webmail_url ?? '') ?? undefined
   const webmailStatus = q.data?.webmail_status as { host?: string; dns_ok?: boolean; hint?: string } | undefined
+
+  const ensureDnsM = useMutation({
+    mutationFn: async () => api.post(`/domains/${domainId}/email/ensure-dns`),
+    onSuccess: () => {
+      toast.success(t('email.dns_apply_ok'))
+      qc.invalidateQueries({ queryKey: ['email', domainId] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
   const mailOv = q.data?.mail as
     | { mail_enabled?: boolean; mailboxes?: EngineMailbox[]; spf?: string; dmarc?: string }
     | undefined
@@ -581,13 +594,17 @@ export default function EmailPage() {
                   <p className="mt-1 leading-relaxed">{t('email.deliverability_intro')}</p>
                 </div>
 
-                {isAdmin && (
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>{t('email.stack_webmail_hint')}</span>
-                    <Link to="/admin/stack" className="font-medium text-primary-600 hover:underline dark:text-primary-400">
-                      {t('email.stack_webmail_cta')} →
-                    </Link>
-                  </div>
+                {mailStackReady ? (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">{t('email.stack_webmail_ready')}</p>
+                ) : (
+                  isAdmin && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <span>{t('email.stack_webmail_hint')}</span>
+                      <Link to="/admin/stack" className="font-medium text-primary-600 hover:underline dark:text-primary-400">
+                        {t('email.stack_webmail_cta')} →
+                      </Link>
+                    </div>
+                  )
                 )}
 
                 {webmailUrl && (
@@ -614,6 +631,16 @@ export default function EmailPage() {
                       Webmail linki hazır değil: <code>{webmailStatus.host}</code>
                     </div>
                     <div className="mt-1">{webmailStatus.hint ?? 'DNS kontrolü başarısız.'}</div>
+                    {mailStackReady && !webmailStatus.dns_ok && typeof domainId === 'number' && (
+                      <button
+                        type="button"
+                        className="btn-secondary mt-2 py-1.5 text-xs"
+                        disabled={ensureDnsM.isPending}
+                        onClick={() => ensureDnsM.mutate()}
+                      >
+                        {t('email.dns_apply_mail')}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

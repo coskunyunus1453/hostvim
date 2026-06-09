@@ -196,6 +196,10 @@ return [
         'files_write_per_minute' => max(30, (int) env('PANELZE_FILES_WRITE_PER_MINUTE', 180)),
         'files_upload_per_minute' => max(10, (int) env('PANELZE_FILES_UPLOAD_PER_MINUTE', 40)),
         'databases_import_per_hour' => max(4, (int) env('PANELZE_DB_IMPORT_PER_HOUR', 30)),
+        /** Meraklısına hız testi (ping×3 + prepare + download + upload + cleanup ≈ 8 istek/test) */
+        'curious_speed_per_minute' => max(40, (int) env('PANELZE_CURIOUS_SPEED_PER_MINUTE', 200)),
+        'curious_speed_complete_per_hour' => max(6, (int) env('PANELZE_CURIOUS_SPEED_COMPLETE_PER_HOUR', 30)),
+        'curious_seo_per_minute' => max(5, (int) env('PANELZE_CURIOUS_SEO_PER_MINUTE', 10)),
     ],
 
     /** mysqldump / mysql / pg_dump / psql — PATH’te yoksa tam yol verin */

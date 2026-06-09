@@ -139,6 +139,8 @@ type HostingConfig struct {
 	NginxVhostHelper string `mapstructure:"nginx_vhost_helper"`
 	// StackInstallScript — panel stack demetleri için sudo betiği (varsayılan: /usr/local/sbin/panelze-stack-install).
 	StackInstallScript string `mapstructure:"stack_install_script"`
+	// MailProvisionScript — panel posta kutularını Dovecot/Postfix'e yazar (varsayılan: /usr/local/sbin/hostvim-mail-provision).
+	MailProvisionScript string `mapstructure:"mail_provision_script"`
 
 	// Faz 6 — gerçek dosya yedeği (Linux prod: execute_backups true; XAMPP’te false bırakın)
 	ExecuteBackups       bool   `mapstructure:"execute_backups"`

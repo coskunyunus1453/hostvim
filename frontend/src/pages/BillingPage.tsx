@@ -99,7 +99,7 @@ export default function BillingPage() {
       } else if (raw) {
         toast.error('Güvensiz checkout URL engellendi')
       } else {
-        toast.success('Demo: Stripe yapılandırılmadı')
+        toast.success(t('billing.demo_mode'))
       }
     },
     onError: (err: unknown) => {
@@ -215,11 +215,6 @@ export default function BillingPage() {
             {lic.message}
           </p>
         )}
-      </div>
-
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
-        <p className="font-semibold">{t('billing.payment_methods_title')}</p>
-        <p className="mt-1 text-xs">{t('billing.payment_methods_hint')}</p>
       </div>
 
       <div>
