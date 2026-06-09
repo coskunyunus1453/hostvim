@@ -151,6 +151,8 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool stack-install
   install_host_tool mail-stack-setup.sh
   install_host_tool mail-provision
+  echo "==> engine sudoers (NOPASSWD)"
+  bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
 fi
 
 echo ""

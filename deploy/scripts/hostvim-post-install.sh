@@ -65,27 +65,11 @@ install_host_tool mail-provision
 install_host_tool system-settings
 install_host_tool node-pm2
 
-# Sudoers (mail provision + stack)
-if [[ -f /etc/sudoers.d/panelze-engine ]]; then
-  if ! grep -q 'hostvim-mail-provision' /etc/sudoers.d/panelze-engine 2>/dev/null; then
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-mail-provision' >>/etc/sudoers.d/panelze-engine
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision' >>/etc/sudoers.d/panelze-engine
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install' >>/etc/sudoers.d/panelze-engine
-  fi
-if [[ -f /etc/sudoers.d/panelze-engine ]]; then
-  if ! grep -q 'panelze-system-settings' /etc/sudoers.d/panelze-engine 2>/dev/null; then
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-system-settings' >>/etc/sudoers.d/panelze-engine
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings' >>/etc/sudoers.d/panelze-engine
-  fi
-  if ! grep -q 'panelze-node-pm2' /etc/sudoers.d/panelze-engine 2>/dev/null; then
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2' >>/etc/sudoers.d/panelze-engine
-    echo 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2' >>/etc/sudoers.d/panelze-engine
-  fi
-  chmod 440 /etc/sudoers.d/panelze-engine
-  visudo -cf /etc/sudoers.d/panelze-engine >/dev/null 2>&1 || true
-  echo "==> sudoers: panelze-system-settings / node-pm2 güncellendi"
+if [[ "$(id -u)" -eq 0 ]]; then
+  echo "==> engine sudoers (NOPASSWD)"
+  bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
 fi
-systemctl restart panelze-engine 2>/dev/null || true
+systemctl restart hostvim-engine 2>/dev/null || systemctl restart panelze-engine 2>/dev/null || true
 
 echo ""
 echo "Tamam. Sorun devam ederse:"

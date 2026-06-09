@@ -142,7 +142,7 @@ func InstallBundle(cfg *config.Config, id string) (string, error) {
 		return "", ErrUnknownBundle
 	}
 	script := stackInstallScriptPath(cfg)
-	cmd := exec.Command("sudo", script, id)
+	cmd := exec.Command("sudo", "-n", script, id)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
