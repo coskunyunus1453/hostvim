@@ -14,7 +14,7 @@ hostvim_resolve_hostvim_home() {
     cd "$(dirname "$panel_root")" && pwd
     return 0
   fi
-  printf '%s\n' "/var/www/panelze"
+  printf '%s\n' "/var/www/hostvim"
 }
 
 hostvim_www_data_home() {
