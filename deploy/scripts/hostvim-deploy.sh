@@ -131,5 +131,27 @@ else
   fi
 fi
 
+install_host_tool() {
+  local base="$1"
+  local src=""
+  if [[ -f "${HOSTVIM_HOME}/deploy/host/hostvim-${base}" ]]; then
+    src="${HOSTVIM_HOME}/deploy/host/hostvim-${base}"
+  elif [[ -f "${HOSTVIM_HOME}/deploy/host/panelze-${base}" ]]; then
+    src="${HOSTVIM_HOME}/deploy/host/panelze-${base}"
+  else
+    return 0
+  fi
+  install -m 755 "$src" "/usr/local/sbin/hostvim-${base}"
+  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelze-${base}"
+  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelsar-${base}" 2>/dev/null || true
+}
+
+if [[ "$(id -u)" -eq 0 ]]; then
+  echo "==> host araçları (/usr/local/sbin)"
+  install_host_tool stack-install
+  install_host_tool mail-stack-setup.sh
+  install_host_tool mail-provision
+fi
+
 echo ""
 echo "Tamam. Panel: $PANEL_ROOT | Dal: $BRANCH @ $(git rev-parse --short HEAD)"
