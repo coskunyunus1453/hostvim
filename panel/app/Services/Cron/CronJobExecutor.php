@@ -101,8 +101,11 @@ class CronJobExecutor
             return $fromParser;
         }
 
-        if ($this->hasAbsoluteScriptPath($shellCommand)) {
-            return null;
+        if (preg_match('#(/[A-Za-z0-9][A-Za-z0-9_./-]*(?:artisan|spark))(?:\s|$)#', $shellCommand, $m) === 1) {
+            $dir = dirname($m[1]);
+            if (is_dir($dir)) {
+                return $dir;
+            }
         }
 
         return $this->inferWorkingDirectory($userId, $shellCommand);
@@ -184,9 +187,11 @@ class CronJobExecutor
     }
 
     /**
-     * @return array<string, string>|null
+     * Panel artisan ortamı müşteri sitelerine sızmasın (DB_* → yanlış veritabanı).
+     *
+     * @return array<string, string|false>
      */
-    private function processEnvironment(?string $cwd): ?array
+    private function processEnvironment(?string $cwd): array
     {
         $path = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
         $env = [
@@ -196,6 +201,15 @@ class CronJobExecutor
         ];
         if ($cwd !== null && $cwd !== '') {
             $env['HOME'] = $cwd;
+        }
+
+        foreach (array_keys(getenv()) as $key) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+            if (preg_match('/^(APP_|DB_|CACHE_|SESSION_|QUEUE_|REDIS_|MAIL_|AWS_|BROADCAST_|FILESYSTEM_|LOG_|SANCTUM_|ENGINE_)/', $key) === 1) {
+                $env[$key] = false;
+            }
         }
 
         return $env;
