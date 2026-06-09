@@ -109,7 +109,8 @@
     "install": "Kur",
     "install_ok": "Kurulum tamamlandı.",
     "retry": "Yeniden kur",
-    "retry_ok": "Yeniden kurulum başlatıldı."
+    "retry_ok": "Yeniden kurulum başlatıldı.",
+    "detail_live_log": "Kurulum devam ediyor… Canlı log burada görünecek."
   },
   "deploy": {
     "subtitle": "Git pull + runtime adımları + webhook ile tek noktadan dağıtım",

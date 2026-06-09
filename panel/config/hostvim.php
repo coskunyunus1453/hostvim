@@ -182,6 +182,11 @@ return [
         'disk_unzip_expand_multiplier' => max(2, (int) env('PANELZE_DISK_UNZIP_EXPAND_MULT', 4)),
     ],
 
+    /** Admin sunucu paketleri (stack-install) */
+    'stack_install_script' => env('HOSTVIM_STACK_INSTALL_SCRIPT', '/usr/local/sbin/panelze-stack-install'),
+    'stack_install_timeout' => max(300, (int) env('HOSTVIM_STACK_INSTALL_TIMEOUT', 1800)),
+    'stack_install_expected_seconds' => max(60, (int) env('HOSTVIM_STACK_INSTALL_EXPECTED_SEC', 300)),
+
     /** Müşteri cron görevleri (cron:run-due) */
     'cron' => [
         'timeout' => max(30, (int) env('PANELZE_CRON_TIMEOUT', 180)),

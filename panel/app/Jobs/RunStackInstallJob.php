@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\StackInstallRun;
-use App\Services\EngineApiService;
+use App\Services\StackBundleInstaller;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,7 +24,7 @@ class RunStackInstallJob implements ShouldQueue
         private readonly string $bundleId
     ) {}
 
-    public function handle(EngineApiService $engine): void
+    public function handle(StackBundleInstaller $installer): void
     {
         $run = StackInstallRun::query()->find($this->runId);
         if (! $run) {
@@ -40,33 +40,39 @@ class RunStackInstallJob implements ShouldQueue
         }
 
         $run->status = 'running';
-        $run->progress = 50;
+        $run->progress = 5;
         $run->started_at = now();
-        $run->message = 'Kurulum sürüyor...';
+        $run->message = 'Kurulum başlatılıyor...';
+        $run->output = '';
         $run->save();
 
-        $res = $engine->installStackBundle($this->bundleId);
-        if (! empty($res['error'])) {
-            if ($run->cancel_requested) {
-                $run->status = 'cancelled';
-                $run->message = 'Kurulum iptal edildi.';
-                $run->progress = 0;
-                $run->finished_at = now();
-                $run->save();
-                return;
-            }
+        $res = $installer->install($run, $this->bundleId);
+        $run->refresh();
+
+        if ($run->cancel_requested) {
+            $run->status = 'cancelled';
+            $run->message = 'Kurulum iptal edildi.';
+            $run->progress = 0;
+            $run->finished_at = now();
+            $run->save();
+
+            return;
+        }
+
+        if (empty($res['ok'])) {
             $run->status = 'failed';
-            $run->message = (string) $res['error'];
-            $run->output = is_string($res['output'] ?? null) ? $res['output'] : null;
+            $run->message = (string) ($res['error'] ?? 'Kurulum başarısız');
+            $run->output = $res['output'] ?? null;
             $run->progress = 100;
             $run->finished_at = now();
             $run->save();
+
             return;
         }
 
         $run->status = 'success';
         $run->message = 'Kurulum tamamlandı';
-        $run->output = is_string($res['output'] ?? null) ? $res['output'] : json_encode($res, JSON_UNESCAPED_UNICODE);
+        $run->output = $res['output'] ?? null;
         $run->progress = 100;
         $run->finished_at = now();
         $run->save();

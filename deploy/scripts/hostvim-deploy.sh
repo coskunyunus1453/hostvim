@@ -153,6 +153,8 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool mail-provision
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
+  echo "==> queue worker (timeout=${HOSTVIM_QUEUE_TIMEOUT:-1900})"
+  PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-queue-worker.sh"
 fi
 
 echo ""

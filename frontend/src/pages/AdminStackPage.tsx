@@ -25,6 +25,19 @@ type StackRun = {
   cancel_requested?: boolean
   message?: string
   output?: string
+  started_at?: string | null
+  finished_at?: string | null
+  created_at?: string | null
+}
+
+function formatElapsed(startedAt?: string | null): string | null {
+  if (!startedAt) return null
+  const start = new Date(startedAt).getTime()
+  if (Number.isNaN(start)) return null
+  const sec = Math.max(0, Math.floor((Date.now() - start) / 1000))
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return m > 0 ? `${m} dk ${s} sn` : `${s} sn`
 }
 
 function groupByCategory(mods: StackModule[]): Record<string, StackModule[]> {
@@ -76,13 +89,21 @@ export default function AdminStackPage() {
     queryKey: ['admin-stack-runs'],
     queryFn: async () => (await api.get('/admin/stack/runs')).data as { runs: StackRun[] },
     enabled: !!isAdmin,
-    refetchInterval: () => pollWhenVisible(8_000),
+    refetchInterval: (query) => {
+      const list = (query.state.data as { runs?: StackRun[] } | undefined)?.runs ?? []
+      const hasActive = list.some((r) => r.status === 'queued' || r.status === 'running')
+      return pollWhenVisible(hasActive || activeRunId !== null ? 2_000 : 8_000)
+    },
   })
   const runDetailQ = useQuery({
     queryKey: ['admin-stack-run', activeRunId],
     queryFn: async () => (await api.get(`/admin/stack/runs/${activeRunId}`)).data as { run: StackRun },
     enabled: activeRunId !== null,
-    refetchInterval: () => pollWhenVisible(8_000),
+    refetchInterval: () => {
+      const st = runDetailQ.data?.run?.status
+      const live = st === 'queued' || st === 'running'
+      return pollWhenVisible(live ? 2_000 : 8_000)
+    },
   })
   const cancelRunM = useMutation({
     mutationFn: async (id: number) => (await api.post(`/admin/stack/runs/${id}/cancel`)).data as { message?: string },
@@ -116,7 +137,11 @@ export default function AdminStackPage() {
 
   const mods = modulesQ.data ?? []
   const runs = runsQ.data?.runs ?? []
-  const activeRun = activeRunId !== null ? runs.find((r) => r.id === activeRunId) : null
+  const detailRun = runDetailQ.data?.run
+  const activeRun =
+    activeRunId !== null
+      ? (detailRun?.id === activeRunId ? detailRun : runs.find((r) => r.id === activeRunId)) ?? null
+      : null
   const busyRun = runs.find((r) => r.status === 'queued' || r.status === 'running') ?? null
   const installBusy = installM.isPending || retryRunM.isPending || !!busyRun
   const grouped = groupByCategory(mods)
@@ -294,31 +319,76 @@ export default function AdminStackPage() {
         </div>
       </div>
 
-      {activeRunId !== null && runDetailQ.data?.run && (
+      {activeRunId !== null && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                 Paket kurulum detayı #{activeRunId}
+                {detailRun?.bundle_id ? ` · ${detailRun.bundle_id}` : ''}
               </h3>
               <button type="button" className="btn-secondary py-1 px-2 text-xs" onClick={() => setActiveRunId(null)}>
                 Kapat
               </button>
             </div>
-            <p className="text-xs text-gray-500 mb-2">{runDetailQ.data.run.message}</p>
-            {(runDetailQ.data.run.status === 'failed' || runDetailQ.data.run.status === 'cancelled') && (
-              <button
-                type="button"
-                className="btn-primary mb-3 py-1.5 px-3 text-xs"
-                onClick={() => retryRunM.mutate(runDetailQ.data!.run.id)}
-                disabled={retryRunM.isPending || installBusy}
-              >
-                {retryRunM.isPending ? 'Yeniden kuruluyor...' : t('stack.retry')}
-              </button>
+            {runDetailQ.isLoading && !detailRun && (
+              <p className="text-xs text-gray-500 mb-2">{t('common.loading')}</p>
             )}
-            <pre className="max-h-[360px] overflow-auto rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-[11px] whitespace-pre-wrap">
-{runDetailQ.data.run.output || '-'}
-            </pre>
+            {detailRun && (
+              <>
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{detailRun.status}</span>
+                  <span>({Number(detailRun.progress ?? 0)}%)</span>
+                  {(detailRun.status === 'running' || detailRun.status === 'queued') && (
+                    <span className="inline-flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {formatElapsed(detailRun.started_at ?? detailRun.created_at) ?? 'başlıyor...'}
+                    </span>
+                  )}
+                </div>
+                <div className="mb-3 h-2 w-full rounded bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div
+                    className={clsx(
+                      'h-full transition-all',
+                      detailRun.status === 'running' || detailRun.status === 'queued'
+                        ? 'bg-primary-600 animate-pulse'
+                        : detailRun.status === 'success'
+                          ? 'bg-green-600'
+                          : 'bg-red-500',
+                    )}
+                    style={{ width: `${Math.max(0, Math.min(100, Number(detailRun.progress ?? 0)))}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mb-2">{detailRun.message || '—'}</p>
+                {(detailRun.status === 'queued' || detailRun.status === 'running') && (
+                  <button
+                    type="button"
+                    className="btn-secondary mb-3 py-1.5 px-3 text-xs"
+                    onClick={() => cancelRunM.mutate(detailRun.id)}
+                    disabled={cancelRunM.isPending}
+                  >
+                    İptal
+                  </button>
+                )}
+                {(detailRun.status === 'failed' || detailRun.status === 'cancelled') && (
+                  <button
+                    type="button"
+                    className="btn-primary mb-3 py-1.5 px-3 text-xs"
+                    onClick={() => retryRunM.mutate(detailRun.id)}
+                    disabled={retryRunM.isPending || installBusy}
+                  >
+                    {retryRunM.isPending ? 'Yeniden kuruluyor...' : t('stack.retry')}
+                  </button>
+                )}
+                <pre className="max-h-[360px] overflow-auto rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-[11px] whitespace-pre-wrap font-mono">
+{detailRun.output?.trim()
+  ? detailRun.output
+  : detailRun.status === 'running' || detailRun.status === 'queued'
+    ? 'Kurulum devam ediyor… Canlı log burada görünecek (birkaç saniye içinde yenilenir).'
+    : '—'}
+                </pre>
+              </>
+            )}
           </div>
         </div>
       )}

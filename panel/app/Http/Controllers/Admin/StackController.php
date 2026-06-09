@@ -40,6 +40,8 @@ class StackController extends Controller
     private function queueBundleInstall(Request $request, EngineApiService $engine, string $bundleId, bool $isRetry = false): JsonResponse
     {
         $userId = (int) $request->user()->id;
+        $this->markStaleRunningInstalls();
+
         $active = StackInstallRun::query()
             ->where('user_id', $userId)
             ->where('bundle_id', $bundleId)
@@ -60,7 +62,7 @@ class StackController extends Controller
 
         $isSyncQueue = (string) config('queue.default', 'sync') === 'sync';
         if ($isSyncQueue) {
-            (new RunStackInstallJob($run->id, $bundleId))->handle($engine);
+            app()->call([new RunStackInstallJob($run->id, $bundleId), 'handle']);
             $run->refresh();
 
             return response()->json([
@@ -81,6 +83,8 @@ class StackController extends Controller
 
     public function runs(Request $request): JsonResponse
     {
+        $this->markStaleRunningInstalls();
+
         $rows = StackInstallRun::query()
             ->where('user_id', (int) $request->user()->id)
             ->latest('id')
@@ -94,6 +98,9 @@ class StackController extends Controller
         if ((int) $stackInstallRun->user_id !== (int) $request->user()->id) {
             abort(403);
         }
+        $this->markStaleRunningInstalls();
+        $stackInstallRun->refresh();
+
         return response()->json(['run' => $stackInstallRun]);
     }
 
@@ -120,5 +127,26 @@ class StackController extends Controller
         $stackInstallRun->message = 'İptal talebi alındı. İşlem mevcut adımı bitirince duracaktır.';
         $stackInstallRun->save();
         return response()->json(['message' => 'İptal talebi alındı.']);
+    }
+
+    private function markStaleRunningInstalls(): void
+    {
+        $minutes = max(5, (int) config('hostvim.stack_install_timeout', 1800) / 60 + 5);
+        $cutoff = now()->subMinutes($minutes);
+
+        StackInstallRun::query()
+            ->where('status', 'running')
+            ->where(function ($q) use ($cutoff) {
+                $q->where('started_at', '<', $cutoff)
+                    ->orWhere(function ($q2) use ($cutoff) {
+                        $q2->whereNull('started_at')->where('created_at', '<', $cutoff);
+                    });
+            })
+            ->update([
+                'status' => 'failed',
+                'progress' => 100,
+                'message' => 'Kurulum zaman aşımına uğradı (worker kesildi). «Yeniden kur» ile tekrar deneyin.',
+                'finished_at' => now(),
+            ]);
     }
 }
