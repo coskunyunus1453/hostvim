@@ -97,10 +97,8 @@ class BindDnsService
             $written++;
         }
 
-        $confBody = "; Hostvim — otomatik üretildi\n";
-        if ($zoneBlocks === []) {
-            $confBody .= "; (henüz zone yok)\n";
-        } else {
+        $confBody = "// Hostvim auto-generated\n";
+        if ($zoneBlocks !== []) {
             $confBody .= implode("\n", $zoneBlocks)."\n";
         }
         File::put($confPath, $confBody);

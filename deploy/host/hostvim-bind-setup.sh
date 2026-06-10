@@ -56,7 +56,7 @@ fi
 # named-checkconf include dosyası mevcut olmalı (zone'lar sync ile dolar)
 touch "${CONF_SNIPPET}"
 chmod 644 "${CONF_SNIPPET}"
-echo "; Hostvim — panelze:sync-bind-dns ile doldurulur" >"${CONF_SNIPPET}"
+printf '%s\n' '// Hostvim: panelze:sync-bind-dns ile doldurulur' >"${CONF_SNIPPET}"
 
 named-checkconf
 systemctl enable bind9
