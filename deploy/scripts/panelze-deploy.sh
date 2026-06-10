@@ -160,6 +160,7 @@ if [[ "$(id -u)" -eq 0 ]]; then
       echo "==> BIND9 kurulumu (ilk kez)"
       bash "${PANELZE_HOME}/deploy/host/panelze-bind-setup.sh"
     fi
+  fi
   ENSURE_BIND="$SCRIPT_DIR/ensure-bind-config.sh"
   if [[ -f "$ENSURE_BIND" ]]; then
     echo "==> BIND yapılandırması (panelze zones)"
