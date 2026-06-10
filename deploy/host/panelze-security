@@ -160,6 +160,29 @@ modsec_pick_conf() {
   return 1
 }
 
+ensure_fail2ban_panelze_auth_filter() {
+  local filter="/etc/fail2ban/filter.d/panelze-auth.conf"
+  install -d -m 755 /etc/fail2ban/filter.d
+  cat >"$filter" <<'EOF'
+[Definition]
+failregex = ^<HOST> -.*"(GET|POST) /api/auth/login.*" (401|422|403) .*
+            ^<HOST> -.*"(GET|POST) /api/login.*" (401|422|403) .*
+ignoreregex =
+EOF
+  chmod 644 "$filter"
+}
+
+fail2ban_wait_active() {
+  local i
+  for i in 1 2 3 4 5; do
+    if service_exists "fail2ban" && systemctl is-active --quiet fail2ban; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 # Site kuralları dosyasını ana ModSecurity zincirine bağla (wildcard olmayan kurulumlar için).
 ensure_modsec_site_rules_include() {
   local marker='# panelze-site-rules (managed)'
@@ -375,6 +398,7 @@ case "$ACTION" in
     [[ "$B" -ge 60 && "$B" -le 604800 ]] || { echo "bantime out of range" >&2; exit 1; }
     [[ "$F" -ge 60 && "$F" -le 604800 ]] || { echo "findtime out of range" >&2; exit 1; }
     [[ "$M" -ge 1 && "$M" -le 20 ]] || { echo "maxretry out of range" >&2; exit 1; }
+    ensure_fail2ban_panelze_auth_filter
     CONF="/etc/fail2ban/jail.local"
     cat > "$CONF" <<EOF
 [DEFAULT]
@@ -387,9 +411,14 @@ enabled = true
 
 [panelze-auth]
 enabled = true
+port = http,https
+filter = panelze-auth
+logpath = /var/log/nginx/access.log
+maxretry = $M
 EOF
     chmod 644 "$CONF"
     systemctl restart fail2ban || true
+    fail2ban_wait_active || true
     echo "ok"
     ;;
   fail2ban-status)
@@ -997,7 +1026,7 @@ EOF
       "$0" fail2ban-set on >>"$BOOT_LOG" 2>&1 || true
       "$0" fail2ban-jail-set 600 600 5 >>"$BOOT_LOG" 2>&1 || true
     fi
-    if "$0" fail2ban-status | grep -qx enabled; then
+    if fail2ban_wait_active && "$0" fail2ban-status | grep -qx enabled; then
       FB="enabled"
     fi
     if ! "$0" modsec-status | grep -qx enabled; then
