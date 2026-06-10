@@ -51,7 +51,7 @@ class BindDnsService
             return ['ok' => true, 'zones' => 0, 'message' => 'BIND sync kapalı'];
         }
 
-        $zonesDir = rtrim((string) config('hostvim.dns.zones_dir', '/var/lib/hostvim/bind/zones'), '/');
+        $zonesDir = rtrim((string) config('hostvim.dns.zones_dir', '/var/lib/bind/hostvim/zones'), '/');
         $confPath = (string) config('hostvim.dns.conf_path', '/etc/bind/named.conf.hostvim-zones');
         $serial = (int) date('YmdH');
 
@@ -104,8 +104,12 @@ class BindDnsService
         File::put($confPath, $confBody);
         @chmod($confPath, 0644);
 
-        $reload = new Process(['rndc', 'reload']);
+        $reload = new Process(['rndc', 'reconfig']);
         $reload->run();
+        if ($reload->isSuccessful()) {
+            $zoneReload = new Process(['rndc', 'reload']);
+            $zoneReload->run();
+        }
         if (! $reload->isSuccessful()) {
             foreach (['named', 'bind9'] as $unit) {
                 $reload = new Process(['systemctl', 'reload', $unit]);

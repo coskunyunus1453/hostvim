@@ -191,7 +191,7 @@ return [
     'dns' => [
         'bind_enabled' => filter_var(env('HOSTVIM_DNS_BIND', 'true'), FILTER_VALIDATE_BOOLEAN),
         'bind_sync_script' => env('HOSTVIM_BIND_SYNC_SCRIPT', '/usr/local/sbin/hostvim-bind-sync'),
-        'zones_dir' => env('HOSTVIM_BIND_ZONES_DIR', '/var/lib/hostvim/bind/zones'),
+        'zones_dir' => env('HOSTVIM_BIND_ZONES_DIR', '/var/lib/bind/hostvim/zones'),
         'conf_path' => env('HOSTVIM_BIND_CONF_PATH', '/etc/bind/named.conf.hostvim-zones'),
         'ns1' => trim((string) env('HOSTVIM_DNS_NS1', '')),
         'ns2' => trim((string) env('HOSTVIM_DNS_NS2', '')),

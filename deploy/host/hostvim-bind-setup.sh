@@ -10,7 +10,7 @@ fi
 
 HOSTVIM_HOME="${HOSTVIM_HOME:-/var/www/hostvim}"
 PANEL_ROOT="${PANEL_ROOT:-${HOSTVIM_HOME}/panel}"
-ZONES_DIR="/var/lib/hostvim/bind/zones"
+ZONES_DIR="/var/lib/bind/hostvim/zones"
 CONF_SNIPPET="/etc/bind/named.conf.hostvim-zones"
 OPTIONS_FILE="/etc/bind/named.conf.options"
 
