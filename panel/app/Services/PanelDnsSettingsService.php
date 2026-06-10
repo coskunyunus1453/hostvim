@@ -68,6 +68,12 @@ class PanelDnsSettingsService
             && ! $this->looksLikeServerHostname($ns2);
     }
 
+    /** @/www/mail/webmail A kayıtları için yeterli (NS glue şart değil). */
+    public function hasServerIp(): bool
+    {
+        return $this->serverIp() !== '';
+    }
+
     /**
      * @param  array{ns1?: string, ns2?: string, server_ip?: string, bind_enabled?: bool, bootstrap_defaults?: bool}  $data
      */

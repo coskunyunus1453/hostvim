@@ -6,6 +6,7 @@ class MailStackService
 {
     public function __construct(
         private EngineApiService $engine,
+        private DomainDnsBootstrapService $dnsBootstrap,
     ) {}
 
     public function isWebmailStackInstalled(): bool
@@ -36,6 +37,8 @@ class MailStackService
                 'output' => is_string($result['output'] ?? null) ? $result['output'] : null,
             ];
         }
+
+        $this->dnsBootstrap->repairAllActiveDomains();
 
         return ['ok' => true, 'output' => is_string($result['output'] ?? null) ? $result['output'] : null];
     }

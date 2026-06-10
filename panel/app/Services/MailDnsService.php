@@ -7,76 +7,22 @@ use App\Models\Domain;
 class MailDnsService
 {
     public function __construct(
-        private EngineApiService $engine,
-        private BindDnsService $bindDns,
-        private PanelDnsSettingsService $dnsSettings,
+        private DomainDnsBootstrapService $dnsBootstrap,
     ) {}
 
     /**
-     * mail + webmail A kayıtlarını panel DNS'ine ekler (yoksa).
+     * mail + webmail (ve eksikse @/www) A kayıtlarını panel DNS'ine ekler.
      *
-     * @return array{created: int, skipped: int}
+     * @return array{created: int, skipped: int, error?: string}
      */
     public function ensureMailDns(Domain $domain): array
     {
-        $domainName = strtolower(trim($domain->name));
-        $ip = $this->guessServerIp($domainName);
-        if ($ip === null) {
-            return ['created' => 0, 'skipped' => 0];
-        }
+        $result = $this->dnsBootstrap->ensureDefaults($domain);
 
-        $created = 0;
-        $skipped = 0;
-        foreach (['mail', 'webmail'] as $name) {
-            $exists = $domain->dnsRecords()
-                ->where('type', 'A')
-                ->where('name', $name)
-                ->exists();
-            if ($exists) {
-                $skipped++;
-
-                continue;
-            }
-            $record = $domain->dnsRecords()->create([
-                'type' => 'A',
-                'name' => $name,
-                'value' => $ip,
-                'ttl' => 3600,
-                'priority' => null,
-            ]);
-            $this->engine->dnsCreate($domainName, [
-                'id' => (string) $record->id,
-                'type' => 'A',
-                'name' => $name,
-                'value' => $ip,
-                'ttl' => 3600,
-                'priority' => null,
-            ]);
-            $created++;
-        }
-
-        if ($created > 0) {
-            $this->bindDns->syncViaSudo();
-        }
-
-        return ['created' => $created, 'skipped' => $skipped];
-    }
-
-    private function guessServerIp(string $domainName): ?string
-    {
-        $configured = $this->dnsSettings->serverIp();
-        if ($configured !== '') {
-            return $configured;
-        }
-
-        $ips = @gethostbynamel($domainName);
-        if (is_array($ips) && count($ips) > 0 && $ips[0] !== $domainName) {
-            return (string) $ips[0];
-        }
-
-        $serverIps = trim((string) shell_exec('hostname -I 2>/dev/null') ?: '');
-        $first = explode(' ', $serverIps)[0] ?? '';
-
-        return filter_var($first, FILTER_VALIDATE_IP) ? $first : null;
+        return [
+            'created' => (int) ($result['created'] ?? 0),
+            'skipped' => (int) ($result['skipped'] ?? 0),
+            'error' => $result['error'] ?? null,
+        ];
     }
 }

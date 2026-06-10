@@ -21,13 +21,13 @@ class DomainDnsBootstrapService
      */
     public function repairAndProvision(Domain $domain): array
     {
-        if (! $this->dnsSettings->isConfigured()) {
+        if (! $this->dnsSettings->hasServerIp()) {
             return [
                 'repaired' => 0,
                 'removed' => 0,
                 'created' => 0,
                 'skipped' => 0,
-                'error' => 'dns_not_configured',
+                'error' => 'server_ip_not_configured',
             ];
         }
 
@@ -82,8 +82,8 @@ class DomainDnsBootstrapService
      */
     public function ensureDefaults(Domain $domain, bool $syncBind = true): array
     {
-        if (! $this->dnsSettings->isConfigured()) {
-            return ['created' => 0, 'skipped' => 0, 'error' => 'dns_not_configured'];
+        if (! $this->dnsSettings->hasServerIp()) {
+            return ['created' => 0, 'skipped' => 0, 'error' => 'server_ip_not_configured'];
         }
 
         $ip = $this->bindDns->serverIp();
@@ -166,13 +166,15 @@ class DomainDnsBootstrapService
             ['type' => 'A', 'name' => 'webmail', 'value' => $ip, 'ttl' => 3600],
         ];
 
-        [$ns1, $ns2] = $this->bindDns->nameServers();
-        foreach (array_filter([$ns1, $ns2]) as $ns) {
-            $glue = $this->glueHostForZone($ns, $zone);
-            if ($glue === null) {
-                continue;
+        if ($this->dnsSettings->isConfigured()) {
+            [$ns1, $ns2] = $this->bindDns->nameServers();
+            foreach (array_filter([$ns1, $ns2]) as $ns) {
+                $glue = $this->glueHostForZone($ns, $zone);
+                if ($glue === null) {
+                    continue;
+                }
+                $records[] = ['type' => 'A', 'name' => $glue, 'value' => $ip, 'ttl' => 3600];
             }
-            $records[] = ['type' => 'A', 'name' => $glue, 'value' => $ip, 'ttl' => 3600];
         }
 
         return $records;

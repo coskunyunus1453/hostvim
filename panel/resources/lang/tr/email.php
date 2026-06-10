@@ -9,7 +9,7 @@ return [
     'forwarder_deleted' => 'Yönlendirici silindi',
     'forwarder_domain_mismatch' => 'Kaynak adres seçilen alan adı ile bitmelidir.',
     'stack_install_failed' => 'Posta sunucusu kurulamadı. Sunucu yöneticisine başvurun veya panelze:ensure-mail-stack çalıştırın.',
-    'dns_applied' => 'Mail ve webmail DNS kayıtları güncellendi',
+    'dns_applied' => 'Mail ve webmail DNS kayıtları oluşturuldu veya güncellendi',
     'webmail_sso_opening' => 'Webmail açılıyor…',
     'webmail_sso_token_invalid' => 'Webmail oturum bağlantısı geçersiz veya süresi dolmuş.',
     'webmail_stack_not_ready' => 'Webmail sunucusu kurulu değil.',

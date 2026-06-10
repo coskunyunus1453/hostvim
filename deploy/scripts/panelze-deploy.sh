@@ -175,9 +175,11 @@ if [[ "$(id -u)" -eq 0 ]]; then
       /usr/local/sbin/panelze-bind-sync || echo "Uyarı: BIND sync başarısız" >&2
   fi
   if [[ -f "$PANEL_ROOT/artisan" ]]; then
-    echo "==> DNS kayıt onarımı (tüm domainler)"
+    echo "==> DNS kayıt onarımı (tüm domainler: @, www, mail, webmail)"
     (cd "$PANEL_ROOT" && php artisan panelze:dns-repair --all --no-interaction) \
       || echo "Uyarı: DNS repair atlandı veya başarısız" >&2
+    (cd "$PANEL_ROOT" && php artisan panelze:dns-bootstrap --all --no-interaction) \
+      || echo "Uyarı: DNS bootstrap atlandı veya başarısız" >&2
   fi
   echo "==> queue worker (timeout=${PANELZE_QUEUE_TIMEOUT:-1900})"
   PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-queue-worker.sh"
