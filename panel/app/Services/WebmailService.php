@@ -64,9 +64,12 @@ class WebmailService
      */
     private function resolveWebmailIps(string $host, Domain $domain): array
     {
-        $public = @gethostbynamel($host);
-        if (is_array($public) && count($public) > 0 && $public[0] !== $host) {
-            return array_values(array_unique(array_map('strval', $public)));
+        $expected = $domain->dnsRecords()
+            ->where('type', 'A')
+            ->where('name', 'webmail')
+            ->value('value');
+        if (! is_string($expected) || ! filter_var($expected, FILTER_VALIDATE_IP)) {
+            $expected = $this->dnsSettings->serverIp();
         }
 
         if ($this->dnsSettings->bindEnabled()) {
@@ -76,12 +79,24 @@ class WebmailService
             }
         }
 
-        $panelIp = $domain->dnsRecords()
-            ->where('type', 'A')
-            ->where('name', 'webmail')
-            ->value('value');
-        if (is_string($panelIp) && filter_var($panelIp, FILTER_VALIDATE_IP)) {
-            return [$panelIp];
+        if (is_string($expected) && filter_var($expected, FILTER_VALIDATE_IP)) {
+            $panelRecord = $domain->dnsRecords()
+                ->where('type', 'A')
+                ->where('name', 'webmail')
+                ->exists();
+            if ($panelRecord) {
+                return [$expected];
+            }
+        }
+
+        $public = @gethostbynamel($host);
+        if (is_array($public) && count($public) > 0 && $public[0] !== $host) {
+            $ips = array_values(array_unique(array_map('strval', $public)));
+            if ($expected !== '' && filter_var($expected, FILTER_VALIDATE_IP)) {
+                $ips = array_values(array_filter($ips, fn (string $ip): bool => $ip === $expected));
+            }
+
+            return $ips;
         }
 
         return [];
