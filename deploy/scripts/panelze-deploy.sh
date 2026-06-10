@@ -149,6 +149,9 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool bind-sync
   install_host_tool node-pm2
   install_host_tool nginx-vhost
+  install_host_tool security
+  install_host_tool terminal-root
+  install_host_tool php-ini
   install_host_tool system-settings
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"

@@ -58,6 +58,10 @@ install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
 install_host_tool bind-sync
+install_host_tool nginx-vhost
+install_host_tool security
+install_host_tool terminal-root
+install_host_tool php-ini
 install_host_tool system-settings
 install_host_tool node-pm2
 

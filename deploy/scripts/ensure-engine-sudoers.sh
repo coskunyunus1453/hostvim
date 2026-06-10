@@ -9,15 +9,8 @@ fi
 
 SUDOERS="/etc/sudoers.d/panelze-engine"
 
-ensure_line() {
-  local line="$1"
-  if [[ ! -f "$SUDOERS" ]] || ! grep -qF "$line" "$SUDOERS" 2>/dev/null; then
-    echo "$line" >>"$SUDOERS"
-  fi
-}
-
-if [[ ! -f "$SUDOERS" ]]; then
-  cat >"$SUDOERS" <<'SUDOERS'
+# Her deploy'da tam liste yazılır (eksik kural / eski hostvim satırları kalmasın).
+cat >"$SUDOERS" <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
@@ -36,16 +29,6 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 SUDOERS
-else
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-system-settings'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync'
-fi
 
 chmod 440 "$SUDOERS"
 visudo -cf "$SUDOERS"
