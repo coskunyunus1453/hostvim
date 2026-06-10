@@ -36,6 +36,8 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-bind-sync
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 SUDOERS
 else
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install'
@@ -47,6 +49,8 @@ else
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2'
+  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-bind-sync'
+  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync'
 fi
 
 chmod 440 "$SUDOERS"

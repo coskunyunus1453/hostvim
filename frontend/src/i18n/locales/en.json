@@ -1318,12 +1318,14 @@
     "webmail_note_body": "This panel does not display your inbox. Use Outlook, Apple Mail, Thunderbird, or a server-installed webmail such as Roundcube/SOGo; use the address and password you set here."
   },
   "dns": {
-    "subtitle": "DNS zone records per domain",
+    "subtitle": "DNS records per domain — published automatically via BIND9 on this server",
     "created": "DNS record created",
     "deleted": "DNS record deleted",
     "export_zone": "Export zone (BIND)",
     "export_done": "Zone file downloaded",
-    "export_failed": "Zone export failed"
+    "export_failed": "Zone export failed",
+    "bind_info_title": "Authoritative DNS (BIND9)",
+    "bind_info_body": "Records are written to BIND9 on this server. Point your domain's nameservers at the registrar to this server (glue: ns1/ns2 → server IP). Changes propagate within a few minutes."
   },
   "ssl": {
     "subtitle": "Let's Encrypt and custom certificates",

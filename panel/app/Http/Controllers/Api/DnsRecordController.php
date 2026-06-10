@@ -6,9 +6,12 @@ use App\Http\Controllers\Concerns\AuthorizesUserDomain;
 use App\Http\Controllers\Controller;
 use App\Models\DnsRecord;
 use App\Models\Domain;
+use App\Services\BindDnsService;
+use App\Services\BindZoneWriter;
 use App\Services\EngineApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DnsRecordController extends Controller
 {
@@ -16,6 +19,8 @@ class DnsRecordController extends Controller
 
     public function __construct(
         private EngineApiService $engine,
+        private BindZoneWriter $zoneWriter,
+        private BindDnsService $bindDns,
     ) {}
 
     public function index(Request $request, Domain $domain): JsonResponse
@@ -27,11 +32,16 @@ class DnsRecordController extends Controller
         return response()->json([
             'records' => $domain->dnsRecords,
             'engine_preview' => $this->engine->dnsList($domain->name),
+            'bind' => [
+                'enabled' => (bool) config('hostvim.dns.bind_enabled', true),
+                'ns' => $this->bindDns->nameServers(),
+                'server_ip' => $this->bindDns->serverIp(),
+            ],
         ]);
     }
 
     /**
-     * BIND benzeri metin (paneldeki kayıtlar; SOA/NS sağlayıcıda tanımlanmalı).
+     * BIND zone metni (panel kayıtları + SOA/NS).
      */
     public function exportZone(Request $request, Domain $domain): JsonResponse
     {
@@ -39,11 +49,19 @@ class DnsRecordController extends Controller
             abort(403);
         }
         $domain->load(['dnsRecords' => static fn ($q) => $q->orderBy('type')->orderBy('name')]);
+        [$ns1, $ns2] = $this->bindDns->nameServers();
 
         return response()->json([
             'domain' => $domain->name,
-            'format' => 'bind-lite',
-            'zone' => $this->bindZoneText($domain),
+            'format' => 'bind',
+            'zone' => $this->zoneWriter->zoneText(
+                $domain,
+                $domain->dnsRecords,
+                $ns1,
+                $ns2,
+                $this->bindDns->serverIp(),
+                (int) date('YmdH'),
+            ),
         ]);
     }
 
@@ -63,11 +81,13 @@ class DnsRecordController extends Controller
         $record = $domain->dnsRecords()->create($validated);
 
         $enginePayload = array_merge($validated, ['id' => (string) $record->id]);
+        $bind = $this->triggerBindSync();
 
         return response()->json([
             'message' => __('dns.created'),
             'record' => $record,
             'engine' => $this->engine->dnsCreate($domain->name, $enginePayload),
+            'bind' => $bind,
         ], 201);
     }
 
@@ -79,67 +99,31 @@ class DnsRecordController extends Controller
         }
         $id = (string) $dnsRecord->id;
         $dnsRecord->delete();
+        $bind = $this->triggerBindSync();
 
         return response()->json([
             'message' => __('dns.deleted'),
             'engine' => $this->engine->dnsDeleteRecord($domain->name, $id),
+            'bind' => $bind,
         ]);
     }
 
-    private function bindZoneText(Domain $domain): string
+    /**
+     * @return array{ok: bool, skipped?: bool, message?: string}
+     */
+    private function triggerBindSync(): array
     {
-        $zone = strtolower(trim($domain->name));
-        $lines = [
-            '; DNS zone export — '.$zone.' ('.__('dns.zone_export_panel_records').')',
-            '; '.__('dns.zone_export_soa_hint'),
-            '$ORIGIN '.$zone.'.',
-            '$TTL 3600',
-            '',
-        ];
-        foreach ($domain->dnsRecords as $r) {
-            $fqdn = $this->dnsNameToFqdn($zone, (string) $r->name);
-            $ttl = max(60, (int) ($r->ttl ?: 3600));
-            $type = strtoupper(trim((string) $r->type));
-            $val = trim((string) $r->value);
-            if ($type === 'TXT' && $val !== '') {
-                $val = '"'.str_replace('"', '\\"', $val).'"';
+        try {
+            $result = $this->bindDns->syncViaSudo();
+            if (! ($result['ok'] ?? false) && ! ($result['skipped'] ?? false)) {
+                Log::warning('BIND sync failed after DNS change', $result);
             }
-            if ($type === 'MX') {
-                $pri = (int) ($r->priority ?? 10);
-                $target = $this->mxTargetFqdn($val);
 
-                $lines[] = sprintf('%s %d IN MX %d %s', $fqdn, $ttl, $pri, $target);
-            } else {
-                $lines[] = sprintf('%s %d IN %s %s', $fqdn, $ttl, $type, $val);
-            }
+            return $result;
+        } catch (\Throwable $e) {
+            Log::warning('BIND sync error', ['message' => $e->getMessage()]);
+
+            return ['ok' => false, 'message' => $e->getMessage()];
         }
-
-        return implode("\n", $lines)."\n";
-    }
-
-    private function dnsNameToFqdn(string $zone, string $name): string
-    {
-        $name = strtolower(trim($name));
-        if ($name === '' || $name === '@') {
-            return $zone.'.';
-        }
-        if (str_ends_with($name, '.')) {
-            return $name;
-        }
-
-        return $name.'.'.$zone.'.';
-    }
-
-    private function mxTargetFqdn(string $target): string
-    {
-        $target = strtolower(trim($target));
-        if ($target === '') {
-            return '.';
-        }
-        if (str_ends_with($target, '.')) {
-            return $target;
-        }
-
-        return $target.'.';
     }
 }

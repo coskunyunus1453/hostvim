@@ -151,8 +151,18 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool stack-install
   install_host_tool mail-stack-setup.sh
   install_host_tool mail-provision
+  install_host_tool bind-sync
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
+  if ! command -v named >/dev/null 2>&1 || ! systemctl is-active bind9 >/dev/null 2>&1; then
+    if [[ -f "${HOSTVIM_HOME}/deploy/host/hostvim-bind-setup.sh" ]]; then
+      echo "==> BIND9 kurulumu (ilk kez)"
+      bash "${HOSTVIM_HOME}/deploy/host/hostvim-bind-setup.sh"
+    fi
+  elif [[ -x /usr/local/sbin/hostvim-bind-sync ]]; then
+    echo "==> BIND DNS senkronu"
+    /usr/local/sbin/hostvim-bind-sync || echo "Uyarı: BIND sync başarısız" >&2
+  fi
   echo "==> queue worker (timeout=${HOSTVIM_QUEUE_TIMEOUT:-1900})"
   PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-queue-worker.sh"
 fi

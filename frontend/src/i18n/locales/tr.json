@@ -1319,12 +1319,14 @@
     "webmail_note_body": "Bu panelde gelen kutusu görüntüleme yoktur. E-postayı okumak için Outlook, Apple Mail, Thunderbird veya sunucunuza kurulu Roundcube/SOGo gibi bir web arayüzü kullanın; hesap bilgileri burada oluşturduğunuz adres ve şifredir."
   },
   "dns": {
-    "subtitle": "Alan adı başına DNS kayıtları",
+    "subtitle": "Alan adı başına DNS kayıtları — sunucuda BIND9 ile otomatik yayınlanır",
     "created": "DNS kaydı eklendi",
     "deleted": "DNS kaydı silindi",
     "export_zone": "Zone dışa aktar (BIND)",
     "export_done": "Zone dosyası indirildi",
-    "export_failed": "Zone dışa aktarma başarısız"
+    "export_failed": "Zone dışa aktarma başarısız",
+    "bind_info_title": "Yetkili DNS (BIND9)",
+    "bind_info_body": "Kayıtlar bu sunucudaki BIND9'a yazılır. Alan adınızın çalışması için registrar'da nameserver'ları sunucunuza yönlendirin (glue kaydı: ns1/ns2 → sunucu IP). Değişiklikler birkaç dakika içinde yayılır."
   },
   "ssl": {
     "subtitle": "Let's Encrypt ve özel sertifikalar",

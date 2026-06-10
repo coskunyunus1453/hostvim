@@ -8,6 +8,7 @@ class MailDnsService
 {
     public function __construct(
         private EngineApiService $engine,
+        private BindDnsService $bindDns,
     ) {}
 
     /**
@@ -51,6 +52,10 @@ class MailDnsService
                 'priority' => null,
             ]);
             $created++;
+        }
+
+        if ($created > 0) {
+            $this->bindDns->syncViaSudo();
         }
 
         return ['created' => $created, 'skipped' => $skipped];

@@ -113,6 +113,11 @@ export default function DnsPage() {
         </div>
       </div>
 
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/40">
+        <p className="font-medium text-blue-900 dark:text-blue-100">{t('dns.bind_info_title')}</p>
+        <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">{t('dns.bind_info_body')}</p>
+      </div>
+
       <div className="card p-4 flex flex-wrap gap-4 items-end">
         <div>
           <label className="label">{t('domains.name')}</label>
