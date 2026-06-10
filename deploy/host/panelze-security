@@ -174,7 +174,7 @@ EOF
 
 fail2ban_wait_active() {
   local i
-  for i in 1 2 3 4 5; do
+  for i in $(seq 1 15); do
     if service_exists "fail2ban" && systemctl is-active --quiet fail2ban; then
       return 0
     fi
@@ -1026,9 +1026,6 @@ EOF
       "$0" fail2ban-set on >>"$BOOT_LOG" 2>&1 || true
       "$0" fail2ban-jail-set 600 600 5 >>"$BOOT_LOG" 2>&1 || true
     fi
-    if fail2ban_wait_active && "$0" fail2ban-status | grep -qx enabled; then
-      FB="enabled"
-    fi
     if ! "$0" modsec-status | grep -qx enabled; then
       ensure_apache_for_modsec >>"$BOOT_LOG" 2>&1 || true
       "$0" modsec-install >>"$BOOT_LOG" 2>&1 || true
@@ -1036,6 +1033,9 @@ EOF
     fi
     if "$0" modsec-status | grep -qx enabled; then
       MS="enabled"
+    fi
+    if fail2ban_wait_active && "$0" fail2ban-status | grep -qx enabled; then
+      FB="enabled"
     fi
     echo "firewall=$FW"
     echo "fail2ban=$FB"
