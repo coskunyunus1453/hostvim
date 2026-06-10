@@ -115,7 +115,7 @@ return [
             'trim',
             explode(',', (string) env('PANELZE_COMMUNITY_PLAN_CODES', 'community'))
         ))),
-        'pro_default_modules' => ['phpmyadmin_sso'],
+        'pro_default_modules' => ['phpmyadmin_sso', 'security_pro'],
     ],
 
     'features' => [

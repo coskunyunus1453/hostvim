@@ -1685,8 +1685,12 @@
       "actions_protocols": "Eylem ve protokol dağılımı"
     },
     "ssh": {
-      "intro": "SSH erişim politikası ve oturum sertleştirme. Aşağıdaki kontroller Panelze Pro ile merkezi olarak yönetilecek.",
-      "port_title": "SSH portu ve dinleme arayüzü",
+      "intro": "SSH erişim politikası ve oturum sertleştirme. Canlı sshd durumu ve tek tıkla güvenli profil (Pro).",
+      "score_title": "SSH sertleştirme skoru",
+      "apply_hardening": "Güvenli profili uygula",
+      "harden_confirm": "SSH parola girişi kapatılacak ve root yalnızca anahtar ile giriş yapabilecek. Mevcut oturumunuz açık kalır; devam edilsin mi?",
+      "harden_applied": "SSH sertleştirme uygulandı",
+      "port_title": "SSH portu",
       "port_desc": "Varsayılan 22 yerine özel port, yalnızca iç ağdan dinleme ve güvenlik duvarı ile eşleme.",
       "root_title": "Root girişi",
       "root_desc": "PermitRootLogin ve yetkili anahtar politikası; zorunlu 2FA ile birleştirme (planlanan).",
@@ -1731,7 +1735,10 @@
       "per_user_desc": "Belirli sistem kullanıcılarına sınırlı derleme hakkı (Pro)."
     },
     "attack": {
-      "intro": "Çok katmanlı savunma: ağ, uygulama ve oturum. Aşağıdakiler Pro planında gelişmiş olarak sunulacak.",
+      "intro": "Çok katmanlı savunma: Nginx rate limit, IP itibarı ve kernel SYN koruması (Pro).",
+      "ddos_apply": "Kernel SYN korumasını uygula",
+      "ddos_applied": "Kernel DDoS ayarları uygulandı",
+      "bot_hint": "Rate limit profilleri ve ModSecurity site kuralları şüpheli otomasyon trafiğini sınırlar.",
       "layers_title": "Şu an kullanılabilen katmanlar",
       "layer_fw": "Güvenlik duvarı (iptables) — port ve kaynak politikası",
       "layer_f2b": "Fail2ban — kaba kuvvet ve tekrarlayan denemeler",
@@ -1798,6 +1805,8 @@
       "pro_desc": "Daha akıllı tespit ve otomasyon odaklı Pro yetenekleri.",
       "available": "Mevcut",
       "setup_needed": "Kurulum gerekli",
+      "configure": "Yapılandır",
+      "pro_required": "Pro gerekli",
       "coming_soon": "Yakında (Pro)",
       "features": {
         "firewall": "Güvenlik duvarı koruması",

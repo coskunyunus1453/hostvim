@@ -40,4 +40,16 @@ return [
         'ui_paths' => [],
         'api_route_prefixes' => ['vendor'],
     ],
+    'security_pro' => [
+        'label' => 'Gelişmiş güvenlik',
+        'ui_paths' => ['/security'],
+        'api_route_prefixes' => [
+            'security/rate-limit',
+            'security/modsecurity/site-rule',
+            'security/intel',
+            'security/fim',
+            'security/ssh',
+            'security/ddos',
+        ],
+    ],
 ];

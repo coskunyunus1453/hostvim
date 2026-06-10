@@ -811,6 +811,38 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "fim scan completed", "changed_count": len(diffs), "diffs": diffs})
 	})
+	api.GET("/security/ssh/hardening", func(c *gin.Context) {
+		st, err := security.SSHHardeningAudit()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": st})
+	})
+	api.POST("/security/ssh/hardening", func(c *gin.Context) {
+		st, err := security.SSHHardeningApply()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "ssh hardening applied", "status": st})
+	})
+	api.GET("/security/ddos/sysctl", func(c *gin.Context) {
+		st, err := security.DdosSysctlStatusGet()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": st})
+	})
+	api.POST("/security/ddos/harden", func(c *gin.Context) {
+		st, err := security.DdosSysctlHarden()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "sysctl hardening applied", "status": st})
+	})
 	api.GET("/security/alerts", func(c *gin.Context) {
 		limit := 50
 		if q := strings.TrimSpace(c.Query("limit")); q != "" {

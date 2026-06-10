@@ -83,6 +83,12 @@ class PanelLicenseService
             return in_array($moduleKey, $defaultOnPro, true);
         }
         if (! isset($features[$moduleKey])) {
+            if ($this->isProPlan()) {
+                $bundled = config('panelze.license.pro_default_modules', []);
+
+                return is_array($bundled) && in_array($moduleKey, $bundled, true);
+            }
+
             return false;
         }
 

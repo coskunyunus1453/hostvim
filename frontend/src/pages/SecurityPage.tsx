@@ -26,6 +26,7 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import clsx from 'clsx'
 import { useDomainsList } from '../hooks/useDomains'
+import { useProFeatures } from '../hooks/useProFeatures'
 import MalwareScanVisualizer from '../components/security/MalwareScanVisualizer'
 import {
   Bar,
@@ -100,10 +101,19 @@ function PlaceholderCard({
   )
 }
 
+const PRO_FEATURE_TABS: Record<string, SecurityTabId> = {
+  rate_limit: 'attack',
+  ip_reputation: 'attack',
+  waf_per_site: 'website',
+  fim: 'server',
+}
+
 export default function SecurityPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
+  const { licensePro, licenseValid } = useProFeatures()
+  const hasSecurityPro = licensePro && licenseValid
   const [tab, setTab] = useState<SecurityTabId>('advisor')
   const [scanTarget, setScanTarget] = useState('/var/www')
   const [scanClamDomain, setScanClamDomain] = useState('')
@@ -193,31 +203,54 @@ export default function SecurityPage() {
     queryKey: ['security-overview'],
     queryFn: async () => (await api.get('/security/overview')).data,
     refetchInterval: () => pollWhenVisible(90_000),
+    staleTime: 45_000,
   })
   const advisorQ = useQuery({
     queryKey: ['security-advisor'],
     queryFn: async () => (await api.get('/security/advisor')).data,
-    refetchInterval: () => pollWhenVisible(120_000),
+    enabled: tab === 'advisor',
+    refetchInterval: tab === 'advisor' ? () => pollWhenVisible(120_000) : false,
+    staleTime: 45_000,
   })
   const intelPolicyQ = useQuery({
     queryKey: ['security-intel-policy'],
     queryFn: async () => (await api.get('/security/intel/policy')).data,
-    refetchInterval: () => pollWhenVisible(120_000),
+    enabled: tab === 'attack',
+    refetchInterval: tab === 'attack' ? () => pollWhenVisible(120_000) : false,
+    staleTime: 60_000,
   })
   const intelStatusQ = useQuery({
     queryKey: ['security-intel-status'],
     queryFn: async () => (await api.get('/security/intel/status')).data,
-    refetchInterval: () => pollWhenVisible(120_000),
+    enabled: tab === 'attack',
+    refetchInterval: tab === 'attack' ? () => pollWhenVisible(120_000) : false,
+    staleTime: 60_000,
   })
   const rateLimitQ = useQuery({
     queryKey: ['security-rate-limit-profile'],
     queryFn: async () => (await api.get('/security/rate-limit/profile')).data,
-    refetchInterval: () => pollWhenVisible(90_000),
+    enabled: tab === 'attack',
+    refetchInterval: tab === 'attack' ? () => pollWhenVisible(90_000) : false,
+    staleTime: 60_000,
   })
   const siteRulesQ = useQuery({
     queryKey: ['security-modsecurity-site-rules'],
     queryFn: async () => (await api.get('/security/modsecurity/site-rules')).data,
-    refetchInterval: () => pollWhenVisible(90_000),
+    enabled: tab === 'website',
+    refetchInterval: tab === 'website' ? () => pollWhenVisible(90_000) : false,
+    staleTime: 60_000,
+  })
+  const sshHardeningQ = useQuery({
+    queryKey: ['security-ssh-hardening'],
+    queryFn: async () => (await api.get('/security/ssh/hardening')).data,
+    enabled: tab === 'ssh',
+    staleTime: 60_000,
+  })
+  const ddosSysctlQ = useQuery({
+    queryKey: ['security-ddos-sysctl'],
+    queryFn: async () => (await api.get('/security/ddos/sysctl')).data,
+    enabled: tab === 'attack',
+    staleTime: 60_000,
   })
 
   const bootstrapM = useMutation({
@@ -507,7 +540,32 @@ export default function SecurityPage() {
   const fimStatusQ = useQuery({
     queryKey: ['security-fim-status'],
     queryFn: async () => (await api.get('/security/fim/status')).data,
-    refetchInterval: () => pollWhenVisible(90_000),
+    enabled: tab === 'server',
+    refetchInterval: tab === 'server' ? () => pollWhenVisible(90_000) : false,
+    staleTime: 60_000,
+  })
+  const sshHardenM = useMutation({
+    mutationFn: async () => (await api.post('/security/ssh/hardening')).data,
+    onSuccess: () => {
+      toast.success(t('security.ssh.harden_applied'))
+      void sshHardeningQ.refetch()
+      void qc.invalidateQueries({ queryKey: ['security-advisor'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string; hint?: string } } }
+      toast.error([ax.response?.data?.message, ax.response?.data?.hint].filter(Boolean).join(' — ') || String(err))
+    },
+  })
+  const ddosHardenM = useMutation({
+    mutationFn: async () => (await api.post('/security/ddos/harden')).data,
+    onSuccess: () => {
+      toast.success(t('security.attack.ddos_applied'))
+      void ddosSysctlQ.refetch()
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string; hint?: string } } }
+      toast.error([ax.response?.data?.message, ax.response?.data?.hint].filter(Boolean).join(' — ') || String(err))
+    },
   })
   const fimBaselineM = useMutation({
     mutationFn: async () => (await api.post('/security/fim/baseline')).data,
@@ -748,19 +806,12 @@ export default function SecurityPage() {
     if (typeof s.maxretry === 'number') setJailMaxretry(s.maxretry)
   }, [overview?.fail2ban?.settings])
 
-  useEffect(() => {
-    if (!isAdmin || q.isLoading || q.isError || !overview) return
-    const needBootstrap =
-      !overview.firewall?.enabled || !overview.fail2ban?.enabled || !overview.modsecurity?.enabled
-    if (!needBootstrap) return
-    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('panelze-security-bootstrap-v1') === '1') {
-      return
-    }
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('panelze-security-bootstrap-v1', '1')
-    }
-    bootstrapM.mutate()
-  }, [isAdmin, q.isLoading, q.isError, overview])
+  const proFeatureStatus = (active: boolean) => {
+    if (active) return t('security.product.available')
+    if (hasSecurityPro) return t('security.product.configure')
+    return t('security.product.pro_required')
+  }
+
   useEffect(() => {
     const id = window.setInterval(() => {
       setRateLimitProgress((s) => {
@@ -941,20 +992,31 @@ export default function SecurityPage() {
           </div>
           <p className="mb-3 text-xs text-gray-600 dark:text-gray-300">{t('security.product.pro_desc')}</p>
           <div className="space-y-2">
-            {productFeatures.pro.map((f) => (
-              <div
-                key={f.key}
-                className={clsx(
-                  'flex items-center justify-between rounded-lg border px-3 py-2 text-xs',
-                  f.active
-                    ? 'border-emerald-300 bg-emerald-100/70 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100'
-                    : 'border-violet-300 bg-violet-100/70 text-violet-900 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-100',
-                )}
-              >
-                <span>{t(`security.product.features.${f.key}`)}</span>
-                <span className="font-semibold">{f.active ? t('security.product.available') : t('security.product.coming_soon')}</span>
-              </div>
-            ))}
+            {productFeatures.pro.map((f) => {
+              const targetTab = PRO_FEATURE_TABS[f.key]
+              const canJump = !!targetTab && (hasSecurityPro || f.active)
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  disabled={!canJump}
+                  onClick={() => targetTab && setTab(targetTab)}
+                  className={clsx(
+                    'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                    f.active
+                      ? 'border-emerald-300 bg-emerald-100/70 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100'
+                      : hasSecurityPro
+                        ? 'border-violet-300 bg-violet-100/70 text-violet-900 hover:bg-violet-200/70 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-100 dark:hover:bg-violet-900/50'
+                        : 'border-gray-300 bg-gray-100/70 text-gray-600 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-400',
+                    canJump && 'cursor-pointer',
+                    !canJump && 'cursor-default',
+                  )}
+                >
+                  <span>{t(`security.product.features.${f.key}`)}</span>
+                  <span className="font-semibold">{proFeatureStatus(f.active)}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -1243,12 +1305,51 @@ export default function SecurityPage() {
               </div>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <PlaceholderCard pro title={t('security.ssh.port_title')} description={t('security.ssh.port_desc')} />
-            <PlaceholderCard pro title={t('security.ssh.root_title')} description={t('security.ssh.root_desc')} />
-            <PlaceholderCard pro title={t('security.ssh.password_title')} description={t('security.ssh.password_desc')} />
-            <PlaceholderCard pro title={t('security.ssh.keys_title')} description={t('security.ssh.keys_desc')} />
-          </div>
+          {sshHardeningQ.isLoading ? (
+            <p className="text-gray-500">{t('common.loading')}</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-5 dark:border-cyan-900/40 dark:bg-cyan-950/20">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('security.ssh.score_title')}</p>
+                    <p className="mt-1 text-3xl font-bold text-cyan-700 dark:text-cyan-300">
+                      {typeof sshHardeningQ.data?.result?.status?.score === 'number'
+                        ? sshHardeningQ.data.result.status.score
+                        : '—'}
+                    </p>
+                  </div>
+                  {isAdmin && hasSecurityPro && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={sshHardenM.isPending}
+                      onClick={() => {
+                        if (window.confirm(t('security.ssh.harden_confirm'))) sshHardenM.mutate()
+                      }}
+                    >
+                      {sshHardenM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('security.ssh.apply_hardening')}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {(
+                  [
+                    { key: 'port', label: t('security.ssh.port_title'), val: sshHardeningQ.data?.result?.status?.port },
+                    { key: 'root', label: t('security.ssh.root_title'), val: sshHardeningQ.data?.result?.status?.permit_root_login },
+                    { key: 'pass', label: t('security.ssh.password_title'), val: sshHardeningQ.data?.result?.status?.password_authentication },
+                    { key: 'key', label: t('security.ssh.keys_title'), val: sshHardeningQ.data?.result?.status?.pubkey_authentication },
+                  ] as const
+                ).map((row) => (
+                  <div key={row.key} className="rounded-xl border border-gray-200 bg-white/80 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+                    <p className="text-xs text-gray-500">{row.label}</p>
+                    <p className="mt-1 font-mono text-sm font-semibold text-gray-900 dark:text-white">{String(row.val ?? '—')}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1917,7 +2018,7 @@ export default function SecurityPage() {
                   <option value="laravel">laravel</option>
                   <option value="api">api</option>
                 </select>
-                <button type="button" className="btn-primary" disabled={!isAdmin || rateLimitM.isPending} onClick={() => rateLimitM.mutate(rateLimitProfile)}>
+                <button type="button" className="btn-primary" disabled={!isAdmin || !hasSecurityPro || rateLimitM.isPending} onClick={() => rateLimitM.mutate(rateLimitProfile)}>
                   {t('security.pro_live.rate.apply')}
                 </button>
               </div>
@@ -1942,8 +2043,25 @@ export default function SecurityPage() {
                 </div>
               )}
             </div>
-            <PlaceholderCard pro title={t('security.attack.ddos_title')} description={t('security.attack.ddos_desc')} />
-            <PlaceholderCard pro title={t('security.attack.bot_title')} description={t('security.attack.bot_desc')} />
+            <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900/40 dark:bg-violet-950/20">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('security.attack.ddos_title')}</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{t('security.attack.ddos_desc')}</p>
+              <div className="mt-3 grid gap-2 text-xs font-mono text-gray-700 dark:text-gray-300">
+                <p>SYN cookies: {ddosSysctlQ.data?.result?.status?.syn_cookies_enabled ? 'on' : 'off'}</p>
+                <p>tcp_max_syn_backlog: {String(ddosSysctlQ.data?.result?.status?.tcp_max_syn_backlog ?? '—')}</p>
+                <p>score: {String(ddosSysctlQ.data?.result?.status?.score ?? '—')}</p>
+              </div>
+              {isAdmin && hasSecurityPro && (
+                <button type="button" className="btn-primary mt-3" disabled={ddosHardenM.isPending} onClick={() => ddosHardenM.mutate()}>
+                  {ddosHardenM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('security.attack.ddos_apply')}
+                </button>
+              )}
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white/70 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('security.attack.bot_title')}</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{t('security.attack.bot_desc')}</p>
+              <p className="mt-2 text-xs text-gray-500">{t('security.attack.bot_hint')}</p>
+            </div>
             <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-800/50 dark:bg-violet-950/20">
               <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('security.attack.geo_title')}</p>
               <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{t('security.attack.geo_desc')}</p>

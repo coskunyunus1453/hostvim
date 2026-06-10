@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\EngineApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class SecurityController extends Controller
 {
@@ -15,7 +16,9 @@ class SecurityController extends Controller
 
     public function overview(Request $request): JsonResponse
     {
-        $overview = $this->engine->securityOverview();
+        $overview = Cache::remember('panelze:security:overview', 45, function () {
+            return $this->engine->securityOverview();
+        });
 
         return response()->json(['overview' => $overview]);
     }
@@ -27,6 +30,9 @@ class SecurityController extends Controller
             return $this->securityErrorResponse($result['error'], $result);
         }
 
+        Cache::forget('panelze:security:overview');
+        Cache::forget('panelze:security:advisor');
+
         return response()->json([
             'message' => 'Varsayılan güvenlik katmanları uygulandı.',
             'result' => $result['result'] ?? $result,
@@ -35,7 +41,9 @@ class SecurityController extends Controller
 
     public function advisor(): JsonResponse
     {
-        $report = $this->engine->securityAdvisor();
+        $report = Cache::remember('panelze:security:advisor', 45, function () {
+            return $this->engine->securityAdvisor();
+        });
         if (! empty($report['error'])) {
             return $this->securityErrorResponse($report['error'], $report);
         }
@@ -359,6 +367,48 @@ class SecurityController extends Controller
         ]);
 
         $result = $this->engine->removeModSecuritySiteRule((string) $validated['id']);
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+
+        return response()->json(['result' => $result], 200);
+    }
+
+    public function sshHardening(): JsonResponse
+    {
+        $result = $this->engine->getSshHardeningStatus();
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+
+        return response()->json(['result' => $result], 200);
+    }
+
+    public function applySshHardening(): JsonResponse
+    {
+        $result = $this->engine->applySshHardening();
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+        Cache::forget('panelze:security:advisor');
+        Cache::forget('panelze:security:overview');
+
+        return response()->json(['result' => $result], 200);
+    }
+
+    public function ddosSysctl(): JsonResponse
+    {
+        $result = $this->engine->getDdosSysctlStatus();
+        if (! empty($result['error'])) {
+            return $this->securityErrorResponse($result['error'], $result);
+        }
+
+        return response()->json(['result' => $result], 200);
+    }
+
+    public function applyDdosHardening(): JsonResponse
+    {
+        $result = $this->engine->applyDdosHardening();
         if (! empty($result['error'])) {
             return $this->securityErrorResponse($result['error'], $result);
         }

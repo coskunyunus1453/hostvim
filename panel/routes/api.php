@@ -316,6 +316,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:security:read')->get('security/intel/policy', [SecurityController::class, 'intelPolicy']);
     Route::middleware('ability:security:read')->get('security/intel/status', [SecurityController::class, 'intelStatus']);
     Route::middleware('ability:security:read')->get('security/fim/status', [SecurityController::class, 'fimStatus']);
+    Route::middleware('ability:security:read')->get('security/ssh/hardening', [SecurityController::class, 'sshHardening']);
+    Route::middleware('ability:security:read')->get('security/ddos/sysctl', [SecurityController::class, 'ddosSysctl']);
     Route::middleware('ability:security:read')->get('security/alerts', [SecurityController::class, 'alerts']);
 
     Route::middleware(['ability:curious:read', 'pro.feature:curious_tools'])->prefix('curious')->group(function () {
@@ -352,6 +354,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('security/intel/policy', [SecurityController::class, 'updateIntelPolicy']);
         Route::post('security/fim/baseline', [SecurityController::class, 'createFimBaseline']);
         Route::post('security/fim/scan', [SecurityController::class, 'runFimScan']);
+        Route::post('security/ssh/hardening', [SecurityController::class, 'applySshHardening']);
+        Route::post('security/ddos/harden', [SecurityController::class, 'applyDdosHardening']);
         Route::post('security/bootstrap-defaults', [SecurityController::class, 'bootstrapDefaults']);
     });
 

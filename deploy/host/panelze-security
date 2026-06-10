@@ -829,6 +829,65 @@ EOF
     echo "[6/6] done"
     echo "ok"
     ;;
+  ssh-hardening-audit)
+    if ! command -v sshd >/dev/null 2>&1; then
+      echo "sshd not installed" >&2
+      exit 1
+    fi
+    sshd -T 2>/dev/null | awk '
+      /^port / { print "port=" $2 }
+      /^permitrootlogin / { print "permitrootlogin=" $2 }
+      /^passwordauthentication / { print "passwordauthentication=" $2 }
+      /^pubkeyauthentication / { print "pubkeyauthentication=" $2 }
+      /^maxauthtries / { print "maxauthtries=" $2 }
+    '
+    ;;
+  ssh-hardening-apply)
+    DROPIN="/etc/ssh/sshd_config.d/99-panelze-hardening.conf"
+    install -d -m 755 /etc/ssh/sshd_config.d
+    TMP="$(mktemp)"
+    cat >"$TMP" <<'EOF'
+# Panelze SSH hardening (managed)
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+PubkeyAuthentication yes
+MaxAuthTries 4
+X11Forwarding no
+AllowTcpForwarding yes
+ClientAliveInterval 300
+ClientAliveCountMax 2
+EOF
+    install -m 644 "$TMP" "$DROPIN"
+    rm -f "$TMP"
+    if ! sshd -t >/tmp/panelze-sshd-test.log 2>&1; then
+      rm -f "$DROPIN"
+      cat /tmp/panelze-sshd-test.log >&2
+      exit 1
+    fi
+    systemctl reload ssh >/dev/null 2>&1 || systemctl reload sshd >/dev/null 2>&1 || service ssh reload >/dev/null 2>&1 || true
+    echo "ok"
+    ;;
+  ddos-sysctl-status)
+    SC="$(sysctl -n net.ipv4.tcp_syncookies 2>/dev/null || echo 0)"
+    SB="$(sysctl -n net.ipv4.tcp_max_syn_backlog 2>/dev/null || echo 0)"
+    FT="$(sysctl -n net.ipv4.tcp_fin_timeout 2>/dev/null || echo 0)"
+    echo "tcp_syncookies=$SC"
+    echo "tcp_max_syn_backlog=$SB"
+    echo "tcp_fin_timeout=$FT"
+    ;;
+  ddos-sysctl-harden)
+    SYSCTL_DROPIN="/etc/sysctl.d/99-panelze-ddos.conf"
+    cat >"$SYSCTL_DROPIN" <<'EOF'
+# Panelze DDoS / SYN flood mitigation
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_max_syn_backlog = 4096
+net.ipv4.tcp_fin_timeout = 30
+net.ipv4.tcp_tw_reuse = 1
+EOF
+    chmod 644 "$SYSCTL_DROPIN"
+    sysctl --system >/dev/null 2>&1 || sysctl -p "$SYSCTL_DROPIN" >/dev/null 2>&1 || true
+    echo "ok"
+    ;;
   security-bootstrap-defaults)
     install -d -m 750 /etc/panelze/security
     FB="disabled"

@@ -1377,6 +1377,26 @@ class EngineApiService
         return $this->get('/api/v1/security/modsecurity/site-rules');
     }
 
+    public function getSshHardeningStatus(): array
+    {
+        return $this->get('/api/v1/security/ssh/hardening');
+    }
+
+    public function applySshHardening(): array
+    {
+        return $this->postChecked('/api/v1/security/ssh/hardening', []);
+    }
+
+    public function getDdosSysctlStatus(): array
+    {
+        return $this->get('/api/v1/security/ddos/sysctl');
+    }
+
+    public function applyDdosHardening(): array
+    {
+        return $this->postChecked('/api/v1/security/ddos/harden', []);
+    }
+
     /**
      * @return array{message?: string, rule?: array{id:string,domain:string,mode:string,target:string}, error?: string}
      */

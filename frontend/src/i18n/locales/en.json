@@ -1684,8 +1684,12 @@
       "actions_protocols": "Action & protocol distribution"
     },
     "ssh": {
-      "intro": "SSH access policy and session hardening. The controls below will be managed centrally in Panelze Pro.",
-      "port_title": "SSH port & bind interface",
+      "intro": "SSH access policy and session hardening. Live sshd status and one-click secure profile (Pro).",
+      "score_title": "SSH hardening score",
+      "apply_hardening": "Apply secure profile",
+      "harden_confirm": "Password SSH login will be disabled and root will only accept keys. Your current session stays open. Continue?",
+      "harden_applied": "SSH hardening applied",
+      "port_title": "SSH port",
       "port_desc": "Custom port instead of 22, listen on internal networks only, align with firewall rules.",
       "root_title": "Root login",
       "root_desc": "PermitRootLogin and privileged key policy; optional 2FA pairing (planned).",
@@ -1730,7 +1734,10 @@
       "per_user_desc": "Grant compile rights to selected system users (Pro)."
     },
     "attack": {
-      "intro": "Defence in depth across network, application, and session. Advanced items below are planned for Panelze Pro.",
+      "intro": "Defence in depth: Nginx rate limits, IP reputation, and kernel SYN protection (Pro).",
+      "ddos_apply": "Apply kernel SYN protection",
+      "ddos_applied": "Kernel DDoS settings applied",
+      "bot_hint": "Rate limit profiles and per-site ModSecurity rules help limit automated abuse.",
       "layers_title": "Layers available today",
       "layer_fw": "Firewall (iptables) — port and source policy",
       "layer_f2b": "Fail2ban — brute-force and repeated failures",
@@ -1797,6 +1804,8 @@
       "pro_desc": "Pro capabilities focused on smarter detection and automation.",
       "available": "Available",
       "setup_needed": "Setup needed",
+      "configure": "Configure",
+      "pro_required": "Pro required",
       "coming_soon": "Coming soon (Pro)",
       "features": {
         "firewall": "Firewall protection",
