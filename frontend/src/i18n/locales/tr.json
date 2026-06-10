@@ -1448,6 +1448,7 @@
   },
   "monitoring": {
     "subtitle": "Kaynak kullanımı, canlı metrikler ve servis durumu",
+    "health_score_estimating": "Sunucu metriklerinden tahmin ediliyor…",
     "live": "Canlı",
     "refreshing": "Güncelleniyor…",
     "last_update": "Son güncelleme",

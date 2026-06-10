@@ -9,10 +9,12 @@ use App\Models\DeploymentRun;
 use App\Models\Domain;
 use App\Models\InstallerRun;
 use App\Models\SslCertificate;
+use App\Models\User;
 use App\Services\EngineApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class MonitoringController extends Controller
 {
@@ -34,14 +36,7 @@ class MonitoringController extends Controller
 
     public function server(Request $request): JsonResponse
     {
-        $payload = Cache::remember('monitoring:server:stats', 15, function (): array {
-            return [
-                'stats' => $this->engine->getSystemStats(),
-                'services' => $this->engine->getServices(),
-            ];
-        });
-
-        return response()->json($payload);
+        return response()->json($this->cachedServerPayload());
     }
 
     public function health(Request $request): JsonResponse
@@ -51,28 +46,100 @@ class MonitoringController extends Controller
             'domain_id' => ['nullable', 'integer', 'exists:domains,id'],
         ]);
 
-        $selectedDomain = null;
-        if (! empty($validated['domain_id'])) {
-            $domainQ = Domain::query()->where('id', (int) $validated['domain_id']);
-            if (! $user->isAdmin()) {
-                $domainQ->where('user_id', (int) $user->id);
-            }
-            $selectedDomain = $domainQ->first();
-            if (! $selectedDomain) {
-                abort(403);
-            }
+        $selectedDomain = $this->resolveHealthDomain($user, $validated['domain_id'] ?? null);
+        $cacheKey = $this->healthCacheKey($user, $selectedDomain);
+
+        $payload = Cache::get($cacheKey);
+        if (is_array($payload)) {
+            return response()->json($payload);
         }
 
+        $stale = Cache::get($cacheKey.':stale');
+        if (is_array($stale)) {
+            $userId = (int) $user->id;
+            $domainId = $selectedDomain ? (int) $selectedDomain->id : null;
+            dispatch(function () use ($cacheKey, $userId, $domainId): void {
+                try {
+                    $u = User::query()->find($userId);
+                    if (! $u) {
+                        return;
+                    }
+                    $domain = $domainId ? Domain::query()->find($domainId) : null;
+                    app(self::class)->storeHealthPayload($u, $domain, $cacheKey);
+                } catch (\Throwable $e) {
+                    Log::warning('monitoring health refresh failed', ['error' => $e->getMessage()]);
+                }
+            })->afterResponse();
+
+            return response()->json($stale);
+        }
+
+        return response()->json($this->storeHealthPayload($user, $selectedDomain, $cacheKey));
+    }
+
+    /**
+     * @return array{stats: array<string, mixed>, services: list<array<string, mixed>>}
+     */
+    private function cachedServerPayload(): array
+    {
+        return Cache::remember('monitoring:server:stats', 20, function (): array {
+            $t0 = microtime(true);
+
+            return [
+                'stats' => $this->engine->getSystemStats(),
+                'services' => $this->engine->getServices(),
+                'fetched_ms' => (int) round((microtime(true) - $t0) * 1000),
+            ];
+        });
+    }
+
+    private function resolveHealthDomain(User $user, mixed $domainId): ?Domain
+    {
+        if (empty($domainId)) {
+            return null;
+        }
+        $domainQ = Domain::query()->where('id', (int) $domainId);
+        if (! $user->isAdmin()) {
+            $domainQ->where('user_id', (int) $user->id);
+        }
+        $selectedDomain = $domainQ->first();
+        if (! $selectedDomain) {
+            abort(403);
+        }
+
+        return $selectedDomain;
+    }
+
+    private function healthCacheKey(User $user, ?Domain $selectedDomain): string
+    {
         $scope = $user->isAdmin() ? 'admin' : 'u'.$user->id;
         $scope .= $selectedDomain ? ':d'.$selectedDomain->id : ':all';
-        $cacheKey = 'monitoring:health:'.$scope;
 
-        $payload = Cache::remember($cacheKey, 20, function () use ($user, $selectedDomain): array {
-            $t0 = microtime(true);
-            $stats = $this->engine->getSystemStats();
-            $services = $this->engine->getServices();
-            $responseMs = (int) round((microtime(true) - $t0) * 1000);
-            $siteResponseMs = $selectedDomain ? $this->probeDomainResponseMs((string) $selectedDomain->name) : null;
+        return 'monitoring:health:'.$scope;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function storeHealthPayload(User $user, ?Domain $selectedDomain, string $cacheKey): array
+    {
+        $payload = $this->buildHealthPayload($user, $selectedDomain);
+        Cache::put($cacheKey, $payload, 45);
+        Cache::put($cacheKey.':stale', $payload, 600);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildHealthPayload(User $user, ?Domain $selectedDomain): array
+    {
+        $server = $this->cachedServerPayload();
+        $stats = $server['stats'];
+        $services = $server['services'];
+        $responseMs = (int) ($server['fetched_ms'] ?? 0);
+        $siteResponseMs = $selectedDomain ? $this->probeDomainResponseMs((string) $selectedDomain->name) : null;
 
             $cpu = (float) ($stats['cpu_usage'] ?? 0);
             $ram = (float) ($stats['memory_percent'] ?? 0);
@@ -261,9 +328,6 @@ class MonitoringController extends Controller
                 'coverage_percent' => (int) round(($knownMetrics / max(1, $totalMetrics)) * 100),
                 'reasons' => array_slice($reasons, 0, 8),
             ];
-        });
-
-        return response()->json($payload);
     }
 
     public function healthSites(Request $request): JsonResponse
@@ -400,7 +464,7 @@ class MonitoringController extends Controller
             $errno = 0;
             $errstr = '';
             $t0 = microtime(true);
-            $sock = @fsockopen($domain, $port, $errno, $errstr, 1.5);
+            $sock = @fsockopen($domain, $port, $errno, $errstr, 0.8);
             $ms = (int) round((microtime(true) - $t0) * 1000);
             if (is_resource($sock)) {
                 fclose($sock);

@@ -1447,6 +1447,7 @@
   },
   "monitoring": {
     "subtitle": "Resource usage, live metrics and service health",
+    "health_score_estimating": "Estimating from server metrics…",
     "live": "Live",
     "refreshing": "Updating…",
     "last_update": "Last update",

@@ -131,6 +131,39 @@ function formatBytes(n?: number | null): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
+type HealthPayload = {
+  score: number
+  grade: 'excellent' | 'good' | 'warning' | 'critical'
+  metrics_total?: number
+  metrics_known?: number
+  coverage_percent?: number
+  response_ms: number
+  site_response_ms?: number | null
+  scope?: 'global' | 'domain'
+  domain?: { id: number; name: string; status: string } | null
+  snapshot: { cpu: number; ram: number; disk: number; error_rate: number }
+  reasons: Array<{ key: string; ok: boolean; unknown?: boolean; label: string; detail: string }>
+}
+
+function estimateHealthScore(stats?: ServerStats): number | null {
+  if (!stats) return null
+  let score = 100
+  const cpu = stats.cpu_usage ?? 0
+  const ram = stats.memory_percent ?? 0
+  const disk = stats.disk_percent ?? 0
+  score -= Math.max(0, Math.min(20, (cpu - 60) * 0.5))
+  score -= Math.max(0, Math.min(20, (ram - 65) * 0.57))
+  score -= Math.max(0, Math.min(15, (disk - 70) * 0.5))
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+function healthGradeLabel(score: number): string {
+  if (score >= 90) return 'Mükemmel'
+  if (score >= 75) return 'İyi'
+  if (score >= 60) return 'Dikkat'
+  return 'Kritik'
+}
+
 function formatUptime(seconds?: number | null): string {
   if (seconds == null || !Number.isFinite(seconds)) return '—'
   const s = Math.floor(seconds)
@@ -195,21 +228,11 @@ export default function MonitoringPage() {
         await api.get('/monitoring/health', {
           params: healthDomainId === '' ? undefined : { domain_id: healthDomainId },
         })
-      ).data as {
-        score: number
-        grade: 'excellent' | 'good' | 'warning' | 'critical'
-        metrics_total?: number
-        metrics_known?: number
-        coverage_percent?: number
-        response_ms: number
-        site_response_ms?: number | null
-        scope?: 'global' | 'domain'
-        domain?: { id: number; name: string; status: string } | null
-        snapshot: { cpu: number; ram: number; disk: number; error_rate: number }
-        reasons: Array<{ key: string; ok: boolean; unknown?: boolean; label: string; detail: string }>
-      },
-    refetchInterval: () => pollWhenVisible(45_000),
-    staleTime: 30_000,
+      ).data as HealthPayload,
+    placeholderData: (prev) => prev,
+    refetchInterval: () => pollWhenVisible(60_000),
+    staleTime: 45_000,
+    gcTime: 600_000,
   })
   const healthSitesQ = useQuery({
     queryKey: ['monitoring-health-sites'],
@@ -341,14 +364,20 @@ export default function MonitoringPage() {
     },
   ]
   const health = healthQ.data
-  const healthScore = Math.max(0, Math.min(100, health?.score ?? 0))
-  const coverage = health?.coverage_percent ?? 100
+  const estimatedHealthScore = estimateHealthScore(stats)
+  const healthScoreResolved =
+    health?.score ?? (healthQ.isPending ? estimatedHealthScore : null)
+  const healthScore =
+    healthScoreResolved != null ? Math.max(0, Math.min(100, healthScoreResolved)) : null
+  const healthScoreLoading = healthScore == null
+  const healthScoreEstimating = health?.score == null && estimatedHealthScore != null && healthQ.isFetching
+  const coverage = health?.coverage_percent ?? (healthScoreLoading ? null : 100)
   const healthColor =
-    healthScore >= 90
+    (healthScore ?? 0) >= 90
       ? 'from-emerald-500 to-emerald-400'
-      : healthScore >= 75
+      : (healthScore ?? 0) >= 75
         ? 'from-secondary-500 to-secondary-400'
-        : healthScore >= 60
+        : (healthScore ?? 0) >= 60
           ? 'from-amber-500 to-orange-400'
           : 'from-red-500 to-rose-400'
 
@@ -515,24 +544,54 @@ export default function MonitoringPage() {
         <div className="mt-4 grid gap-6 lg:grid-cols-3">
           <div className="flex items-center gap-5">
             <div
-              className="relative h-28 w-28 rounded-full transition-all duration-700"
+              className={clsx(
+                'relative h-28 w-28 rounded-full transition-all duration-700',
+                healthScoreLoading && 'animate-pulse',
+              )}
               style={{
-                background: `conic-gradient(rgb(59 130 246) ${healthScore * 3.6}deg, rgb(229 231 235) 0deg)`,
+                background: healthScoreLoading
+                  ? 'conic-gradient(rgb(203 213 225) 0deg, rgb(229 231 235) 0deg)'
+                  : `conic-gradient(rgb(59 130 246) ${(healthScore ?? 0) * 3.6}deg, rgb(229 231 235) 0deg)`,
               }}
             >
               <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${healthColor} opacity-20`} />
               <div className="absolute inset-[8px] rounded-full bg-white dark:bg-gray-900 flex items-center justify-center shadow-inner">
-                <span className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{healthScore}</span>
+                {healthScoreLoading ? (
+                  <RefreshCw className="h-7 w-7 animate-spin text-gray-400" />
+                ) : (
+                  <span
+                    className={clsx(
+                      'text-2xl font-bold tabular-nums text-gray-900 dark:text-white',
+                      healthScoreEstimating && 'opacity-80',
+                    )}
+                  >
+                    {healthScore}
+                  </span>
+                )}
               </div>
             </div>
             <div className="space-y-1 text-sm">
               <div className="text-gray-900 dark:text-white font-semibold">
-                {healthScore >= 90 ? 'Mükemmel' : healthScore >= 75 ? 'İyi' : healthScore >= 60 ? 'Dikkat' : 'Kritik'}
+                {healthScoreLoading
+                  ? t('common.loading')
+                  : healthGradeLabel(healthScore ?? 0)}
               </div>
-              <div className="text-gray-500">Kapsam {health?.metrics_known ?? '—'}/{health?.metrics_total ?? '—'} ({coverage}%)</div>
-              <div className="text-gray-500">CPU {health?.snapshot?.cpu ?? '—'}%</div>
-              <div className="text-gray-500">RAM {health?.snapshot?.ram ?? '—'}%</div>
-              <div className="text-gray-500">Disk {health?.snapshot?.disk ?? '—'}%</div>
+              {healthScoreEstimating && (
+                <div className="text-xs text-gray-400">{t('monitoring.health_score_estimating')}</div>
+              )}
+              <div className="text-gray-500">
+                Kapsam {health?.metrics_known ?? '—'}/{health?.metrics_total ?? '—'}
+                {coverage != null ? ` (${coverage}%)` : ''}
+              </div>
+              <div className="text-gray-500">
+                CPU {health?.snapshot?.cpu ?? (stats?.cpu_usage != null ? Math.round(stats.cpu_usage) : '—')}%
+              </div>
+              <div className="text-gray-500">
+                RAM {health?.snapshot?.ram ?? (stats?.memory_percent != null ? Math.round(stats.memory_percent) : '—')}%
+              </div>
+              <div className="text-gray-500">
+                Disk {health?.snapshot?.disk ?? (stats?.disk_percent != null ? Math.round(stats.disk_percent) : '—')}%
+              </div>
             </div>
           </div>
           <div className="lg:col-span-2 space-y-2">
