@@ -1319,10 +1319,15 @@
     "webmail_note_body": "This panel does not display your inbox. Use Outlook, Apple Mail, Thunderbird, or a server-installed webmail such as Roundcube/SOGo; use the address and password you set here."
   },
   "dns": {
-    "subtitle": "DNS records per domain — published automatically via BIND9 on this server",
+    "subtitle": "Manage DNS records for your domain",
+    "info_title": "DNS records",
+    "info_body": "Add or edit records for your website, email, and other services. Changes usually take effect within a few minutes.",
+    "customer_ns_title": "Nameserver information",
+    "customer_ns_hint": "To point your domain to this hosting, set the following nameservers at your domain registrar:",
+    "engine_preview_title": "Engine (sync) records",
     "created": "DNS record created",
     "deleted": "DNS record deleted",
-    "export_zone": "Export zone (BIND)",
+    "export_zone": "Export zone",
     "export_done": "Zone file downloaded",
     "export_failed": "Zone export failed",
     "bind_info_title": "Authoritative DNS (BIND9)",

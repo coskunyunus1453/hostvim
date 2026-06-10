@@ -1320,10 +1320,15 @@
     "webmail_note_body": "Bu panelde gelen kutusu görüntüleme yoktur. E-postayı okumak için Outlook, Apple Mail, Thunderbird veya sunucunuza kurulu Roundcube/SOGo gibi bir web arayüzü kullanın; hesap bilgileri burada oluşturduğunuz adres ve şifredir."
   },
   "dns": {
-    "subtitle": "Alan adı başına DNS kayıtları — sunucuda BIND9 ile otomatik yayınlanır",
+    "subtitle": "Alan adınız için DNS kayıtlarını yönetin",
+    "info_title": "DNS kayıtları",
+    "info_body": "Web sitesi, e-posta ve diğer hizmetler için kayıt ekleyin veya düzenleyin. Değişiklikler genelde birkaç dakika içinde geçerli olur.",
+    "customer_ns_title": "Nameserver bilgisi",
+    "customer_ns_hint": "Alan adınızı bu hostinge bağlamak için domain firmanızda (registrar) nameserver olarak şunları girin:",
+    "engine_preview_title": "Engine (senkron) kayıtlar",
     "created": "DNS kaydı eklendi",
     "deleted": "DNS kaydı silindi",
-    "export_zone": "Zone dışa aktar (BIND)",
+    "export_zone": "Zone dışa aktar",
     "export_done": "Zone dosyası indirildi",
     "export_failed": "Zone dışa aktarma başarısız",
     "bind_info_title": "Yetkili DNS (BIND9)",

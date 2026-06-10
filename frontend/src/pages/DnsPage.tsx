@@ -124,15 +124,17 @@ export default function DnsPage() {
             <Wand2 className="h-4 w-4" />
             {t('dns.bootstrap_defaults')}
           </button>
-          <button
-            type="button"
-            className="btn-secondary flex items-center gap-2"
-            disabled={!domainId}
-            onClick={() => void exportZone()}
-          >
-            <Download className="h-4 w-4" />
-            {t('dns.export_zone')}
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn-secondary flex items-center gap-2"
+              disabled={!domainId}
+              onClick={() => void exportZone()}
+            >
+              <Download className="h-4 w-4" />
+              {t('dns.export_zone')}
+            </button>
+          )}
           <button
             type="button"
             className="btn-primary flex items-center gap-2"
@@ -146,28 +148,49 @@ export default function DnsPage() {
       </div>
 
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/40 space-y-2">
-        <p className="font-medium text-blue-900 dark:text-blue-100">{t('dns.bind_info_title')}</p>
-        <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.bind_info_body')}</p>
-        {nsList.length > 0 && (
-          <div className="text-sm text-blue-800 dark:text-blue-200">
-            <p className="font-medium">{t('dns.nameservers_title')}</p>
-            <ul className="mt-1 list-disc list-inside font-mono">
-              {nsList.map((ns) => (
-                <li key={ns}>{ns}</li>
-              ))}
-            </ul>
-            {bindInfo?.server_ip && (
-              <p className="mt-2">
-                {t('dns.glue_hint', { ip: bindInfo.server_ip, ns1: nsList[0] ?? '', ns2: nsList[1] ?? '' })}
-              </p>
+        {isAdmin ? (
+          <>
+            <p className="font-medium text-blue-900 dark:text-blue-100">{t('dns.bind_info_title')}</p>
+            <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.bind_info_body')}</p>
+            {nsList.length > 0 && (
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-medium">{t('dns.nameservers_title')}</p>
+                <ul className="mt-1 list-disc list-inside font-mono">
+                  {nsList.map((ns) => (
+                    <li key={ns}>{ns}</li>
+                  ))}
+                </ul>
+                {bindInfo?.server_ip && (
+                  <p className="mt-2">
+                    {t('dns.glue_hint', { ip: bindInfo.server_ip, ns1: nsList[0] ?? '', ns2: nsList[1] ?? '' })}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
-        )}
-        <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.registrar_hint')}</p>
-        {isAdmin && (
-          <Link to="/admin/dns-settings" className="inline-block text-sm font-medium text-blue-900 underline dark:text-blue-100">
-            {t('dns.admin_settings_link')}
-          </Link>
+            <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.registrar_hint')}</p>
+            <Link
+              to="/admin/dns-settings"
+              className="inline-block text-sm font-medium text-blue-900 underline dark:text-blue-100"
+            >
+              {t('dns.admin_settings_link')}
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="font-medium text-blue-900 dark:text-blue-100">{t('dns.info_title')}</p>
+            <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.info_body')}</p>
+            {nsList.length > 0 && (
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-medium">{t('dns.customer_ns_title')}</p>
+                <p className="mt-1">{t('dns.customer_ns_hint')}</p>
+                <ul className="mt-2 list-disc list-inside font-mono">
+                  {nsList.map((ns) => (
+                    <li key={ns}>{ns}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -296,12 +319,13 @@ export default function DnsPage() {
         )}
       </div>
 
-      {domainId &&
+      {isAdmin &&
+        domainId &&
         Array.isArray(recordsQ.data?.engine_preview) &&
         recordsQ.data.engine_preview.length > 0 && (
           <div className="card overflow-hidden">
             <h3 className="px-4 py-3 text-sm font-semibold border-b border-gray-100 dark:border-gray-800">
-              Engine (senkron) kayıtlar
+              {t('dns.engine_preview_title')}
             </h3>
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800/80">
