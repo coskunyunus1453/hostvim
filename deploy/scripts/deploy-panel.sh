@@ -40,6 +40,9 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-security" ]]; then
   echo "==> /usr/local/sbin/panelze-security (repo ile güncelle)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-security" /usr/local/sbin/panelze-security
   sudo ln -sfn /usr/local/sbin/panelze-security /usr/local/sbin/panelsar-security
+  if [[ "$(id -u)" -eq 0 ]] && [[ -f "$DEPLOY_SCRIPTS/ensure-security-defaults.sh" ]]; then
+    PANEL_ROOT="$PANEL_ROOT" bash "$DEPLOY_SCRIPTS/ensure-security-defaults.sh" || true
+  fi
 fi
 if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
   echo "==> /usr/local/sbin/panelze-nginx-vhost (repo ile güncelle)"

@@ -60,6 +60,9 @@ install_host_tool mail-provision
 install_host_tool bind-sync
 install_host_tool nginx-vhost
 install_host_tool security
+if [[ "$(id -u)" -eq 0 ]] && [[ -f "$SCRIPT_DIR/ensure-security-defaults.sh" ]]; then
+  PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-security-defaults.sh" || true
+fi
 install_host_tool terminal-root
 install_host_tool php-ini
 install_host_tool system-settings

@@ -87,6 +87,42 @@ apache_reload_safe() {
   fi
 }
 
+# Nginx :80/443 kullanırken Apache yalnızca :8080 (hosting ile uyumlu).
+panelze_apache_bind_8080() {
+  local pc=/etc/apache2/ports.conf
+  [[ -f "$pc" ]] || return 1
+  sed -i \
+    -e 's/^Listen 80$/Listen 8080/' \
+    -e 's/^Listen \[::\]:80$/Listen [::]:8080/' \
+    "$pc"
+  sed -i \
+    -e 's/^Listen 443$/#Listen 443/' \
+    -e 's/^Listen \[::\]:443$/#Listen [::]:443/' \
+    "$pc" 2>/dev/null || true
+  a2dissite default-ssl 2>/dev/null || true
+  a2dissite default-ssl.conf 2>/dev/null || true
+  local f
+  for f in /etc/apache2/sites-available/*.conf; do
+    [[ -f "$f" ]] || continue
+    sed -i \
+      -e 's/<VirtualHost \*:80>/<VirtualHost *:8080>/g' \
+      -e 's/<VirtualHost \*:80 >/<VirtualHost *:8080>/g' \
+      "$f"
+  done
+  apache_configtest_run_strict
+}
+
+ensure_apache_for_modsec() {
+  if ! command -v apache2ctl >/dev/null 2>&1 && ! command -v apache2 >/dev/null 2>&1; then
+    apt_noninteractive update -y
+    apt_noninteractive install -y apache2
+  fi
+  if systemctl is-active --quiet nginx 2>/dev/null; then
+    panelze_apache_bind_8080 || true
+  fi
+  systemctl enable --now apache2 >/dev/null 2>&1 || true
+}
+
 # Site kuralları dosyasını ana ModSecurity zincirine bağla (wildcard olmayan kurulumlar için).
 ensure_modsec_site_rules_include() {
   local marker='# panelze-site-rules (managed)'
@@ -890,6 +926,7 @@ EOF
     ;;
   security-bootstrap-defaults)
     install -d -m 750 /etc/panelze/security
+    BOOT_LOG="/var/log/panelze-security-bootstrap.log"
     FB="disabled"
     MS="disabled"
     FW="disabled"
@@ -903,25 +940,36 @@ EOF
       fi
       MARKER="/etc/panelze/security/bootstrap-firewall.done"
       if [[ ! -f "$MARKER" ]]; then
-        "$0" firewall-rule-apply allow tcp 22 any >/dev/null 2>&1 || true
-        "$0" firewall-rule-apply allow tcp 80 any >/dev/null 2>&1 || true
-        "$0" firewall-rule-apply allow tcp 443 any >/dev/null 2>&1 || true
+        "$0" firewall-rule-apply allow tcp 22 any >>"$BOOT_LOG" 2>&1 || true
+        "$0" firewall-rule-apply allow tcp 80 any >>"$BOOT_LOG" 2>&1 || true
+        "$0" firewall-rule-apply allow tcp 443 any >>"$BOOT_LOG" 2>&1 || true
+        "$0" firewall-rule-apply allow tcp 8080 any >>"$BOOT_LOG" 2>&1 || true
         date -u +%Y-%m-%dT%H:%M:%SZ >"$MARKER"
       fi
       if "$0" firewall-status | grep -qx enabled; then
         FW="enabled"
       fi
     fi
-    if "$0" fail2ban-set on >/dev/null 2>&1; then
-      "$0" fail2ban-jail-set 600 600 5 >/dev/null 2>&1 || true
-      if "$0" fail2ban-status | grep -qx enabled; then
-        FB="enabled"
-      fi
+    if ! service_exists "fail2ban"; then
+      "$0" fail2ban-install >>"$BOOT_LOG" 2>&1 || true
     fi
-    if "$0" modsec-set on >/dev/null 2>&1; then
-      if "$0" modsec-status | grep -qx enabled; then
-        MS="enabled"
-      fi
+    if "$0" fail2ban-set on >>"$BOOT_LOG" 2>&1; then
+      "$0" fail2ban-jail-set 600 600 5 >>"$BOOT_LOG" 2>&1 || true
+    else
+      "$0" fail2ban-install >>"$BOOT_LOG" 2>&1 || true
+      "$0" fail2ban-set on >>"$BOOT_LOG" 2>&1 || true
+      "$0" fail2ban-jail-set 600 600 5 >>"$BOOT_LOG" 2>&1 || true
+    fi
+    if "$0" fail2ban-status | grep -qx enabled; then
+      FB="enabled"
+    fi
+    if ! "$0" modsec-status | grep -qx enabled; then
+      ensure_apache_for_modsec >>"$BOOT_LOG" 2>&1 || true
+      "$0" modsec-install >>"$BOOT_LOG" 2>&1 || true
+      "$0" modsec-set on >>"$BOOT_LOG" 2>&1 || true
+    fi
+    if "$0" modsec-status | grep -qx enabled; then
+      MS="enabled"
     fi
     echo "firewall=$FW"
     echo "fail2ban=$FB"
