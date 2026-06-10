@@ -20,7 +20,7 @@ class PhpMyAdminSignonController extends Controller
             return response(__('databases.phpmyadmin_sso_token_invalid'), 403);
         }
 
-        $sessionName = (string) config('hostvim.phpmyadmin_signon.session_name', 'SignonSession');
+        $sessionName = (string) config('panelze.phpmyadmin_signon.session_name', 'SignonSession');
         if ($sessionName !== '') {
             session_name($sessionName);
         }

@@ -17,7 +17,7 @@ class StripeLicensingService
 {
     public function isConfigured(): bool
     {
-        return $this->setting('billing.stripe.secret', (string) config('hostvim_saas.stripe.secret', '')) !== '';
+        return $this->setting('billing.stripe.secret', (string) config('panelze_saas.stripe.secret', '')) !== '';
     }
 
     public function createCheckoutSession(SaasCheckoutOrder $order, SaasLicenseProduct $product): Session
@@ -26,7 +26,7 @@ class StripeLicensingService
             throw new RuntimeException('stripe_not_configured');
         }
 
-        Stripe::setApiKey($this->setting('billing.stripe.secret', (string) config('hostvim_saas.stripe.secret', '')));
+        Stripe::setApiKey($this->setting('billing.stripe.secret', (string) config('panelze_saas.stripe.secret', '')));
 
         $successUrl = url('/license/success?ref='.urlencode($order->order_ref));
         $cancelUrl = url('/license/cancel?ref='.urlencode($order->order_ref));
@@ -65,7 +65,7 @@ class StripeLicensingService
      */
     public function parseWebhookEvent(string $payload, string $signatureHeader): ?Event
     {
-        $secret = $this->setting('billing.stripe.webhook_secret', (string) config('hostvim_saas.stripe.webhook_secret', ''));
+        $secret = $this->setting('billing.stripe.webhook_secret', (string) config('panelze_saas.stripe.webhook_secret', ''));
         if ($secret === '') {
             return null;
         }

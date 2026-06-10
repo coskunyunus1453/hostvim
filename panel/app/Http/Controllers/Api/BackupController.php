@@ -532,7 +532,7 @@ class BackupController extends Controller
     {
         $validated = $request->validate([
             'domain_id' => 'required|integer|exists:domains,id',
-            'archive' => 'required|file|max:'.((int) config('hostvim.limits.max_upload_size_mb', 256) * 1024),
+            'archive' => 'required|file|max:'.((int) config('panelze.limits.max_upload_size_mb', 256) * 1024),
         ]);
         $domain = Domain::findOrFail($validated['domain_id']);
         if (! $this->userOwnsDomain($request, $domain)) {
@@ -630,7 +630,7 @@ class BackupController extends Controller
 
     private function audit(Request $request, string $action, bool $success, ?string $error = null, array $extra = []): void
     {
-        SafeAuditLogger::info('hostvim.backup_audit', array_merge([
+        SafeAuditLogger::info('panelze.backup_audit', array_merge([
             'action' => $action,
             'success' => $success,
             'error' => $error,

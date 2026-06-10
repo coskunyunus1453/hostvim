@@ -216,7 +216,7 @@ func RemovePool(h HostingPoolSettings, domain, phpVersion string) error {
 
 var debianPHPVersionDir = regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
 
-// RemovePoolBestEffortAllVersions /etc/php altındaki X.Y sürüm dizinlerinde hostvim (ve eski panelsar) pool dosyasını arar, varsa siler.
+// RemovePoolBestEffortAllVersions /etc/php altındaki X.Y sürüm dizinlerinde panelze (ve eski panelsar) pool dosyasını arar, varsa siler.
 // meta eksik site silinirken soket çöplüğünü önlemek için kullanılır. Silinen sürümler (örn. reload için) döner.
 func RemovePoolBestEffortAllVersions(h HostingPoolSettings, domain string) []string {
 	if domain == "" || strings.Contains(domain, "..") {

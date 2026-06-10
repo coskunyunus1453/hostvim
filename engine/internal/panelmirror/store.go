@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"hostvim/engine/internal/backup"
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/backup"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/sites"
 )
 
 var mu sync.Mutex

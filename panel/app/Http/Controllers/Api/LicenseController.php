@@ -24,7 +24,7 @@ class LicenseController extends Controller
         $key = $this->storedLicense->effectiveKey() ?: (string) $request->query('key', '');
         $key = trim($key);
         $keySource = $this->storedLicense->keySource();
-        $hubBase = rtrim(trim((string) config('hostvim.license_server', '')), '/');
+        $hubBase = rtrim(trim((string) config('panelze.license_server', '')), '/');
         $hubConfigured = $hubBase !== '';
 
         $hub = $key !== '' ? $this->licenseHub->validate($key) : [];
@@ -73,7 +73,7 @@ class LicenseController extends Controller
     {
         $validated = $request->validate(['key' => ['required', 'string', 'max:128']]);
         $key = trim($validated['key']);
-        $base = rtrim(trim((string) config('hostvim.license_server', '')), '/');
+        $base = rtrim(trim((string) config('panelze.license_server', '')), '/');
         if ($base === '') {
             return response()->json([
                 'message' => 'License hub URL is not configured on this server.',

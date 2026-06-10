@@ -1,4 +1,4 @@
-module hostvim/engine
+module panelze/engine
 
 go 1.23.0
 

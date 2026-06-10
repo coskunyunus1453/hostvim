@@ -15,7 +15,7 @@ class PanelStoredLicenseService
 
     public function envKey(): string
     {
-        return trim((string) config('hostvim.license_key'));
+        return trim((string) config('panelze.license_key'));
     }
 
     public function storedPlaintext(): ?string

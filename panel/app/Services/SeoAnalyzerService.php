@@ -33,7 +33,7 @@ class SeoAnalyzerService
                     'User-Agent' => 'Panelze-SEO-Analyzer/1.0 (+https://panelze.com)',
                     'Accept' => 'text/html,application/xhtml+xml',
                 ])
-                ->timeout(max(5, (int) config('hostvim.curious.seo_timeout', 20)))
+                ->timeout(max(5, (int) config('panelze.curious.seo_timeout', 20)))
                 ->get($url);
         } catch (\Throwable $e) {
             return ['ok' => false, 'error' => __('curious.seo_fetch_failed', ['detail' => $e->getMessage()])];

@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/sites"
 )
 
 // HasStaticOutExport public_html/out/index.html var mı (Next.js static export vb.).

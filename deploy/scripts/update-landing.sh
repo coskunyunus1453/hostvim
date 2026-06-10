@@ -3,7 +3,7 @@
 # Panelze landing (panelze.com) — SADECE landing/ günceller.
 # Panel kurmaz, engine derlemez, tüm repoyu reset --hard yapmaz.
 #
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/update-landing.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/scripts/update-landing.sh" | bash
 #
 set -euo pipefail
 
@@ -18,7 +18,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
 PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"

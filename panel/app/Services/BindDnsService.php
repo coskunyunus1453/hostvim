@@ -18,11 +18,11 @@ class BindDnsService
      */
     public function syncViaSudo(): array
     {
-        if (! (bool) config('hostvim.dns.bind_enabled', true)) {
+        if (! (bool) config('panelze.dns.bind_enabled', true)) {
             return ['ok' => true, 'skipped' => true, 'message' => 'BIND sync kapalı'];
         }
 
-        $script = trim((string) config('hostvim.dns.bind_sync_script', '/usr/local/sbin/hostvim-bind-sync'));
+        $script = trim((string) config('panelze.dns.bind_sync_script', '/usr/local/sbin/panelze-bind-sync'));
         if (! is_executable($script)) {
             return ['ok' => false, 'message' => 'BIND sync betiği yok: '.$script];
         }
@@ -47,12 +47,12 @@ class BindDnsService
      */
     public function writeZonesAndReload(): array
     {
-        if (! (bool) config('hostvim.dns.bind_enabled', true)) {
+        if (! (bool) config('panelze.dns.bind_enabled', true)) {
             return ['ok' => true, 'zones' => 0, 'message' => 'BIND sync kapalı'];
         }
 
-        $zonesDir = rtrim((string) config('hostvim.dns.zones_dir', '/var/lib/bind/hostvim/zones'), '/');
-        $confPath = (string) config('hostvim.dns.conf_path', '/etc/bind/named.conf.hostvim-zones');
+        $zonesDir = rtrim((string) config('panelze.dns.zones_dir', '/var/lib/bind/panelze/zones'), '/');
+        $confPath = (string) config('panelze.dns.conf_path', '/etc/bind/named.conf.panelze-zones');
         $serial = (int) date('YmdH');
 
         if (! is_dir($zonesDir) && ! @mkdir($zonesDir, 0755, true) && ! is_dir($zonesDir)) {
@@ -97,7 +97,7 @@ class BindDnsService
             $written++;
         }
 
-        $confBody = "// Hostvim auto-generated\n";
+        $confBody = "// Panelze auto-generated\n";
         if ($zoneBlocks !== []) {
             $confBody .= implode("\n", $zoneBlocks)."\n";
         }
@@ -136,8 +136,8 @@ class BindDnsService
      */
     public function nameServers(): array
     {
-        $ns1 = trim((string) config('hostvim.dns.ns1', ''));
-        $ns2 = trim((string) config('hostvim.dns.ns2', ''));
+        $ns1 = trim((string) config('panelze.dns.ns1', ''));
+        $ns2 = trim((string) config('panelze.dns.ns2', ''));
         if ($ns1 === '') {
             $ns1 = trim((string) @shell_exec('hostname -f 2>/dev/null')) ?: 'ns1';
         }
@@ -151,7 +151,7 @@ class BindDnsService
 
     public function serverIp(): string
     {
-        $configured = trim((string) config('hostvim.dns.server_ip', ''));
+        $configured = trim((string) config('panelze.dns.server_ip', ''));
         if ($configured !== '' && filter_var($configured, FILTER_VALIDATE_IP)) {
             return $configured;
         }

@@ -236,7 +236,7 @@ class SslIssueService
                 $ok = @mkdir($acme, 0755, true);
             }
             if ($ok) {
-                $probe = $acme.DIRECTORY_SEPARATOR.'hostvim_acme_'.Str::random(8).'.txt';
+                $probe = $acme.DIRECTORY_SEPARATOR.'panelze_acme_'.Str::random(8).'.txt';
                 $ok = @file_put_contents($probe, 'ok') !== false;
                 @unlink($probe);
             }

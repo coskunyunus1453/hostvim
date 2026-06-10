@@ -1,5 +1,5 @@
 -- =============================================================================
--- Hostvim landing — nav_menu_items çok dilli sütunlar (MySQL / MariaDB, utf8mb4)
+-- Panelze landing — nav_menu_items çok dilli sütunlar (MySQL / MariaDB, utf8mb4)
 -- =============================================================================
 --
 -- #1054 Unknown column 'label_en' → ADIM 1’deki ALTER’ın başındaki -- kaldırıp bir kez çalıştırın, sonra ADIM 2.

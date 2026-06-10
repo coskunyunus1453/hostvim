@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"hostvim/engine/internal/apache"
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/nginx"
-	"hostvim/engine/internal/openlitespeed"
-	"hostvim/engine/internal/phpfpm"
-	"hostvim/engine/internal/sites"
-	"hostvim/engine/internal/ssl"
+	"panelze/engine/internal/apache"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/nginx"
+	"panelze/engine/internal/openlitespeed"
+	"panelze/engine/internal/phpfpm"
+	"panelze/engine/internal/sites"
+	"panelze/engine/internal/ssl"
 )
 
 func poolSettings(cfg *config.Config) phpfpm.HostingPoolSettings {

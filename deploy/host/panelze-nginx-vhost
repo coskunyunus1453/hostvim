@@ -1,0 +1,52 @@
+#!/bin/bash
+# Panelze engine (www-data) tarafından sudo ile çağrılır — nginx sites-enabled symlink + reload.
+set -euo pipefail
+
+ACTION="${1:?}"
+ARG="${2:?}"
+
+case "$ACTION" in
+  enable)
+    CONF="$ARG"
+    [[ -f "$CONF" ]] || { echo "panelze-nginx-vhost: conf yok: $CONF" >&2; exit 1; }
+    # Prod: /var/www/.../data/vhosts/ — geliştirme: /etc/nginx/sites-available/
+    if [[ "$CONF" =~ ^/var/www/[^/]+/data/vhosts/(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]] ||
+      [[ "$CONF" =~ ^/etc/nginx/sites-available/(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]]; then
+      :
+    else
+      echo "panelze-nginx-vhost: izin verilmeyen conf yolu" >&2
+      exit 1
+    fi
+    BASE="$(basename "$CONF")"
+    TARGET="/etc/nginx/sites-enabled/${BASE}"
+    OLD_ABS=""
+    if [[ -L "$TARGET" ]]; then
+      OLD_ABS="$(readlink -f "$TARGET" 2>/dev/null || true)"
+    fi
+    ln -sf "$CONF" "$TARGET"
+    if ! nginx -t 2>/tmp/panelze-nginx-test.log; then
+      rm -f "$TARGET"
+      if [[ -n "$OLD_ABS" && -f "$OLD_ABS" ]]; then
+        ln -sf "$OLD_ABS" "$TARGET" || true
+        nginx -t 2>/dev/null || true
+      fi
+      cat /tmp/panelze-nginx-test.log >&2
+      exit 1
+    fi
+    nginx -s reload
+    ;;
+  disable)
+    BASE="$ARG"
+    [[ "$BASE" =~ ^(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]] || {
+      echo "panelze-nginx-vhost: geçersiz dosya adı" >&2
+      exit 1
+    }
+    rm -f "/etc/nginx/sites-enabled/${BASE}"
+    nginx -t
+    nginx -s reload
+    ;;
+  *)
+    echo "panelze-nginx-vhost: kullanım: enable <conf-yolu> | disable <basename.conf>" >&2
+    exit 1
+    ;;
+esac

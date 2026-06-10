@@ -26,7 +26,7 @@ class GoogleDriveService
 
     public function redirectUri(): string
     {
-        $custom = trim((string) config('hostvim.google_drive.redirect_uri', ''));
+        $custom = trim((string) config('panelze.google_drive.redirect_uri', ''));
         if ($custom !== '') {
             return $custom;
         }
@@ -87,7 +87,7 @@ class GoogleDriveService
                 'refresh_token' => $tokens['refresh_token'] ?? null,
                 'expires_at' => $tokens['expires_at'] ?? null,
                 'email' => $tokens['email'] ?? null,
-                'folder_name' => (string) config('hostvim.google_drive.folder_name', 'Panelze Backups'),
+                'folder_name' => (string) config('panelze.google_drive.folder_name', 'Panelze Backups'),
                 'folder_id' => null,
             ],
             'is_default' => true,
@@ -210,7 +210,7 @@ class GoogleDriveService
         if ($folderId !== '') {
             $metadata['parents'] = [$folderId];
         }
-        $boundary = 'hostvim_'.Str::random(16);
+        $boundary = 'panelze_'.Str::random(16);
         $body = "--{$boundary}\r\n"
             ."Content-Type: application/json; charset=UTF-8\r\n\r\n"
             .json_encode($metadata, JSON_UNESCAPED_UNICODE)
@@ -310,12 +310,12 @@ class GoogleDriveService
 
     private function clientId(): string
     {
-        return trim((string) config('hostvim.google_drive.client_id', ''));
+        return trim((string) config('panelze.google_drive.client_id', ''));
     }
 
     private function clientSecret(): string
     {
-        return trim((string) config('hostvim.google_drive.client_secret', ''));
+        return trim((string) config('panelze.google_drive.client_secret', ''));
     }
 
     private function stateCacheKey(string $state): string

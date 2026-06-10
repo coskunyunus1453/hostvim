@@ -140,16 +140,16 @@ curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh | sudo bash
 **Repo URL’nizi sabitlemek için** müşteriye şunu da verebilirsiniz (tek satır):
 
 ```bash
-curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh | sudo PANELZE_REPO_URL=https://github.com/SIRKET/hostvim.git PANELZE_BRANCH=main bash
+curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh | sudo PANELZE_REPO_URL=https://github.com/SIRKET/panelze.git PANELZE_BRANCH=main bash
 ```
 
 Özel repoda token kullanmak zorundaysanız (önerilmez, geçici):
 
 ```bash
-sudo PANELZE_REPO_URL=https://TOKEN@github.com/SIRKET/hostvim.git bash -s <<< "$(curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh)"
+sudo PANELZE_REPO_URL=https://TOKEN@github.com/SIRKET/panelze.git bash -s <<< "$(curl -fsSL https://install.SIRKETINIZ.com/remote-install.sh)"
 ```
 
-Daha güvenlisi: sunucuya **SSH deploy key** ekletmek ve normal `git@github.com:SIRKET/hostvim.git` URL kullanmak.
+Daha güvenlisi: sunucuya **SSH deploy key** ekletmek ve normal `git@github.com:SIRKET/panelze.git` URL kullanmak.
 
 ## Sıfırdan sunucu (temiz Debian/Ubuntu)
 
@@ -224,8 +224,8 @@ sudo panelze-post-install
 
 | Belirti | Muhtemel neden | Komut |
 |--------|----------------|-------|
-| API 500, `1045 Access denied` (hostvim) | Panel DB şifresi uyuşmuyor | `sudo panelze-repair-mysql` |
-| MySQL DB oluşturulamıyor (hostvim_provision) | Provision şifresi uyuşmuyor | `sudo panelze-repair-mysql` |
+| API 500, `1045 Access denied` (panelze) | Panel DB şifresi uyuşmuyor | `sudo panelze-repair-mysql` |
+| MySQL DB oluşturulamıyor (panelze_provision) | Provision şifresi uyuşmuyor | `sudo panelze-repair-mysql` |
 | Dosya düzenleme `permission denied` | SSH ile root sahipli dosyalar | `sudo panelze-fix-hosting-perms` |
 | Dosya yöneticisi `Too Many Attempts` | API rate limit | `.env`: `PANELZE_FILES_READ_PER_MINUTE=360` + `config:clear` |
 | `php artisan tinker` PsySH hatası | www-data HOME yazılamıyor | `HOME=/var/www/panelze/panel php artisan ...` |

@@ -13,21 +13,21 @@ class PanelUpdateHubService
      */
     public function checkForUpdate(?string $currentVersion = null): ?array
     {
-        $current = $currentVersion ?? (string) config('hostvim.version', '0.0.0');
+        $current = $currentVersion ?? (string) config('panelze.version', '0.0.0');
         $profile = $this->panelProfile();
-        $channel = (string) config('hostvim.updates.channel', 'stable');
-        $hub = rtrim((string) config('hostvim.updates.hub_url', config('hostvim.license_server', '')), '/');
+        $channel = (string) config('panelze.updates.channel', 'stable');
+        $hub = rtrim((string) config('panelze.updates.hub_url', config('panelze.license_server', '')), '/');
         if ($hub === '') {
             return null;
         }
 
         $cacheKey = 'panelze:panel-update-check:'.md5($hub.'|'.$current.'|'.$profile.'|'.$channel);
-        $ttl = max(60, (int) config('hostvim.updates.check_cache_seconds', 300));
+        $ttl = max(60, (int) config('panelze.updates.check_cache_seconds', 300));
 
         return Cache::remember($cacheKey, $ttl, function () use ($hub, $current, $profile, $channel): ?array {
             $url = $hub.'/api/v1/panel-updates/check';
             $request = Http::timeout(12)->acceptJson();
-            $secret = trim((string) config('hostvim.updates.api_secret', ''));
+            $secret = trim((string) config('panelze.updates.api_secret', ''));
             if ($secret !== '') {
                 $request = $request->withToken($secret);
             }
@@ -88,7 +88,7 @@ class PanelUpdateHubService
 
     public function panelProfile(): string
     {
-        $profile = strtolower((string) config('hostvim.profile', 'customer'));
+        $profile = strtolower((string) config('panelze.profile', 'customer'));
         if ($profile === 'vendor') {
             return 'pro';
         }

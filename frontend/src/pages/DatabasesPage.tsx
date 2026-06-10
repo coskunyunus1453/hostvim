@@ -540,7 +540,7 @@ export default function DatabasesPage() {
       if (!php) {
         toast.error(
           t('databases.ui_url_missing') +
-            ' PHPMYADMIN_URL (.env → hostvim.ui.phpmyadmin_url)',
+            ' PHPMYADMIN_URL (.env → panelze.ui.phpmyadmin_url)',
         )
         return
       }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/services"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/services"
 	"github.com/sirupsen/logrus"
 )
 

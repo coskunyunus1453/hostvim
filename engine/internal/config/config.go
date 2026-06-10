@@ -139,7 +139,7 @@ type HostingConfig struct {
 	NginxVhostHelper string `mapstructure:"nginx_vhost_helper"`
 	// StackInstallScript — panel stack demetleri için sudo betiği (varsayılan: /usr/local/sbin/panelze-stack-install).
 	StackInstallScript string `mapstructure:"stack_install_script"`
-	// MailProvisionScript — panel posta kutularını Dovecot/Postfix'e yazar (varsayılan: /usr/local/sbin/hostvim-mail-provision).
+	// MailProvisionScript — panel posta kutularını Dovecot/Postfix'e yazar (varsayılan: /usr/local/sbin/panelze-mail-provision).
 	MailProvisionScript string `mapstructure:"mail_provision_script"`
 
 	// Faz 6 — gerçek dosya yedeği (Linux prod: execute_backups true; XAMPP’te false bırakın)
@@ -169,7 +169,7 @@ func Load() (*Config, error) {
 	setDefaults()
 
 	viper.AutomaticEnv()
-	viper.SetEnvPrefix("HOSTVIM")
+	viper.SetEnvPrefix("PANELZE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -211,7 +211,7 @@ func (c *Config) resolvePaths() {
 		home = abs
 	}
 	c.Paths.WebRoot = filepath.Join(home, "data", "www")
-	if c.Paths.TempDir == "" || c.Paths.TempDir == "/tmp/panelsar" || c.Paths.TempDir == "/tmp/hostvim" {
+	if c.Paths.TempDir == "" || c.Paths.TempDir == "/tmp/panelsar" || c.Paths.TempDir == "/tmp/panelze" {
 		c.Paths.TempDir = filepath.Join(home, "data", "tmp")
 	}
 	if c.Paths.SSLDir == "" || c.Paths.SSLDir == "/etc/panelsar/ssl" || c.Paths.SSLDir == "/etc/panelze/ssl" {
@@ -231,12 +231,12 @@ func setDefaults() {
 
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 5432)
-	viper.SetDefault("database.name", "hostvim")
-	viper.SetDefault("database.user", "hostvim")
+	viper.SetDefault("database.name", "panelze")
+	viper.SetDefault("database.user", "panelze")
 
 	viper.SetDefault("docker.enabled", true)
 	viper.SetDefault("docker.socket_path", "/var/run/docker.sock")
-	viper.SetDefault("docker.network", "hostvim_net")
+	viper.SetDefault("docker.network", "panelze_net")
 
 	viper.SetDefault("security.token_expiry", 3600)
 	viper.SetDefault("security.max_login_attempts", 5)
@@ -246,9 +246,9 @@ func setDefaults() {
 	viper.SetDefault("paths.web_root", "")
 	viper.SetDefault("paths.vhosts_dir", "/etc/nginx/sites-available")
 	viper.SetDefault("paths.ssl_dir", "/etc/panelze/ssl")
-	viper.SetDefault("paths.backup_dir", "/var/backups/hostvim")
-	viper.SetDefault("paths.log_dir", "/var/log/hostvim")
-	viper.SetDefault("paths.temp_dir", "/tmp/hostvim")
+	viper.SetDefault("paths.backup_dir", "/var/backups/panelze")
+	viper.SetDefault("paths.log_dir", "/var/log/panelze")
+	viper.SetDefault("paths.temp_dir", "/tmp/panelze")
 
 	viper.SetDefault("hosting.nginx_manage_vhosts", false)
 	viper.SetDefault("hosting.nginx_sites_enabled", "/etc/nginx/sites-enabled")

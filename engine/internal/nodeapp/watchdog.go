@@ -3,7 +3,7 @@ package nodeapp
 import (
 	"time"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 	"github.com/sirupsen/logrus"
 )
 

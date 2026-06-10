@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 func isOriginAllowed(origin string, allowedCSV string) bool {
@@ -27,7 +27,7 @@ func isOriginAllowed(origin string, allowedCSV string) bool {
 }
 
 func internalAPIHeader(c *gin.Context) string {
-	for _, name := range []string{"X-Panelze-Engine-Key", "X-Hostvim-Engine-Key", "X-Panelsar-Engine-Key"} {
+	for _, name := range []string{"X-Panelze-Engine-Key", "X-Panelze-Engine-Key", "X-Panelsar-Engine-Key"} {
 		if h := strings.TrimSpace(c.GetHeader(name)); h != "" {
 			return h
 		}
@@ -115,7 +115,7 @@ func CORS(cfg *config.Config) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Panelze-Engine-Key, X-Hostvim-Engine-Key, X-Panelsar-Engine-Key")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Panelze-Engine-Key, X-Panelze-Engine-Key, X-Panelsar-Engine-Key")
 		c.Header("Access-Control-Max-Age", "86400")
 
 		if c.Request.Method == "OPTIONS" {

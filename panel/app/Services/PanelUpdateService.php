@@ -29,7 +29,7 @@ class PanelUpdateService
      */
     public function statusPayload(): array
     {
-        $current = (string) config('hostvim.version', '0.0.0');
+        $current = (string) config('panelze.version', '0.0.0');
         $hub = $this->hub->checkForUpdate($current);
         $latest = $this->hub->latestRelease($hub);
         $activeRun = PanelUpdateRun::query()
@@ -45,7 +45,7 @@ class PanelUpdateService
             'active_run_id' => $activeRun?->id,
             'dismissed_version' => Cache::get($this->dismissCacheKey()),
             'hub_error' => $this->hub->hubAuthError($hub),
-            'hub_configured' => rtrim((string) config('hostvim.updates.hub_url', config('hostvim.license_server', '')), '/') !== '',
+            'hub_configured' => rtrim((string) config('panelze.updates.hub_url', config('panelze.license_server', '')), '/') !== '',
         ];
     }
 

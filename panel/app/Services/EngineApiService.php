@@ -18,9 +18,9 @@ class EngineApiService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('hostvim.engine_url', 'http://127.0.0.1:9090'), '/');
-        $this->internalKey = (string) config('hostvim.engine_internal_key', '');
-        $this->jwtSecret = (string) config('hostvim.engine_secret', '');
+        $this->baseUrl = rtrim(config('panelze.engine_url', 'http://127.0.0.1:9090'), '/');
+        $this->internalKey = (string) config('panelze.engine_internal_key', '');
+        $this->jwtSecret = (string) config('panelze.engine_secret', '');
     }
 
     private function engineAuthConfigured(): bool
@@ -61,7 +61,7 @@ class EngineApiService
         if ($this->internalKey !== '') {
             return $req->withHeaders([
                 'X-Panelze-Engine-Key' => $this->internalKey,
-                'X-Hostvim-Engine-Key' => $this->internalKey,
+                'X-Panelze-Engine-Key' => $this->internalKey,
                 'X-Panelsar-Engine-Key' => $this->internalKey,
             ]);
         }
@@ -85,7 +85,7 @@ class EngineApiService
 
     private function clientDownload(): PendingRequest
     {
-        $timeout = (int) config('hostvim.engine_download_timeout', 1800);
+        $timeout = (int) config('panelze.engine_download_timeout', 1800);
 
         return $this->withEngineAuth(Http::timeout($timeout));
     }
@@ -1082,7 +1082,7 @@ class EngineApiService
         if (! is_readable($localPath)) {
             return ['error' => 'Archive file is not readable'];
         }
-        $timeout = (int) config('hostvim.engine_restore_upload_timeout', 7200);
+        $timeout = (int) config('panelze.engine_restore_upload_timeout', 7200);
         if ($timeout < 120) {
             $timeout = 7200;
         }

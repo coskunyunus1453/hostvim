@@ -11,7 +11,7 @@ class LicenseValidateController extends Controller
 {
     public function __invoke(Request $request, SaasLicenseValidationService $saas): JsonResponse
     {
-        $secret = (string) config('hostvim_saas.license_api_secret', '');
+        $secret = (string) config('panelze_saas.license_api_secret', '');
 
         if ($secret !== '') {
             $bearer = $request->bearerToken();

@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"hostvim/engine/internal/api"
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/daemon"
-	"hostvim/engine/internal/nodeapp"
-	"hostvim/engine/pkg/logger"
+	"panelze/engine/internal/api"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/daemon"
+	"panelze/engine/internal/nodeapp"
+	"panelze/engine/pkg/logger"
 )
 
 const (

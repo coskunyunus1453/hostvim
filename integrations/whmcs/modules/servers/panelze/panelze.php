@@ -324,7 +324,7 @@ function panelze_AdminSingleSignOn(array $params)
     }
 
     if (function_exists('logModuleCall')) {
-        logModuleCall('hostvim', __FUNCTION__, $params, $response, $formatted, ['serverpassword']);
+        logModuleCall('panelze', __FUNCTION__, $params, $response, $formatted, ['serverpassword']);
     }
 
     return $return;
@@ -357,7 +357,7 @@ function panelze_ServiceSingleSignOn(array $params)
     }
 
     if (function_exists('logModuleCall')) {
-        logModuleCall('hostvim', __FUNCTION__, $params, $response, $formatted, ['serverpassword']);
+        logModuleCall('panelze', __FUNCTION__, $params, $response, $formatted, ['serverpassword']);
     }
 
     return $return;

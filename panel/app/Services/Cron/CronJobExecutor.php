@@ -17,7 +17,7 @@ class CronJobExecutor
 
     public function execute(CronJob $job, ?int $triggerUserId = null): CronJobRun
     {
-        $lock = Cache::lock('cron_job_run:'.$job->id, (int) config('hostvim.cron.lock_seconds', 600));
+        $lock = Cache::lock('cron_job_run:'.$job->id, (int) config('panelze.cron.lock_seconds', 600));
 
         if (! $lock->get()) {
             return CronJobRun::create([
@@ -57,8 +57,8 @@ class CronJobExecutor
         ]);
 
         $process = $this->createProcess($shellCommand, $cwd);
-        $process->setTimeout((int) config('hostvim.cron.timeout', 180));
-        $idleTimeout = (int) config('hostvim.cron.idle_timeout', 0);
+        $process->setTimeout((int) config('panelze.cron.timeout', 180));
+        $idleTimeout = (int) config('panelze.cron.idle_timeout', 0);
         if ($idleTimeout > 0) {
             $process->setIdleTimeout($idleTimeout);
         }

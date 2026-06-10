@@ -3,7 +3,7 @@
 # Community — güvenli güncelleme (siteler + veritabanları korunur).
 #
 # ÖNERİLEN:
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update-community.sh" -o /tmp/panelze-update.sh
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install-update-community.sh" -o /tmp/panelze-update.sh
 #   sudo bash /tmp/panelze-update.sh
 #
 set -euo pipefail
@@ -13,7 +13,7 @@ echo "==> Panelze Community güncelleme başlıyor…"
 export APP_PROFILE=customer
 export VENDOR_ENABLED=false
 export ENFORCE_ADMIN_2FA="${ENFORCE_ADMIN_2FA:-false}"
-export PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
+export PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}"
 export PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 
 PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"

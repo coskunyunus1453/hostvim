@@ -846,7 +846,7 @@ class WhmcsResourcesController extends Controller
                 $user,
                 $domain,
                 $validated['lets_encrypt_email'] ?? null,
-                config('hostvim.lets_encrypt_email') ?: null
+                config('panelze.lets_encrypt_email') ?: null
             );
         } catch (HttpException $e) {
             return response()->json(['message' => $e->getMessage()], $e->getStatusCode());

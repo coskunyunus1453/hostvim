@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 	"github.com/sirupsen/logrus"
 )
 
@@ -46,17 +46,17 @@ func (m *Manager) CreateContainer(ctx context.Context, domain string, userID uin
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	containerName := fmt.Sprintf("hostvim_%s", domain)
+	containerName := fmt.Sprintf("panelze_%s", domain)
 
 	m.log.Infof("Creating container %s for user %d", containerName, userID)
 
 	container := &ContainerInfo{
 		Name:   containerName,
-		Image:  "hostvim/web:latest",
+		Image:  "panelze/web:latest",
 		Status: "created",
 		Labels: map[string]string{
-			"hostvim.domain":  domain,
-			"hostvim.user_id": fmt.Sprintf("%d", userID),
+			"panelze.domain":  domain,
+			"panelze.user_id": fmt.Sprintf("%d", userID),
 		},
 		UserID: userID,
 	}

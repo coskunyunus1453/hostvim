@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 type fimEntry struct {

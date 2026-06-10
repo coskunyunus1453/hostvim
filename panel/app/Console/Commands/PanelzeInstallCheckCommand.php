@@ -19,8 +19,8 @@ class PanelzeInstallCheckCommand extends Command
         $ok = true;
         $env = (string) config('app.env');
         $debug = (bool) config('app.debug');
-        $key = (string) config('hostvim.engine_internal_key', '');
-        $url = rtrim((string) config('hostvim.engine_url', ''), '/');
+        $key = (string) config('panelze.engine_internal_key', '');
+        $url = rtrim((string) config('panelze.engine_url', ''), '/');
 
         if ($env === 'production' && $debug) {
             $this->error('APP_DEBUG üretimde false olmalı.');
@@ -90,16 +90,16 @@ class PanelzeInstallCheckCommand extends Command
 
     private function checkMysqlProvision(bool $ok): bool
     {
-        if (! (bool) config('hostvim.mysql_provision.enabled', false)) {
+        if (! (bool) config('panelze.mysql_provision.enabled', false)) {
             $this->warn('MYSQL_PROVISION_ENABLED kapalı — panelden MySQL DB oluşturulamaz.');
 
             return $ok;
         }
 
-        $host = (string) config('hostvim.mysql_provision.host', '127.0.0.1');
-        $port = (int) config('hostvim.mysql_provision.port', 3306);
-        $user = (string) config('hostvim.mysql_provision.username', '');
-        $pass = (string) config('hostvim.mysql_provision.password', '');
+        $host = (string) config('panelze.mysql_provision.host', '127.0.0.1');
+        $port = (int) config('panelze.mysql_provision.port', 3306);
+        $user = (string) config('panelze.mysql_provision.username', '');
+        $pass = (string) config('panelze.mysql_provision.password', '');
 
         if ($user === '') {
             $this->error('MYSQL_PROVISION_USERNAME boş.');
@@ -126,7 +126,7 @@ class PanelzeInstallCheckCommand extends Command
 
     private function checkHostingWebRoot(bool $ok): bool
     {
-        $webRoot = (string) config('hostvim.hosting_web_root', '');
+        $webRoot = (string) config('panelze.hosting_web_root', '');
         if ($webRoot === '' || ! is_dir($webRoot)) {
             $this->warn('Hosting web kökü bulunamadı veya tanımsız: '.$webRoot);
 

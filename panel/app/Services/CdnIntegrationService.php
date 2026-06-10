@@ -12,7 +12,7 @@ class CdnIntegrationService
 {
     public function provider(): string
     {
-        return strtolower(trim((string) config('hostvim.cdn.provider', '')));
+        return strtolower(trim((string) config('panelze.cdn.provider', '')));
     }
 
     public function isCloudflareConfigured(): bool
@@ -20,8 +20,8 @@ class CdnIntegrationService
         if ($this->provider() !== 'cloudflare') {
             return false;
         }
-        $token = trim((string) config('hostvim.cdn.api_token', ''));
-        $zone = trim((string) config('hostvim.cdn.zone_id', ''));
+        $token = trim((string) config('panelze.cdn.api_token', ''));
+        $zone = trim((string) config('panelze.cdn.zone_id', ''));
 
         return $token !== '' && $zone !== '';
     }
@@ -34,8 +34,8 @@ class CdnIntegrationService
         if (! $this->isCloudflareConfigured()) {
             return ['ok' => false, 'error' => 'cdn_not_configured'];
         }
-        $token = trim((string) config('hostvim.cdn.api_token'));
-        $zone = trim((string) config('hostvim.cdn.zone_id'));
+        $token = trim((string) config('panelze.cdn.api_token'));
+        $zone = trim((string) config('panelze.cdn.zone_id'));
         try {
             $response = Http::timeout(45)
                 ->withHeaders([

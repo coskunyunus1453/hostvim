@@ -39,7 +39,7 @@ class FileManagerController extends Controller
      */
     private function panelRelToEngineRel(HostingSiteTarget $target, string $panelRel): string
     {
-        $hostingRoot = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
+        $hostingRoot = rtrim((string) config('panelze.hosting_web_root'), '/\\');
         $engineRoot = $hostingRoot.DIRECTORY_SEPARATOR.$target->engineSiteName;
 
         $docRoot = $this->fileManagerBasePath($target);
@@ -80,7 +80,7 @@ class FileManagerController extends Controller
      */
     private function fileManagerSiteHomePath(HostingSiteTarget $target): string
     {
-        $hostingRoot = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
+        $hostingRoot = rtrim((string) config('panelze.hosting_web_root'), '/\\');
         if ($target->isSubdomain()) {
             $docRoot = str_replace('\\', '/', rtrim($target->documentRoot, '/'));
             if ($docRoot === '') {
@@ -676,7 +676,7 @@ class FileManagerController extends Controller
             if ($ok && ! $skipped && $this->shouldAutoConfigureAfterUpload($baseName)) {
                 $auto = $this->autoWebConfigurator->detectAndApply($domain->fresh());
                 if (! ($auto['applied'] ?? false)) {
-                    SafeAuditLogger::warning('hostvim.file_audit', [
+                    SafeAuditLogger::warning('panelze.file_audit', [
                         'domain' => $hostingTarget->engineSiteName,
                         'action' => 'auto_web_config_after_upload_failed',
                         'error' => (string) ($auto['error'] ?? 'unknown'),
@@ -701,7 +701,7 @@ class FileManagerController extends Controller
 
     private function fileManagerMaxUploadKb(): int
     {
-        $configured = (int) config('hostvim.limits.max_file_manager_size_mb', 50);
+        $configured = (int) config('panelze.limits.max_file_manager_size_mb', 50);
         $panelOverride = (int) (PanelSetting::query()->where('key', 'limits.max_file_manager_size_mb')->value('value') ?? 0);
         $mb = max(1, $panelOverride > 0 ? $panelOverride : $configured);
 
@@ -1028,7 +1028,7 @@ class FileManagerController extends Controller
             }
             $auto = app(AutoWebConfigurator::class)->detectAndApply($fresh);
             if (! ($auto['applied'] ?? false)) {
-                SafeAuditLogger::warning('hostvim.file_audit', [
+                SafeAuditLogger::warning('panelze.file_audit', [
                     'domain' => $engineSite,
                     'action' => 'auto_web_config_after_unzip_failed',
                     'error' => (string) ($auto['error'] ?? 'unknown'),
@@ -1138,7 +1138,7 @@ class FileManagerController extends Controller
         bool $success,
         ?string $error,
     ): void {
-        SafeAuditLogger::info('hostvim.file_audit', [
+        SafeAuditLogger::info('panelze.file_audit', [
             'domain' => $domain->name,
             'action' => $action,
             'from_fp' => SafeAuditLogger::pathFingerprint($domain->name, $from),

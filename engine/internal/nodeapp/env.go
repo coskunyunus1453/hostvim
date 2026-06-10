@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/sites"
 )
 
 // buildStartEnv PM2/npm sürecine verilecek ortam değişkenleri (OAuth / reverse proxy uyumu).

@@ -1,14 +1,14 @@
 [Unit]
-Description=Hostvim Engine (hosting API)
+Description=Panelze Engine (hosting API)
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-Environment=HOSTVIM_HOME=__HOSTVIM_HOME__
-Environment=HOSTVIM_CONFIG_DIR=/etc/panelze
-Environment=PANELSAR_HOME=__HOSTVIM_HOME__
+Environment=PANELZE_HOME=__PANELZE_HOME__
+Environment=PANELZE_CONFIG_DIR=/etc/panelze
+Environment=PANELSAR_HOME=__PANELZE_HOME__
 Environment=PANELSAR_CONFIG_DIR=/etc/panelze
 ExecStart=__ENGINE_BINARY__
 Restart=on-failure

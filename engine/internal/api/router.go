@@ -14,18 +14,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/daemon"
-	"hostvim/engine/internal/files"
-	"hostvim/engine/internal/hosting"
-	"hostvim/engine/internal/metrics"
-	"hostvim/engine/internal/middleware"
-	"hostvim/engine/internal/nginx"
-	"hostvim/engine/internal/nodeapp"
-	"hostvim/engine/internal/phpfpm"
-	"hostvim/engine/internal/sites"
-	"hostvim/engine/internal/ssl"
-	"hostvim/engine/internal/terminal"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/daemon"
+	"panelze/engine/internal/files"
+	"panelze/engine/internal/hosting"
+	"panelze/engine/internal/metrics"
+	"panelze/engine/internal/middleware"
+	"panelze/engine/internal/nginx"
+	"panelze/engine/internal/nodeapp"
+	"panelze/engine/internal/phpfpm"
+	"panelze/engine/internal/sites"
+	"panelze/engine/internal/ssl"
+	"panelze/engine/internal/terminal"
 )
 
 func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.Engine {
@@ -50,7 +50,7 @@ func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.En
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "healthy",
-			"engine":  "hostvim",
+			"engine":  "panelze",
 			"version": "0.1.0",
 			"running": d.IsRunning(),
 		})

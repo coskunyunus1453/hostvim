@@ -20,7 +20,7 @@ else
   exit 1
 fi
 
-PANELZE_HOME="$(hostvim_resolve_hostvim_home "${PANEL_ROOT:-}")"
+PANELZE_HOME="$(panelze_resolve_home "${PANEL_ROOT:-}")"
 WEB_ROOT="${PANELZE_HOSTING_WEB_ROOT:-$PANELZE_HOME/data/www}"
 OWNER="${RUN_USER:-www-data}"
 GROUP="${RUN_GROUP:-$OWNER}"

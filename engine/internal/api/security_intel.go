@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/panelmirror"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/panelmirror"
 )
 
 type securityIntelPolicy struct {

@@ -20,7 +20,7 @@ class StackBundleInstaller
         }
 
         $process = new Process(['sudo', '-n', $script, $bundleId]);
-        $process->setTimeout((int) config('hostvim.stack_install_timeout', 1800));
+        $process->setTimeout((int) config('panelze.stack_install_timeout', 1800));
         $output = '';
 
         try {
@@ -71,10 +71,10 @@ class StackBundleInstaller
 
     private function resolveScriptPath(): ?string
     {
-        $configured = trim((string) config('hostvim.stack_install_script', ''));
+        $configured = trim((string) config('panelze.stack_install_script', ''));
         $candidates = array_filter([
             $configured !== '' ? $configured : null,
-            '/usr/local/sbin/hostvim-stack-install',
+            '/usr/local/sbin/panelze-stack-install',
             '/usr/local/sbin/panelze-stack-install',
             '/usr/local/sbin/panelsar-stack-install',
         ]);
@@ -133,7 +133,7 @@ class StackBundleInstaller
 
         if ($startedAt !== null) {
             $elapsed = max(0, now()->diffInSeconds($startedAt));
-            $expected = max(60, (int) config('hostvim.stack_install_expected_seconds', 180));
+            $expected = max(60, (int) config('panelze.stack_install_expected_seconds', 180));
 
             return min(95, 10 + (int) round(($elapsed / $expected) * 85));
         }

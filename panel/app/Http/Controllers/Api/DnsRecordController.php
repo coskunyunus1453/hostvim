@@ -33,7 +33,7 @@ class DnsRecordController extends Controller
             'records' => $domain->dnsRecords,
             'engine_preview' => $this->engine->dnsList($domain->name),
             'bind' => [
-                'enabled' => (bool) config('hostvim.dns.bind_enabled', true),
+                'enabled' => (bool) config('panelze.dns.bind_enabled', true),
                 'ns' => $this->bindDns->nameServers(),
                 'server_ip' => $this->bindDns->serverIp(),
             ],

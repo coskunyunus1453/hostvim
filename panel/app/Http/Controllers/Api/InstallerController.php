@@ -90,7 +90,7 @@ class InstallerController extends Controller
 
             $dbHost = trim((string) ($db->host));
             if ($dbHost === '') {
-                $dbHost = (string) config('hostvim.mysql_provision.host', config('database.connections.mysql.host', '127.0.0.1'));
+                $dbHost = (string) config('panelze.mysql_provision.host', config('database.connections.mysql.host', '127.0.0.1'));
             }
 
             $dbPort = (int) ($db->port ?? 3306);
@@ -139,7 +139,7 @@ class InstallerController extends Controller
                     if (EngineApiService::isLikelyConnectionFailure($run->message)) {
                         return response()->json([
                             'message' => __('installer.engine_unreachable', [
-                                'url' => config('hostvim.engine_url'),
+                                'url' => config('panelze.engine_url'),
                             ]),
                             'hint' => __('installer.engine_start_hint'),
                             'run_id' => $run->id,
@@ -248,7 +248,7 @@ class InstallerController extends Controller
                     : "Belge kökü erişilemiyor/yazılamıyor: {$docroot}";
 
                 if ($docrootOk) {
-                    $tmp = rtrim($docroot, '/').'/.__hostvim_installer_diag';
+                    $tmp = rtrim($docroot, '/').'/.__panelze_installer_diag';
                     try {
                         file_put_contents($tmp, 'ok');
                         @unlink($tmp);
@@ -332,7 +332,7 @@ class InstallerController extends Controller
             if (EngineApiService::isLikelyConnectionFailure($engine['error'])) {
                 return response()->json([
                     'message' => __('installer.engine_unreachable', [
-                        'url' => config('hostvim.engine_url'),
+                        'url' => config('panelze.engine_url'),
                     ]),
                     'hint' => __('installer.engine_start_hint'),
                     'background' => false,
@@ -371,7 +371,7 @@ class InstallerController extends Controller
 
         $host = trim((string) $db->host);
         if ($host === '') {
-            $host = (string) config('hostvim.mysql_provision.host', config('database.connections.mysql.host', '127.0.0.1'));
+            $host = (string) config('panelze.mysql_provision.host', config('database.connections.mysql.host', '127.0.0.1'));
         }
         $port = (int) ($db->port ?? 3306);
         if ($port < 1 || $port > 65535) {

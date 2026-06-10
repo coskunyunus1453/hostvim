@@ -159,7 +159,7 @@ class UserController extends Controller
             'password' => Hash::make((string) $validated['password']),
         ])->save();
 
-        SafeAuditLogger::info('hostvim.user_password_reset', [
+        SafeAuditLogger::info('panelze.user_password_reset', [
             'target_user_id' => $user->id,
             'target_email_hash' => hash('sha256', strtolower(trim((string) $user->email))),
         ], $request);

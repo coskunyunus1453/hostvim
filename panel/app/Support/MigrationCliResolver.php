@@ -26,7 +26,7 @@ final class MigrationCliResolver
 
     public static function mysql(): ?string
     {
-        $cfg = trim((string) config('hostvim.database_tools.mysql_path', 'mysql'));
+        $cfg = trim((string) config('panelze.database_tools.mysql_path', 'mysql'));
         if ($cfg !== '' && $cfg !== 'mysql' && $cfg !== 'mariadb' && is_executable($cfg)) {
             return $cfg;
         }

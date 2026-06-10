@@ -49,6 +49,6 @@ class Database extends Model
     {
         $g = trim((string) $this->grant_host);
 
-        return $g !== '' ? $g : (string) config('hostvim.mysql_provision.grant_host', 'localhost');
+        return $g !== '' ? $g : (string) config('panelze.mysql_provision.grant_host', 'localhost');
     }
 }

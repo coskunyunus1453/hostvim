@@ -13,7 +13,7 @@ Referans (aynı mantık, farklı ürün):
 
 | | Plesk / aaPanel | Panelze |
 |---|------------------|---------|
-| Yer | `modules/servers/<modül>/` | `modules/servers/hostvim/` |
+| Yer | `modules/servers/<modül>/` | `modules/servers/panelze/` |
 | Panel tarafı | Plesk API / aaPanel API | Panelze panel API + `PANELZE_WHMCS_SECRET` |
 | WHMCS tarafı | Sunucu + ürün + modül ayarları | Aynı |
 
@@ -40,25 +40,25 @@ Bu değer **yalnızca** sizde kalır; WHMCS sunucu kaydının şifre alanına ya
 Bu repodan şu klasörü alın:
 
 ```text
-integrations/whmcs/modules/servers/hostvim/
+integrations/whmcs/modules/servers/panelze/
 ```
 
 WHMCS kurulumunuzda hedef:
 
 ```text
-<WHMCS_KÖKÜ>/modules/servers/hostvim/
+<WHMCS_KÖKÜ>/modules/servers/panelze/
 ```
 
-İçinde doğrudan `hostvim.php` görünmeli:
+İçinde doğrudan `panelze.php` görünmeli:
 
 ```text
-.../modules/servers/hostvim/hostvim.php
+.../modules/servers/panelze/panelze.php
 ```
 
 İsteğe bağlı örnek hook:
 
 ```text
-integrations/whmcs/includes/hooks/hostvim_example_automation.php
+integrations/whmcs/includes/hooks/panelze_example_automation.php
 → <WHMCS_KÖKÜ>/includes/hooks/
 ```
 
@@ -68,7 +68,7 @@ integrations/whmcs/includes/hooks/hostvim_example_automation.php
 
 | Alan | Değer |
 |------|--------|
-| **Modül adı** | `hostvim` |
+| **Modül adı** | `panelze` |
 | **Hostname** | Panel kök URL (örn. `https://panel.ornek.com`) — modül API yolunu kendisi birleştirir |
 | **Şifre** | `PANELZE_WHMCS_SECRET` ile **aynı** |
 | **Kullanıcı adı** | (İsteğe bağlı) Panelze **admin** e-postası — yönetici SSO için |

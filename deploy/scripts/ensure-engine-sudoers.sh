@@ -20,10 +20,8 @@ if [[ ! -f "$SUDOERS" ]]; then
   cat >"$SUDOERS" <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
@@ -36,20 +34,16 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-bind-sync
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 SUDOERS
 else
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-mail-provision'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-system-settings'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2'
-  ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-bind-sync'
   ensure_line 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync'
 fi
 

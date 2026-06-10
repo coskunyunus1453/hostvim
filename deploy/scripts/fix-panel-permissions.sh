@@ -10,7 +10,7 @@
 #   RUN_USER=www-data RUN_GROUP=www-data sudo bash deploy/scripts/fix-panel-permissions.sh /var/www/panelze/panel
 #
 # macOS / XAMPP (örnek):
-#   bash deploy/scripts/fix-panel-permissions.sh /Applications/XAMPP/xamppfiles/htdocs/hostvim/panel
+#   bash deploy/scripts/fix-panel-permissions.sh /Applications/XAMPP/xamppfiles/htdocs/panelze/panel
 #
 set -euo pipefail
 

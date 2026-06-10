@@ -499,16 +499,16 @@ class SystemController extends Controller
             $checks[] = ['id' => 'mysql_panel_db', 'ok' => false, 'message' => 'Panel database: '.$e->getMessage()];
         }
 
-        if (! (bool) config('hostvim.mysql_provision.enabled', false)) {
+        if (! (bool) config('panelze.mysql_provision.enabled', false)) {
             $checks[] = ['id' => 'mysql_provision', 'ok' => false, 'message' => 'MYSQL_PROVISION_ENABLED is off'];
 
             return $checks;
         }
 
-        $host = (string) config('hostvim.mysql_provision.host', '127.0.0.1');
-        $port = (int) config('hostvim.mysql_provision.port', 3306);
-        $user = (string) config('hostvim.mysql_provision.username', '');
-        $pass = (string) config('hostvim.mysql_provision.password', '');
+        $host = (string) config('panelze.mysql_provision.host', '127.0.0.1');
+        $port = (int) config('panelze.mysql_provision.port', 3306);
+        $user = (string) config('panelze.mysql_provision.username', '');
+        $pass = (string) config('panelze.mysql_provision.password', '');
 
         try {
             $dsn = sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port);
@@ -530,7 +530,7 @@ class SystemController extends Controller
      */
     private function hostingWebRootHealthChecks(): array
     {
-        $webRoot = (string) config('hostvim.hosting_web_root', '');
+        $webRoot = (string) config('panelze.hosting_web_root', '');
         if ($webRoot === '') {
             return [];
         }

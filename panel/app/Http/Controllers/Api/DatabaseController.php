@@ -200,7 +200,7 @@ class DatabaseController extends Controller
             ], 403);
         }
 
-        $pmaUrl = trim((string) config('hostvim.ui.phpmyadmin_url', ''));
+        $pmaUrl = trim((string) config('panelze.ui.phpmyadmin_url', ''));
         if ($pmaUrl === '') {
             return response()->json([
                 'message' => __('databases.phpmyadmin_sso_not_configured'),
@@ -296,7 +296,7 @@ class DatabaseController extends Controller
     {
         return response()->json([
             'confirm_phrase' => DatabaseImportConfirmation::expectedPhrase(),
-            'max_import_mb' => max(1, (int) config('hostvim.limits.max_db_import_mb', 512)),
+            'max_import_mb' => max(1, (int) config('panelze.limits.max_db_import_mb', 512)),
             'mysql_tools_enabled' => $this->mysqlProvisioner->enabled(),
             'postgres_tools_enabled' => $this->postgresProvisioner->enabled(),
         ]);
@@ -346,7 +346,7 @@ class DatabaseController extends Controller
             return response()->json(['message' => __('databases.import_already_running')], 409);
         }
 
-        $maxMb = max(1, (int) config('hostvim.limits.max_db_import_mb', 512));
+        $maxMb = max(1, (int) config('panelze.limits.max_db_import_mb', 512));
         $maxKb = $maxMb * 1024;
 
         $validated = $request->validate([

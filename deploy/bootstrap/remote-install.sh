@@ -8,7 +8,7 @@
 # Veya ortam değişkenleriyle:
 #   curl -fsSL https://install.panelze.com/remote-install.sh | sudo -E bash -s
 #
-#   PANELZE_REPO_URL=https://github.com/sirket/hostvim.git \
+#   PANELZE_REPO_URL=https://github.com/sirket/panelze.git \
 #   PANELZE_BRANCH=main \
 #   PANELZE_HOME=/var/www/panelze \
 #   bash -s <<< "$(curl -fsSL https://install.panelze.com/remote-install.sh)"
@@ -19,7 +19,7 @@ set -euo pipefail
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Root gerekli: sudo bash veya curl ... | sudo bash" >&2; exit 1; }
 
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-${PANELSAR_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-${PANELSAR_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
 PANELZE_HOME="${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
 export PANELSAR_HOME="$PANELZE_HOME"

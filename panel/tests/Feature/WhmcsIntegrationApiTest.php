@@ -15,7 +15,7 @@ class WhmcsIntegrationApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['hostvim.whmcs_integration.secret' => 'test-whmcs-secret-32chars-min']);
+        config(['panelze.whmcs_integration.secret' => 'test-whmcs-secret-32chars-min']);
         Role::query()->create(['name' => 'user', 'guard_name' => 'web']);
     }
 

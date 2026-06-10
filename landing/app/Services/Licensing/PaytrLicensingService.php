@@ -14,9 +14,9 @@ class PaytrLicensingService
 {
     public function isConfigured(): bool
     {
-        $id = $this->setting('billing.paytr.merchant_id', (string) config('hostvim_saas.paytr.merchant_id', ''));
-        $key = $this->setting('billing.paytr.merchant_key', (string) config('hostvim_saas.paytr.merchant_key', ''));
-        $salt = $this->setting('billing.paytr.merchant_salt', (string) config('hostvim_saas.paytr.merchant_salt', ''));
+        $id = $this->setting('billing.paytr.merchant_id', (string) config('panelze_saas.paytr.merchant_id', ''));
+        $key = $this->setting('billing.paytr.merchant_key', (string) config('panelze_saas.paytr.merchant_key', ''));
+        $salt = $this->setting('billing.paytr.merchant_salt', (string) config('panelze_saas.paytr.merchant_salt', ''));
 
         return $id !== '' && $key !== '' && $salt !== '';
     }
@@ -30,12 +30,12 @@ class PaytrLicensingService
             throw new RuntimeException('paytr_not_configured');
         }
 
-        $merchantId = $this->setting('billing.paytr.merchant_id', (string) config('hostvim_saas.paytr.merchant_id', ''));
-        $merchantKey = $this->setting('billing.paytr.merchant_key', (string) config('hostvim_saas.paytr.merchant_key', ''));
-        $merchantSalt = $this->setting('billing.paytr.merchant_salt', (string) config('hostvim_saas.paytr.merchant_salt', ''));
-        $testMode = $this->setting('billing.paytr.test_mode', (string) config('hostvim_saas.paytr.test_mode', '0'));
-        $debugOn = $this->setting('billing.paytr.debug_on', (string) config('hostvim_saas.paytr.debug_on', '0'));
-        $timeoutSetting = $this->setting('billing.paytr.timeout_minutes', (string) config('hostvim_saas.paytr.timeout_limit', 30));
+        $merchantId = $this->setting('billing.paytr.merchant_id', (string) config('panelze_saas.paytr.merchant_id', ''));
+        $merchantKey = $this->setting('billing.paytr.merchant_key', (string) config('panelze_saas.paytr.merchant_key', ''));
+        $merchantSalt = $this->setting('billing.paytr.merchant_salt', (string) config('panelze_saas.paytr.merchant_salt', ''));
+        $testMode = $this->setting('billing.paytr.test_mode', (string) config('panelze_saas.paytr.test_mode', '0'));
+        $debugOn = $this->setting('billing.paytr.debug_on', (string) config('panelze_saas.paytr.debug_on', '0'));
+        $timeoutSetting = $this->setting('billing.paytr.timeout_minutes', (string) config('panelze_saas.paytr.timeout_limit', 30));
         $timeoutLimit = (string) max(1, (int) $timeoutSetting);
 
         $userIp = request()->ip();
@@ -108,8 +108,8 @@ class PaytrLicensingService
      */
     public function verifyCallbackHash(array $post): bool
     {
-        $merchantKey = $this->setting('billing.paytr.merchant_key', (string) config('hostvim_saas.paytr.merchant_key', ''));
-        $merchantSalt = $this->setting('billing.paytr.merchant_salt', (string) config('hostvim_saas.paytr.merchant_salt', ''));
+        $merchantKey = $this->setting('billing.paytr.merchant_key', (string) config('panelze_saas.paytr.merchant_key', ''));
+        $merchantSalt = $this->setting('billing.paytr.merchant_salt', (string) config('panelze_saas.paytr.merchant_salt', ''));
 
         $oid = (string) ($post['merchant_oid'] ?? '');
         $status = (string) ($post['status'] ?? '');

@@ -146,7 +146,7 @@ class DatabaseService
         if ($type === 'mysql') {
             $resolvedGrant = $grantHost !== null && trim($grantHost) !== ''
                 ? trim($grantHost)
-                : (string) config('hostvim.mysql_provision.grant_host', 'localhost');
+                : (string) config('panelze.mysql_provision.grant_host', 'localhost');
             if ($this->mysqlProvisioner->enabled()) {
                 $this->mysqlProvisioner->provision($dbName, $dbUser, $dbPass, $resolvedGrant);
             }
@@ -156,10 +156,10 @@ class DatabaseService
             $this->postgresProvisioner->provision($dbName, $dbUser, $dbPass);
         }
 
-        $mysqlHost = (string) config('hostvim.mysql_provision.host', '127.0.0.1');
-        $mysqlPort = (int) config('hostvim.mysql_provision.port', 3306);
-        $pgHost = (string) config('hostvim.postgres_provision.host', '127.0.0.1');
-        $pgPort = (int) config('hostvim.postgres_provision.port', 5432);
+        $mysqlHost = (string) config('panelze.mysql_provision.host', '127.0.0.1');
+        $mysqlPort = (int) config('panelze.mysql_provision.port', 3306);
+        $pgHost = (string) config('panelze.postgres_provision.host', '127.0.0.1');
+        $pgPort = (int) config('panelze.postgres_provision.port', 5432);
 
         return DB::transaction(function () use ($user, $domainId, $type, $dbName, $dbUser, $dbPass, $resolvedGrant, $mysqlHost, $mysqlPort, $pgHost, $pgPort) {
             $database = Database::create([
@@ -361,7 +361,7 @@ class DatabaseService
             throw new \InvalidArgumentException(__('databases.provision_disabled_export'));
         }
 
-        $bin = (string) config('hostvim.database_tools.mysqldump_path', 'mysqldump');
+        $bin = (string) config('panelze.database_tools.mysqldump_path', 'mysqldump');
         $args = [
             $bin,
             '-h', $this->cliConnectHost($database),
@@ -400,7 +400,7 @@ class DatabaseService
             throw new \InvalidArgumentException(__('databases.provision_disabled_export'));
         }
 
-        $bin = (string) config('hostvim.database_tools.pg_dump_path', 'pg_dump');
+        $bin = (string) config('panelze.database_tools.pg_dump_path', 'pg_dump');
         $args = [
             $bin,
             '-h', $this->cliConnectHost($database),
@@ -452,7 +452,7 @@ class DatabaseService
             $plain,
         );
 
-        $bin = (string) config('hostvim.database_tools.mysql_path', 'mysql');
+        $bin = (string) config('panelze.database_tools.mysql_path', 'mysql');
 
         $input = fopen($absolutePath, 'rb');
         if ($input === false) {
@@ -512,7 +512,7 @@ class DatabaseService
         }
         $this->postgresProvisioner->recreateEmptyDatabase($database->name, $database->username);
 
-        $bin = (string) config('hostvim.database_tools.psql_path', 'psql');
+        $bin = (string) config('panelze.database_tools.psql_path', 'psql');
         $plain = $this->plainPasswordForOps($database);
         if ($onProgress !== null) {
             $onProgress(28, 'importing', __('databases.import_phase_importing'));

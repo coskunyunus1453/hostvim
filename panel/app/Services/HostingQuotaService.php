@@ -136,7 +136,7 @@ class HostingQuotaService
         if ($pkg !== null && ! $pkg->backup_enabled) {
             abort(422, __('quota.backups_disabled'));
         }
-        $max = (int) config('hostvim.backup.max_backups_per_user', 5);
+        $max = (int) config('panelze.backup.max_backups_per_user', 5);
         if ($max < 0) {
             return;
         }
@@ -253,7 +253,7 @@ class HostingQuotaService
         if ($sz <= 0) {
             return 1024;
         }
-        $mult = (int) config('hostvim.limits.disk_unzip_expand_multiplier', 4);
+        $mult = (int) config('panelze.limits.disk_unzip_expand_multiplier', 4);
         if ($mult < 2) {
             $mult = 4;
         }

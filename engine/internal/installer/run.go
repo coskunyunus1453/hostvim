@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 // DBConfig WordPress vb. kurulumlar için MySQL bağlantısı.

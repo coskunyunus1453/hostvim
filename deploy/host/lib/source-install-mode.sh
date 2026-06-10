@@ -2,8 +2,8 @@
 # shellcheck shell=bash
 # curl | bash ile çalıştırıldığında BASH_SOURCE dizini güvenilmez; lib'i bul veya indir.
 
-hostvim_source_install_mode_lib() {
-  if declare -F hostvim_resolve_install_mode &>/dev/null; then
+panelze_source_install_mode_lib() {
+  if declare -F panelze_resolve_install_mode &>/dev/null; then
     return 0
   fi
 
@@ -33,7 +33,7 @@ hostvim_source_install_mode_lib() {
 
   if [[ -z "$f" ]]; then
     local branch="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
-    local raw="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${branch}}"
+    local raw="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/panelze/${branch}}"
     tmp="$(mktemp)"
     if ! curl -fsSL "${raw}/deploy/host/lib/install-mode.sh" -o "$tmp" 2>/dev/null; then
       rm -f "$tmp"

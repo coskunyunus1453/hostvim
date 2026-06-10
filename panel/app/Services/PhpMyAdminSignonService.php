@@ -25,7 +25,7 @@ class PhpMyAdminSignonService
 
         $creds = $this->databaseService->mysqlCredentialsForSignon($database);
         $token = Str::random(48);
-        $ttl = max(30, (int) config('hostvim.phpmyadmin_signon.token_ttl', 90));
+        $ttl = max(30, (int) config('panelze.phpmyadmin_signon.token_ttl', 90));
 
         Cache::put($this->cacheKey($token), [
             'user_id' => (int) $database->user_id,
@@ -72,7 +72,7 @@ class PhpMyAdminSignonService
 
     public function redirectUrlAfterSignon(string $databaseName): string
     {
-        $base = rtrim((string) config('hostvim.ui.phpmyadmin_url', ''), '/');
+        $base = rtrim((string) config('panelze.ui.phpmyadmin_url', ''), '/');
         if ($base === '') {
             $base = rtrim((string) config('app.url', ''), '/').'/phpmyadmin';
         }
@@ -85,6 +85,6 @@ class PhpMyAdminSignonService
 
     private function cacheKey(string $token): string
     {
-        return 'hostvim.pma_signon.'.hash('sha256', $token);
+        return 'panelze.pma_signon.'.hash('sha256', $token);
     }
 }

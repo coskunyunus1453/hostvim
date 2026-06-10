@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/hosting"
-	"hostvim/engine/internal/nginx"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/hosting"
+	"panelze/engine/internal/nginx"
+	"panelze/engine/internal/sites"
 )
 
 func registerStackScanRoutes(cfg *config.Config, site *gin.RouterGroup) {

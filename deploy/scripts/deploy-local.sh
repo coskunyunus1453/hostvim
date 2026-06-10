@@ -10,7 +10,7 @@ set -euo pipefail
 #   bash deploy/scripts/deploy-local.sh
 #
 # Opsiyonel:
-#   VITE_BASE_URL=/hostvim/panel/public/ bash deploy/scripts/deploy-local.sh
+#   VITE_BASE_URL=/panelze/panel/public/ bash deploy/scripts/deploy-local.sh
 #   PANEL_ROOT=/custom/path/panel FRONTEND_ROOT=/custom/path/frontend bash deploy/scripts/deploy-local.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,7 +18,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PANEL_ROOT="${PANEL_ROOT:-$REPO_ROOT/panel}"
 FRONTEND_ROOT="${FRONTEND_ROOT:-$REPO_ROOT/frontend}"
-VITE_BASE_URL="${VITE_BASE_URL:-/hostvim/panel/public/}"
+VITE_BASE_URL="${VITE_BASE_URL:-/panelze/panel/public/}"
 
 echo "==> Repo: $REPO_ROOT"
 echo "==> Frontend: $FRONTEND_ROOT"

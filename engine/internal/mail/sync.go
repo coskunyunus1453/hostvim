@@ -5,11 +5,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/panelmirror"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/panelmirror"
 )
 
-const defaultProvisionScript = "/usr/local/sbin/hostvim-mail-provision"
+const defaultProvisionScript = "/usr/local/sbin/panelze-mail-provision"
 
 func provisionScript(cfg *config.Config) string {
 	if cfg != nil {

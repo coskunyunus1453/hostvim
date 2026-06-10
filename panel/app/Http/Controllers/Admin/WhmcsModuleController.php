@@ -14,7 +14,7 @@ class WhmcsModuleController extends Controller
      */
     public function downloadModuleZip(Request $request): BinaryFileResponse
     {
-        $configuredSource = trim((string) config('hostvim.whmcs_module_source_dir', ''));
+        $configuredSource = trim((string) config('panelze.whmcs_module_source_dir', ''));
         $source = $configuredSource !== '' ? $configuredSource : base_path('../integrations/whmcs/modules/servers/panelze');
         $source = $source !== '' && is_dir($source) ? realpath($source) : false;
 
@@ -22,7 +22,7 @@ class WhmcsModuleController extends Controller
             return $this->zipFromDirectory($source);
         }
 
-        $configuredZip = trim((string) config('hostvim.whmcs_module_prebuilt_zip', ''));
+        $configuredZip = trim((string) config('panelze.whmcs_module_prebuilt_zip', ''));
         $prebuilt = $configuredZip !== '' ? $configuredZip : storage_path('app/whmcs/panelze-whmcs-module.zip');
         if (! is_file($prebuilt)) {
             abort(503, (string) __('whmcs_integration.zip_missing'));

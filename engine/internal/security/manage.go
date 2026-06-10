@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 const helperPath = "/usr/local/sbin/panelze-security"

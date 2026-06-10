@@ -9,7 +9,7 @@ class PostgresProvisioner
 {
     public function enabled(): bool
     {
-        return (bool) config('hostvim.postgres_provision.enabled', false);
+        return (bool) config('panelze.postgres_provision.enabled', false);
     }
 
     public function provision(string $dbName, string $dbUser, string $dbPass): void
@@ -133,7 +133,7 @@ class PostgresProvisioner
 
     private function adminPdoToMaintenanceDb(): PDO
     {
-        $c = config('hostvim.postgres_provision');
+        $c = config('panelze.postgres_provision');
         $host = (string) ($c['host'] ?? '127.0.0.1');
         $port = (int) ($c['port'] ?? 5432);
         $maint = (string) ($c['admin_database'] ?? 'postgres');

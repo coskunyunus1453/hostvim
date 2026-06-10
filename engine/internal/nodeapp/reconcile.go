@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/sites"
 )
 
 // ReconcileItem tek domain için watchdog sonucu.

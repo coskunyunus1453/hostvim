@@ -52,7 +52,7 @@ class SslController extends Controller
             $request->user(),
             $domain,
             $validated['email'] ?? null,
-            config('hostvim.lets_encrypt_email') ?: null,
+            config('panelze.lets_encrypt_email') ?: null,
             isset($validated['subdomain_id']) ? (int) $validated['subdomain_id'] : null,
         );
 

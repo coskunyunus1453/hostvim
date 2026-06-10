@@ -43,7 +43,7 @@ class AuthController extends Controller
         }
 
         $portal = (string) ($request->input('portal', 'customer'));
-        $vendorEnabled = (bool) config('hostvim.vendor_enabled', false);
+        $vendorEnabled = (bool) config('panelze.vendor_enabled', false);
         if ($portal === 'vendor' && ! $vendorEnabled) {
             return response()->json([
                 'message' => 'Vendor panel bu kurulum profilinde aktif degil.',
@@ -51,7 +51,7 @@ class AuthController extends Controller
             ], 403);
         }
         if ($portal === 'vendor') {
-            $allowedHosts = config('hostvim.vendor_portal_hosts', []);
+            $allowedHosts = config('panelze.vendor_portal_hosts', []);
             if (is_array($allowedHosts) && count($allowedHosts) > 0) {
                 $host = strtolower((string) $request->getHost());
                 $normalized = array_map(static fn ($h) => strtolower((string) $h), $allowedHosts);
@@ -142,7 +142,7 @@ class AuthController extends Controller
             'user' => $userPayload,
             'token' => $token->plainTextToken,
             'expires_at' => $expiresAt,
-            'enforce_admin_2fa' => (bool) config('hostvim.enforce_admin_2fa', false),
+            'enforce_admin_2fa' => (bool) config('panelze.enforce_admin_2fa', false),
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
             'active_plugin_slugs' => $this->activePluginSlugs($user),
@@ -166,7 +166,7 @@ class AuthController extends Controller
         return response()->json([
             'user' => $userPayload,
             'active_plugin_slugs' => $activePlugins,
-            'enforce_admin_2fa' => (bool) config('hostvim.enforce_admin_2fa', false),
+            'enforce_admin_2fa' => (bool) config('panelze.enforce_admin_2fa', false),
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
         ]);
@@ -240,7 +240,7 @@ class AuthController extends Controller
             'user' => $userPayload,
             'token' => $sanctumToken->plainTextToken,
             'expires_at' => $expiresAt,
-            'enforce_admin_2fa' => (bool) config('hostvim.enforce_admin_2fa', false),
+            'enforce_admin_2fa' => (bool) config('panelze.enforce_admin_2fa', false),
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
         ]);

@@ -15,8 +15,8 @@ class EnsureSystemCronJobsCommand extends Command
 
     public function handle(EngineApiService $engine): int
     {
-        $internalKey = (string) config('hostvim.engine_internal_key', '');
-        $jwtSecret = (string) config('hostvim.engine_secret', '');
+        $internalKey = (string) config('panelze.engine_internal_key', '');
+        $jwtSecret = (string) config('panelze.engine_secret', '');
         $canSyncEngine = $internalKey !== '' || $jwtSecret !== '';
 
         $owner = User::query()

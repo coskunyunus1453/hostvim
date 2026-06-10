@@ -36,7 +36,7 @@ class DomainService
                     abort(503, 'Engine yanıt vermedi; motor çalışıyor mu ve ENGINE_INTERNAL_KEY eşleşiyor mu kontrol edin.');
                 }
 
-                $fallbackRoot = rtrim((string) config('hostvim.hosting_web_root'), DIRECTORY_SEPARATOR);
+                $fallbackRoot = rtrim((string) config('panelze.hosting_web_root'), DIRECTORY_SEPARATOR);
                 $documentRoot = (string) ($resp['document_root'] ?? $fallbackRoot.DIRECTORY_SEPARATOR.$name.DIRECTORY_SEPARATOR.'public_html');
 
                 $existing->update([
@@ -51,7 +51,7 @@ class DomainService
                 return $existing->fresh();
             }
 
-            $fallbackRoot = rtrim((string) config('hostvim.hosting_web_root'), DIRECTORY_SEPARATOR);
+            $fallbackRoot = rtrim((string) config('panelze.hosting_web_root'), DIRECTORY_SEPARATOR);
             $provisionalRoot = $fallbackRoot !== ''
                 ? $fallbackRoot.DIRECTORY_SEPARATOR.$name.DIRECTORY_SEPARATOR.'public_html'
                 : $name.DIRECTORY_SEPARATOR.'public_html';

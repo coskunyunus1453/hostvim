@@ -1,5 +1,5 @@
 /**
- * XAMPP .env ile yapılmış build'ler chunk URL'lerine /hostvim/landing/public gömer;
+ * XAMPP .env ile yapılmış build'ler chunk URL'lerine /panelze/landing/public gömer;
  * canlı kök alan adında 404 verir. .env düzeltmek yetmez — public/build yeniden üretilmeli.
  */
 const fs = require('fs');
@@ -7,9 +7,9 @@ const path = require('path');
 
 const assetsDir = path.join(__dirname, '..', 'public', 'build', 'assets');
 const forbidden = [
-    'hostvim/landing/public',
-    '/htdocs/hostvim',
-    'localhost/hostvim',
+    'panelze/landing/public',
+    '/htdocs/panelze',
+    'localhost/panelze',
 ];
 
 if (!fs.existsSync(assetsDir)) {

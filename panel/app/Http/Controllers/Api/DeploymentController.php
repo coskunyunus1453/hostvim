@@ -144,7 +144,7 @@ class DeploymentController extends Controller
         Bus::dispatch(function () use ($domain, $cfg, $run): void {
             $this->executeDeploy($domain, $cfg, 'webhook', null, $run->id);
         })->afterResponse();
-        SafeAuditLogger::info('hostvim.deploy_audit', [
+        SafeAuditLogger::info('panelze.deploy_audit', [
             'action' => 'webhook_queued',
             'domain' => $domain->name,
             'run_id' => $run->id,
@@ -326,7 +326,7 @@ class DeploymentController extends Controller
         if ($realDocroot === false || ! is_dir($realDocroot)) {
             throw new \RuntimeException('document root not found');
         }
-        $hostingRoot = (string) config('hostvim.hosting_web_root', '');
+        $hostingRoot = (string) config('panelze.hosting_web_root', '');
         $realHostingRoot = $hostingRoot !== '' ? realpath($hostingRoot) : false;
         if ($realHostingRoot === false || ! is_dir($realHostingRoot)) {
             throw new \RuntimeException('hosting root invalid');
@@ -405,7 +405,7 @@ class DeploymentController extends Controller
         }
         $key = 'deploy:webhook:dedupe:'.$domain->id.':'.$deliveryId;
         if (Cache::has($key)) {
-            SafeAuditLogger::warning('hostvim.deploy_audit', [
+            SafeAuditLogger::warning('panelze.deploy_audit', [
                 'action' => 'webhook_replay_blocked',
                 'domain' => $domain->name,
                 'delivery_fp' => substr(hash('sha256', $deliveryId), 0, 16),

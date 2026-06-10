@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/nginx"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/nginx"
 )
 
 const clamScanMaxFilesInResponse = 500

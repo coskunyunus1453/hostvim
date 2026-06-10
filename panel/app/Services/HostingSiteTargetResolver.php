@@ -29,7 +29,7 @@ class HostingSiteTargetResolver
     {
         $docRoot = trim((string) $domain->document_root);
         if ($docRoot === '') {
-            $root = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
+            $root = rtrim((string) config('panelze.hosting_web_root'), '/\\');
             $docRoot = $root.DIRECTORY_SEPARATOR.$domain->name.DIRECTORY_SEPARATOR.'public_html';
         }
 
@@ -46,7 +46,7 @@ class HostingSiteTargetResolver
     {
         $docRoot = trim((string) $sub->document_root);
         if ($docRoot === '') {
-            $root = rtrim((string) config('hostvim.hosting_web_root'), '/\\');
+            $root = rtrim((string) config('panelze.hosting_web_root'), '/\\');
             $docRoot = $root.DIRECTORY_SEPARATOR.$domain->name.DIRECTORY_SEPARATOR.$sub->path_segment.DIRECTORY_SEPARATOR.'public_html';
         }
 

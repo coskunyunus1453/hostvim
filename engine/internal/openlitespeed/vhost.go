@@ -14,8 +14,8 @@ import (
 	"strings"
 	"text/template"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/nginx"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/nginx"
 )
 
 const (

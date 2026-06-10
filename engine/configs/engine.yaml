@@ -53,8 +53,8 @@ paths:
   web_root: ""
   vhosts_dir: "/etc/nginx/sites-available"
   ssl_dir: "/etc/panelze/ssl"
-  backup_dir: "/var/backups/hostvim"
-  log_dir: "/var/log/hostvim"
+  backup_dir: "/var/backups/panelze"
+  log_dir: "/var/log/panelze"
   temp_dir: ""
 
 # Faz 1.1 — Linux prod: nginx_manage_vhosts: true (engine root veya yazma yetkisi gerekir)

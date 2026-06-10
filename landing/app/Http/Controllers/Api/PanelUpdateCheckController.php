@@ -11,7 +11,7 @@ class PanelUpdateCheckController extends Controller
 {
     public function __invoke(Request $request, PanelReleaseQueryService $releases): JsonResponse
     {
-        $secret = (string) config('hostvim_saas.panel_updates_api_secret', '');
+        $secret = (string) config('panelze_saas.panel_updates_api_secret', '');
         if ($secret !== '') {
             if ($request->bearerToken() !== $secret) {
                 return response()->json([

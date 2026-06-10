@@ -32,7 +32,7 @@ final class SafeAuditLogger
      */
     private static function write(string $level, string $channel, array $context, ?Request $request): void
     {
-        if (! config('hostvim.safe_audit_enabled', true)) {
+        if (! config('panelze.safe_audit_enabled', true)) {
             return;
         }
 

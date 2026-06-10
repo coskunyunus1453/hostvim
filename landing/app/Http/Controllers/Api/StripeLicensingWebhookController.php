@@ -18,7 +18,7 @@ class StripeLicensingWebhookController extends Controller
         StripeLicensingService $stripe,
         LicenseRetailFulfillmentService $fulfillment,
     ): Response {
-        $secret = trim((string) (LandingSiteSetting::getValue('billing.stripe.webhook_secret', (string) config('hostvim_saas.stripe.webhook_secret', '')) ?? ''));
+        $secret = trim((string) (LandingSiteSetting::getValue('billing.stripe.webhook_secret', (string) config('panelze_saas.stripe.webhook_secret', '')) ?? ''));
         if ($secret === '') {
             return response('webhook secret not configured', 503);
         }

@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 /**
  * Taban yolu laravel-vite-plugin belirler: ASSET_URL + "build/" (bkz. node_modules/laravel-vite-plugin).
  * ASSET_URL boşken base = "/build/" → chunk preload "/build/assets/..." olur (doğru).
- * Alt klasör (XAMPP): .env içinde ASSET_URL=/hostvim/landing/public → base "/hostvim/landing/public/build/".
+ * Alt klasör (XAMPP): .env içinde ASSET_URL=/panelze/landing/public → base "/panelze/landing/public/build/".
  *
  * Sorun: npm run build hâlâ XAMPP .env ile yapılırsa chunk URL'leri kalıcı olarak yanlış gömülür;
  * canlıda (APP_URL kök alan adı) 404 olur. Üretim build'inde tipik kalıntı ASSET_URL için base'i /build/ zorla.
@@ -20,10 +20,10 @@ function resolvedViteBaseForBuild(mode) {
         return undefined;
     }
     const staleMarkers = [
-        '/hostvim/landing/public',
-        'hostvim/landing/public',
-        '/htdocs/hostvim',
-        'localhost/hostvim',
+        '/panelze/landing/public',
+        'panelze/landing/public',
+        '/htdocs/panelze',
+        'localhost/panelze',
     ];
     if (! staleMarkers.some((needle) => assetUrl.includes(needle))) {
         return undefined;

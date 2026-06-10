@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 	"github.com/sirupsen/logrus"
 )
 

@@ -9,7 +9,7 @@ class MysqlProvisioner
 {
     public function enabled(): bool
     {
-        return (bool) config('hostvim.mysql_provision.enabled', false);
+        return (bool) config('panelze.mysql_provision.enabled', false);
     }
 
     /** Panel doğrulaması: izin listesi veya geçerli IP. */
@@ -300,7 +300,7 @@ class MysqlProvisioner
 
     private function adminPdo(): PDO
     {
-        $c = config('hostvim.mysql_provision');
+        $c = config('panelze.mysql_provision');
         $host = (string) ($c['host'] ?? '127.0.0.1');
         $port = (int) ($c['port'] ?? 3306);
         $dsn = sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port);
@@ -329,7 +329,7 @@ class MysqlProvisioner
             throw new \InvalidArgumentException('GRANT host boş olamaz.');
         }
 
-        $allowed = config('hostvim.mysql_provision.allowed_grant_hosts', []);
+        $allowed = config('panelze.mysql_provision.allowed_grant_hosts', []);
         if (is_array($allowed) && in_array($host, $allowed, true)) {
             return;
         }

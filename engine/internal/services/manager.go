@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 type ServiceStatus string

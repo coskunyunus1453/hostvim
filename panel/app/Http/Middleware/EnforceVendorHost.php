@@ -10,7 +10,7 @@ class EnforceVendorHost
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $allowed = config('hostvim.vendor_portal_hosts', []);
+        $allowed = config('panelze.vendor_portal_hosts', []);
         if (! is_array($allowed)) {
             $allowed = [];
         }

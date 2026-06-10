@@ -9,13 +9,13 @@ class SyncPanelAbilitiesCommand extends Command
 {
     protected $signature = 'panelze:sync-abilities';
 
-    protected $description = 'config/hostvim_abilities.php içindeki yetenekleri Spatie permissions tablosuna ekler/günceller';
+    protected $description = 'config/panelze_abilities.php içindeki yetenekleri Spatie permissions tablosuna ekler/günceller';
 
     public function handle(): int
     {
-        $registry = config('hostvim_abilities', []);
+        $registry = config('panelze_abilities', []);
         if (! is_array($registry)) {
-            $this->error('hostvim_abilities config eksik veya geçersiz.');
+            $this->error('panelze_abilities config eksik veya geçersiz.');
 
             return self::FAILURE;
         }

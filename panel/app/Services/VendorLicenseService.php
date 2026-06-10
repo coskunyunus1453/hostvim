@@ -55,7 +55,7 @@ class VendorLicenseService
      */
     public function signPayload(array $payload): string
     {
-        $secret = (string) config('hostvim.vendor_license_signing_key', '');
+        $secret = (string) config('panelze.vendor_license_signing_key', '');
         if ($secret === '') {
             $secret = hash('sha256', (string) config('app.key', 'panelze-default-key'));
         }
@@ -72,7 +72,7 @@ class VendorLicenseService
             return false;
         }
         if ($license->expires_at && $license->expires_at->isPast()) {
-            $graceHours = max(0, (int) config('hostvim.vendor_license_grace_hours', 24));
+            $graceHours = max(0, (int) config('panelze.vendor_license_grace_hours', 24));
             if ($graceHours <= 0 || $license->expires_at->copy()->addHours($graceHours)->isPast()) {
                 return false;
             }

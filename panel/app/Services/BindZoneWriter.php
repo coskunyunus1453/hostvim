@@ -18,7 +18,7 @@ class BindZoneWriter
         $admin = 'hostmaster.'.$zone.'.';
 
         $lines = [
-            '; Hostvim BIND zone — '.$zone,
+            '; Panelze BIND zone — '.$zone,
             '; Otomatik üretildi; panelde düzenleyin.',
             '$ORIGIN '.$zone.'.',
             '$TTL 3600',

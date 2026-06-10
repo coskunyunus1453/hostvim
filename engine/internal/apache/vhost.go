@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/nginx"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/nginx"
 )
 
 const maxRawApacheVhostBytes = 512 << 10
@@ -354,7 +354,7 @@ func RemoveVhost(cfg *config.Config, domain string) error {
 	return nil
 }
 
-// RemoveVhostBestEffort site silme yolu: hostvim ve eski panelsar-* apache vhost dosyalarını kaldırmayı dener.
+// RemoveVhostBestEffort site silme yolu: panelze ve eski panelsar-* apache vhost dosyalarını kaldırmayı dener.
 func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 	if domain == "" || strings.Contains(domain, "..") {
 		return

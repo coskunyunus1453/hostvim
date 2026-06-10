@@ -147,7 +147,7 @@ class CuriousController extends Controller
             'client_ip' => $ip,
             'record' => $row->toApiArray(),
             'history' => $this->serverSpeedtest->historyFor($userId, $ip),
-            'ookla_cache_minutes' => max(5, (int) config('hostvim.curious.ookla_cache_minutes', 30)),
+            'ookla_cache_minutes' => max(5, (int) config('panelze.curious.ookla_cache_minutes', 30)),
         ]);
     }
 

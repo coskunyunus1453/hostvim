@@ -10,20 +10,20 @@
 # ve komut "go panelze-admin-login.txt …" gibi patlar. Güvenli: cd /tmp && curl … | bash
 #
 # Müşteri kurulumu (önerilen — tek komut, freemium + Pro aynı paket):
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-hostvim.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install-panelze.sh" | bash
 # İsteğe bağlı lisans: PANELZE_LICENSE_KEY="hv_..." curl … | bash
-# Geriye dönük: install-community.sh / install-pro.sh → install-hostvim.sh yönlendirir.
+# Geriye dönük: install-community.sh / install-pro.sh → install-panelze.sh yönlendirir.
 # Bu dosya (install.sh) ortak motor; doğrudan çağrılırsa APP_PROFILE varsayılanı customer’dır.
 #
 # Müşteri komutu (Linux VPS — SSL doğrulaması AÇIK):
 #   • Tek satır (kısa domain): curl -fsSL https://get.panelze.sh | bash
-#   • Root SSH: curl -fsSL "…/install-hostvim.sh" | bash
+#   • Root SSH: curl -fsSL "…/install-panelze.sh" | bash
 #   • Eski adlar (yönlendirme): install-customer.sh → community, install-vendor.sh → pro
 #   • İlk admin: /root/panelze-admin-login.txt
 #   macOS/Windows’ta çalıştırmayın; boş Debian/Ubuntu sunucuda çalışır.
 #
 # Ortam ile (ör. özel branch):
-#   sudo PANELZE_BRANCH=release PANELZE_REPO_URL=https://github.com/kodsar/hostvim.git bash -s <<< "$(curl -fsSL https://kodsar.com/panel/install.sh)"
+#   sudo PANELZE_BRANCH=release PANELZE_REPO_URL=https://github.com/kodsar/panelze.git bash -s <<< "$(curl -fsSL https://kodsar.com/panel/install.sh)"
 #   (Eski: PANELSAR_BRANCH / PANELSAR_REPO_URL hâlâ okunur.)
 #
 # Plesk / cPanel benzeri izolasyon (varsayılan):
@@ -51,9 +51,9 @@
 set -euo pipefail
 
 # ─── Dağıtımcı: repo URL + bu betiğin ham (raw) HTTPS adresi aynı depoyu göstermeli (sudo yeniden çalıştırma için) ───
-# Varsayılan repo adı hostvim; GitHub’da hâlâ panelsar ise PANELZE_REPO_URL ile ezin.
-PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL:-${PANELSAR_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install.sh}}"
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-${PANELSAR_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}}"
+# Varsayılan repo adı panelze; GitHub’da hâlâ panelsar ise PANELZE_REPO_URL ile ezin.
+PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL:-${PANELSAR_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install.sh}}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-${PANELSAR_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
 PANELZE_HOME="${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
 PANELZE_SEED_DEMO_USERS="${PANELZE_SEED_DEMO_USERS:-${PANELSAR_SEED_DEMO_USERS:-0}}"
@@ -65,7 +65,7 @@ export PANELSAR_INSTALL_SCRIPT_URL="$PANELZE_INSTALL_SCRIPT_URL"
 export PANELSAR_SEED_DEMO_USERS="$PANELZE_SEED_DEMO_USERS"
 export PANELZE_SEED_DEMO_USERS="$PANELZE_SEED_DEMO_USERS"
 
-if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
+if ! declare -F panelze_source_install_mode_lib &>/dev/null; then
   for _lib_boot in \
     "$(dirname "${BASH_SOURCE[0]:-$0}")/lib/source-install-mode.sh" \
     "/var/www/panelze/deploy/host/lib/source-install-mode.sh" \
@@ -77,27 +77,27 @@ if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
     fi
   done
 fi
-if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
-  _raw_boot="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${PANELZE_BRANCH:-main}}"
+if ! declare -F panelze_source_install_mode_lib &>/dev/null; then
+  _raw_boot="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/panelze/${PANELZE_BRANCH:-main}}"
   _tmp_boot="$(mktemp)"
   curl -fsSL "${_raw_boot}/deploy/host/lib/source-install-mode.sh" -o "$_tmp_boot"
   # shellcheck source=/dev/null
   source "$_tmp_boot"
   rm -f "$_tmp_boot"
 fi
-hostvim_source_install_mode_lib
+panelze_source_install_mode_lib
 
-PANELZE_INSTALL_MODE="$(hostvim_resolve_install_mode)"
+PANELZE_INSTALL_MODE="$(panelze_resolve_install_mode)"
 if [[ "$PANELZE_INSTALL_MODE" == "update" ]]; then
-  hostvim_apply_update_safe_env
+  panelze_apply_update_safe_env
 else
-  hostvim_apply_fresh_env
+  panelze_apply_fresh_env
 fi
 export RESET_PANEL_DB PANELZE_UPDATE_ONLY PANELZE_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
 export PANELZE_PRESERVE_ADMIN_PASSWORD SKIP_APT
 export PANELZE_SEED_DEMO_USERS
 
-hostvim_print_install_mode_banner "$PANELZE_INSTALL_MODE"
+panelze_print_install_mode_banner "$PANELZE_INSTALL_MODE"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "Panelze kurulumu yalnızca Linux (Debian/Ubuntu) sunucu içindir." >&2

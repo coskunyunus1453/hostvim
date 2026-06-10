@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 const defaultInstallScript = "/usr/local/sbin/panelze-stack-install"

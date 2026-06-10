@@ -131,7 +131,7 @@ class StackController extends Controller
 
     private function markStaleRunningInstalls(): void
     {
-        $minutes = max(5, (int) config('hostvim.stack_install_timeout', 1800) / 60 + 5);
+        $minutes = max(5, (int) config('panelze.stack_install_timeout', 1800) / 60 + 5);
         $cutoff = now()->subMinutes($minutes);
 
         StackInstallRun::query()

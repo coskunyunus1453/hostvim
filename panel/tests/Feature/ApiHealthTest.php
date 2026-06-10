@@ -12,6 +12,6 @@ class ApiHealthTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('status', 'ok')
-            ->assertJsonPath('panel', 'hostvim');
+            ->assertJsonPath('panel', 'panelze');
     }
 }

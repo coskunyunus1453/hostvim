@@ -14,11 +14,11 @@ class ServerSpeedtestService
      */
     public function measureOrCached(string $clientIp, int $userId): array
     {
-        if (! config('hostvim.curious.ookla_enabled', true)) {
+        if (! config('panelze.curious.ookla_enabled', true)) {
             return ['ok' => false, 'error' => __('curious.speed_ookla_disabled')];
         }
 
-        $cacheMinutes = max(5, (int) config('hostvim.curious.ookla_cache_minutes', 30));
+        $cacheMinutes = max(5, (int) config('panelze.curious.ookla_cache_minutes', 30));
         $recent = CuriousSpeedResult::query()
             ->where('user_id', $userId)
             ->where('client_ip', $clientIp)
@@ -61,7 +61,7 @@ class ServerSpeedtestService
             return ['ok' => false, 'error' => __('curious.speed_ookla_missing')];
         }
 
-        $timeout = max(60, (int) config('hostvim.curious.ookla_timeout', 120));
+        $timeout = max(60, (int) config('panelze.curious.ookla_timeout', 120));
         $isOokla = str_contains(basename($binary), 'speedtest') && ! str_contains(basename($binary), 'speedtest-cli');
 
         $cmd = $isOokla
@@ -90,8 +90,8 @@ class ServerSpeedtestService
     private function resolveBinary(): ?string
     {
         foreach ([
-            (string) config('hostvim.curious.ookla_binary', 'speedtest'),
-            (string) config('hostvim.curious.ookla_fallback_binary', 'speedtest-cli'),
+            (string) config('panelze.curious.ookla_binary', 'speedtest'),
+            (string) config('panelze.curious.ookla_fallback_binary', 'speedtest-cli'),
         ] as $name) {
             if ($name === '') {
                 continue;
@@ -198,14 +198,14 @@ class ServerSpeedtestService
 
     private function pruneHistory(int $userId, string $clientIp): void
     {
-        $retentionDays = max(7, (int) config('hostvim.curious.ookla_history_retention_days', 90));
+        $retentionDays = max(7, (int) config('panelze.curious.ookla_history_retention_days', 90));
         CuriousSpeedResult::query()
             ->where('user_id', $userId)
             ->where('client_ip', $clientIp)
             ->where('created_at', '<', now()->subDays($retentionDays))
             ->delete();
 
-        $maxRows = max(50, (int) config('hostvim.curious.ookla_history_max_rows', 200));
+        $maxRows = max(50, (int) config('panelze.curious.ookla_history_max_rows', 200));
         $ids = CuriousSpeedResult::query()
             ->where('user_id', $userId)
             ->where('client_ip', $clientIp)
@@ -222,7 +222,7 @@ class ServerSpeedtestService
      */
     public function historyFor(int $userId, string $clientIp): array
     {
-        $limit = max(5, min(50, (int) config('hostvim.curious.ookla_history_limit', 30)));
+        $limit = max(5, min(50, (int) config('panelze.curious.ookla_history_limit', 30)));
 
         return CuriousSpeedResult::query()
             ->where('user_id', $userId)

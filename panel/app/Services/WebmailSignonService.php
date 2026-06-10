@@ -43,7 +43,7 @@ class WebmailSignonService
         }
 
         $token = Str::random(48);
-        $ttl = max(30, (int) config('hostvim.webmail_signon.token_ttl', 90));
+        $ttl = max(30, (int) config('panelze.webmail_signon.token_ttl', 90));
 
         Cache::put($this->cacheKey($token), [
             'user_id' => (int) $account->user_id,
@@ -93,6 +93,6 @@ class WebmailSignonService
 
     private function cacheKey(string $token): string
     {
-        return 'hostvim.webmail_signon.'.hash('sha256', $token);
+        return 'panelze.webmail_signon.'.hash('sha256', $token);
     }
 }

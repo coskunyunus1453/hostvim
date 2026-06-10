@@ -100,7 +100,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Canlıda document root public/ iken .env'de XAMPP alt klasörü için kalan ASSET_URL
-     * (örn. /hostvim/landing/public) Vite chunk'larını yanlış yola iter. APP_URL kök
+     * (örn. /panelze/landing/public) Vite chunk'larını yanlış yola iter. APP_URL kök
      * alan adındaysa bu kalıntıyı yok say.
      */
     private function normalizeStaleAssetUrlForRootDeployment(): void
@@ -127,9 +127,9 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $staleMarkers = [
-            '/hostvim/landing/public',
-            '/htdocs/hostvim',
-            'localhost/hostvim',
+            '/panelze/landing/public',
+            '/htdocs/panelze',
+            'localhost/panelze',
         ];
 
         foreach ($staleMarkers as $needle) {

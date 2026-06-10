@@ -58,7 +58,7 @@ class PanelUpdateController extends Controller
             return response()->json(['message' => 'Uygulanacak yeni sürüm yok.'], 422);
         }
 
-        $current = (string) config('hostvim.version', '0.0.0');
+        $current = (string) config('panelze.version', '0.0.0');
         $run = $this->updates->createRun((int) $request->user()->id, $current, $latest);
 
         $isSync = (string) config('queue.default', 'sync') === 'sync';

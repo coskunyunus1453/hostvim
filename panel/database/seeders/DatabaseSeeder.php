@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $vendorEnabled = (bool) config('hostvim.vendor_enabled', false);
+        $vendorEnabled = (bool) config('panelze.vendor_enabled', false);
         $roles = ['admin', 'reseller', 'user'];
         if ($vendorEnabled) {
             $roles = array_merge($roles, ['vendor_admin', 'vendor_support', 'vendor_finance', 'vendor_devops']);
@@ -176,7 +176,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $adminEmail = env('PANELZE_ADMIN_EMAIL', env('HOSTVIM_ADMIN_EMAIL', env('PANELSAR_ADMIN_EMAIL', 'admin@panelze.com')));
+        $adminEmail = env('PANELZE_ADMIN_EMAIL', env('PANELZE_ADMIN_EMAIL', env('PANELSAR_ADMIN_EMAIL', 'admin@panelze.com')));
         $adminPasswordEnv = env('PANELZE_ADMIN_PASSWORD', env('PANELSAR_ADMIN_PASSWORD'));
         $adminPasswordForNew = ($adminPasswordEnv !== null && $adminPasswordEnv !== '')
             ? $adminPasswordEnv

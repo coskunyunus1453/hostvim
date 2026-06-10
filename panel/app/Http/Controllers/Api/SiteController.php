@@ -77,7 +77,7 @@ class SiteController extends Controller
                 $request->user(),
                 $domain->fresh(),
                 $validated['lets_encrypt_email'] ?? null,
-                config('hostvim.lets_encrypt_email') ?: null
+                config('panelze.lets_encrypt_email') ?: null
             );
             SafeAuditLogger::info('sites.create_ssl_attempt', [
                 'user_id' => $request->user()->id,

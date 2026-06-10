@@ -14,7 +14,7 @@ frontend/dist/
 frontend/build/
 engine/bin/
 engine/panelsar-engine
-engine/hostvim-engine
+engine/panelze-engine
 *.exe
 *.dll
 *.so

@@ -12,7 +12,7 @@ class ProFeatureCatalogService
      */
     public function registry(): array
     {
-        $defaults = config('hostvim_pro_features', []);
+        $defaults = config('panelze_pro_features', []);
         if (! is_array($defaults)) {
             return [];
         }

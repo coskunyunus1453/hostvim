@@ -40,7 +40,7 @@ class WhmcsProvisioningController extends Controller
         return response()->json([
             'ok' => true,
             'panel' => 'panelze',
-            'version' => config('hostvim.version', '0.1.0'),
+            'version' => config('panelze.version', '0.1.0'),
         ]);
     }
 
@@ -84,7 +84,7 @@ class WhmcsProvisioningController extends Controller
                     'name' => $validated['name'],
                     'email' => $validated['email'],
                     'password' => Hash::make($validated['password']),
-                    'locale' => $validated['locale'] ?? config('hostvim.default_locale', 'en'),
+                    'locale' => $validated['locale'] ?? config('panelze.default_locale', 'en'),
                     'status' => 'active',
                     'hosting_package_id' => $validated['hosting_package_id'] ?? null,
                     'hosting_package_manual_override' => array_key_exists('hosting_package_id', $validated),
@@ -102,7 +102,7 @@ class WhmcsProvisioningController extends Controller
                             $user,
                             $createdDomain->fresh(),
                             $validated['lets_encrypt_email'] ?? null,
-                            config('hostvim.lets_encrypt_email') ?: null
+                            config('panelze.lets_encrypt_email') ?: null
                         );
                     }
                 }
@@ -481,7 +481,7 @@ class WhmcsProvisioningController extends Controller
      */
     private function allowedLocales(): array
     {
-        $raw = config('hostvim.available_locales', ['en']);
+        $raw = config('panelze.available_locales', ['en']);
         if (is_string($raw)) {
             return array_values(array_filter(array_map('trim', explode(',', $raw))));
         }

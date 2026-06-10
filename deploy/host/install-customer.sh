@@ -7,5 +7,5 @@ if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
     exec bash "$_d/install-community.sh"
   fi
 fi
-_BASE="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host}"
+_BASE="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host}"
 curl -fsSL "${_BASE}/install-community.sh" | bash

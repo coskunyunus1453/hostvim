@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 var domainSafe = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`)
@@ -713,7 +713,7 @@ func RemoveVhost(cfg *config.Config, domain string) error {
 	return nil
 }
 
-// RemoveVhostBestEffort site silme yolu: NginxManageVhosts kapalı olsa bile hostvim (veya eski panelsar) conf dosyasını kaldırmayı dener.
+// RemoveVhostBestEffort site silme yolu: NginxManageVhosts kapalı olsa bile panelze (veya eski panelsar) conf dosyasını kaldırmayı dener.
 func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 	if domain == "" || strings.Contains(domain, "..") {
 		return

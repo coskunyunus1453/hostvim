@@ -238,8 +238,8 @@ class PanelZekaActionExecutor
         }
 
         $process = new Process($argv, $cwd, ['PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin']);
-        $process->setTimeout((int) config('hostvim.cron.timeout', 180));
-        $process->setIdleTimeout((int) config('hostvim.cron.idle_timeout', 120));
+        $process->setTimeout((int) config('panelze.cron.timeout', 180));
+        $process->setIdleTimeout((int) config('panelze.cron.idle_timeout', 120));
 
         try {
             $process->mustRun();

@@ -13,7 +13,7 @@ class ServerMysqlSettingsController extends Controller
 {
     public function show(): JsonResponse
     {
-        $mp = config('hostvim.mysql_provision', []);
+        $mp = config('panelze.mysql_provision', []);
         $enabled = filter_var($mp['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $provisionPass = '';
@@ -36,7 +36,7 @@ class ServerMysqlSettingsController extends Controller
                 'username' => (string) config('database.connections.mysql.username', ''),
                 'password' => (string) config('database.connections.mysql.password', ''),
             ],
-            'phpmyadmin_url' => (string) config('hostvim.ui.phpmyadmin_url', ''),
+            'phpmyadmin_url' => (string) config('panelze.ui.phpmyadmin_url', ''),
             'hints' => [
                 'provision_use' => __('databases.server_mysql_provision_use'),
                 'root_socket' => __('databases.server_mysql_root_socket'),

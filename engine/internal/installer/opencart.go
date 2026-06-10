@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/sites"
 )
 
 // OpenCart resmi dağıtım (upload/ öneki); sürüm sabit, güvenilir indirme için GitHub release.

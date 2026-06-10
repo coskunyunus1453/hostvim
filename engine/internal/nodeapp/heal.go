@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/hosting"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/hosting"
+	"panelze/engine/internal/sites"
 )
 
 // HealResult otomatik onarım adımları.

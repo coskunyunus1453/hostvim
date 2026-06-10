@@ -50,21 +50,21 @@ class AppServiceProvider extends ServiceProvider
 
         // Dosya yöneticisi: okuma (listele/oku/indir)
         RateLimiter::for('files-read', function (Request $request) {
-            $perMinute = max(60, (int) config('hostvim.rate_limits.files_read_per_minute', 360));
+            $perMinute = max(60, (int) config('panelze.rate_limits.files_read_per_minute', 360));
 
             return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
 
         // Dosya yöneticisi: yazma/silme/taşıma/yeniden adlandırma
         RateLimiter::for('files-write', function (Request $request) {
-            $perMinute = max(30, (int) config('hostvim.rate_limits.files_write_per_minute', 180));
+            $perMinute = max(30, (int) config('panelze.rate_limits.files_write_per_minute', 180));
 
             return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
 
         // Upload
         RateLimiter::for('files-upload', function (Request $request) {
-            $perMinute = max(10, (int) config('hostvim.rate_limits.files_upload_per_minute', 40));
+            $perMinute = max(10, (int) config('panelze.rate_limits.files_upload_per_minute', 40));
 
             return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
@@ -85,7 +85,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('databases-import', function (Request $request) {
-            $perHour = max(4, (int) config('hostvim.rate_limits.databases_import_per_hour', 30));
+            $perHour = max(4, (int) config('panelze.rate_limits.databases_import_per_hour', 30));
 
             return Limit::perHour($perHour)->by($request->user()?->id ?: $request->ip());
         });
@@ -108,19 +108,19 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('curious-speed', function (Request $request) {
-            $perMinute = max(40, (int) config('hostvim.rate_limits.curious_speed_per_minute', 200));
+            $perMinute = max(40, (int) config('panelze.rate_limits.curious_speed_per_minute', 200));
 
             return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
 
         RateLimiter::for('curious-speed-complete', function (Request $request) {
-            $perHour = max(6, (int) config('hostvim.rate_limits.curious_speed_complete_per_hour', 30));
+            $perHour = max(6, (int) config('panelze.rate_limits.curious_speed_complete_per_hour', 30));
 
             return Limit::perHour($perHour)->by($request->user()?->id ?: $request->ip());
         });
 
         RateLimiter::for('curious-seo', function (Request $request) {
-            $perMinute = max(5, (int) config('hostvim.rate_limits.curious_seo_per_minute', 10));
+            $perMinute = max(5, (int) config('panelze.rate_limits.curious_seo_per_minute', 10));
 
             return Limit::perMinute($perMinute)->by($request->user()?->id ?: $request->ip());
         });
@@ -134,9 +134,9 @@ class AppServiceProvider extends ServiceProvider
             if (config('app.debug')) {
                 Log::warning('Panelze: APP_DEBUG is enabled in production.');
             }
-            if ((string) config('hostvim.engine_internal_key', '') === ''
-                && (string) config('hostvim.engine_secret', '') === '') {
-                Log::warning('Panelze: ENGINE_INTERNAL_KEY ve ENGINE_API_SECRET bos; motor entegrasyonu calismaz (eski PANELSAR_* anahtarlari config/hostvim.php uzerinden okunur).');
+            if ((string) config('panelze.engine_internal_key', '') === ''
+                && (string) config('panelze.engine_secret', '') === '') {
+                Log::warning('Panelze: ENGINE_INTERNAL_KEY ve ENGINE_API_SECRET bos; motor entegrasyonu calismaz (eski PANELSAR_* anahtarlari config/panelze.php uzerinden okunur).');
             }
         }
     }

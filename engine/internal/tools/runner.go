@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/sites"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/sites"
 )
 
 // Run belge kökünde izin verilen composer / npm komutlarını çalıştırır.

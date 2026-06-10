@@ -180,7 +180,7 @@ GET http://localhost:9090/health
 Response:
 {
   "status": "healthy",
-  "engine": "hostvim",
+  "engine": "panelze",
   "version": "0.1.0"
 }
 ```

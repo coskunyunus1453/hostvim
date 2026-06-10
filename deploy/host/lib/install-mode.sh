@@ -2,14 +2,14 @@
 # shellcheck shell=bash
 # Ortak kurulum / güncelleme modu (install.sh ve install-production.sh tarafından source edilir).
 
-hostvim_install_home() {
+panelze_install_home() {
   echo "${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
 }
 
 # fresh | update
-hostvim_resolve_install_mode() {
+panelze_resolve_install_mode() {
   local home
-  home="$(hostvim_install_home)"
+  home="$(panelze_install_home)"
 
   if [[ "${PANELZE_FRESH_INSTALL:-0}" == "1" ]] || [[ "${PANELZE_FRESH_INSTALL:-0}" == "yes" ]]; then
     echo "fresh"
@@ -36,7 +36,7 @@ hostvim_resolve_install_mode() {
   echo "fresh"
 }
 
-hostvim_apply_update_safe_env() {
+panelze_apply_update_safe_env() {
   export PANELZE_UPDATE_ONLY=1
   export RESET_PANEL_DB=0
   export PANELZE_FRESH_INSTALL=0
@@ -47,7 +47,7 @@ hostvim_apply_update_safe_env() {
   fi
 }
 
-hostvim_apply_fresh_env() {
+panelze_apply_fresh_env() {
   : "${RESET_PANEL_DB:=0}"
   if [[ "${PANELZE_FRESH_INSTALL:-0}" == "1" ]] || [[ "${PANELZE_FRESH_INSTALL:-0}" == "yes" ]]; then
     export RESET_PANEL_DB=1
@@ -55,7 +55,7 @@ hostvim_apply_fresh_env() {
   fi
 }
 
-hostvim_print_install_mode_banner() {
+panelze_print_install_mode_banner() {
   local mode="$1"
   if [[ "$mode" == "update" ]]; then
     echo "╔══════════════════════════════════════════════════════════════╗"

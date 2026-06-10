@@ -10,7 +10,7 @@ class BillingProviderResolver
     {
         $allowed = $this->allowedProviders();
 
-        $forced = strtolower(trim($this->setting('billing.force_provider', (string) config('hostvim_saas.billing.force_provider', ''))));
+        $forced = strtolower(trim($this->setting('billing.force_provider', (string) config('panelze_saas.billing.force_provider', ''))));
         if (in_array($forced, $allowed, true)) {
             return $forced;
         }
@@ -20,13 +20,13 @@ class BillingProviderResolver
             return $q;
         }
 
-        $default = strtolower(trim($this->setting('billing.default_provider', (string) config('hostvim_saas.billing.default_provider', 'auto'))));
+        $default = strtolower(trim($this->setting('billing.default_provider', (string) config('panelze_saas.billing.default_provider', 'auto'))));
         if (in_array($default, $allowed, true)) {
             return $default;
         }
 
         $loc = strtolower(trim((string) $locale));
-        $rawTrLocales = $this->setting('billing.tr_locales', implode(',', (array) config('hostvim_saas.billing.turkish_locales', ['tr'])));
+        $rawTrLocales = $this->setting('billing.tr_locales', implode(',', (array) config('panelze_saas.billing.turkish_locales', ['tr'])));
         $trLocales = array_values(array_filter(array_map(static fn (string $v): string => strtolower(trim($v)), explode(',', $rawTrLocales))));
         if ($trLocales === []) {
             $trLocales = ['tr'];

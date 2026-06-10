@@ -1,4 +1,4 @@
-PROJECT_NAME := hostvim
+PROJECT_NAME := panelze
 ENGINE_DIR := engine
 PANEL_DIR := panel
 FRONTEND_DIR := frontend

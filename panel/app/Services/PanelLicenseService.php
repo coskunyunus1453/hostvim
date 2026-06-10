@@ -17,7 +17,7 @@ class PanelLicenseService
 
     public function hubPayload(): ?array
     {
-        return Cache::remember('hostvim.license.hub_payload', 300, function () {
+        return Cache::remember('panelze.license.hub_payload', 300, function () {
             $key = $this->storedLicense->effectiveKey();
             if ($key === '') {
                 return null;
@@ -42,7 +42,7 @@ class PanelLicenseService
 
     public function isLicenseValid(): bool
     {
-        if (filter_var(config('hostvim.license.force_valid', false), FILTER_VALIDATE_BOOLEAN)) {
+        if (filter_var(config('panelze.license.force_valid', false), FILTER_VALIDATE_BOOLEAN)) {
             return true;
         }
 
@@ -53,21 +53,21 @@ class PanelLicenseService
 
     public function isProPlan(): bool
     {
-        if (filter_var(config('hostvim.license.force_pro', false), FILTER_VALIDATE_BOOLEAN)) {
+        if (filter_var(config('panelze.license.force_pro', false), FILTER_VALIDATE_BOOLEAN)) {
             return true;
         }
         if (! $this->isLicenseValid()) {
             return false;
         }
         $plan = strtolower(trim((string) ($this->hubPayload()['plan'] ?? '')));
-        $proPlans = config('hostvim.license.pro_plan_codes', []);
+        $proPlans = config('panelze.license.pro_plan_codes', []);
 
         return in_array($plan, $proPlans, true);
     }
 
     public function hasFeature(string $moduleKey): bool
     {
-        if (filter_var(config('hostvim.features.'.$moduleKey, false), FILTER_VALIDATE_BOOLEAN)) {
+        if (filter_var(config('panelze.features.'.$moduleKey, false), FILTER_VALIDATE_BOOLEAN)) {
             return true;
         }
         if (! $this->isLicenseValid()) {
@@ -78,7 +78,7 @@ class PanelLicenseService
             if (! $this->isProPlan()) {
                 return false;
             }
-            $defaultOnPro = config('hostvim.license.pro_default_modules', ['phpmyadmin_sso']);
+            $defaultOnPro = config('panelze.license.pro_default_modules', ['phpmyadmin_sso']);
 
             return in_array($moduleKey, $defaultOnPro, true);
         }
@@ -111,7 +111,7 @@ class PanelLicenseService
             return $this->storedLicense->effectiveKey() !== '';
         }
         $plan = $this->planCode();
-        $community = config('hostvim.license.community_plan_codes', []);
+        $community = config('panelze.license.community_plan_codes', []);
 
         return $plan !== null && in_array($plan, $community, true);
     }
@@ -124,7 +124,7 @@ class PanelLicenseService
     public function billingSummary(): array
     {
         $key = $this->storedLicense->effectiveKey();
-        $hubConfigured = rtrim(trim((string) config('hostvim.license_server', '')), '/') !== '';
+        $hubConfigured = rtrim(trim((string) config('panelze.license_server', '')), '/') !== '';
 
         $base = [
             'has_license_key' => $key !== '',
@@ -184,7 +184,7 @@ class PanelLicenseService
 
     public function forgetCache(): void
     {
-        Cache::forget('hostvim.license.hub_payload');
+        Cache::forget('panelze.license.hub_payload');
     }
 
     /**
@@ -199,7 +199,7 @@ class PanelLicenseService
             return 'pro';
         }
         $plan = strtolower(trim((string) ($hub['plan'] ?? '')));
-        $community = config('hostvim.license.community_plan_codes', []);
+        $community = config('panelze.license.community_plan_codes', []);
         if ($plan !== '' && in_array($plan, $community, true)) {
             return 'community';
         }

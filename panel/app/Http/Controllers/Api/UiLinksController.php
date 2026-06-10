@@ -20,8 +20,8 @@ class UiLinksController extends Controller
     public function show(): JsonResponse
     {
         return response()->json([
-            'phpmyadmin_url' => (string) config('hostvim.ui.phpmyadmin_url', ''),
-            'adminer_url' => (string) config('hostvim.ui.adminer_url', ''),
+            'phpmyadmin_url' => (string) config('panelze.ui.phpmyadmin_url', ''),
+            'adminer_url' => (string) config('panelze.ui.adminer_url', ''),
             'features' => [
                 'phpmyadmin_auto_login' => $this->panelLicense->hasPhpMyAdminAutoLogin(),
                 'license_valid' => $this->panelLicense->isLicenseValid(),

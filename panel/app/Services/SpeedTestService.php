@@ -9,12 +9,12 @@ class SpeedTestService
 {
     public function downloadBytes(): int
     {
-        return max(256_000, min(5_000_000, (int) config('hostvim.curious.speed_download_bytes', 2_097_152)));
+        return max(256_000, min(5_000_000, (int) config('panelze.curious.speed_download_bytes', 2_097_152)));
     }
 
     public function uploadMaxBytes(): int
     {
-        return max(256_000, min(5_000_000, (int) config('hostvim.curious.speed_upload_max_bytes', 2_097_152)));
+        return max(256_000, min(5_000_000, (int) config('panelze.curious.speed_upload_max_bytes', 2_097_152)));
     }
 
     public function pingPayload(): array
@@ -51,7 +51,7 @@ class SpeedTestService
         }
         fclose($fh);
 
-        $ttl = max(60, (int) config('hostvim.curious.speed_token_ttl', 300));
+        $ttl = max(60, (int) config('panelze.curious.speed_token_ttl', 300));
         cache()->put($this->cacheKey($token), [
             'user_id' => $userId,
             'path' => $path,
@@ -130,6 +130,6 @@ class SpeedTestService
 
     private function cacheKey(string $token): string
     {
-        return 'hostvim.speedtest.'.hash('sha256', $token);
+        return 'panelze.speedtest.'.hash('sha256', $token);
     }
 }

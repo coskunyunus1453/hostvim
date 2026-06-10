@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 // ArchiveDomain creates a gzip tar of paths.WebRoot/domain into destPath.

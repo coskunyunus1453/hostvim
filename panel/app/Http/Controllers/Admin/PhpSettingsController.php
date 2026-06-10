@@ -148,7 +148,7 @@ class PhpSettingsController extends Controller
             return $override;
         }
 
-        return max(1, (int) config('hostvim.limits.max_file_manager_size_mb', 50));
+        return max(1, (int) config('panelze.limits.max_file_manager_size_mb', 50));
     }
 
     /**

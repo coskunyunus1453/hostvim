@@ -3,13 +3,13 @@
 # Sırlar: ansible-vault → group_vars/all/vault.yml
 
 - name: Panelze panel deploy
-  hosts: hostvim_panel
+  hosts: panelze_panel
   become: true
   vars:
     code_root: /var/www/panelze
     panel_root: "{{ code_root }}/panel"
     panel_user: www-data
-    repo_url: git@github.com:ORG/hostvim.git
+    repo_url: git@github.com:ORG/panelze.git
   tasks:
     - name: Kod deposu (clone / pull)
       ansible.builtin.git:

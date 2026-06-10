@@ -30,7 +30,7 @@
 #   WITH_LOCAL_POSTFIX=1        # Postfix + mailutils (panel giden posta: sendmail; Admin → Giden posta’dan SMTP’ye geçilebilir)
 #   WITH_MAIL_STACK_WEBMAIL=1   # Tam posta + Roundcube webmail (müşteri e-posta sayfasından kullanım için; varsayılan: 1)
 #   WITH_BIND_DNS=1             # BIND9 yetkili DNS — panel DNS kayıtları sunucuda yayınlanır (varsayılan: 1)
-#   HOSTVIM_DNS_NS1=ns1.ornek.com  # İsteğe bağlı; boşsa sunucu FQDN kullanılır
+#   PANELZE_DNS_NS1=ns1.ornek.com  # İsteğe bağlı; boşsa sunucu FQDN kullanılır
 #   SKIP_DB_SEED=1              # migrate sonrası db:seed atla
 #   PANELZE_UPDATE_ONLY=1       # Güncelleme kilidi: RESET_PANEL_DB=0, data/www ve migrate:fresh yok (install-update*.sh)
 #   RESET_PANEL_DB=1            # DİKKAT: migrate:fresh + (varsayılan) data/www vb. temizlik — üretimde yalnızca gerektiğinde
@@ -49,20 +49,15 @@
 #
 set -euo pipefail
 
-# hostvim-* veya panelze-* kaynak dosyasını /usr/local/sbin'e kurar; panelze/hostvim symlink.
+# panelze-* kaynak dosyasını /usr/local/sbin'e kurar.
 install_host_tool() {
   local base="$1"
-  local src=""
-  if [[ -f "$REPO_ROOT/deploy/host/hostvim-${base}" ]]; then
-    src="$REPO_ROOT/deploy/host/hostvim-${base}"
-  elif [[ -f "$REPO_ROOT/deploy/host/panelze-${base}" ]]; then
-    src="$REPO_ROOT/deploy/host/panelze-${base}"
-  else
+  local src="$REPO_ROOT/deploy/host/panelze-${base}"
+  if [[ ! -f "$src" ]]; then
     return 0
   fi
-  install -m 755 "$src" "/usr/local/sbin/hostvim-${base}"
-  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelze-${base}"
-  ln -sfn "/usr/local/sbin/hostvim-${base}" "/usr/local/sbin/panelsar-${base}" 2>/dev/null || true
+  install -m 755 "$src" "/usr/local/sbin/panelze-${base}"
+  ln -sfn "/usr/local/sbin/panelze-${base}" "/usr/local/sbin/panelsar-${base}" 2>/dev/null || true
 }
 
 _SCRIPT_DIR_BOOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,7 +72,7 @@ elif [[ -f "$_REPO_EARLY/deploy/host/lib/install-mode.sh" ]]; then
   # shellcheck source=../host/lib/install-mode.sh
   source "$_REPO_EARLY/deploy/host/lib/install-mode.sh"
 else
-  hostvim_resolve_install_mode() {
+  panelze_resolve_install_mode() {
     local home="${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
     if [[ "${PANELZE_FRESH_INSTALL:-0}" == "1" ]] || [[ "${PANELZE_FRESH_INSTALL:-0}" == "yes" ]]; then echo "fresh"; return; fi
     if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then echo "fresh"; return; fi
@@ -88,12 +83,12 @@ else
     fi
     echo "fresh"
   }
-  hostvim_apply_update_safe_env() {
+  panelze_apply_update_safe_env() {
     export PANELZE_UPDATE_ONLY=1 RESET_PANEL_DB=0 PANELZE_FRESH_INSTALL=0 CLEAN_HOSTING_STATE_ON_RESET=0
     export PANELZE_PRESERVE_ADMIN_PASSWORD="${PANELZE_PRESERVE_ADMIN_PASSWORD:-1}"
     export SKIP_APT="${SKIP_APT:-${PANELZE_SKIP_APT_ON_UPDATE:-1}}"
   }
-  hostvim_print_install_mode_banner() {
+  panelze_print_install_mode_banner() {
     if [[ "$1" == "update" ]]; then
       echo "╔══════════════════════════════════════════════════════════════╗"
       echo "║  Panelze GÜNCELLEME — panel DB, siteler ve MySQL korunur       ║"
@@ -108,15 +103,15 @@ fi
 
 echo "==> install-production.sh başladı ($_PANELZE_EARLY)"
 
-PANELZE_INSTALL_MODE="$(hostvim_resolve_install_mode)"
+PANELZE_INSTALL_MODE="$(panelze_resolve_install_mode)"
 if [[ "$PANELZE_INSTALL_MODE" == "update" ]]; then
-  hostvim_apply_update_safe_env
-  hostvim_print_install_mode_banner "update"
+  panelze_apply_update_safe_env
+  panelze_print_install_mode_banner "update"
 else
   if [[ "${PANELZE_FRESH_INSTALL:-0}" == "1" ]] || [[ "${PANELZE_FRESH_INSTALL:-0}" == "yes" ]]; then
     export RESET_PANEL_DB=1
   fi
-  hostvim_print_install_mode_banner "fresh"
+  panelze_print_install_mode_banner "fresh"
 fi
 export RESET_PANEL_DB PANELZE_UPDATE_ONLY PANELZE_FRESH_INSTALL CLEAN_HOSTING_STATE_ON_RESET
 
@@ -242,7 +237,7 @@ ensure_engine_port_free() {
 }
 
 # http(s)://host[:port]/yol -> host (FQDN). IP / localhost ise bos cikis (hata kodu 1).
-hostvim_url_hostname() {
+panelze_url_hostname() {
   local raw="${1:-}"
   [[ -n "$raw" ]] || return 1
   raw="${raw#http://}"
@@ -289,7 +284,7 @@ yaml_value_from_block() {
   ' "$file"
 }
 
-hostvim_git_safe_directory() {
+panelze_git_safe_directory() {
   local d="$1"
   [[ -d "$d/.git" ]] || return 0
   if ! git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$d"; then
@@ -298,7 +293,7 @@ hostvim_git_safe_directory() {
 }
 
 # Nginx panel 80/443 kullanır; Apache yalnızca HTTP 8080 (engine hosting.apache_http_port ile uyumlu)
-hostvim_apache_bind_8080() {
+panelze_apache_bind_8080() {
   local pc=/etc/apache2/ports.conf
   [[ -f "$pc" ]] || return 1
   sed -i \
@@ -372,7 +367,7 @@ if [[ "${SKIP_APT:-}" != "1" ]]; then
 
   if [[ "${WITH_APACHE:-1}" == "1" ]] || [[ "${WITH_APACHE:-1}" == "yes" ]]; then
     apt-get install -y -qq apache2
-    hostvim_apache_bind_8080
+    panelze_apache_bind_8080
     systemctl enable apache2
     systemctl restart apache2
     echo "==> Apache etkin: HTTP :8080 (Nginx panel :80). Engine apache_http_port=8080 ile uyumlu."
@@ -425,7 +420,7 @@ if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]];
     rm -rf "$PANELZE_HOME/data/www/"* 2>/dev/null || true
     rm -rf "$PANELZE_HOME/data/ssl/"* 2>/dev/null || true
     rm -rf "$PANELZE_HOME/data/backups/"* 2>/dev/null || true
-    rm -rf /var/backups/hostvim/* /var/backups/panelsar/* 2>/dev/null || true
+    rm -rf /var/backups/panelze/* /var/backups/panelsar/* 2>/dev/null || true
     rm -f /etc/nginx/sites-enabled/panelze-*.conf /etc/nginx/sites-enabled/panelsar-*.conf 2>/dev/null || true
     rm -f /etc/apache2/sites-enabled/panelze-*.conf /etc/apache2/sites-enabled/panelsar-*.conf 2>/dev/null || true
     rm -f /etc/apache2/sites-available/panelze-*.conf /etc/apache2/sites-available/panelsar-*.conf 2>/dev/null || true
@@ -501,10 +496,10 @@ chown root:www-data "$ENGINE_DST"
 
 # PostgreSQL engine kullanıcısı (isteğe bağlı)
 if [[ "${WITH_POSTGRES:-}" == "1" ]] || [[ "${WITH_POSTGRES:-}" == "yes" ]]; then
-  sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='hostvim'" | grep -q 1 || \
-    sudo -u postgres psql -c "CREATE USER hostvim WITH PASSWORD '$ENGINE_DB_PASS';"
-  sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='hostvim'" | grep -q 1 || \
-    sudo -u postgres psql -c "CREATE DATABASE hostvim OWNER hostvim;"
+  sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='panelze'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE USER panelze WITH PASSWORD '$ENGINE_DB_PASS';"
+  sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='panelze'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE DATABASE panelze OWNER panelze;"
 fi
 
 # Go engine derle (apt'teki golang-go genelde esiktir; ensure-go-toolchain.sh go.dev sürümünü kurar)
@@ -542,11 +537,7 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-panel-update" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/panelze-panel-update" /usr/local/sbin/panelze-panel-update
 fi
 install_host_tool system-settings
-if [[ -f "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/scripts/hostvim-post-install.sh" /usr/local/sbin/hostvim-post-install
-  ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelze-post-install
-  ln -sfn /usr/local/sbin/hostvim-post-install /usr/local/sbin/panelsar-post-install
-elif [[ -f "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" ]]; then
+if [[ -f "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" /usr/local/sbin/panelze-post-install
   ln -sfn /usr/local/sbin/panelze-post-install /usr/local/sbin/panelsar-post-install
 fi
@@ -576,8 +567,6 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-stack-install
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
@@ -590,7 +579,6 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-bind-sync
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
@@ -642,7 +630,7 @@ update_env() {
 # İlk yönetici e-postası (Plesk benzeri: mümkünse gerçek alan / iletişim adresi).
 # Sıra: PANELZE_ADMIN_EMAIL > PANELSAR_… > PANELZE_ADMIN_EMAIL_DOMAIN > LETS_ENCRYPT_EMAIL >
 #       APP_URL ana makinesi (IP/localhost değilse → admin@host) > admin@<hostname -f>
-hostvim_resolve_admin_email() {
+panelze_resolve_admin_email() {
   local explicit domain le app_url host fqdn
   explicit="${PANELZE_ADMIN_EMAIL:-${PANELSAR_ADMIN_EMAIL:-}}"
   explicit="${explicit//[[:space:]]/}"
@@ -718,18 +706,18 @@ update_env "ENGINE_INTERNAL_KEY" "$INTERNAL_KEY"
 update_env "ENGINE_API_SECRET" "$ENGINE_JWT"
 update_env "LOG_LEVEL" "error"
 if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
-  update_env "HOSTVIM_DNS_BIND" "true"
-  _HOSTVIM_SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
-  if [[ -n "${HOSTVIM_DNS_SERVER_IP:-}" ]]; then
-    update_env "HOSTVIM_DNS_SERVER_IP" "${HOSTVIM_DNS_SERVER_IP}"
-  elif [[ -n "$_HOSTVIM_SERVER_IP" ]]; then
-    update_env "HOSTVIM_DNS_SERVER_IP" "$_HOSTVIM_SERVER_IP"
+  update_env "PANELZE_DNS_BIND" "true"
+  _PANELZE_SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  if [[ -n "${PANELZE_DNS_SERVER_IP:-}" ]]; then
+    update_env "PANELZE_DNS_SERVER_IP" "${PANELZE_DNS_SERVER_IP}"
+  elif [[ -n "$_PANELZE_SERVER_IP" ]]; then
+    update_env "PANELZE_DNS_SERVER_IP" "$_PANELZE_SERVER_IP"
   fi
-  if [[ -n "${HOSTVIM_DNS_NS1:-${PANELZE_DNS_NS1:-}}" ]]; then
-    update_env "HOSTVIM_DNS_NS1" "${HOSTVIM_DNS_NS1:-${PANELZE_DNS_NS1}}"
+  if [[ -n "${PANELZE_DNS_NS1:-${PANELZE_DNS_NS1:-}}" ]]; then
+    update_env "PANELZE_DNS_NS1" "${PANELZE_DNS_NS1:-${PANELZE_DNS_NS1}}"
   fi
-  if [[ -n "${HOSTVIM_DNS_NS2:-${PANELZE_DNS_NS2:-}}" ]]; then
-    update_env "HOSTVIM_DNS_NS2" "${HOSTVIM_DNS_NS2:-${PANELZE_DNS_NS2}}"
+  if [[ -n "${PANELZE_DNS_NS2:-${PANELZE_DNS_NS2:-}}" ]]; then
+    update_env "PANELZE_DNS_NS2" "${PANELZE_DNS_NS2:-${PANELZE_DNS_NS2}}"
   fi
 fi
 
@@ -759,13 +747,13 @@ mkdir -p "$PANEL_ROOT/vendor"
 chown -R www-data:www-data "$PANEL_ROOT"
 chmod -R ug+rwx "$PANEL_ROOT/storage" "$PANEL_ROOT/bootstrap/cache"
 
-hostvim_git_safe_directory "$REPO_ROOT"
+panelze_git_safe_directory "$REPO_ROOT"
 
 sudo -u www-data composer --working-dir="$PANEL_ROOT" install --no-dev --optimize-autoloader --no-interaction
 
 if ! grep -qE '^APP_KEY=base64:.+' "$ENV_FILE" 2>/dev/null; then
   echo "==> Laravel APP_KEY üretiliyor (.env)…"
-  hostvim_run_artisan key:generate --force --no-interaction || {
+  panelze_run_artisan key:generate --force --no-interaction || {
     echo "Hata: php artisan key:generate başarısız; .env veya composer kurulumunu kontrol edin." >&2
     exit 1
   }
@@ -799,15 +787,15 @@ fi
 
 if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then
   echo "==> RESET_PANEL_DB=1: Panel veritabanı sıfırlanıyor (migrate:fresh)."
-  hostvim_run_artisan migrate:fresh --force
+  panelze_run_artisan migrate:fresh --force
 else
   echo "==> Panel veritabanı korunuyor: migrate --force (yeniden kurulum / güncelleme; kullanıcı ve site kayıtları silinmez)."
-  hostvim_run_artisan migrate --force
+  panelze_run_artisan migrate --force
 fi
-hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
-hostvim_run_artisan panelze:repair-stack-installs --no-interaction 2>/dev/null || true
+panelze_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || panelze_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
+panelze_run_artisan panelze:repair-stack-installs --no-interaction 2>/dev/null || true
 if [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "1" ]] || [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "yes" ]]; then
-  hostvim_run_artisan panelze:ensure-mail-stack --no-interaction 2>/dev/null || true
+  panelze_run_artisan panelze:ensure-mail-stack --no-interaction 2>/dev/null || true
 fi
 
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
@@ -818,7 +806,7 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
 
   HOST_FQDN="$(hostname -f 2>/dev/null || hostname || echo panelze.local)"
   HOST_FQDN="${HOST_FQDN// /}"
-  ADMIN_EMAIL="$(hostvim_resolve_admin_email)"
+  ADMIN_EMAIL="$(panelze_resolve_admin_email)"
   SEED_DEMO_USERS="${PANELZE_SEED_DEMO_USERS:-${PANELSAR_SEED_DEMO_USERS:-0}}"
   USER_COUNT=""
   if [[ "$RESET_DB_MODE" == "0" ]] && { [[ "${WITH_MARIADB}" == "1" ]] || [[ "${WITH_MARIADB}" == "yes" ]]; }; then
@@ -828,8 +816,8 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
     if [[ -n "$DB_PW" ]]; then
       DB_USER_Q="$(grep '^DB_USERNAME=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '\r' | tr -d ' ')"
       DB_NAME_Q="$(grep '^DB_DATABASE=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '\r' | tr -d ' ')"
-      [[ -n "$DB_USER_Q" ]] || DB_USER_Q="hostvim"
-      [[ -n "$DB_NAME_Q" ]] || DB_NAME_Q="hostvim"
+      [[ -n "$DB_USER_Q" ]] || DB_USER_Q="panelze"
+      [[ -n "$DB_NAME_Q" ]] || DB_NAME_Q="panelze"
       USER_COUNT=$(MYSQL_PWD="$DB_PW" "${MARIADB_CMD[@]}" -u "$DB_USER_Q" -h 127.0.0.1 "$DB_NAME_Q" -Nse "SELECT COUNT(*)" 2>/dev/null || echo "")
     fi
   elif [[ "$RESET_DB_MODE" == "0" ]] && grep -q '^DB_CONNECTION=sqlite' "$ENV_FILE" 2>/dev/null && [[ -f "$PANEL_ROOT/database/database.sqlite" ]]; then
@@ -890,38 +878,38 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
 
   if [[ -n "$ADMIN_PASSWORD" ]]; then
     sudo -u www-data env \
-      HOME="$(hostvim_www_data_home "$PANEL_ROOT")" \
-      XDG_CONFIG_HOME="$(hostvim_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
+      HOME="$(panelze_www_data_home "$PANEL_ROOT")" \
+      XDG_CONFIG_HOME="$(panelze_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
       PANELZE_ADMIN_EMAIL="$ADMIN_EMAIL" \
       PANELZE_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
       PANELZE_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
       php "$PANEL_ROOT/artisan" db:seed --force
   else
     sudo -u www-data env \
-      HOME="$(hostvim_www_data_home "$PANEL_ROOT")" \
-      XDG_CONFIG_HOME="$(hostvim_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
+      HOME="$(panelze_www_data_home "$PANEL_ROOT")" \
+      XDG_CONFIG_HOME="$(panelze_www_data_home "$PANEL_ROOT")/storage/framework/.config" \
       PANELZE_ADMIN_EMAIL="$ADMIN_EMAIL" \
       PANELZE_SEED_DEMO_USERS="$SEED_DEMO_USERS" \
       php "$PANEL_ROOT/artisan" db:seed --force
   fi
 fi
 
-hostvim_run_artisan config:cache
-hostvim_run_artisan route:cache
-hostvim_run_artisan view:cache
-hostvim_run_artisan panelze:ensure-system-cron || true
+panelze_run_artisan config:cache
+panelze_run_artisan route:cache
+panelze_run_artisan view:cache
+panelze_run_artisan panelze:ensure-system-cron || true
 
 # BIND9 yetkili DNS — panel dns_records → named (kurulumda varsayılan açık)
 if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
-  _BIND_SETUP="$REPO_ROOT/deploy/host/hostvim-bind-setup.sh"
+  _BIND_SETUP="$REPO_ROOT/deploy/host/panelze-bind-setup.sh"
   if command -v named >/dev/null 2>&1 && { systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; }; then
     echo "==> BIND9 DNS senkronu (named zaten kurulu)"
-    if [[ -x /usr/local/sbin/hostvim-bind-sync ]]; then
-      /usr/local/sbin/hostvim-bind-sync || echo "UYARI: BIND sync başarısız — php artisan panelze:sync-bind-dns" >&2
+    if [[ -x /usr/local/sbin/panelze-bind-sync ]]; then
+      /usr/local/sbin/panelze-bind-sync || echo "UYARI: BIND sync başarısız — php artisan panelze:sync-bind-dns" >&2
     fi
   elif [[ -f "$_BIND_SETUP" ]] && [[ "${SKIP_APT:-}" != "1" ]]; then
     echo "==> BIND9 yetkili DNS kurulumu (panel DNS kayıtları canlı yayın)"
-    HOSTVIM_HOME="$PANELZE_HOME" PANEL_ROOT="$PANEL_ROOT" bash "$_BIND_SETUP" \
+    PANELZE_HOME="$PANELZE_HOME" PANEL_ROOT="$PANEL_ROOT" bash "$_BIND_SETUP" \
       || echo "UYARI: BIND9 kurulumu başarısız — kurulum sonrası: sudo bash $_BIND_SETUP" >&2
   elif [[ -f "$_BIND_SETUP" ]]; then
     echo "Uyarı: SKIP_APT=1 — BIND9 paketi kurulmadı. DNS için: sudo bash $_BIND_SETUP" >&2
@@ -986,7 +974,7 @@ PANELZE_EFFECTIVE_PUBLIC_HOST=""
 if [[ -n "${PANELZE_PUBLIC_HOST:-}" ]]; then
   PANELZE_EFFECTIVE_PUBLIC_HOST="${PANELZE_PUBLIC_HOST}"
 elif [[ -n "${PANELZE_APP_URL:-}" ]]; then
-  PANELZE_EFFECTIVE_PUBLIC_HOST="$(hostvim_url_hostname "${PANELZE_APP_URL}" || true)"
+  PANELZE_EFFECTIVE_PUBLIC_HOST="$(panelze_url_hostname "${PANELZE_APP_URL}" || true)"
 fi
 if [[ -n "$PANELZE_EFFECTIVE_PUBLIC_HOST" ]]; then
   SERVER_NAME="$PANELZE_EFFECTIVE_PUBLIC_HOST"
@@ -1042,7 +1030,7 @@ refresh_phpmysql_url_in_env() {
   update_env "PHPMYADMIN_URL" "${_au%/}/phpmyadmin"
 }
 
-hostvim_is_ip_address() {
+panelze_is_ip_address() {
   [[ "${1:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
 
@@ -1055,7 +1043,7 @@ run_certbot_if_configured() {
     return 0
   fi
   [[ -n "${PANELZE_EFFECTIVE_PUBLIC_HOST:-}" ]] || return 0
-  if hostvim_is_ip_address "${PANELZE_EFFECTIVE_PUBLIC_HOST}"; then
+  if panelze_is_ip_address "${PANELZE_EFFECTIVE_PUBLIC_HOST}"; then
     echo "==> SSL: IP adresi için otomatik Let's Encrypt atlanıyor; panel HTTP ile kalır."
     return 0
   fi
@@ -1106,10 +1094,10 @@ if [[ "${PANELZE_UPDATE_ONLY:-0}" == "1" ]]; then
   export PANELZE_QUICK_PERM_FIX=1
 fi
 bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
-hostvim_run_artisan config:cache
-hostvim_run_artisan route:cache
-hostvim_run_artisan view:cache || true
-if hostvim_run_artisan panelze:install-check --ping; then
+panelze_run_artisan config:cache
+panelze_run_artisan route:cache
+panelze_run_artisan view:cache || true
+if panelze_run_artisan panelze:install-check --ping; then
   echo "==> panelze:install-check: tamam"
 else
   echo "==> panelze:install-check: uyari — yukaridaki ciktiyi inceleyin (kurulum tamamlandi)."
@@ -1138,7 +1126,7 @@ if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; t
   if systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; then
     echo "  BIND9 DNS:      aktif (panel DNS → named; port 53)"
   else
-    echo "  BIND9 DNS:      kurulmadı veya pasif — sudo bash deploy/host/hostvim-bind-setup.sh"
+    echo "  BIND9 DNS:      kurulmadı veya pasif — sudo bash deploy/host/panelze-bind-setup.sh"
   fi
 fi
 echo ""
@@ -1162,7 +1150,7 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
 fi
 echo "Sonraki adımlar:"
 if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
-  _BIND_IP="$(grep '^HOSTVIM_DNS_SERVER_IP=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '\r' || hostname -I 2>/dev/null | awk '{print $1}')"
+  _BIND_IP="$(grep '^PANELZE_DNS_SERVER_IP=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '\r' || hostname -I 2>/dev/null | awk '{print $1}')"
   _BIND_NS="$(hostname -f 2>/dev/null || hostname)"
   echo "  1) Müşteri siteleri için DNS: registrar'da nameserver'ları bu sunucuya yönlendirin"
   echo "     (glue: ns1/ns2 → ${_BIND_IP:-sunucu-IP}). Panel DNS sayfasındaki kayıtlar BIND9 ile yayınlanır."

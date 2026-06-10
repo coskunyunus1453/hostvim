@@ -21,14 +21,14 @@ class LicenseHubClient
             return [];
         }
 
-        $base = (string) config('hostvim.license_server', '');
+        $base = (string) config('panelze.license_server', '');
         if ($base === '') {
             return [];
         }
 
         try {
             $req = Http::timeout(10)->acceptJson()->asJson();
-            $secret = trim((string) config('hostvim.license_server_api_secret', ''));
+            $secret = trim((string) config('panelze.license_server_api_secret', ''));
             if ($secret !== '') {
                 $req = $req->withToken($secret);
             }

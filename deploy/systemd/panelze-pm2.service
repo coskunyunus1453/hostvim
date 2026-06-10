@@ -1,5 +1,5 @@
 [Unit]
-Description=Hostvim PM2 — Node.js uygulamalarını sunucu açılışında yükle
+Description=Panelze PM2 — Node.js uygulamalarını sunucu açılışında yükle
 Documentation=https://github.com/panelze/panelze
 After=network-online.target
 Wants=network-online.target

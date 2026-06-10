@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Kısayol: repo kökünden Mac push
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+exec bash "$ROOT/deploy/scripts/panelze-push.sh" "$@"

@@ -3,7 +3,7 @@ package ssl
 import (
 	"testing"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 func TestCertbotShouldIncludeWww(t *testing.T) {

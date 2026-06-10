@@ -398,7 +398,7 @@ class CronCommandDiscoveryService
     {
         $items = [];
         $name = strtolower(trim((string) $domain->name));
-        $configured = rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/');
+        $configured = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
         if ($configured === '' || $name === '') {
             return [];
         }
@@ -568,7 +568,7 @@ class CronCommandDiscoveryService
             }
         }
 
-        $configured = trim((string) config('hostvim.cron.php_binary', ''));
+        $configured = trim((string) config('panelze.cron.php_binary', ''));
         if ($configured !== '' && is_executable($configured)) {
             return $configured;
         }

@@ -22,7 +22,7 @@ class WhmcsSsoRedirectController extends Controller
             abort(410, 'Bağlantının süresi doldu veya zaten kullanıldı.');
         }
 
-        $base = (string) config('hostvim.whmcs_integration.sso_redirect_base', '');
+        $base = (string) config('panelze.whmcs_integration.sso_redirect_base', '');
         if ($base === '') {
             $base = rtrim((string) config('app.url'), '/').'/admin';
         }

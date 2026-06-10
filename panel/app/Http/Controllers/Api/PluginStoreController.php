@@ -94,7 +94,7 @@ class PluginStoreController extends Controller
         $row->status = 'active';
         $row->activated_at = now();
         $row->save();
-        SafeAuditLogger::info('hostvim.plugin_audit', [
+        SafeAuditLogger::info('panelze.plugin_audit', [
             'action' => 'activate',
             'user_id' => $user->id,
             'plugin' => $pluginModule->slug,
@@ -116,7 +116,7 @@ class PluginStoreController extends Controller
         $row->is_active = false;
         $row->status = 'installed';
         $row->save();
-        SafeAuditLogger::info('hostvim.plugin_audit', [
+        SafeAuditLogger::info('panelze.plugin_audit', [
             'action' => 'deactivate',
             'user_id' => $user->id,
             'plugin' => $pluginModule->slug,
@@ -243,7 +243,7 @@ class PluginStoreController extends Controller
         ]);
         RunPluginMigrationJob::dispatch($run->id)->afterResponse();
 
-        SafeAuditLogger::info('hostvim.plugin_audit', [
+        SafeAuditLogger::info('panelze.plugin_audit', [
             'action' => 'migration_start',
             'user_id' => $user->id,
             'plugin' => $pluginModule->slug,

@@ -9,9 +9,9 @@ REPO_ROOT="$(cd "$(dirname "$PANEL_ROOT")" && pwd)"
 export PANELZE_HOME="${PANELZE_HOME:-$REPO_ROOT}"
 RUN_USER="${RUN_USER:-www-data}"
 DEPLOY_SCRIPTS="$REPO_ROOT/deploy/scripts"
-if [[ -f "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh" ]]; then
-  # shellcheck source=lib/hostvim-deploy-common.sh
-  source "$DEPLOY_SCRIPTS/lib/hostvim-deploy-common.sh"
+if [[ -f "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh" ]]; then
+  # shellcheck source=lib/panelze-deploy-common.sh
+  source "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh"
 else
   # shellcheck source=lib/panelze-deploy-common.sh
   source "$DEPLOY_SCRIPTS/lib/panelze-deploy-common.sh"
@@ -82,14 +82,14 @@ if grep -q '^DB_CONNECTION=mysql' "$PANEL_ROOT/.env" 2>/dev/null; then
 fi
 
 echo "==> migrate"
-hostvim_run_artisan migrate --force
-hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || hostvim_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
+panelze_run_artisan migrate --force
+panelze_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || panelze_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || true
 
 echo "==> optimize"
-hostvim_run_artisan config:cache
-hostvim_run_artisan route:cache
-hostvim_run_artisan view:cache
-hostvim_run_artisan schedule:clear-cache 2>/dev/null || true
+panelze_run_artisan config:cache
+panelze_run_artisan route:cache
+panelze_run_artisan view:cache
+panelze_run_artisan schedule:clear-cache 2>/dev/null || true
 
 if [[ -d "$FRONTEND_ROOT" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]]; then
   if ! command -v npm >/dev/null 2>&1; then
@@ -112,7 +112,7 @@ fi
 FIX_SCRIPT="$DEPLOY_SCRIPTS/fix-panel-permissions.sh"
 if [[ -f "$FIX_SCRIPT" ]] && [[ -f "$PANEL_ROOT/artisan" ]]; then
   echo "==> panelze:fix-permissions"
-  hostvim_run_artisan panelze:fix-permissions || true
+  panelze_run_artisan panelze:fix-permissions || true
   echo "==> panel storage/bootstrap izinleri ($RUN_USER)"
   if [[ "$(id -u)" -eq 0 ]]; then
     env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
@@ -129,6 +129,6 @@ else
 fi
 
 echo "==> panelze:install-check"
-hostvim_run_artisan panelze:install-check --ping || true
+panelze_run_artisan panelze:install-check --ping || true
 
 echo "Tamam."

@@ -1,11 +1,11 @@
-root@vmi2616585:/var/www/hostvim# sudo systemctl status hostvim-engine php8.4-fpm nginx --no-pager -l
+root@vmi2616585:/var/www/panelze# sudo systemctl status panelze-engine php8.4-fpm nginx --no-pager -l
 curl -i http://127.0.0.1:9090/health
 sudo nginx -t
-sudo journalctl -u nginx -u hostvim-engine -u php8.4-fpm -n 120 --no-pager
-● hostvim-engine.service - Hostvim Engine (hosting API)
-     Loaded: loaded (/etc/systemd/system/hostvim-engine.service; enabled; vendor preset: enabled)
+sudo journalctl -u nginx -u panelze-engine -u php8.4-fpm -n 120 --no-pager
+● panelze-engine.service - Panelze Engine (hosting API)
+     Loaded: loaded (/etc/systemd/system/panelze-engine.service; enabled; vendor preset: enabled)
      Active: activating (auto-restart) (Result: exit-code) since Tue 2026-04-07 19:13:11 CEST; 3s ago
-    Process: 1314103 ExecStart=/usr/local/bin/hostvim-engine (code=exited, status=1/FAILURE)
+    Process: 1314103 ExecStart=/usr/local/bin/panelze-engine (code=exited, status=1/FAILURE)
    Main PID: 1314103 (code=exited, status=1/FAILURE)
         CPU: 108ms
 
@@ -62,124 +62,124 @@ Content-Length: 73
 
 {"engine":"panelsar","running":true,"status":"healthy","version":"0.1.0"}nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
 nginx: configuration file /etc/nginx/nginx.conf test is successful
-Apr 07 19:12:22 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:22 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:22 vmi2616585 hostvim-engine[1313942]: time="2026-04-07 19:12:22" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:22 vmi2616585 hostvim-engine[1313942]: time="2026-04-07 19:12:22" level=info msg="Initializing daemon..."
-Apr 07 19:12:23 vmi2616585 hostvim-engine[1313942]: time="2026-04-07 19:12:23" level=info msg="Discovered 8 services"
-Apr 07 19:12:23 vmi2616585 hostvim-engine[1313942]: time="2026-04-07 19:12:23" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:23 vmi2616585 hostvim-engine[1313942]: time="2026-04-07 19:12:23" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:23 vmi2616585 hostvim-engine[1313942]: time="2026-04-07 19:12:23" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:23 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:23 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:12:28 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3538.
-Apr 07 19:12:28 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:28 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:28 vmi2616585 hostvim-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:28 vmi2616585 hostvim-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Initializing daemon..."
-Apr 07 19:12:28 vmi2616585 hostvim-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Discovered 8 services"
-Apr 07 19:12:28 vmi2616585 hostvim-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:28 vmi2616585 hostvim-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:28 vmi2616585 hostvim-engine[1313958]: time="2026-04-07 19:12:28" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:28 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:28 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:12:33 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3539.
-Apr 07 19:12:33 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:33 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:33 vmi2616585 hostvim-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:33 vmi2616585 hostvim-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Initializing daemon..."
-Apr 07 19:12:33 vmi2616585 hostvim-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Discovered 8 services"
-Apr 07 19:12:33 vmi2616585 hostvim-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:33 vmi2616585 hostvim-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:33 vmi2616585 hostvim-engine[1313975]: time="2026-04-07 19:12:33" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:33 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:33 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:12:38 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3540.
-Apr 07 19:12:38 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:38 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:38 vmi2616585 hostvim-engine[1313990]: time="2026-04-07 19:12:38" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:38 vmi2616585 hostvim-engine[1313990]: time="2026-04-07 19:12:38" level=info msg="Initializing daemon..."
-Apr 07 19:12:39 vmi2616585 hostvim-engine[1313990]: time="2026-04-07 19:12:39" level=info msg="Discovered 8 services"
-Apr 07 19:12:39 vmi2616585 hostvim-engine[1313990]: time="2026-04-07 19:12:39" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:39 vmi2616585 hostvim-engine[1313990]: time="2026-04-07 19:12:39" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:39 vmi2616585 hostvim-engine[1313990]: time="2026-04-07 19:12:39" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:39 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:39 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:12:44 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3541.
-Apr 07 19:12:44 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:44 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:44 vmi2616585 hostvim-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:44 vmi2616585 hostvim-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Initializing daemon..."
-Apr 07 19:12:44 vmi2616585 hostvim-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Discovered 8 services"
-Apr 07 19:12:44 vmi2616585 hostvim-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:44 vmi2616585 hostvim-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:44 vmi2616585 hostvim-engine[1314006]: time="2026-04-07 19:12:44" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:44 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:44 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:12:49 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3542.
-Apr 07 19:12:49 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:49 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:49 vmi2616585 hostvim-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:49 vmi2616585 hostvim-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Initializing daemon..."
-Apr 07 19:12:49 vmi2616585 hostvim-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Discovered 8 services"
-Apr 07 19:12:49 vmi2616585 hostvim-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:49 vmi2616585 hostvim-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:49 vmi2616585 hostvim-engine[1314023]: time="2026-04-07 19:12:49" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:49 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:49 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:12:54 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3543.
-Apr 07 19:12:54 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:12:54 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:12:54 vmi2616585 hostvim-engine[1314040]: time="2026-04-07 19:12:54" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:12:54 vmi2616585 hostvim-engine[1314040]: time="2026-04-07 19:12:54" level=info msg="Initializing daemon..."
-Apr 07 19:12:55 vmi2616585 hostvim-engine[1314040]: time="2026-04-07 19:12:55" level=info msg="Discovered 8 services"
-Apr 07 19:12:55 vmi2616585 hostvim-engine[1314040]: time="2026-04-07 19:12:55" level=info msg="Daemon initialized successfully"
-Apr 07 19:12:55 vmi2616585 hostvim-engine[1314040]: time="2026-04-07 19:12:55" level=info msg="Engine API listening on port 9090"
-Apr 07 19:12:55 vmi2616585 hostvim-engine[1314040]: time="2026-04-07 19:12:55" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:12:55 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:12:55 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:13:00 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3544.
-Apr 07 19:13:00 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:13:00 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:13:00 vmi2616585 hostvim-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:13:00 vmi2616585 hostvim-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Initializing daemon..."
-Apr 07 19:13:00 vmi2616585 hostvim-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Discovered 8 services"
-Apr 07 19:13:00 vmi2616585 hostvim-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Daemon initialized successfully"
-Apr 07 19:13:00 vmi2616585 hostvim-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Engine API listening on port 9090"
-Apr 07 19:13:00 vmi2616585 hostvim-engine[1314056]: time="2026-04-07 19:13:00" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:13:00 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:13:00 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:13:05 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3545.
-Apr 07 19:13:05 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:13:05 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:13:05 vmi2616585 hostvim-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:13:05 vmi2616585 hostvim-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Initializing daemon..."
-Apr 07 19:13:05 vmi2616585 hostvim-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Discovered 8 services"
-Apr 07 19:13:05 vmi2616585 hostvim-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Daemon initialized successfully"
-Apr 07 19:13:05 vmi2616585 hostvim-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Engine API listening on port 9090"
-Apr 07 19:13:05 vmi2616585 hostvim-engine[1314087]: time="2026-04-07 19:13:05" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:13:05 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:13:05 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:13:10 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3546.
-Apr 07 19:13:10 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:13:10 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:13:10 vmi2616585 hostvim-engine[1314103]: time="2026-04-07 19:13:10" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:13:10 vmi2616585 hostvim-engine[1314103]: time="2026-04-07 19:13:10" level=info msg="Initializing daemon..."
-Apr 07 19:13:11 vmi2616585 hostvim-engine[1314103]: time="2026-04-07 19:13:11" level=info msg="Discovered 8 services"
-Apr 07 19:13:11 vmi2616585 hostvim-engine[1314103]: time="2026-04-07 19:13:11" level=info msg="Daemon initialized successfully"
-Apr 07 19:13:11 vmi2616585 hostvim-engine[1314103]: time="2026-04-07 19:13:11" level=info msg="Engine API listening on port 9090"
-Apr 07 19:13:11 vmi2616585 hostvim-engine[1314103]: time="2026-04-07 19:13:11" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:13:11 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:13:11 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-Apr 07 19:13:16 vmi2616585 systemd[1]: hostvim-engine.service: Scheduled restart job, restart counter is at 3547.
-Apr 07 19:13:16 vmi2616585 systemd[1]: Stopped Hostvim Engine (hosting API).
-Apr 07 19:13:16 vmi2616585 systemd[1]: Started Hostvim Engine (hosting API).
-Apr 07 19:13:16 vmi2616585 hostvim-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Starting Hostvim Engine v0.1.0"
-Apr 07 19:13:16 vmi2616585 hostvim-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Initializing daemon..."
-Apr 07 19:13:16 vmi2616585 hostvim-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Discovered 8 services"
-Apr 07 19:13:16 vmi2616585 hostvim-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Daemon initialized successfully"
-Apr 07 19:13:16 vmi2616585 hostvim-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Engine API listening on port 9090"
-Apr 07 19:13:16 vmi2616585 hostvim-engine[1314123]: time="2026-04-07 19:13:16" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
-Apr 07 19:13:16 vmi2616585 systemd[1]: hostvim-engine.service: Main process exited, code=exited, status=1/FAILURE
-Apr 07 19:13:16 vmi2616585 systemd[1]: hostvim-engine.service: Failed with result 'exit-code'.
-root@vmi2616585:/var/www/hostvim# 
+Apr 07 19:12:22 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:22 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:22 vmi2616585 panelze-engine[1313942]: time="2026-04-07 19:12:22" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:22 vmi2616585 panelze-engine[1313942]: time="2026-04-07 19:12:22" level=info msg="Initializing daemon..."
+Apr 07 19:12:23 vmi2616585 panelze-engine[1313942]: time="2026-04-07 19:12:23" level=info msg="Discovered 8 services"
+Apr 07 19:12:23 vmi2616585 panelze-engine[1313942]: time="2026-04-07 19:12:23" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:23 vmi2616585 panelze-engine[1313942]: time="2026-04-07 19:12:23" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:23 vmi2616585 panelze-engine[1313942]: time="2026-04-07 19:12:23" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:23 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:23 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:12:28 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3538.
+Apr 07 19:12:28 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:28 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:28 vmi2616585 panelze-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:28 vmi2616585 panelze-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Initializing daemon..."
+Apr 07 19:12:28 vmi2616585 panelze-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Discovered 8 services"
+Apr 07 19:12:28 vmi2616585 panelze-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:28 vmi2616585 panelze-engine[1313958]: time="2026-04-07 19:12:28" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:28 vmi2616585 panelze-engine[1313958]: time="2026-04-07 19:12:28" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:28 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:28 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:12:33 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3539.
+Apr 07 19:12:33 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:33 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:33 vmi2616585 panelze-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:33 vmi2616585 panelze-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Initializing daemon..."
+Apr 07 19:12:33 vmi2616585 panelze-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Discovered 8 services"
+Apr 07 19:12:33 vmi2616585 panelze-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:33 vmi2616585 panelze-engine[1313975]: time="2026-04-07 19:12:33" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:33 vmi2616585 panelze-engine[1313975]: time="2026-04-07 19:12:33" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:33 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:33 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:12:38 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3540.
+Apr 07 19:12:38 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:38 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:38 vmi2616585 panelze-engine[1313990]: time="2026-04-07 19:12:38" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:38 vmi2616585 panelze-engine[1313990]: time="2026-04-07 19:12:38" level=info msg="Initializing daemon..."
+Apr 07 19:12:39 vmi2616585 panelze-engine[1313990]: time="2026-04-07 19:12:39" level=info msg="Discovered 8 services"
+Apr 07 19:12:39 vmi2616585 panelze-engine[1313990]: time="2026-04-07 19:12:39" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:39 vmi2616585 panelze-engine[1313990]: time="2026-04-07 19:12:39" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:39 vmi2616585 panelze-engine[1313990]: time="2026-04-07 19:12:39" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:39 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:39 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:12:44 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3541.
+Apr 07 19:12:44 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:44 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:44 vmi2616585 panelze-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:44 vmi2616585 panelze-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Initializing daemon..."
+Apr 07 19:12:44 vmi2616585 panelze-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Discovered 8 services"
+Apr 07 19:12:44 vmi2616585 panelze-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:44 vmi2616585 panelze-engine[1314006]: time="2026-04-07 19:12:44" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:44 vmi2616585 panelze-engine[1314006]: time="2026-04-07 19:12:44" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:44 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:44 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:12:49 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3542.
+Apr 07 19:12:49 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:49 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:49 vmi2616585 panelze-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:49 vmi2616585 panelze-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Initializing daemon..."
+Apr 07 19:12:49 vmi2616585 panelze-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Discovered 8 services"
+Apr 07 19:12:49 vmi2616585 panelze-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:49 vmi2616585 panelze-engine[1314023]: time="2026-04-07 19:12:49" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:49 vmi2616585 panelze-engine[1314023]: time="2026-04-07 19:12:49" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:49 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:49 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:12:54 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3543.
+Apr 07 19:12:54 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:12:54 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:12:54 vmi2616585 panelze-engine[1314040]: time="2026-04-07 19:12:54" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:12:54 vmi2616585 panelze-engine[1314040]: time="2026-04-07 19:12:54" level=info msg="Initializing daemon..."
+Apr 07 19:12:55 vmi2616585 panelze-engine[1314040]: time="2026-04-07 19:12:55" level=info msg="Discovered 8 services"
+Apr 07 19:12:55 vmi2616585 panelze-engine[1314040]: time="2026-04-07 19:12:55" level=info msg="Daemon initialized successfully"
+Apr 07 19:12:55 vmi2616585 panelze-engine[1314040]: time="2026-04-07 19:12:55" level=info msg="Engine API listening on port 9090"
+Apr 07 19:12:55 vmi2616585 panelze-engine[1314040]: time="2026-04-07 19:12:55" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:12:55 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:12:55 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:13:00 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3544.
+Apr 07 19:13:00 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:13:00 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:13:00 vmi2616585 panelze-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:13:00 vmi2616585 panelze-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Initializing daemon..."
+Apr 07 19:13:00 vmi2616585 panelze-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Discovered 8 services"
+Apr 07 19:13:00 vmi2616585 panelze-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Daemon initialized successfully"
+Apr 07 19:13:00 vmi2616585 panelze-engine[1314056]: time="2026-04-07 19:13:00" level=info msg="Engine API listening on port 9090"
+Apr 07 19:13:00 vmi2616585 panelze-engine[1314056]: time="2026-04-07 19:13:00" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:13:00 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:13:00 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:13:05 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3545.
+Apr 07 19:13:05 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:13:05 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:13:05 vmi2616585 panelze-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:13:05 vmi2616585 panelze-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Initializing daemon..."
+Apr 07 19:13:05 vmi2616585 panelze-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Discovered 8 services"
+Apr 07 19:13:05 vmi2616585 panelze-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Daemon initialized successfully"
+Apr 07 19:13:05 vmi2616585 panelze-engine[1314087]: time="2026-04-07 19:13:05" level=info msg="Engine API listening on port 9090"
+Apr 07 19:13:05 vmi2616585 panelze-engine[1314087]: time="2026-04-07 19:13:05" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:13:05 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:13:05 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:13:10 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3546.
+Apr 07 19:13:10 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:13:10 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:13:10 vmi2616585 panelze-engine[1314103]: time="2026-04-07 19:13:10" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:13:10 vmi2616585 panelze-engine[1314103]: time="2026-04-07 19:13:10" level=info msg="Initializing daemon..."
+Apr 07 19:13:11 vmi2616585 panelze-engine[1314103]: time="2026-04-07 19:13:11" level=info msg="Discovered 8 services"
+Apr 07 19:13:11 vmi2616585 panelze-engine[1314103]: time="2026-04-07 19:13:11" level=info msg="Daemon initialized successfully"
+Apr 07 19:13:11 vmi2616585 panelze-engine[1314103]: time="2026-04-07 19:13:11" level=info msg="Engine API listening on port 9090"
+Apr 07 19:13:11 vmi2616585 panelze-engine[1314103]: time="2026-04-07 19:13:11" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:13:11 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:13:11 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+Apr 07 19:13:16 vmi2616585 systemd[1]: panelze-engine.service: Scheduled restart job, restart counter is at 3547.
+Apr 07 19:13:16 vmi2616585 systemd[1]: Stopped Panelze Engine (hosting API).
+Apr 07 19:13:16 vmi2616585 systemd[1]: Started Panelze Engine (hosting API).
+Apr 07 19:13:16 vmi2616585 panelze-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Starting Panelze Engine v0.1.0"
+Apr 07 19:13:16 vmi2616585 panelze-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Initializing daemon..."
+Apr 07 19:13:16 vmi2616585 panelze-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Discovered 8 services"
+Apr 07 19:13:16 vmi2616585 panelze-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Daemon initialized successfully"
+Apr 07 19:13:16 vmi2616585 panelze-engine[1314123]: time="2026-04-07 19:13:16" level=info msg="Engine API listening on port 9090"
+Apr 07 19:13:16 vmi2616585 panelze-engine[1314123]: time="2026-04-07 19:13:16" level=fatal msg="Server error: listen tcp :9090: bind: address already in use"
+Apr 07 19:13:16 vmi2616585 systemd[1]: panelze-engine.service: Main process exited, code=exited, status=1/FAILURE
+Apr 07 19:13:16 vmi2616585 systemd[1]: panelze-engine.service: Failed with result 'exit-code'.
+root@vmi2616585:/var/www/panelze# 

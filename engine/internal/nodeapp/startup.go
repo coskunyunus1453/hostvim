@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"hostvim/engine/internal/config"
+	"panelze/engine/internal/config"
 )
 
 // EnsurePm2Daemon PM2 süreç listesini yükler; gerekirse resurrect dener.

@@ -502,7 +502,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         });
     });
 
-    if ((bool) config('hostvim.vendor_enabled', false)) {
+    if ((bool) config('panelze.vendor_enabled', false)) {
         Route::prefix('vendor')
             ->middleware(['vendor_host', 'role:vendor_admin|vendor_support|vendor_finance|vendor_devops', 'require_admin_2fa', 'throttle:vendor-api'])
             ->group(function () {
@@ -551,7 +551,7 @@ Route::post('billing/webhook', [BillingController::class, 'webhook'])
     ->middleware('throttle:webhooks');
 Route::post('deployment/webhook/{domain}', [DeploymentController::class, 'webhook'])
     ->middleware(['throttle:webhooks', 'throttle:deploy-run']);
-if ((bool) config('hostvim.vendor_enabled', false)) {
+if ((bool) config('panelze.vendor_enabled', false)) {
     Route::post('vendor/license/verify', [VendorLicenseController::class, 'verify'])->middleware('throttle:vendor-node');
     Route::post('vendor/node/activate', [VendorNodeController::class, 'activate'])->middleware('throttle:vendor-node');
     Route::post('vendor/node/heartbeat', [VendorNodeController::class, 'heartbeat'])->middleware('throttle:vendor-node');
@@ -561,7 +561,7 @@ if ((bool) config('hostvim.vendor_enabled', false)) {
 Route::get('health', fn () => response()->json([
     'status' => 'ok',
     'panel' => 'panelze',
-    'version' => config('hostvim.version', '0.1.0'),
+    'version' => config('panelze.version', '0.1.0'),
 ]));
 
 Route::prefix('integrations/whmcs')

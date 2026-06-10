@@ -15,7 +15,7 @@ class LicenseHubApiTest extends TestCase
 
     public function test_license_validate_returns_valid_for_active_key(): void
     {
-        config(['hostvim_saas.license_api_secret' => 'test-secret']);
+        config(['panelze_saas.license_api_secret' => 'test-secret']);
 
         $customer = SaasCustomer::query()->create([
             'name' => 'Test Co',
@@ -47,7 +47,7 @@ class LicenseHubApiTest extends TestCase
 
     public function test_license_validate_rejects_wrong_bearer_when_secret_configured(): void
     {
-        config(['hostvim_saas.license_api_secret' => 'test-secret']);
+        config(['panelze_saas.license_api_secret' => 'test-secret']);
 
         $response = $this->postJson('/api/v1/license/validate', ['key' => 'hv_any']);
 
@@ -58,7 +58,7 @@ class LicenseHubApiTest extends TestCase
 
     public function test_panel_update_check_returns_latest_published_release(): void
     {
-        config(['hostvim_saas.panel_updates_api_secret' => 'upd-secret']);
+        config(['panelze_saas.panel_updates_api_secret' => 'upd-secret']);
 
         PanelRelease::query()->create([
             'version' => '1.0.0',

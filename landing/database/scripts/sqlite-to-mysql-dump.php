@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__, 2);
 $sqlitePath = $root.'/database/database.sqlite';
-$outPath = $argv[1] ?? $root.'/database/hostvim_landing_full.sql';
+$outPath = $argv[1] ?? $root.'/database/panelze_landing_full.sql';
 
 if (! is_readable($sqlitePath)) {
     fwrite(STDERR, "SQLite bulunamadı: {$sqlitePath}\n");

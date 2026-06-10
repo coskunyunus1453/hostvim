@@ -38,7 +38,7 @@ var commonTimezones = []string{
 	"Asia/Tokyo",
 }
 
-const hostvimSystemSettingsBin = "/usr/local/sbin/panelze-system-settings"
+const panelzeSystemSettingsBin = "/usr/local/sbin/panelze-system-settings"
 
 // GetServerSettings hostname, saat dilimi ve NTP durumunu okur.
 func GetServerSettings(dataDir string) ServerSettings {
@@ -158,7 +158,7 @@ func setHostname(name string) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("hostname change supported only on Linux")
 	}
-	out, err := runPrivileged(hostvimSystemSettingsBin, "set-hostname", name)
+	out, err := runPrivileged(panelzeSystemSettingsBin, "set-hostname", name)
 	if err == nil {
 		return nil
 	}
@@ -179,7 +179,7 @@ func setTimezone(tz string) error {
 	if err := validateZoneinfo(tz); err != nil {
 		return err
 	}
-	out, err := runPrivileged(hostvimSystemSettingsBin, "set-timezone", tz)
+	out, err := runPrivileged(panelzeSystemSettingsBin, "set-timezone", tz)
 	if err == nil {
 		return nil
 	}

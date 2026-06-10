@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"hostvim/engine/internal/config"
-	"hostvim/engine/internal/nginx"
-	"hostvim/engine/internal/panelmirror"
-	"hostvim/engine/internal/phpfpm"
-	"hostvim/engine/internal/sites"
-	"hostvim/engine/internal/ssl"
+	"panelze/engine/internal/config"
+	"panelze/engine/internal/nginx"
+	"panelze/engine/internal/panelmirror"
+	"panelze/engine/internal/phpfpm"
+	"panelze/engine/internal/sites"
+	"panelze/engine/internal/ssl"
 )
 
 // ReplaceHostRootSuffix eski kök FQDN (ör. eski.com) ile biten ana makine adını yenisine çevirir.

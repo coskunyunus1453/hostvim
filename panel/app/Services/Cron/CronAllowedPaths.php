@@ -22,7 +22,7 @@ class CronAllowedPaths
     {
         $roots = [];
 
-        $configured = rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/');
+        $configured = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
         if ($configured !== '') {
             $roots[] = $configured;
         }
@@ -85,7 +85,7 @@ class CronAllowedPaths
             }
         }
 
-        $configured = rtrim(str_replace('\\', '/', (string) config('hostvim.hosting_web_root', '')), '/');
+        $configured = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
         if ($configured !== '' && $name !== '') {
             $roots[] = $configured.'/'.$name;
             $roots[] = $configured.'/'.$name.'/public_html';
