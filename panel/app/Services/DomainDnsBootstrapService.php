@@ -3,21 +3,89 @@
 namespace App\Services;
 
 use App\Models\Domain;
+use App\Models\DnsRecord;
 
 class DomainDnsBootstrapService
 {
     public function __construct(
         private BindDnsService $bindDns,
         private EngineApiService $engine,
+        private DnsRecordValidator $validator,
+        private PanelDnsSettingsService $dnsSettings,
     ) {}
 
     /**
-     * Eksik varsayılan kayıtları ekler (@, www, mail, webmail; NS glue için ns1/ns2 A).
+     * Hatalı kayıtları temizler/düzeltir ve eksik varsayılanları ekler.
      *
+     * @return array{repaired: int, removed: int, created: int, skipped: int, error?: string}
+     */
+    public function repairAndProvision(Domain $domain): array
+    {
+        if (! $this->dnsSettings->isConfigured()) {
+            return [
+                'repaired' => 0,
+                'removed' => 0,
+                'created' => 0,
+                'skipped' => 0,
+                'error' => 'dns_not_configured',
+            ];
+        }
+
+        $ip = $this->bindDns->serverIp();
+        if ($ip === '') {
+            return [
+                'repaired' => 0,
+                'removed' => 0,
+                'created' => 0,
+                'skipped' => 0,
+                'error' => 'server_ip_not_configured',
+            ];
+        }
+
+        $removed = 0;
+        $repaired = 0;
+        $domain->loadMissing('dnsRecords');
+
+        foreach ($domain->dnsRecords as $record) {
+            if ($this->validator->isApexNsRecord((string) $record->type, (string) $record->name)) {
+                $this->deleteRecord($domain, $record);
+                $removed++;
+
+                continue;
+            }
+
+            if (strtoupper((string) $record->type) === 'A' && ! $this->validator->isValidAValue((string) $record->value)) {
+                $record->update(['value' => $ip]);
+                $this->syncEngineRecord($domain, $record->fresh());
+                $repaired++;
+            }
+        }
+
+        $defaults = $this->ensureDefaults($domain, false);
+        $created = (int) ($defaults['created'] ?? 0);
+        $skipped = (int) ($defaults['skipped'] ?? 0);
+
+        if ($removed > 0 || $repaired > 0 || $created > 0) {
+            $this->bindDns->syncViaSudo();
+        }
+
+        return [
+            'repaired' => $repaired,
+            'removed' => $removed,
+            'created' => $created,
+            'skipped' => $skipped,
+        ];
+    }
+
+    /**
      * @return array{created: int, skipped: int, error?: string}
      */
-    public function ensureDefaults(Domain $domain): array
+    public function ensureDefaults(Domain $domain, bool $syncBind = true): array
     {
+        if (! $this->dnsSettings->isConfigured()) {
+            return ['created' => 0, 'skipped' => 0, 'error' => 'dns_not_configured'];
+        }
+
         $ip = $this->bindDns->serverIp();
         if ($ip === '') {
             return ['created' => 0, 'skipped' => 0, 'error' => 'server_ip_not_configured'];
@@ -27,12 +95,19 @@ class DomainDnsBootstrapService
         $skipped = 0;
 
         foreach ($this->plannedRecords($domain, $ip) as $row) {
-            $exists = $domain->dnsRecords()
+            $existing = $domain->dnsRecords()
                 ->where('type', $row['type'])
                 ->where('name', $row['name'])
-                ->exists();
-            if ($exists) {
-                $skipped++;
+                ->first();
+
+            if ($existing) {
+                if ($row['type'] === 'A' && ! $this->validator->isValidAValue((string) $existing->value)) {
+                    $existing->update(['value' => $row['value']]);
+                    $this->syncEngineRecord($domain, $existing->fresh());
+                    $created++;
+                } else {
+                    $skipped++;
+                }
 
                 continue;
             }
@@ -53,11 +128,29 @@ class DomainDnsBootstrapService
             $created++;
         }
 
-        if ($created > 0) {
+        if ($syncBind && $created > 0) {
             $this->bindDns->syncViaSudo();
         }
 
         return ['created' => $created, 'skipped' => $skipped];
+    }
+
+    public function repairAllActiveDomains(): array
+    {
+        $totals = ['repaired' => 0, 'removed' => 0, 'created' => 0, 'domains' => 0];
+        $domains = Domain::query()->where('status', 'active')->orderBy('name')->get();
+        foreach ($domains as $domain) {
+            $result = $this->repairAndProvision($domain);
+            if (! empty($result['error'])) {
+                continue;
+            }
+            $totals['domains']++;
+            $totals['repaired'] += (int) ($result['repaired'] ?? 0);
+            $totals['removed'] += (int) ($result['removed'] ?? 0);
+            $totals['created'] += (int) ($result['created'] ?? 0);
+        }
+
+        return $totals;
     }
 
     /**
@@ -100,5 +193,24 @@ class DomainDnsBootstrapService
         }
 
         return $label;
+    }
+
+    private function deleteRecord(Domain $domain, DnsRecord $record): void
+    {
+        $id = (string) $record->id;
+        $record->delete();
+        $this->engine->dnsDeleteRecord($domain->name, $id);
+    }
+
+    private function syncEngineRecord(Domain $domain, DnsRecord $record): void
+    {
+        $this->engine->dnsCreate($domain->name, [
+            'id' => (string) $record->id,
+            'type' => $record->type,
+            'name' => $record->name,
+            'value' => $record->value,
+            'ttl' => $record->ttl ?? 3600,
+            'priority' => $record->priority,
+        ]);
     }
 }

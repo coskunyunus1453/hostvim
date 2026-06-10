@@ -2,15 +2,28 @@
 # Panel DNS → BIND9 zone senkronu (root; www-data sudo ile).
 set -euo pipefail
 
-PANEL_ROOT="${PANEL_ROOT:-${PANELZE_HOME:-/var/www/panelze}/panel}"
-
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "panelze-bind-sync: root gerekli" >&2
   exit 1
 fi
 
-if [[ ! -f "${PANEL_ROOT}/artisan" ]]; then
-  echo "panelze-bind-sync: panel bulunamadı: ${PANEL_ROOT}" >&2
+_resolve_panel_root() {
+  local candidate
+  for candidate in \
+    "${PANEL_ROOT:-}" \
+    "${PANELZE_HOME:+$PANELZE_HOME/panel}" \
+    /var/www/hostvim/panel \
+    /var/www/panelze/panel; do
+    [[ -n "$candidate" && -f "${candidate}/artisan" ]] || continue
+    printf '%s\n' "$candidate"
+    return 0
+  done
+  return 1
+}
+
+PANEL_ROOT="$(_resolve_panel_root || true)"
+if [[ -z "$PANEL_ROOT" ]]; then
+  echo "panelze-bind-sync: panel bulunamadı (PANEL_ROOT / PANELZE_HOME)" >&2
   exit 1
 fi
 

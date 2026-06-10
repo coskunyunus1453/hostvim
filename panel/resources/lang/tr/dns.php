@@ -8,4 +8,7 @@ return [
     'bootstrap_done' => 'Varsayılan DNS kayıtları eklendi',
     'bootstrap_failed' => 'Varsayılan DNS kayıtları eklenemedi',
     'settings_saved' => 'DNS sunucu ayarları kaydedildi',
+    'apex_ns_managed' => 'Kök (@) NS kaydı panel tarafından otomatik yönetilir; buradan eklemeyin.',
+    'a_must_be_ipv4' => 'A kaydı geçerli bir IPv4 adresi olmalıdır (ör. 203.0.113.10).',
+    'aaaa_must_be_ipv6' => 'AAAA kaydı geçerli bir IPv6 adresi olmalıdır.',
 ];

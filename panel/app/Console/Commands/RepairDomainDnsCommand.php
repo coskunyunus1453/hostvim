@@ -6,11 +6,11 @@ use App\Models\Domain;
 use App\Services\DomainDnsBootstrapService;
 use Illuminate\Console\Command;
 
-class BootstrapDomainDnsCommand extends Command
+class RepairDomainDnsCommand extends Command
 {
-    protected $signature = 'panelze:dns-bootstrap {--domain= : Tek alan adı} {--all : Tüm aktif domainler}';
+    protected $signature = 'panelze:dns-repair {--domain= : Tek alan adı} {--all : Tüm aktif domainler}';
 
-    protected $description = 'Domainlere varsayılan DNS kayıtlarını ekler (@, www, mail, webmail, NS glue)';
+    protected $description = 'Hatalı DNS kayıtlarını düzeltir, eksik varsayılanları ekler, BIND senkronlar';
 
     public function handle(DomainDnsBootstrapService $bootstrap): int
     {
@@ -35,7 +35,7 @@ class BootstrapDomainDnsCommand extends Command
             return self::SUCCESS;
         }
 
-        $totalCreated = 0;
+        $totals = ['repaired' => 0, 'created' => 0, 'removed' => 0];
         foreach ($domains as $domain) {
             $result = $bootstrap->repairAndProvision($domain);
             if (! empty($result['error'])) {
@@ -43,13 +43,24 @@ class BootstrapDomainDnsCommand extends Command
 
                 continue;
             }
-            $created = (int) ($result['created'] ?? 0);
-            $skipped = (int) ($result['skipped'] ?? 0);
-            $totalCreated += $created;
-            $this->line("{$domain->name}: +{$created} kayıt, {$skipped} zaten vardı");
+            $totals['repaired'] += (int) ($result['repaired'] ?? 0);
+            $totals['created'] += (int) ($result['created'] ?? 0);
+            $totals['removed'] += (int) ($result['removed'] ?? 0);
+            $this->line(sprintf(
+                '%s: %d düzeltildi, %d silindi, +%d kayıt',
+                $domain->name,
+                (int) ($result['repaired'] ?? 0),
+                (int) ($result['removed'] ?? 0),
+                (int) ($result['created'] ?? 0),
+            ));
         }
 
-        $this->info("Toplam {$totalCreated} yeni kayıt eklendi");
+        $this->info(sprintf(
+            'Toplam: %d düzeltme, %d silme, %d yeni kayıt',
+            $totals['repaired'],
+            $totals['removed'],
+            $totals['created'],
+        ));
 
         return self::SUCCESS;
     }

@@ -34,6 +34,10 @@ if [[ -f "${OPTIONS_FILE}" ]]; then
   sed -i 's/recursion yes;/recursion no;/' "${OPTIONS_FILE}" || true
 fi
 
+if grep -q 'named.conf.hostvim-zones' /etc/bind/named.conf.local 2>/dev/null; then
+  sed -i 's|include "/etc/bind/named.conf.hostvim-zones";|// eski hostvim zones\ninclude "/etc/bind/named.conf.panelze-zones";|' \
+    /etc/bind/named.conf.local
+fi
 if ! grep -q 'named.conf.panelze-zones' /etc/bind/named.conf.local 2>/dev/null; then
   cat >>/etc/bind/named.conf.local <<EOF
 

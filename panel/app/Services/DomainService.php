@@ -93,7 +93,7 @@ class DomainService
             return;
         }
 
-        $this->dnsBootstrap->ensureDefaults($domain);
+        $this->dnsBootstrap->repairAndProvision($domain);
     }
 
     public function delete(Domain $domain): void

@@ -8,6 +8,7 @@ use App\Models\DnsRecord;
 use App\Models\Domain;
 use App\Services\BindDnsService;
 use App\Services\BindZoneWriter;
+use App\Services\DnsRecordValidator;
 use App\Services\DomainDnsBootstrapService;
 use App\Services\EngineApiService;
 use App\Services\PanelDnsSettingsService;
@@ -25,6 +26,7 @@ class DnsRecordController extends Controller
         private BindDnsService $bindDns,
         private DomainDnsBootstrapService $dnsBootstrap,
         private PanelDnsSettingsService $dnsSettings,
+        private DnsRecordValidator $dnsValidator,
     ) {}
 
     private const DNS_TYPES = 'A,AAAA,CNAME,MX,TXT,NS,CAA,SRV,PTR';
@@ -83,6 +85,7 @@ class DnsRecordController extends Controller
             'ttl' => 'nullable|integer|min:60',
             'priority' => 'nullable|integer',
         ]);
+        $validated = $this->dnsValidator->validateForStore($validated);
 
         $record = $domain->dnsRecords()->create($validated);
 
@@ -103,7 +106,7 @@ class DnsRecordController extends Controller
             abort(403);
         }
 
-        $result = $this->dnsBootstrap->ensureDefaults($domain);
+        $result = $this->dnsBootstrap->repairAndProvision($domain);
         if (! empty($result['error'])) {
             return response()->json([
                 'message' => __('dns.bootstrap_failed'),

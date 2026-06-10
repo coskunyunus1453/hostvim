@@ -160,9 +160,20 @@ if [[ "$(id -u)" -eq 0 ]]; then
       echo "==> BIND9 kurulumu (ilk kez)"
       bash "${PANELZE_HOME}/deploy/host/panelze-bind-setup.sh"
     fi
-  elif [[ -x /usr/local/sbin/panelze-bind-sync ]]; then
+  ENSURE_BIND="$SCRIPT_DIR/ensure-bind-config.sh"
+  if [[ -f "$ENSURE_BIND" ]]; then
+    echo "==> BIND yapılandırması (panelze zones)"
+    bash "$ENSURE_BIND" || echo "Uyarı: BIND config kontrolü başarısız" >&2
+  fi
+  if [[ -x /usr/local/sbin/panelze-bind-sync ]]; then
     echo "==> BIND DNS senkronu"
-    /usr/local/sbin/panelze-bind-sync || echo "Uyarı: BIND sync başarısız" >&2
+    PANELZE_HOME="$PANELZE_HOME" PANEL_ROOT="$PANEL_ROOT" \
+      /usr/local/sbin/panelze-bind-sync || echo "Uyarı: BIND sync başarısız" >&2
+  fi
+  if [[ -f "$PANEL_ROOT/artisan" ]]; then
+    echo "==> DNS kayıt onarımı (tüm domainler)"
+    (cd "$PANEL_ROOT" && php artisan panelze:dns-repair --all --no-interaction) \
+      || echo "Uyarı: DNS repair atlandı veya başarısız" >&2
   fi
   echo "==> queue worker (timeout=${PANELZE_QUEUE_TIMEOUT:-1900})"
   PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-queue-worker.sh"

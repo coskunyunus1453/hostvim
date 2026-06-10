@@ -19,12 +19,15 @@ class PanelDnsSettingsService
     /**
      * @return array{
      *     persisted: bool,
+     *     configured: bool,
      *     ns1: string,
      *     ns2: string,
      *     server_ip: string,
      *     bind_enabled: bool,
      *     bootstrap_defaults: bool,
      *     detected_server_ip: string,
+     *     suggested_ns1: string,
+     *     suggested_ns2: string,
      * }
      */
     public function forApi(): array
@@ -34,22 +37,35 @@ class PanelDnsSettingsService
                 self::KEY_NS1,
                 self::KEY_NS2,
                 self::KEY_SERVER_IP,
-                self::KEY_BIND_ENABLED,
-                self::KEY_BOOTSTRAP_DEFAULTS,
             ])
             ->exists();
 
         [$ns1, $ns2] = $this->nameServers();
+        [$suggestedNs1, $suggestedNs2] = $this->suggestedNameServers();
 
         return [
             'persisted' => $persisted,
+            'configured' => $this->isConfigured(),
             'ns1' => $ns1,
             'ns2' => $ns2,
             'server_ip' => $this->serverIp(),
             'bind_enabled' => $this->bindEnabled(),
             'bootstrap_defaults' => $this->bootstrapDefaults(),
             'detected_server_ip' => $this->detectServerIp(),
+            'suggested_ns1' => $suggestedNs1,
+            'suggested_ns2' => $suggestedNs2,
         ];
+    }
+
+    public function isConfigured(): bool
+    {
+        [$ns1, $ns2] = $this->nameServers();
+
+        return $ns1 !== ''
+            && $ns2 !== ''
+            && $this->serverIp() !== ''
+            && ! $this->looksLikeServerHostname($ns1)
+            && ! $this->looksLikeServerHostname($ns2);
     }
 
     /**
@@ -85,15 +101,41 @@ class PanelDnsSettingsService
     {
         $ns1 = $this->resolvedString(self::KEY_NS1, 'panelze.dns.ns1');
         $ns2 = $this->resolvedString(self::KEY_NS2, 'panelze.dns.ns2');
-        if ($ns1 === '') {
-            $ns1 = trim((string) @shell_exec('hostname -f 2>/dev/null')) ?: 'ns1';
+
+        if ($ns1 !== '' && $this->looksLikeServerHostname($ns1)) {
+            $ns1 = '';
         }
-        if ($ns2 === '') {
-            $parts = explode('.', $ns1, 2);
-            $ns2 = count($parts) === 2 ? 'ns2.'.$parts[1] : 'ns2';
+        if ($ns2 !== '' && $this->looksLikeServerHostname($ns2)) {
+            $ns2 = '';
+        }
+
+        if ($ns1 === '' || $ns2 === '') {
+            [$suggestedNs1, $suggestedNs2] = $this->suggestedNameServers();
+            if ($ns1 === '') {
+                $ns1 = $suggestedNs1;
+            }
+            if ($ns2 === '') {
+                $ns2 = $suggestedNs2;
+            }
         }
 
         return [$ns1, $ns2];
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    public function suggestedNameServers(): array
+    {
+        $parent = trim((string) config('panelze.dns.ns_parent_domain', ''));
+        if ($parent === '') {
+            $parent = $this->parentDomainFromAppUrl();
+        }
+        if ($parent === '') {
+            return ['', ''];
+        }
+
+        return ['ns1.'.$parent, 'ns2.'.$parent];
     }
 
     public function serverIp(): string
@@ -132,6 +174,44 @@ class PanelDnsSettingsService
         $first = explode(' ', $ips)[0] ?? '';
 
         return filter_var($first, FILTER_VALIDATE_IP) ? $first : '';
+    }
+
+    private function parentDomainFromAppUrl(): string
+    {
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if (! is_string($host) || $host === '' || filter_var($host, FILTER_VALIDATE_IP)) {
+            return '';
+        }
+        $host = strtolower($host);
+        if ($this->looksLikeServerHostname($host)) {
+            return '';
+        }
+        $parts = explode('.', $host);
+        if (count($parts) < 2) {
+            return '';
+        }
+
+        return implode('.', array_slice($parts, -2));
+    }
+
+    private function looksLikeServerHostname(string $host): bool
+    {
+        $host = strtolower(rtrim(trim($host), '.'));
+        if ($host === '') {
+            return true;
+        }
+        if (preg_match('/(^|\.)contaboserver\.net$/', $host)) {
+            return true;
+        }
+        if (preg_match('/^vmi\d+\./', $host)) {
+            return true;
+        }
+        $serverFqdn = strtolower(trim((string) @shell_exec('hostname -f 2>/dev/null') ?: ''));
+        if ($serverFqdn !== '' && $host === $serverFqdn) {
+            return true;
+        }
+
+        return false;
     }
 
     private function resolvedString(string $panelKey, string $configKey): string

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\BindDnsService;
+use App\Services\DomainDnsBootstrapService;
 use App\Services\PanelDnsSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,7 @@ class DnsSettingsController extends Controller
     public function __construct(
         private PanelDnsSettingsService $dnsSettings,
         private BindDnsService $bindDns,
+        private DomainDnsBootstrapService $dnsBootstrap,
     ) {}
 
     public function show(): JsonResponse
@@ -38,6 +40,8 @@ class DnsSettingsController extends Controller
             'bootstrap_defaults' => $request->boolean('bootstrap_defaults', true),
         ]);
 
+        $repair = $this->dnsBootstrap->repairAllActiveDomains();
+
         $bind = ['ok' => true, 'skipped' => true];
         if ($this->dnsSettings->bindEnabled()) {
             $bind = $this->bindDns->syncViaSudo();
@@ -46,6 +50,7 @@ class DnsSettingsController extends Controller
         return response()->json([
             'message' => __('dns.settings_saved'),
             'settings' => $this->dnsSettings->forApi(),
+            'repair' => $repair,
             'bind' => $bind,
         ]);
     }

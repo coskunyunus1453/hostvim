@@ -195,6 +195,8 @@ return [
         'conf_path' => env('PANELZE_BIND_CONF_PATH', '/etc/bind/named.conf.panelze-zones'),
         'ns1' => trim((string) env('PANELZE_DNS_NS1', '')),
         'ns2' => trim((string) env('PANELZE_DNS_NS2', '')),
+        /** Boşsa APP_URL kök domaininden ns1/ns2 önerilir (ör. gebekado.com) */
+        'ns_parent_domain' => trim((string) env('PANELZE_DNS_NS_PARENT', '')),
         'server_ip' => trim((string) env('PANELZE_DNS_SERVER_IP', '')),
         /** Yeni domain eklenince @/www/mail/webmail A kayıtlarını otomatik oluştur */
         'bootstrap_defaults' => filter_var(env('PANELZE_DNS_BOOTSTRAP_DEFAULTS', 'true'), FILTER_VALIDATE_BOOLEAN),

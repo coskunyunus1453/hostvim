@@ -9,12 +9,15 @@ import api from '../services/api'
 
 type DnsSettings = {
   persisted: boolean
+  configured: boolean
   ns1: string
   ns2: string
   server_ip: string
   bind_enabled: boolean
   bootstrap_defaults: boolean
   detected_server_ip: string
+  suggested_ns1?: string
+  suggested_ns2?: string
 }
 
 export default function AdminDnsSettingsPage() {
@@ -76,8 +79,11 @@ export default function AdminDnsSettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40 space-y-2">
         <p className="text-sm text-amber-900 dark:text-amber-100">{t('dns.admin_settings_once')}</p>
+        {q.data && !q.data.configured && (
+          <p className="text-sm font-medium text-amber-950 dark:text-amber-50">{t('dns.admin_settings_required')}</p>
+        )}
       </div>
 
       {q.isLoading ? (
@@ -99,9 +105,18 @@ export default function AdminDnsSettingsPage() {
               className="input w-full font-mono"
               value={ns1}
               onChange={(e) => setNs1(e.target.value)}
-              placeholder="ns1.ornek.com"
+              placeholder={q.data?.suggested_ns1 || 'ns1.ornek.com'}
               required
             />
+            {q.data?.suggested_ns1 && ns1 !== q.data.suggested_ns1 && (
+              <button
+                type="button"
+                className="mt-1 text-xs text-secondary-600 hover:underline"
+                onClick={() => setNs1(q.data?.suggested_ns1 ?? '')}
+              >
+                {t('dns.use_suggested_ns', { ns: q.data.suggested_ns1 })}
+              </button>
+            )}
           </div>
           <div>
             <label className="label">{t('dns.ns2')}</label>
@@ -109,9 +124,18 @@ export default function AdminDnsSettingsPage() {
               className="input w-full font-mono"
               value={ns2}
               onChange={(e) => setNs2(e.target.value)}
-              placeholder="ns2.ornek.com"
+              placeholder={q.data?.suggested_ns2 || 'ns2.ornek.com'}
               required
             />
+            {q.data?.suggested_ns2 && ns2 !== q.data.suggested_ns2 && (
+              <button
+                type="button"
+                className="mt-1 text-xs text-secondary-600 hover:underline"
+                onClick={() => setNs2(q.data?.suggested_ns2 ?? '')}
+              >
+                {t('dns.use_suggested_ns', { ns: q.data.suggested_ns2 })}
+              </button>
+            )}
           </div>
           <div>
             <label className="label">{t('dns.server_ip')}</label>

@@ -8,4 +8,7 @@ return [
     'bootstrap_done' => 'Default DNS records added',
     'bootstrap_failed' => 'Could not add default DNS records',
     'settings_saved' => 'DNS server settings saved',
+    'apex_ns_managed' => 'Apex (@) NS records are managed automatically by the panel.',
+    'a_must_be_ipv4' => 'A record value must be a valid IPv4 address.',
+    'aaaa_must_be_ipv6' => 'AAAA record value must be a valid IPv6 address.',
 ];
