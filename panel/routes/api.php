@@ -280,11 +280,15 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware(['ability:monitoring:server', 'pro.feature:monitoring_advanced'])
         ->get('monitoring/server', [MonitoringController::class, 'server']);
 
+    Route::middleware('ability:dashboard:read')->group(function () {
+        Route::get('notifications/feed', [NotificationController::class, 'feed']);
+        Route::post('notifications/dismiss', [NotificationController::class, 'dismiss']);
+    });
+
     Route::middleware(['ability:dashboard:read', 'pro.feature:ai_advisor'])->group(function () {
         Route::get('ai/cron-backup', [AiAdvisorController::class, 'cronBackup']);
         Route::get('ai/monitoring', [AiAdvisorController::class, 'monitoring']);
         Route::get('ai/access', [AiAdvisorController::class, 'access']);
-        Route::get('notifications/feed', [NotificationController::class, 'feed']);
 
         Route::prefix('ai-assistant')->group(function () {
             Route::get('settings', [AiAssistantController::class, 'settings']);

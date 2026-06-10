@@ -57,6 +57,7 @@ export default function Header() {
   const [showLanguageSubmenu, setShowLanguageSubmenu] = useState(false)
   const [panelCheckRunning, setPanelCheckRunning] = useState(false)
   const { items, markAllRead, clear, remove, mergeFromServer } = useNotificationsStore()
+
   const [levelFilter, setLevelFilter] = useState<'all' | 'error' | 'info' | 'success'>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
   const isSafeInternalPath = (p: string): boolean => /^\/[a-zA-Z0-9/_-]*$/.test(p)
@@ -73,6 +74,26 @@ export default function Header() {
       mergeFromServer(feedQ.data.items)
     }
   }, [feedQ.data, mergeFromServer])
+
+  const dismissM = useMutation({
+    mutationFn: async (payload: { ids?: string[]; clear_all?: boolean }) =>
+      api.post('/notifications/dismiss', payload),
+    onSuccess: () => {
+      void feedQ.refetch()
+    },
+  })
+
+  const handleDismissOne = (id: string) => {
+    remove(id)
+    dismissM.mutate({ ids: [id] })
+  }
+
+  const handleClearAll = () => {
+    const ids = items.map((i) => i.id)
+    clear(ids)
+    dismissM.mutate({ ids, clear_all: true })
+  }
+
   const unread = items.filter((i) => !i.read).length
   const visibleItems = items.filter((i) => {
     if (levelFilter !== 'all' && i.level !== levelFilter) return false
@@ -343,7 +364,7 @@ export default function Header() {
                     <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} />
                     Okunmamış
                   </label>
-                  <button onClick={clear} className="text-xs text-gray-500 hover:text-red-600">Temizle</button>
+                  <button type="button" onClick={handleClearAll} className="text-xs text-gray-500 hover:text-red-600">Temizle</button>
                 </div>
               </div>
               <div className="p-2 space-y-2">
@@ -372,7 +393,7 @@ export default function Header() {
                         {n.message && <p className="text-xs text-gray-500 break-words">{n.message}</p>}
                         <p className="text-[10px] text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                       </div>
-                      <button onClick={() => remove(n.id)} className="text-[10px] text-gray-400 hover:text-red-500">x</button>
+                      <button type="button" onClick={() => handleDismissOne(n.id)} className="text-[10px] text-gray-400 hover:text-red-500">x</button>
                     </div>
                   </div>
                 ))}
