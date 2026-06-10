@@ -147,6 +147,9 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool mail-stack-setup.sh
   install_host_tool mail-provision
   install_host_tool bind-sync
+  install_host_tool node-pm2
+  install_host_tool nginx-vhost
+  install_host_tool system-settings
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
   if ! command -v named >/dev/null 2>&1 || { ! systemctl is-active named >/dev/null 2>&1 && ! systemctl is-active bind9 >/dev/null 2>&1; }; then
