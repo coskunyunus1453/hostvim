@@ -345,7 +345,11 @@ export default function Header() {
           </button>
           {showNotifMenu && (
             <>
-              <div className="md:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifMenu(false)} />
+              <div
+                className="fixed inset-0 z-40 bg-black/40"
+                aria-hidden
+                onClick={() => setShowNotifMenu(false)}
+              />
               <div className="fixed md:absolute z-50 inset-x-3 bottom-3 md:inset-auto md:right-0 md:bottom-auto md:mt-2 w-auto md:w-80 max-h-[70vh] md:max-h-[420px] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl md:rounded-lg shadow-lg">
               <div className="sticky top-0 flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Bildirimler</span>
