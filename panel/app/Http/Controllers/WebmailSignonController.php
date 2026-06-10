@@ -26,18 +26,32 @@ class WebmailSignonController extends Controller
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Webmail</title>
-  <style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#334155}</style>
+  <style>body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:100vh;margin:0;background:#f8fafc;color:#334155}</style>
 </head>
 <body>
-  <p>Webmail açılıyor…</p>
+  <p id="status">Webmail açılıyor…</p>
   <form id="rc-login" method="post" action="{$this->e($action)}">
     <input type="hidden" name="_task" value="login">
     <input type="hidden" name="_action" value="login">
     <input type="hidden" name="_timezone" value="Europe/Istanbul">
+    <input type="hidden" name="_url" value="_task=mail">
     <input type="hidden" name="_user" value="{$this->e($email)}">
     <input type="hidden" name="_pass" value="{$this->e($password)}">
+    <noscript>
+      <button type="submit" style="padding:10px 16px;border-radius:8px;border:0;background:#ea580c;color:#fff;font-weight:600;cursor:pointer">
+        Webmail'e devam et
+      </button>
+    </noscript>
   </form>
-  <script>document.getElementById('rc-login').submit();</script>
+  <script>
+    (function () {
+      var f = document.getElementById('rc-login');
+      if (!f) return;
+      try { f.submit(); } catch (e) {
+        document.getElementById('status').textContent = 'Otomatik yönlendirme başarısız; «Webmail\'e devam et» düğmesine tıklayın.';
+      }
+    })();
+  </script>
 </body>
 </html>
 HTML;

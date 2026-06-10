@@ -13,6 +13,18 @@ class SecureHeaders
         /** @var Response $response */
         $response = $next($request);
 
+        // SSO köprüsü: Roundcube farklı origin'e POST; sıkı form-action/script CSP engeller.
+        if ($request->is('webmail-signon')) {
+            $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+            $response->headers->set(
+                'Content-Security-Policy',
+                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action *; base-uri 'none'; frame-ancestors 'none'"
+            );
+
+            return $response;
+        }
+
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
