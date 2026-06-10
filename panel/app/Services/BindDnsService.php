@@ -11,6 +11,7 @@ class BindDnsService
 {
     public function __construct(
         private BindZoneWriter $writer,
+        private PanelDnsSettingsService $dnsSettings,
     ) {}
 
     /**
@@ -18,7 +19,7 @@ class BindDnsService
      */
     public function syncViaSudo(): array
     {
-        if (! (bool) config('panelze.dns.bind_enabled', true)) {
+        if (! $this->dnsSettings->bindEnabled()) {
             return ['ok' => true, 'skipped' => true, 'message' => 'BIND sync kapalı'];
         }
 
@@ -47,7 +48,7 @@ class BindDnsService
      */
     public function writeZonesAndReload(): array
     {
-        if (! (bool) config('panelze.dns.bind_enabled', true)) {
+        if (! $this->dnsSettings->bindEnabled()) {
             return ['ok' => true, 'zones' => 0, 'message' => 'BIND sync kapalı'];
         }
 
@@ -136,30 +137,12 @@ class BindDnsService
      */
     public function nameServers(): array
     {
-        $ns1 = trim((string) config('panelze.dns.ns1', ''));
-        $ns2 = trim((string) config('panelze.dns.ns2', ''));
-        if ($ns1 === '') {
-            $ns1 = trim((string) @shell_exec('hostname -f 2>/dev/null')) ?: 'ns1';
-        }
-        if ($ns2 === '') {
-            $parts = explode('.', $ns1, 2);
-            $ns2 = count($parts) === 2 ? 'ns2.'.$parts[1] : 'ns2';
-        }
-
-        return [$ns1, $ns2];
+        return $this->dnsSettings->nameServers();
     }
 
     public function serverIp(): string
     {
-        $configured = trim((string) config('panelze.dns.server_ip', ''));
-        if ($configured !== '' && filter_var($configured, FILTER_VALIDATE_IP)) {
-            return $configured;
-        }
-
-        $ips = trim((string) @shell_exec('hostname -I 2>/dev/null') ?: '');
-        $first = explode(' ', $ips)[0] ?? '';
-
-        return filter_var($first, FILTER_VALIDATE_IP) ? $first : '';
+        return $this->dnsSettings->serverIp();
     }
 
     private function isValidZoneName(string $zone): bool

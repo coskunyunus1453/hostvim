@@ -9,6 +9,7 @@ class MailDnsService
     public function __construct(
         private EngineApiService $engine,
         private BindDnsService $bindDns,
+        private PanelDnsSettingsService $dnsSettings,
     ) {}
 
     /**
@@ -63,6 +64,11 @@ class MailDnsService
 
     private function guessServerIp(string $domainName): ?string
     {
+        $configured = $this->dnsSettings->serverIp();
+        if ($configured !== '') {
+            return $configured;
+        }
+
         $ips = @gethostbynamel($domainName);
         if (is_array($ips) && count($ips) > 0 && $ips[0] !== $domainName) {
             return (string) $ips[0];

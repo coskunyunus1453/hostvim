@@ -8,7 +8,9 @@ use App\Models\DnsRecord;
 use App\Models\Domain;
 use App\Services\BindDnsService;
 use App\Services\BindZoneWriter;
+use App\Services\DomainDnsBootstrapService;
 use App\Services\EngineApiService;
+use App\Services\PanelDnsSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +23,11 @@ class DnsRecordController extends Controller
         private EngineApiService $engine,
         private BindZoneWriter $zoneWriter,
         private BindDnsService $bindDns,
+        private DomainDnsBootstrapService $dnsBootstrap,
+        private PanelDnsSettingsService $dnsSettings,
     ) {}
+
+    private const DNS_TYPES = 'A,AAAA,CNAME,MX,TXT,NS,CAA,SRV,PTR';
 
     public function index(Request $request, Domain $domain): JsonResponse
     {
@@ -33,7 +39,7 @@ class DnsRecordController extends Controller
             'records' => $domain->dnsRecords,
             'engine_preview' => $this->engine->dnsList($domain->name),
             'bind' => [
-                'enabled' => (bool) config('panelze.dns.bind_enabled', true),
+                'enabled' => $this->dnsSettings->bindEnabled(),
                 'ns' => $this->bindDns->nameServers(),
                 'server_ip' => $this->bindDns->serverIp(),
             ],
@@ -71,7 +77,7 @@ class DnsRecordController extends Controller
             abort(403);
         }
         $validated = $request->validate([
-            'type' => 'required|string|max:10',
+            'type' => 'required|string|in:'.self::DNS_TYPES,
             'name' => 'required|string|max:255',
             'value' => 'required|string',
             'ttl' => 'nullable|integer|min:60',
@@ -89,6 +95,33 @@ class DnsRecordController extends Controller
             'engine' => $this->engine->dnsCreate($domain->name, $enginePayload),
             'bind' => $bind,
         ], 201);
+    }
+
+    public function bootstrapDefaults(Request $request, Domain $domain): JsonResponse
+    {
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
+        }
+
+        $result = $this->dnsBootstrap->ensureDefaults($domain);
+        if (! empty($result['error'])) {
+            return response()->json([
+                'message' => __('dns.bootstrap_failed'),
+                'error' => $result['error'],
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => __('dns.bootstrap_done'),
+            'created' => (int) ($result['created'] ?? 0),
+            'skipped' => (int) ($result['skipped'] ?? 0),
+            'records' => $domain->dnsRecords()->get(),
+            'bind' => [
+                'enabled' => $this->dnsSettings->bindEnabled(),
+                'ns' => $this->bindDns->nameServers(),
+                'server_ip' => $this->bindDns->serverIp(),
+            ],
+        ]);
     }
 
     public function destroy(Request $request, DnsRecord $dnsRecord): JsonResponse

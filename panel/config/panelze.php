@@ -196,6 +196,8 @@ return [
         'ns1' => trim((string) env('PANELZE_DNS_NS1', '')),
         'ns2' => trim((string) env('PANELZE_DNS_NS2', '')),
         'server_ip' => trim((string) env('PANELZE_DNS_SERVER_IP', '')),
+        /** Yeni domain eklenince @/www/mail/webmail A kayıtlarını otomatik oluştur */
+        'bootstrap_defaults' => filter_var(env('PANELZE_DNS_BOOTSTRAP_DEFAULTS', 'true'), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /** Admin sunucu paketleri (stack-install) */

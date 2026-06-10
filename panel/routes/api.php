@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DnsSettingsController;
 use App\Http\Controllers\Admin\OutboundMailSettingsController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\PhpSettingsController;
@@ -246,6 +247,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:dns:read')->get('domains/{domain}/dns/zone', [DnsRecordController::class, 'exportZone']);
     Route::middleware('ability:dns:write')->group(function () {
         Route::post('domains/{domain}/dns', [DnsRecordController::class, 'store']);
+        Route::post('domains/{domain}/dns/bootstrap', [DnsRecordController::class, 'bootstrapDefaults']);
         Route::delete('dns/{dnsRecord}', [DnsRecordController::class, 'destroy']);
     });
 
@@ -439,6 +441,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('stack/runs/{stackInstallRun}', [StackController::class, 'showRun']);
         Route::post('stack/runs/{stackInstallRun}/cancel', [StackController::class, 'cancelRun']);
         Route::post('stack/runs/{stackInstallRun}/retry', [StackController::class, 'retryRun']);
+        Route::get('settings/dns', [DnsSettingsController::class, 'show']);
+        Route::put('settings/dns', [DnsSettingsController::class, 'update']);
         Route::get('settings/mail', [OutboundMailSettingsController::class, 'show']);
         Route::get('settings/server-mysql', [ServerMysqlSettingsController::class, 'show'])->middleware('throttle:60,1');
         Route::put('settings/mail', [OutboundMailSettingsController::class, 'update']);

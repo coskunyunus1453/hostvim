@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, Plus, Trash2, Download } from 'lucide-react'
+import { Globe, Plus, Trash2, Download, Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import { useDomainsList } from '../hooks/useDomains'
+import { useAuthStore } from '../store/authStore'
 
 type DnsRow = {
   id: number
@@ -18,6 +20,7 @@ type DnsRow = {
 export default function DnsPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
   const domainsQ = useDomainsList()
   const [domainId, setDomainId] = useState<number | ''>('')
   const [showAdd, setShowAdd] = useState(false)
@@ -40,6 +43,21 @@ export default function DnsPage() {
       toast.success(t('dns.created'))
       qc.invalidateQueries({ queryKey: ['dns', domainId] })
       setShowAdd(false)
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const bootstrapM = useMutation({
+    mutationFn: async () => api.post(`/domains/${domainId}/dns/bootstrap`),
+    onSuccess: (res) => {
+      const created = Number(res.data?.created ?? 0)
+      toast.success(
+        created > 0 ? t('dns.bootstrap_done', { count: created }) : t('dns.bootstrap_none'),
+      )
+      qc.invalidateQueries({ queryKey: ['dns', domainId] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -80,6 +98,11 @@ export default function DnsPage() {
   }
 
   const records: DnsRow[] = recordsQ.data?.records ?? []
+  const bindInfo = recordsQ.data?.bind as
+    | { enabled?: boolean; ns?: [string, string]; server_ip?: string }
+    | undefined
+  const nsList = Array.isArray(bindInfo?.ns) ? bindInfo.ns.filter(Boolean) : []
+  const dnsTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'CAA', 'SRV', 'PTR']
 
   return (
     <div className="space-y-6">
@@ -92,6 +115,15 @@ export default function DnsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-2"
+            disabled={!domainId || bootstrapM.isPending}
+            onClick={() => bootstrapM.mutate()}
+          >
+            <Wand2 className="h-4 w-4" />
+            {t('dns.bootstrap_defaults')}
+          </button>
           <button
             type="button"
             className="btn-secondary flex items-center gap-2"
@@ -113,9 +145,30 @@ export default function DnsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/40">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/40 space-y-2">
         <p className="font-medium text-blue-900 dark:text-blue-100">{t('dns.bind_info_title')}</p>
-        <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">{t('dns.bind_info_body')}</p>
+        <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.bind_info_body')}</p>
+        {nsList.length > 0 && (
+          <div className="text-sm text-blue-800 dark:text-blue-200">
+            <p className="font-medium">{t('dns.nameservers_title')}</p>
+            <ul className="mt-1 list-disc list-inside font-mono">
+              {nsList.map((ns) => (
+                <li key={ns}>{ns}</li>
+              ))}
+            </ul>
+            {bindInfo?.server_ip && (
+              <p className="mt-2">
+                {t('dns.glue_hint', { ip: bindInfo.server_ip, ns1: nsList[0] ?? '', ns2: nsList[1] ?? '' })}
+              </p>
+            )}
+          </div>
+        )}
+        <p className="text-sm text-blue-800 dark:text-blue-200">{t('dns.registrar_hint')}</p>
+        {isAdmin && (
+          <Link to="/admin/dns-settings" className="inline-block text-sm font-medium text-blue-900 underline dark:text-blue-100">
+            {t('dns.admin_settings_link')}
+          </Link>
+        )}
       </div>
 
       <div className="card p-4 flex flex-wrap gap-4 items-end">
@@ -158,7 +211,7 @@ export default function DnsPage() {
                 <div>
                   <label className="label">Tip</label>
                   <select name="type" className="input w-full">
-                    {['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV'].map((x) => (
+                    {dnsTypes.map((x) => (
                       <option key={x} value={x}>
                         {x}
                       </option>

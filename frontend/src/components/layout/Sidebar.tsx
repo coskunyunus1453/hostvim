@@ -168,6 +168,7 @@ export default function Sidebar() {
         { path: '/admin/stack', icon: Layers, label: 'nav.stack', allow: isAdmin },
         { path: '/admin/terminal', icon: TerminalSquare, label: 'nav.terminal', allow: isAdmin },
         { path: '/admin/mail-settings', icon: Send, label: 'nav.outbound_mail', allow: isAdmin },
+        { path: '/admin/dns-settings', icon: Globe, label: 'nav.dns_settings', allow: isAdmin },
       ],
     },
     {

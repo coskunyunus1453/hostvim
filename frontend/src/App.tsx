@@ -28,6 +28,7 @@ import AdminWhmcsPage from './pages/AdminWhmcsPage'
 import AdminLicensePage from './pages/AdminLicensePage'
 import AdminStackPage from './pages/AdminStackPage'
 import AdminMailSettingsPage from './pages/AdminMailSettingsPage'
+import AdminDnsSettingsPage from './pages/AdminDnsSettingsPage'
 import AdminRolesPage from './pages/AdminRolesPage'
 import AdminWebServerSettingsPage from './pages/AdminWebServerSettingsPage'
 import AdminServerSettingsPage from './pages/AdminServerSettingsPage'
@@ -147,6 +148,7 @@ export default function App() {
         <Route path="admin/terminal" element={<AdvancedRoute><LazyPage><TerminalPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/stack" element={<AdvancedRoute><AdminStackPage /></AdvancedRoute>} />
         <Route path="admin/mail-settings" element={<AdvancedRoute><AdminMailSettingsPage /></AdvancedRoute>} />
+        <Route path="admin/dns-settings" element={<AdvancedRoute><AdminDnsSettingsPage /></AdvancedRoute>} />
         <Route path="admin/webserver" element={<AdvancedRoute><AdminWebServerSettingsPage /></AdvancedRoute>} />
         <Route path="admin/php-settings" element={<AdvancedRoute><LazyPage><AdminPhpSettingsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/logs" element={<AdvancedRoute><AdminLogsPage /></AdvancedRoute>} />

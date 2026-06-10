@@ -13,6 +13,8 @@ class DomainService
     public function __construct(
         private EngineApiService $engineApi,
         private HostnameReservationService $hostnames,
+        private DomainDnsBootstrapService $dnsBootstrap,
+        private PanelDnsSettingsService $dnsSettings,
     ) {}
 
     public function create(User $user, string $name, string $phpVersion, string $serverType): Domain
@@ -47,6 +49,7 @@ class DomainService
 
                 // Mevcut kaydı “active” durumuna al ve engine'i (gerekirse suspend'tan) aktive et.
                 $this->setPanelStatus($existing, 'active');
+                $this->maybeBootstrapDns($existing);
 
                 return $existing->fresh();
             }
@@ -78,8 +81,19 @@ class DomainService
                 $domain->update(['document_root' => $documentRoot]);
             }
 
+            $this->maybeBootstrapDns($domain);
+
             return $domain->fresh();
         });
+    }
+
+    private function maybeBootstrapDns(Domain $domain): void
+    {
+        if (! $this->dnsSettings->bootstrapDefaults()) {
+            return;
+        }
+
+        $this->dnsBootstrap->ensureDefaults($domain);
     }
 
     public function delete(Domain $domain): void

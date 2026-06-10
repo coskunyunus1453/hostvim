@@ -43,6 +43,12 @@ class BindZoneWriter
         }
 
         foreach ($records as $r) {
+            $type = strtoupper(trim((string) $r->type));
+            $name = strtolower(trim((string) $r->name));
+            // Apex NS zone başlığında zaten yazılıyor.
+            if ($type === 'NS' && ($name === '' || $name === '@')) {
+                continue;
+            }
             $lines[] = $this->recordLine($zone, $r);
         }
 
@@ -67,7 +73,7 @@ class BindZoneWriter
             return sprintf('%s %d IN MX %d %s', $fqdn, $ttl, $pri, $target);
         }
 
-        if ($type === 'CNAME') {
+        if ($type === 'CNAME' || $type === 'NS') {
             $val = $this->mxTargetFqdn($val);
         }
 
