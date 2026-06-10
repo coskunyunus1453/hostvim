@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use App\Http\Controllers\Admin\DnsSettingsController;
 use App\Http\Controllers\Admin\OutboundMailSettingsController;
 use App\Http\Controllers\Admin\PackageController;
@@ -423,7 +424,11 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('network/refresh', [SystemController::class, 'refreshNetwork']);
         Route::post('network/addresses', [SystemController::class, 'addNetworkAddress']);
         Route::delete('network/addresses', [SystemController::class, 'removeNetworkAddress']);
-        Route::post('nginx/reload', function (EngineApiService $engine) {
+        Route::post('nginx/reload', function (Request $request, EngineApiService $engine) {
+            if (! $request->user()?->isAdmin()) {
+                abort(403);
+            }
+
             return response()->json($engine->reloadNginx());
         });
     });
@@ -564,8 +569,6 @@ if ((bool) config('panelze.vendor_enabled', false)) {
 
 Route::get('health', fn () => response()->json([
     'status' => 'ok',
-    'panel' => 'panelze',
-    'version' => config('panelze.version', '0.1.0'),
 ]));
 
 Route::prefix('integrations/whmcs')

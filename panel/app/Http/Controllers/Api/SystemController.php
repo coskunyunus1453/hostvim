@@ -20,15 +20,23 @@ class SystemController extends Controller
         private EngineApiService $engineApi,
     ) {}
 
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
         $stats = $this->engineApi->getSystemStats();
 
         return response()->json(['stats' => $stats]);
     }
 
-    public function services(): JsonResponse
+    public function services(Request $request): JsonResponse
     {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
         $services = $this->engineApi->getServices();
 
         return response()->json(['services' => $services]);
@@ -36,6 +44,10 @@ class SystemController extends Controller
 
     public function serviceAction(Request $request, string $name): JsonResponse
     {
+        if (! $request->user()?->isAdmin()) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'action' => 'required|string|in:start,stop,restart',
         ]);

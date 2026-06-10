@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { useThemeStore } from '../../store/themeStore'
@@ -25,24 +26,26 @@ export default function Layout() {
   const onboardingSeen = useUiModeStore((s) => s.onboardingSeen)
   const setMode = useUiModeStore((s) => s.setMode)
   const markOnboardingSeen = useUiModeStore((s) => s.markOnboardingSeen)
+  const meQ = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: () => authService.me(),
+    enabled: !!token,
+    staleTime: 60_000,
+    retry: false,
+  })
+
   useEffect(() => {
-    if (!token) {
-      return
+    const d = meQ.data
+    if (!d) return
+    updateUser(d.user)
+    setWhiteLabelUi(d.white_label ?? null)
+    if (Array.isArray(d.active_plugin_slugs)) {
+      setActivePluginSlugs(d.active_plugin_slugs)
     }
-    authService
-      .me()
-      .then((d) => {
-        updateUser(d.user)
-        setWhiteLabelUi(d.white_label ?? null)
-        if (Array.isArray(d.active_plugin_slugs)) {
-          setActivePluginSlugs(d.active_plugin_slugs)
-        }
-        if (typeof d.enforce_admin_2fa === 'boolean') {
-          setEnforceAdmin2fa(d.enforce_admin_2fa)
-        }
-      })
-      .catch(() => {})
-  }, [token, updateUser, setEnforceAdmin2fa, setWhiteLabelUi, setActivePluginSlugs])
+    if (typeof d.enforce_admin_2fa === 'boolean') {
+      setEnforceAdmin2fa(d.enforce_admin_2fa)
+    }
+  }, [meQ.data, updateUser, setEnforceAdmin2fa, setWhiteLabelUi, setActivePluginSlugs])
 
   useEffect(() => {
     const root = document.documentElement

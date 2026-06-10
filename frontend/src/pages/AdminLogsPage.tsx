@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, FileText, RefreshCcw } from 'lucide-react'
 import api from '../services/api'
-
-type DomainRow = {
-  id: number
-  name: string
-}
+import { useIsAdmin } from '../hooks/useRequireAdmin'
+import { useDomainsList } from '../hooks/useDomains'
 
 type DomainLogEntry = {
   type: string
@@ -111,18 +109,16 @@ function buildTabBadges(logs: DomainLogEntry[]): Record<string, TabBadge> {
 
 export default function AdminLogsPage() {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const [domainId, setDomainId] = useState<number | ''>('')
   const [logLines, setLogLines] = useState(200)
   const [activeTab, setActiveTab] = useState<string>('')
 
-  const domainsQ = useQuery({
-    queryKey: ['domains', 'paginated'],
-    queryFn: async () => (await api.get('/domains')).data as { data?: DomainRow[] },
-  })
+  const domainsQ = useDomainsList()
 
   const logsQ = useQuery({
     queryKey: ['admin-logs', domainId, logLines],
-    enabled: !!domainId,
+    enabled: isAdmin && !!domainId,
     queryFn: async () => {
       const { data } = await api.get<{ logs: DomainLogEntry[] }>(`/domains/${domainId}/logs?lines=${logLines}`)
       return data
@@ -131,7 +127,7 @@ export default function AdminLogsPage() {
 
   const diagnostics = useMemo(() => buildDiagnostics(logsQ.data?.logs ?? []), [logsQ.data?.logs])
   const tabBadges = useMemo(() => buildTabBadges(logsQ.data?.logs ?? []), [logsQ.data?.logs])
-  const domains = domainsQ.data?.data ?? []
+  const domains = domainsQ.data ?? []
   const logEntries = logsQ.data?.logs ?? []
 
   const orderedTabs = useMemo(() => {
@@ -159,6 +155,8 @@ export default function AdminLogsPage() {
   }, [orderedTabs, activeTab])
 
   const activeEntry = orderedTabs.find((x) => x.type === activeTab) ?? orderedTabs[0] ?? null
+
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
 
   return (
     <div className="space-y-6">

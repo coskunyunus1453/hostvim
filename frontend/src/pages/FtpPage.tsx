@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HardDrive, Plus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { copyPlaintextWithToasts } from '../lib/copyText'
 import api from '../services/api'
 import { useDomainsList } from '../hooks/useDomains'
 
@@ -42,10 +43,13 @@ export default function FtpPage() {
     }) => api.post(`/domains/${domainId}/ftp`, payload),
     onSuccess: (res) => {
       const plain = (res.data as { password_plain?: string })?.password_plain
-      toast.success(
-        plain ? `${t('ftp.created')} — ${t('databases.password_once')}: ${plain}` : t('ftp.created'),
-        { duration: plain ? 22_000 : 4000 }
-      )
+      toast.success(t('ftp.created'))
+      if (plain) {
+        void copyPlaintextWithToasts(plain, {
+          ok: t('databases.password_copied'),
+          fail: t('databases.copy_failed'),
+        })
+      }
       qc.invalidateQueries({ queryKey: ['ftp', domainId] })
       setShowAdd(false)
     },

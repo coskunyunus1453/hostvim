@@ -37,8 +37,8 @@ export default function DashboardPage() {
   const servicesQ = useQuery({
     queryKey: ['dashboard-services'],
     queryFn: async () => (await api.get('/system/services')).data.services as ServiceInfo[],
-    enabled: !!serverUI,
-    refetchInterval: serverUI ? () => pollWhenVisible(30_000) : false,
+    enabled: isSuper,
+    refetchInterval: isSuper ? () => pollWhenVisible(30_000) : false,
     staleTime: 20_000,
   })
 

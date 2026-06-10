@@ -74,13 +74,13 @@ export default function SettingsPage() {
       qc.invalidateQueries({ queryKey: ['branding'] })
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string; hint?: string; debug_error?: string }; status?: number } }
+      const ax = err as { response?: { data?: { message?: string; hint?: string; error_ref?: string }; status?: number } }
       if (ax.response?.status === 413) {
         toast.error(t('settings.branding_413_hint'))
         return
       }
       const d = ax.response?.data
-      toast.error([d?.message, d?.hint, d?.debug_error].filter(Boolean).join(' — ') || String(err), { duration: 10000 })
+      toast.error([d?.message, d?.hint, d?.error_ref ? `ref: ${d.error_ref}` : ''].filter(Boolean).join(' — ') || String(err), { duration: 10000 })
     },
   })
   const brandCfgM = useMutation({

@@ -1138,6 +1138,10 @@ class FileManagerController extends Controller
         bool $success,
         ?string $error,
     ): void {
+        if (in_array($action, ['download'], true)) {
+            return;
+        }
+
         SafeAuditLogger::info('panelze.file_audit', [
             'domain' => $domain->name,
             'action' => $action,

@@ -8,43 +8,43 @@ import Layout from './components/layout/Layout'
 import ProFeatureGate from './components/ProFeatureGate'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import DomainsPage from './pages/DomainsPage'
-import DatabasesPage from './pages/DatabasesPage'
 import DnsPage from './pages/DnsPage'
 import RedirectsPage from './pages/RedirectsPage'
-import FtpPage from './pages/FtpPage'
-import EmailPage from './pages/EmailPage'
 import SslPage from './pages/SslPage'
-import BackupsPage from './pages/BackupsPage'
-import CronPage from './pages/CronPage'
 import InstallerPage from './pages/InstallerPage'
 import NodeAppPage from './pages/NodeAppPage'
 import DeployPage from './pages/DeployPage'
 import BillingPage from './pages/BillingPage'
 import SettingsPage from './pages/SettingsPage'
-import AdminUsersPage from './pages/AdminUsersPage'
-import AdminPackagesPage from './pages/AdminPackagesPage'
-import AdminWhmcsPage from './pages/AdminWhmcsPage'
-import AdminLicensePage from './pages/AdminLicensePage'
-import AdminStackPage from './pages/AdminStackPage'
-import AdminMailSettingsPage from './pages/AdminMailSettingsPage'
-import AdminDnsSettingsPage from './pages/AdminDnsSettingsPage'
-import AdminRolesPage from './pages/AdminRolesPage'
-import AdminWebServerSettingsPage from './pages/AdminWebServerSettingsPage'
-import AdminServerSettingsPage from './pages/AdminServerSettingsPage'
-import AdminLogsPage from './pages/AdminLogsPage'
 import ResellerPage from './pages/ResellerPage'
 import ResellerBrandingPage from './pages/ResellerBrandingPage'
 import OnboardingPage from './pages/OnboardingPage'
-import PluginsStorePage from './pages/PluginsStorePage'
 import WhmcsSsoBootstrap from './components/WhmcsSsoBootstrap'
 
+const DomainsPage = lazy(() => import('./pages/DomainsPage'))
+const DatabasesPage = lazy(() => import('./pages/DatabasesPage'))
+const FtpPage = lazy(() => import('./pages/FtpPage'))
+const EmailPage = lazy(() => import('./pages/EmailPage'))
+const BackupsPage = lazy(() => import('./pages/BackupsPage'))
+const CronPage = lazy(() => import('./pages/CronPage'))
 const FileManagerPage = lazy(() => import('./pages/FileManagerPage'))
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
 const SecurityPage = lazy(() => import('./pages/SecurityPage'))
 const TerminalPage = lazy(() => import('./pages/TerminalPage'))
 const AdminSystemPage = lazy(() => import('./pages/AdminSystemPage'))
 const AdminPhpSettingsPage = lazy(() => import('./pages/AdminPhpSettingsPage'))
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
+const AdminPackagesPage = lazy(() => import('./pages/AdminPackagesPage'))
+const AdminWhmcsPage = lazy(() => import('./pages/AdminWhmcsPage'))
+const AdminLicensePage = lazy(() => import('./pages/AdminLicensePage'))
+const AdminStackPage = lazy(() => import('./pages/AdminStackPage'))
+const AdminMailSettingsPage = lazy(() => import('./pages/AdminMailSettingsPage'))
+const AdminDnsSettingsPage = lazy(() => import('./pages/AdminDnsSettingsPage'))
+const AdminRolesPage = lazy(() => import('./pages/AdminRolesPage'))
+const AdminWebServerSettingsPage = lazy(() => import('./pages/AdminWebServerSettingsPage'))
+const AdminServerSettingsPage = lazy(() => import('./pages/AdminServerSettingsPage'))
+const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'))
+const PluginsStorePage = lazy(() => import('./pages/PluginsStorePage'))
 const AiAdvisorPage = lazy(() => import('./pages/AiAdvisorPage'))
 const CuriousPage = lazy(() => import('./pages/CuriousPage'))
 
@@ -115,17 +115,17 @@ export default function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="domains" element={<DomainsPage />} />
+        <Route path="domains" element={<LazyPage><DomainsPage /></LazyPage>} />
         <Route path="dns" element={<DnsPage />} />
         <Route path="redirects" element={<AdvancedRoute><RedirectsPage /></AdvancedRoute>} />
-        <Route path="databases" element={<DatabasesPage />} />
-        <Route path="email" element={<EmailPage />} />
+        <Route path="databases" element={<LazyPage><DatabasesPage /></LazyPage>} />
+        <Route path="email" element={<LazyPage><EmailPage /></LazyPage>} />
         <Route path="files" element={<LazyPage><FileManagerPage /></LazyPage>} />
-        <Route path="ftp" element={<FtpPage />} />
+        <Route path="ftp" element={<LazyPage><FtpPage /></LazyPage>} />
         <Route path="ssl" element={<SslPage />} />
-        <Route path="backups/google-callback" element={<BackupsPage />} />
-        <Route path="backups" element={<BackupsPage />} />
-        <Route path="cron" element={<AdvancedRoute><CronPage /></AdvancedRoute>} />
+        <Route path="backups/google-callback" element={<LazyPage><BackupsPage /></LazyPage>} />
+        <Route path="backups" element={<LazyPage><BackupsPage /></LazyPage>} />
+        <Route path="cron" element={<AdvancedRoute><LazyPage><CronPage /></LazyPage></AdvancedRoute>} />
         <Route path="monitoring" element={<AdvancedRoute><LazyPage><ProFeatureGate moduleKey="monitoring_advanced"><MonitoringPage /></ProFeatureGate></LazyPage></AdvancedRoute>} />
         <Route path="security" element={<AdvancedRoute><LazyPage><SecurityPage /></LazyPage></AdvancedRoute>} />
         <Route path="installer" element={<InstallerPage />} />
@@ -137,21 +137,21 @@ export default function App() {
         <Route path="onboarding" element={<OnboardingPage />} />
         <Route path="ai-advisor" element={<AdvancedRoute><LazyPage><ProFeatureGate moduleKey="ai_advisor"><AiAdvisorPage /></ProFeatureGate></LazyPage></AdvancedRoute>} />
         <Route path="curious" element={<LazyPage><ProFeatureGate moduleKey="curious_tools"><CuriousPage /></ProFeatureGate></LazyPage>} />
-        <Route path="plugins" element={<AdvancedRoute><PluginsStorePage /></AdvancedRoute>} />
-        <Route path="admin/users" element={<AdvancedRoute><AdminUsersPage /></AdvancedRoute>} />
-        <Route path="admin/roles" element={<AdvancedRoute><AdminRolesPage /></AdvancedRoute>} />
-        <Route path="admin/packages" element={<AdvancedRoute><AdminPackagesPage /></AdvancedRoute>} />
-        <Route path="admin/whmcs" element={<AdvancedRoute><AdminWhmcsPage /></AdvancedRoute>} />
+        <Route path="plugins" element={<AdvancedRoute><LazyPage><PluginsStorePage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/users" element={<AdvancedRoute><LazyPage><AdminUsersPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/roles" element={<AdvancedRoute><LazyPage><AdminRolesPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/packages" element={<AdvancedRoute><LazyPage><AdminPackagesPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/whmcs" element={<AdvancedRoute><LazyPage><AdminWhmcsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/system" element={<AdvancedRoute><LazyPage><AdminSystemPage /></LazyPage></AdvancedRoute>} />
-        <Route path="admin/server-settings" element={<AdvancedRoute><AdminServerSettingsPage /></AdvancedRoute>} />
-        <Route path="admin/license" element={<AdvancedRoute><AdminLicensePage /></AdvancedRoute>} />
+        <Route path="admin/server-settings" element={<AdvancedRoute><LazyPage><AdminServerSettingsPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/license" element={<AdvancedRoute><LazyPage><AdminLicensePage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/terminal" element={<AdvancedRoute><LazyPage><TerminalPage /></LazyPage></AdvancedRoute>} />
-        <Route path="admin/stack" element={<AdvancedRoute><AdminStackPage /></AdvancedRoute>} />
-        <Route path="admin/mail-settings" element={<AdvancedRoute><AdminMailSettingsPage /></AdvancedRoute>} />
-        <Route path="admin/dns-settings" element={<AdvancedRoute><AdminDnsSettingsPage /></AdvancedRoute>} />
-        <Route path="admin/webserver" element={<AdvancedRoute><AdminWebServerSettingsPage /></AdvancedRoute>} />
+        <Route path="admin/stack" element={<AdvancedRoute><LazyPage><AdminStackPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/mail-settings" element={<AdvancedRoute><LazyPage><AdminMailSettingsPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/dns-settings" element={<AdvancedRoute><LazyPage><AdminDnsSettingsPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/webserver" element={<AdvancedRoute><LazyPage><AdminWebServerSettingsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/php-settings" element={<AdvancedRoute><LazyPage><AdminPhpSettingsPage /></LazyPage></AdvancedRoute>} />
-        <Route path="admin/logs" element={<AdvancedRoute><AdminLogsPage /></AdvancedRoute>} />
+        <Route path="admin/logs" element={<AdvancedRoute><LazyPage><AdminLogsPage /></LazyPage></AdvancedRoute>} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<UnknownRoute />} />

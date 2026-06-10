@@ -168,7 +168,6 @@ class BrandingController extends Controller
                     'message' => __('settings.branding_upload_failed'),
                     'max_upload_kb' => $maxKb,
                     'hint' => __('settings.branding_storage_not_writable'),
-                    'debug_error' => config('app.debug') ? $e->getMessage() : null,
                     'error_ref' => $errRef,
                 ], 500);
             }
@@ -193,7 +192,6 @@ class BrandingController extends Controller
             return response()->json([
                 'message' => __('settings.branding_upload_failed'),
                 'hint' => 'Beklenmeyen sunucu hatası. error_ref ile logdan takip edin.',
-                'debug_error' => config('app.debug') ? $e->getMessage() : null,
                 'error_ref' => $errRef,
             ], 500);
         }

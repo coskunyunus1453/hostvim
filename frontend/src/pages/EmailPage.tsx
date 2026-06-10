@@ -17,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { copyPlaintextWithToasts } from '../lib/copyText'
 import clsx from 'clsx'
 import api from '../services/api'
 import { useDomainsList } from '../hooks/useDomains'
@@ -193,12 +194,13 @@ export default function EmailPage() {
       api.post(`/domains/${domainId}/email`, payload),
     onSuccess: (res) => {
       const plain = (res.data as { password_plain?: string })?.password_plain
-      toast.success(
-        plain
-          ? `${t('email.created')} — ${t('email.password_once')} ${plain}`
-          : t('email.created'),
-        { duration: plain ? 22_000 : 4000 },
-      )
+      toast.success(t('email.created'))
+      if (plain) {
+        void copyPlaintextWithToasts(plain, {
+          ok: t('databases.password_copied'),
+          fail: t('databases.copy_failed'),
+        })
+      }
       qc.invalidateQueries({ queryKey: ['email', domainId] })
       setShowAdd(false)
     },
@@ -218,12 +220,13 @@ export default function EmailPage() {
     }) => api.patch(`/email/${id}`, body),
     onSuccess: (res) => {
       const plain = (res.data as { password_plain?: string })?.password_plain
-      toast.success(
-        plain
-          ? `${t('email.updated')} — ${t('email.password_once')} ${plain}`
-          : t('email.updated'),
-        { duration: plain ? 22_000 : 4000 },
-      )
+      toast.success(t('email.updated'))
+      if (plain) {
+        void copyPlaintextWithToasts(plain, {
+          ok: t('databases.password_copied'),
+          fail: t('databases.copy_failed'),
+        })
+      }
       qc.invalidateQueries({ queryKey: ['email', domainId] })
       setEditing(null)
       setEditPassword('')

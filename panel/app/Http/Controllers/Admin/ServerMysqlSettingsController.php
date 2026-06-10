@@ -16,10 +16,8 @@ class ServerMysqlSettingsController extends Controller
         $mp = config('panelze.mysql_provision', []);
         $enabled = filter_var($mp['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        $provisionPass = '';
-        if ($enabled) {
-            $provisionPass = trim((string) ($mp['password'] ?? ''));
-        }
+        $provisionPassSet = $enabled && trim((string) ($mp['password'] ?? '')) !== '';
+        $panelPassSet = trim((string) config('database.connections.mysql.password', '')) !== '';
 
         return response()->json([
             'provision' => [
@@ -27,14 +25,14 @@ class ServerMysqlSettingsController extends Controller
                 'host' => (string) ($mp['host'] ?? '127.0.0.1'),
                 'port' => (int) ($mp['port'] ?? 3306),
                 'username' => (string) ($mp['username'] ?? ''),
-                'password' => $provisionPass,
+                'password_set' => $provisionPassSet,
             ],
             'panel_app_database' => [
                 'host' => (string) config('database.connections.mysql.host', '127.0.0.1'),
                 'port' => (int) config('database.connections.mysql.port', 3306),
                 'database' => (string) config('database.connections.mysql.database', ''),
                 'username' => (string) config('database.connections.mysql.username', ''),
-                'password' => (string) config('database.connections.mysql.password', ''),
+                'password_set' => $panelPassSet,
             ],
             'phpmyadmin_url' => (string) config('panelze.ui.phpmyadmin_url', ''),
             'hints' => [

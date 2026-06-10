@@ -83,8 +83,8 @@ class PanelZekaActionExecutor
         $domain = $this->resolveDomain($user, (int) ($params['domain_id'] ?? 0));
         $path = trim((string) ($params['path'] ?? ''));
         $content = (string) ($params['content'] ?? '');
-        if ($path === '' || str_contains($path, '..')) {
-            return ['ok' => false, 'message' => 'Geçersiz dosya yolu.'];
+        if ($path === '' || str_contains($path, '..') || $this->isSensitivePath($path)) {
+            return ['ok' => false, 'message' => 'Geçersiz veya yasak dosya yolu.'];
         }
 
         $resp = $this->engine->writeFile($domain->name, $path, $content);
@@ -103,8 +103,8 @@ class PanelZekaActionExecutor
     {
         $domain = $this->resolveDomain($user, (int) ($params['domain_id'] ?? 0));
         $path = trim((string) ($params['path'] ?? ''));
-        if ($path === '' || str_contains($path, '..')) {
-            return ['ok' => false, 'message' => 'Geçersiz dosya yolu.'];
+        if ($path === '' || str_contains($path, '..') || $this->isSensitivePath($path)) {
+            return ['ok' => false, 'message' => 'Geçersiz veya yasak dosya yolu.'];
         }
 
         try {
@@ -280,6 +280,33 @@ class PanelZekaActionExecutor
             'message' => $run->status === 'success' ? 'Cron görevi çalıştırıldı.' : 'Cron çalıştırması: '.$run->status,
             'data' => ['status' => $run->status, 'output' => mb_substr((string) $run->output, 0, 16_000)],
         ];
+    }
+
+    private function isSensitivePath(string $path): bool
+    {
+        $base = strtolower(basename(str_replace('\\', '/', $path)));
+        $norm = strtolower(str_replace('\\', '/', $path));
+
+        $denyNames = [
+            '.env',
+            'wp-config.php',
+            'id_rsa',
+            'id_dsa',
+            'id_ed25519',
+            'authorized_keys',
+            'database.php',
+        ];
+        if (in_array($base, $denyNames, true)) {
+            return true;
+        }
+        if (str_ends_with($base, '.pem') || str_ends_with($base, '.key')) {
+            return true;
+        }
+        if (preg_match('#(^|/)\.env(\.|$)#', $norm)) {
+            return true;
+        }
+
+        return false;
     }
 
     private function resolveDomain(User $user, int $domainId): Domain
