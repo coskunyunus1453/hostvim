@@ -16,6 +16,7 @@ export PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/
 export PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 export PANELZE_AUTO_SYNC_GIT=1
 export PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"
+export WITH_BIND_DNS="${WITH_BIND_DNS:-1}"
 
 if ! declare -F hostvim_source_install_mode_lib &>/dev/null; then
   for _lib_boot in \

@@ -34,6 +34,8 @@
 #   PANELZE_FRESH_INSTALL=1 curl -fsSL "URL" | sudo bash
 #   veya RESET_PANEL_DB=1 curl -fsSL "URL" | bash
 #
+# DNS (varsayılan): BIND9 kurulur; panelde eklenen kayıtlar sunucuda yayınlanır (WITH_BIND_DNS=0 ile kapatılır).
+#
 # Diğer varsayılanlar:
 #   PANELZE_SEED_DEMO_USERS=0 — demo kullanıcı seed etme (eski: PANELSAR_SEED_DEMO_USERS)
 #   İlk kurulumda kullanıcı yoksa db:seed admin üretir; PANELZE_ADMIN_PASSWORD verilmezse rastgele şifre

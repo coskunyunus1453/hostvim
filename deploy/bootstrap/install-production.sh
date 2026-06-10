@@ -29,6 +29,8 @@
 #   WITH_APACHE=1               # apache2; Nginx 80 ile çakışmaz — Apache :8080 + engine apache_http_port: 8080
 #   WITH_LOCAL_POSTFIX=1        # Postfix + mailutils (panel giden posta: sendmail; Admin → Giden posta’dan SMTP’ye geçilebilir)
 #   WITH_MAIL_STACK_WEBMAIL=1   # Tam posta + Roundcube webmail (müşteri e-posta sayfasından kullanım için; varsayılan: 1)
+#   WITH_BIND_DNS=1             # BIND9 yetkili DNS — panel DNS kayıtları sunucuda yayınlanır (varsayılan: 1)
+#   HOSTVIM_DNS_NS1=ns1.ornek.com  # İsteğe bağlı; boşsa sunucu FQDN kullanılır
 #   SKIP_DB_SEED=1              # migrate sonrası db:seed atla
 #   PANELZE_UPDATE_ONLY=1       # Güncelleme kilidi: RESET_PANEL_DB=0, data/www ve migrate:fresh yok (install-update*.sh)
 #   RESET_PANEL_DB=1            # DİKKAT: migrate:fresh + (varsayılan) data/www vb. temizlik — üretimde yalnızca gerektiğinde
@@ -530,6 +532,7 @@ install_host_tool nginx-vhost
 install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
+install_host_tool bind-sync
 install_host_tool terminal-root
 install_host_tool php-ini
 install_host_tool security
@@ -587,6 +590,8 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-system-settings
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/hostvim-bind-sync
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
 visudo -cf /etc/sudoers.d/panelze-engine
@@ -712,6 +717,21 @@ update_env "ENGINE_API_URL" "http://127.0.0.1:9090"
 update_env "ENGINE_INTERNAL_KEY" "$INTERNAL_KEY"
 update_env "ENGINE_API_SECRET" "$ENGINE_JWT"
 update_env "LOG_LEVEL" "error"
+if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
+  update_env "HOSTVIM_DNS_BIND" "true"
+  _HOSTVIM_SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  if [[ -n "${HOSTVIM_DNS_SERVER_IP:-}" ]]; then
+    update_env "HOSTVIM_DNS_SERVER_IP" "${HOSTVIM_DNS_SERVER_IP}"
+  elif [[ -n "$_HOSTVIM_SERVER_IP" ]]; then
+    update_env "HOSTVIM_DNS_SERVER_IP" "$_HOSTVIM_SERVER_IP"
+  fi
+  if [[ -n "${HOSTVIM_DNS_NS1:-${PANELZE_DNS_NS1:-}}" ]]; then
+    update_env "HOSTVIM_DNS_NS1" "${HOSTVIM_DNS_NS1:-${PANELZE_DNS_NS1}}"
+  fi
+  if [[ -n "${HOSTVIM_DNS_NS2:-${PANELZE_DNS_NS2:-}}" ]]; then
+    update_env "HOSTVIM_DNS_NS2" "${HOSTVIM_DNS_NS2:-${PANELZE_DNS_NS2}}"
+  fi
+fi
 
 # Yerel Postfix: Laravel sendmail ile gönderir; SMTP’yi panelden (Admin → Giden posta) tanımlarsınız
 if [[ "${WITH_LOCAL_POSTFIX:-1}" == "1" ]] || [[ "${WITH_LOCAL_POSTFIX:-1}" == "yes" ]]; then
@@ -891,6 +911,23 @@ hostvim_run_artisan route:cache
 hostvim_run_artisan view:cache
 hostvim_run_artisan panelze:ensure-system-cron || true
 
+# BIND9 yetkili DNS — panel dns_records → named (kurulumda varsayılan açık)
+if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
+  _BIND_SETUP="$REPO_ROOT/deploy/host/hostvim-bind-setup.sh"
+  if command -v named >/dev/null 2>&1 && { systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; }; then
+    echo "==> BIND9 DNS senkronu (named zaten kurulu)"
+    if [[ -x /usr/local/sbin/hostvim-bind-sync ]]; then
+      /usr/local/sbin/hostvim-bind-sync || echo "UYARI: BIND sync başarısız — php artisan panelze:sync-bind-dns" >&2
+    fi
+  elif [[ -f "$_BIND_SETUP" ]] && [[ "${SKIP_APT:-}" != "1" ]]; then
+    echo "==> BIND9 yetkili DNS kurulumu (panel DNS kayıtları canlı yayın)"
+    HOSTVIM_HOME="$PANELZE_HOME" PANEL_ROOT="$PANEL_ROOT" bash "$_BIND_SETUP" \
+      || echo "UYARI: BIND9 kurulumu başarısız — kurulum sonrası: sudo bash $_BIND_SETUP" >&2
+  elif [[ -f "$_BIND_SETUP" ]]; then
+    echo "Uyarı: SKIP_APT=1 — BIND9 paketi kurulmadı. DNS için: sudo bash $_BIND_SETUP" >&2
+  fi
+fi
+
 # OS-level scheduler: Laravel schedule:run her dakika tetiklensin.
 rm -f /etc/cron.d/panelsar-panel-scheduler 2>/dev/null || true
 cat > /etc/cron.d/panelze-panel-scheduler <<EOF
@@ -979,6 +1016,10 @@ if [[ "${SKIP_UFW:-}" != "1" ]] && command -v ufw >/dev/null 2>&1; then
   ufw allow 'Nginx Full' >/dev/null 2>&1 || { ufw allow 80/tcp; ufw allow 443/tcp; }
   if [[ "${WITH_APACHE:-1}" == "1" ]] || [[ "${WITH_APACHE:-1}" == "yes" ]]; then
     ufw allow 8080/tcp >/dev/null 2>&1 || true
+  fi
+  if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
+    ufw allow 53/tcp comment 'BIND DNS' >/dev/null 2>&1 || ufw allow 53/tcp
+    ufw allow 53/udp comment 'BIND DNS' >/dev/null 2>&1 || ufw allow 53/udp
   fi
   ufw --force enable || true
 fi
@@ -1093,6 +1134,13 @@ fi
 if [[ "${WITH_APACHE:-1}" == "1" ]] || [[ "${WITH_APACHE:-1}" == "yes" ]]; then
   echo "  Apache HTTP:    :8080 (alan adı Apache seçiliyse http://alan:8080 — SSL için Nginx veya ayrı plan)"
 fi
+if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
+  if systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; then
+    echo "  BIND9 DNS:      aktif (panel DNS → named; port 53)"
+  else
+    echo "  BIND9 DNS:      kurulmadı veya pasif — sudo bash deploy/host/hostvim-bind-setup.sh"
+  fi
+fi
 echo ""
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   echo "################################################################"
@@ -1112,8 +1160,16 @@ if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then
   echo "################################################################"
   echo ""
 fi
-echo "Sonraki adımlar (çoğu kurulumda yalnızca DNS):"
-echo "  1) Alan adınızı bu sunucunun IP adresine yönlendirin (A kaydı). Sağlayıcı panelinden yapılır."
+echo "Sonraki adımlar:"
+if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
+  _BIND_IP="$(grep '^HOSTVIM_DNS_SERVER_IP=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '\r' || hostname -I 2>/dev/null | awk '{print $1}')"
+  _BIND_NS="$(hostname -f 2>/dev/null || hostname)"
+  echo "  1) Müşteri siteleri için DNS: registrar'da nameserver'ları bu sunucuya yönlendirin"
+  echo "     (glue: ns1/ns2 → ${_BIND_IP:-sunucu-IP}). Panel DNS sayfasındaki kayıtlar BIND9 ile yayınlanır."
+  echo "  2) Panel alan adı için A kaydı: bu sunucunun IP'sine yönlendirin."
+else
+  echo "  1) Alan adınızı bu sunucunun IP adresine yönlendirin (A kaydı). Sağlayıcı panelinden yapılır."
+fi
 if [[ -n "${PANELZE_EFFECTIVE_PUBLIC_HOST:-}" ]]; then
   echo "     Bu kurulumda panel alan adı: ${PANELZE_EFFECTIVE_PUBLIC_HOST} — DNS yayıldıktan sonra SSL için betiği tekrar çalıştırabilir veya certbot çıktısındaki komutu kullanabilirsiniz."
 else
@@ -1121,6 +1177,6 @@ else
   echo "       PANELZE_PUBLIC_HOST=panel.ornek.com LETS_ENCRYPT_EMAIL=size@ornek.com sudo -E bash deploy/bootstrap/install-production.sh"
   echo "     (veya PANELZE_APP_URL=https://panel.ornek.com — FQDN otomatik algilanir.)"
 fi
-echo "  2) Otomatik yapildi: MySQL kullanicilari, site izinleri, APP_URL / PHPMYADMIN_URL, config:cache, panelze:install-check."
+echo "  3) Otomatik yapildi: MySQL, izinler, BIND9 (WITH_BIND_DNS), mail stack, APP_URL, panelze:install-check."
 echo "     Sorun olursa (1045, permission denied): sudo panelze-post-install"
 echo ""

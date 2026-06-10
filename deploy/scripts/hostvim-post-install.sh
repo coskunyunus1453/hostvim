@@ -62,12 +62,23 @@ install_host_tool() {
 install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
+install_host_tool bind-sync
 install_host_tool system-settings
 install_host_tool node-pm2
 
 if [[ "$(id -u)" -eq 0 ]]; then
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
+  if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
+    _BIND_SETUP="${PANELZE_HOME}/deploy/host/hostvim-bind-setup.sh"
+    if command -v named >/dev/null 2>&1 && { systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; }; then
+      echo "==> BIND9 DNS senkronu"
+      /usr/local/sbin/hostvim-bind-sync 2>/dev/null || true
+    elif [[ -f "$_BIND_SETUP" ]]; then
+      echo "==> BIND9 yetkili DNS kurulumu"
+      HOSTVIM_HOME="$PANELZE_HOME" PANEL_ROOT="$PANEL_ROOT" bash "$_BIND_SETUP" || true
+    fi
+  fi
 fi
 systemctl restart hostvim-engine 2>/dev/null || systemctl restart panelze-engine 2>/dev/null || true
 
