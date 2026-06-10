@@ -59,8 +59,19 @@ chmod 644 "${CONF_SNIPPET}"
 printf '%s\n' '// Hostvim: panelze:sync-bind-dns ile doldurulur' >"${CONF_SNIPPET}"
 
 named-checkconf
-systemctl enable bind9
-systemctl restart bind9
+BIND_UNIT="named"
+if ! systemctl list-unit-files named.service >/dev/null 2>&1; then
+  BIND_UNIT="bind9"
+fi
+systemctl enable "${BIND_UNIT}"
+systemctl restart "${BIND_UNIT}"
+
+if systemctl is-active "${BIND_UNIT}" >/dev/null 2>&1; then
+  echo "BIND servisi: ${BIND_UNIT} aktif"
+else
+  echo "UYARI: BIND servisi başlatılamadı (${BIND_UNIT})" >&2
+  journalctl -u "${BIND_UNIT}" -n 20 --no-pager >&2 || true
+fi
 
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q 'Status: active'; then
   ufw allow 53/tcp comment 'BIND DNS' || true

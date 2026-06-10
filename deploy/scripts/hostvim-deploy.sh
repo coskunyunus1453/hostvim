@@ -154,7 +154,7 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool bind-sync
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
-  if ! command -v named >/dev/null 2>&1 || ! systemctl is-active bind9 >/dev/null 2>&1; then
+  if ! command -v named >/dev/null 2>&1 || { ! systemctl is-active named >/dev/null 2>&1 && ! systemctl is-active bind9 >/dev/null 2>&1; }; then
     if [[ -f "${HOSTVIM_HOME}/deploy/host/hostvim-bind-setup.sh" ]]; then
       echo "==> BIND9 kurulumu (ilk kez)"
       bash "${HOSTVIM_HOME}/deploy/host/hostvim-bind-setup.sh"

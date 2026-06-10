@@ -107,8 +107,13 @@ class BindDnsService
         $reload = new Process(['rndc', 'reload']);
         $reload->run();
         if (! $reload->isSuccessful()) {
-            $reload = new Process(['systemctl', 'reload', 'bind9']);
-            $reload->run();
+            foreach (['named', 'bind9'] as $unit) {
+                $reload = new Process(['systemctl', 'reload', $unit]);
+                $reload->run();
+                if ($reload->isSuccessful()) {
+                    break;
+                }
+            }
         }
 
         if (! $reload->isSuccessful()) {
