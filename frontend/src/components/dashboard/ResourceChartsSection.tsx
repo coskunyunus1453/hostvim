@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
+import api from '../../services/api'
 import {
   Area,
   AreaChart,
@@ -65,6 +67,21 @@ export default function ResourceChartsSection({
   const [memHist, setMemHist] = useState<{ i: number; v: number }[]>([])
   const [diskHist, setDiskHist] = useState<{ i: number; v: number }[]>([])
   const [detail, setDetail] = useState<DetailKind>(null)
+
+  const fullStatsQ = useQuery({
+    queryKey: ['system-stats-full'],
+    queryFn: async () => (await api.get('/system/stats', { params: { scope: 'full' } })).data.stats as SystemStats,
+    enabled: detail != null,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  })
+
+  const displayStats = useMemo(() => {
+    if (detail != null && fullStatsQ.data) return fullStatsQ.data
+    return stats
+  }, [detail, fullStatsQ.data, stats])
+
+  const detailStats = displayStats ?? stats
 
   const cpu = stats?.cpu_usage ?? 0
   const mem = stats?.memory_percent ?? 0
@@ -254,24 +271,24 @@ export default function ResourceChartsSection({
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.cpu_model')}</dt>
                     <dd className="text-right font-medium text-gray-900 dark:text-white">
-                      {stats.cpu_model?.trim() || '—'}
+                      {detailStats?.cpu_model?.trim() || '—'}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.cpu_cores')}</dt>
-                    <dd className="text-right font-mono">{stats.cpu_cores_logical ?? '—'}</dd>
+                    <dd className="text-right font-mono">{detailStats?.cpu_cores_logical ?? '—'}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.cpu_usage_total')}</dt>
                     <dd className="text-right font-mono">{Math.round(cpu)}%</dd>
                   </div>
-                  {stats.load1 != null && stats.cpu_cores_logical != null && stats.cpu_cores_logical > 0 && (
+                  {detailStats?.load1 != null && detailStats.cpu_cores_logical != null && detailStats.cpu_cores_logical > 0 && (
                     <div className="flex justify-between gap-2">
                       <dt className="text-gray-500">{t('dashboard.load_avg_1')}</dt>
                       <dd className="text-right font-mono">
-                        {stats.load1.toFixed(2)}
+                        {detailStats.load1.toFixed(2)}
                         <span className="ml-1 text-xs text-gray-500">
-                          ({t('dashboard.load_avg_hint', { cores: stats.cpu_cores_logical })})
+                          ({t('dashboard.load_avg_hint', { cores: detailStats.cpu_cores_logical })})
                         </span>
                       </dd>
                     </div>
@@ -281,25 +298,29 @@ export default function ResourceChartsSection({
                 <h4 className="font-medium text-gray-900 dark:text-white">
                   {t('dashboard.top3_cpu')}
                 </h4>
-                <ol className="space-y-2">
-                  {(stats.top_cpu_processes ?? []).slice(0, 3).map((p, i) => (
-                    <li
-                      key={`${p.pid}-${i}`}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-100 px-3 py-2 dark:border-gray-800"
-                    >
-                      <span className="font-mono text-xs text-gray-500">#{p.pid}</span>
-                      <span className="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">
-                        {p.name}
-                      </span>
-                      <span className="font-mono text-sm font-semibold text-primary-600 dark:text-primary-400">
-                        {processCpuOfTotal(p, stats.cpu_cores_logical).toFixed(1)}% CPU
-                      </span>
-                    </li>
-                  ))}
-                  {(stats.top_cpu_processes ?? []).length === 0 && (
-                    <li className="text-gray-500">{t('dashboard.no_process_data')}</li>
-                  )}
-                </ol>
+                {fullStatsQ.isFetching && (detailStats?.top_cpu_processes ?? []).length === 0 ? (
+                  <p className="animate-pulse text-gray-500">{t('dashboard.loading_details')}</p>
+                ) : (
+                  <ol className="space-y-2">
+                    {(detailStats?.top_cpu_processes ?? []).slice(0, 3).map((p, i) => (
+                      <li
+                        key={`${p.pid}-${i}`}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-100 px-3 py-2 dark:border-gray-800"
+                      >
+                        <span className="font-mono text-xs text-gray-500">#{p.pid}</span>
+                        <span className="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">
+                          {p.name}
+                        </span>
+                        <span className="font-mono text-sm font-semibold text-primary-600 dark:text-primary-400">
+                          {processCpuOfTotal(p, detailStats?.cpu_cores_logical).toFixed(1)}% CPU
+                        </span>
+                      </li>
+                    ))}
+                    {(detailStats?.top_cpu_processes ?? []).length === 0 && (
+                      <li className="text-gray-500">{t('dashboard.no_process_data')}</li>
+                    )}
+                  </ol>
+                )}
               </div>
             )}
 
@@ -309,15 +330,15 @@ export default function ResourceChartsSection({
                 <dl className="grid gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/80">
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.ram_total')}</dt>
-                    <dd className="font-mono">{formatBytes(stats.memory_total)}</dd>
+                    <dd className="font-mono">{formatBytes(detailStats?.memory_total)}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.ram_used')}</dt>
-                    <dd className="font-mono">{formatBytes(stats.memory_used)}</dd>
+                    <dd className="font-mono">{formatBytes(detailStats?.memory_used)}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.ram_available')}</dt>
-                    <dd className="font-mono">{formatBytes(stats.memory_available)}</dd>
+                    <dd className="font-mono">{formatBytes(detailStats?.memory_available)}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.ram_percent')}</dt>
@@ -326,10 +347,10 @@ export default function ResourceChartsSection({
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.swap')}</dt>
                     <dd className="font-mono text-right">
-                      {formatBytes(stats.swap_used)} / {formatBytes(stats.swap_total)}
-                      {stats.swap_percent != null && stats.swap_total ? (
+                      {formatBytes(detailStats?.swap_used)} / {formatBytes(detailStats?.swap_total)}
+                      {detailStats?.swap_percent != null && detailStats.swap_total ? (
                         <span className="ml-1 text-gray-500">
-                          ({Math.round(stats.swap_percent)}%)
+                          ({Math.round(detailStats.swap_percent)}%)
                         </span>
                       ) : null}
                     </dd>
@@ -338,25 +359,29 @@ export default function ResourceChartsSection({
                 <h4 className="font-medium text-gray-900 dark:text-white">
                   {t('dashboard.top3_ram')}
                 </h4>
-                <ol className="space-y-2">
-                  {(stats.top_memory_processes ?? []).slice(0, 3).map((p, i) => (
-                    <li
-                      key={`${p.pid}-${i}`}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-100 px-3 py-2 dark:border-gray-800"
-                    >
-                      <span className="font-mono text-xs text-gray-500">#{p.pid}</span>
-                      <span className="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">
-                        {p.name}
-                      </span>
-                      <span className="font-mono text-sm font-semibold text-secondary-600 dark:text-secondary-400">
-                        {formatBytes(p.rss_bytes)}
-                      </span>
-                    </li>
-                  ))}
-                  {(stats.top_memory_processes ?? []).length === 0 && (
-                    <li className="text-gray-500">{t('dashboard.no_process_data')}</li>
-                  )}
-                </ol>
+                {fullStatsQ.isFetching && (detailStats?.top_memory_processes ?? []).length === 0 ? (
+                  <p className="animate-pulse text-gray-500">{t('dashboard.loading_details')}</p>
+                ) : (
+                  <ol className="space-y-2">
+                    {(detailStats?.top_memory_processes ?? []).slice(0, 3).map((p, i) => (
+                      <li
+                        key={`${p.pid}-${i}`}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-100 px-3 py-2 dark:border-gray-800"
+                      >
+                        <span className="font-mono text-xs text-gray-500">#{p.pid}</span>
+                        <span className="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">
+                          {p.name}
+                        </span>
+                        <span className="font-mono text-sm font-semibold text-secondary-600 dark:text-secondary-400">
+                          {formatBytes(p.rss_bytes)}
+                        </span>
+                      </li>
+                    ))}
+                    {(detailStats?.top_memory_processes ?? []).length === 0 && (
+                      <li className="text-gray-500">{t('dashboard.no_process_data')}</li>
+                    )}
+                  </ol>
+                )}
               </div>
             )}
 
@@ -367,7 +392,7 @@ export default function ResourceChartsSection({
                   <div className="flex justify-between gap-2">
                     <dt className="text-gray-500">{t('dashboard.disk_panel_mount')}</dt>
                     <dd className="text-right font-mono text-xs">
-                      {formatBytes(stats.disk_used)} / {formatBytes(stats.disk_total)} ({Math.round(disk)}%)
+                      {formatBytes(detailStats?.disk_used)} / {formatBytes(detailStats?.disk_total)} ({Math.round(disk)}%)
                     </dd>
                   </div>
                 </dl>
@@ -375,30 +400,34 @@ export default function ResourceChartsSection({
                   {t('dashboard.top3_disk')}
                 </h4>
                 <p className="text-xs text-gray-500">{t('dashboard.top3_disk_hint')}</p>
-                <ol className="space-y-2">
-                  {(stats.top_disk_mounts ?? []).slice(0, 3).map((m, i) => (
-                    <li
-                      key={`${m.path}-${i}`}
-                      className="rounded-md border border-gray-100 px-3 py-2 dark:border-gray-800"
-                    >
-                      <div className="font-mono text-xs text-gray-500">{m.path}</div>
-                      {m.fstype ? (
-                        <div className="text-xs text-gray-400">{m.fstype}</div>
-                      ) : null}
-                      <div className="mt-1 flex justify-between font-mono text-sm">
-                        <span>
-                          {formatBytes(m.used_bytes)} / {formatBytes(m.total_bytes)}
-                        </span>
-                        <span className="font-semibold text-orange-600 dark:text-orange-400">
-                          {Math.round(m.used_percent)}%
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                  {(stats.top_disk_mounts ?? []).length === 0 && (
-                    <li className="text-gray-500">{t('dashboard.no_mount_data')}</li>
-                  )}
-                </ol>
+                {fullStatsQ.isFetching && (detailStats?.top_disk_mounts ?? []).length === 0 ? (
+                  <p className="animate-pulse text-gray-500">{t('dashboard.loading_details')}</p>
+                ) : (
+                  <ol className="space-y-2">
+                    {(detailStats?.top_disk_mounts ?? []).slice(0, 3).map((m, i) => (
+                      <li
+                        key={`${m.path}-${i}`}
+                        className="rounded-md border border-gray-100 px-3 py-2 dark:border-gray-800"
+                      >
+                        <div className="font-mono text-xs text-gray-500">{m.path}</div>
+                        {m.fstype ? (
+                          <div className="text-xs text-gray-400">{m.fstype}</div>
+                        ) : null}
+                        <div className="mt-1 flex justify-between font-mono text-sm">
+                          <span>
+                            {formatBytes(m.used_bytes)} / {formatBytes(m.total_bytes)}
+                          </span>
+                          <span className="font-semibold text-orange-600 dark:text-orange-400">
+                            {Math.round(m.used_percent)}%
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                    {(detailStats?.top_disk_mounts ?? []).length === 0 && (
+                      <li className="text-gray-500">{t('dashboard.no_mount_data')}</li>
+                    )}
+                  </ol>
+                )}
               </div>
             )}
           </div>

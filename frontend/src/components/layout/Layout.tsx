@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { useThemeStore } from '../../store/themeStore'
@@ -9,6 +9,7 @@ import { useUiModeStore } from '../../store/uiModeStore'
 import { useAuthStore } from '../../store/authStore'
 import { authService } from '../../services/authService'
 import { mustEnrollTwoFactor } from '../../lib/authRoles'
+import { prefetchDashboard } from '../../lib/prefetchDashboard'
 export default function Layout() {
   const { t } = useTranslation()
   const sidebarCollapsed = useThemeStore((s) => s.sidebarCollapsed)
@@ -22,6 +23,7 @@ export default function Layout() {
   const setWhiteLabelUi = useAuthStore((s) => s.setWhiteLabelUi)
   const setActivePluginSlugs = useAuthStore((s) => s.setActivePluginSlugs)
   const whiteLabel = useAuthStore((s) => s.whiteLabel)
+  const queryClient = useQueryClient()
   const location = useLocation()
   const onboardingSeen = useUiModeStore((s) => s.onboardingSeen)
   const setMode = useUiModeStore((s) => s.setMode)
@@ -33,6 +35,11 @@ export default function Layout() {
     staleTime: 60_000,
     retry: false,
   })
+
+  useEffect(() => {
+    if (!token) return
+    prefetchDashboard(queryClient)
+  }, [token, queryClient])
 
   useEffect(() => {
     const d = meQ.data

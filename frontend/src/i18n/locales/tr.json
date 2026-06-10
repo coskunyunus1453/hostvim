@@ -429,6 +429,7 @@
     "top3_disk_hint": "Sistemdeki mount noktalarına göre; panel kökü farklı olabilir.",
     "no_process_data": "Süreç listesi alınamadı veya boş.",
     "no_mount_data": "Mount bilgisi alınamadı.",
+    "loading_details": "Detaylı süreç listesi yükleniyor…",
     "system_admin_only": "Sunucu kaynak özeti yalnızca yöneticiler için engine üzerinden gösterilir.",
     "system_engine_hint": "Engine çalışmıyorsa sunucu istatistikleri görünmez. Engine ve ENGINE_INTERNAL_KEY ayarlarını kontrol edin.",
     "package_limits": "Paket limitleri",

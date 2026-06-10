@@ -49,7 +49,14 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	phpVerRe := regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
 
 	api.GET("/system/stats", func(c *gin.Context) {
-		ext := monitoring.CollectExtended(cfg.Paths.WebRoot)
+		scope := strings.ToLower(strings.TrimSpace(c.Query("scope")))
+		var ext monitoring.ExtendedSnapshot
+		switch scope {
+		case "full":
+			ext = monitoring.CollectExtendedCached(cfg.Paths.WebRoot)
+		default:
+			ext = monitoring.CollectOverview(cfg.Paths.WebRoot)
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"data": gin.H{
 				"cpu_usage":                ext.CPUUsagePercent,

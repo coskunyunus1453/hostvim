@@ -8,10 +8,12 @@ import { useBranding, WL_SESSION_KEY } from '../hooks/useBranding'
 import { Server, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { mustEnrollTwoFactor } from '../lib/authRoles'
+import { prefetchDashboard } from '../lib/prefetchDashboard'
 import { safeBrandingImageUrl } from '../lib/urlSafety'
 
 export default function LoginPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const setAuth = useAuthStore((s) => s.setAuth)
@@ -69,6 +71,7 @@ export default function LoginPage() {
       white_label: data.white_label,
       active_plugin_slugs: data.active_plugin_slugs,
     })
+    prefetchDashboard(queryClient)
     if (data.force_password_change || data.user.force_password_change) {
       toast('İlk giriş: Şifrenizi şimdi değiştirin.', { icon: '🔒' })
       navigate('/settings?mandatoryPassword=1')

@@ -7,6 +7,7 @@ use App\Models\Domain;
 use App\Models\User;
 use App\Services\EngineApiService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\JsonResponse;
@@ -22,11 +23,16 @@ class SystemController extends Controller
 
     public function stats(Request $request): JsonResponse
     {
-        if (! $request->user()?->isAdmin()) {
+        $user = $request->user();
+        if (! $user?->isAdmin() && ! $user?->isVendorOperator()) {
             abort(403);
         }
 
-        $stats = $this->engineApi->getSystemStats();
+        $scope = $request->query('scope', 'full') === 'overview' ? 'overview' : 'full';
+        $cacheKey = 'panelze:system:stats:'.$scope;
+        $stats = Cache::remember($cacheKey, $scope === 'overview' ? 20 : 30, function () use ($scope) {
+            return $this->engineApi->getSystemStats($scope);
+        });
 
         return response()->json(['stats' => $stats]);
     }
@@ -219,7 +225,9 @@ class SystemController extends Controller
             $data['total_domains'] = Domain::count();
         }
         if ($user->isAdmin() || $user->isVendorOperator()) {
-            $data['system_stats'] = $this->engineApi->getSystemStats();
+            $data['system_stats'] = Cache::remember('panelze:dashboard:stats:overview', 20, function () {
+                return $this->engineApi->getSystemStats('overview');
+            });
         }
 
         return response()->json(['dashboard' => $data]);

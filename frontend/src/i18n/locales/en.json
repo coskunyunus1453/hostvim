@@ -428,6 +428,7 @@
     "top3_disk_hint": "Based on system mount points; panel root may differ.",
     "no_process_data": "Process list unavailable or empty.",
     "no_mount_data": "Mount information unavailable.",
+    "loading_details": "Loading detailed process list…",
     "system_admin_only": "Server resource summary is shown to admins via the engine only.",
     "system_engine_hint": "If the engine is down, stats will not appear. Check the engine and ENGINE_INTERNAL_KEY.",
     "package_limits": "Package limits",

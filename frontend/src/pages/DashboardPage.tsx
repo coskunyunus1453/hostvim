@@ -8,6 +8,7 @@ import { isHostingSuperAdmin, isServerAdminUI } from '../lib/authRoles'
 import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, RotateCw, Server } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ResourceChartsSection from '../components/dashboard/ResourceChartsSection'
+import DashboardSkeleton from '../components/dashboard/DashboardSkeleton'
 import PanelUpdateCard from '../components/panel/PanelUpdateCard'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
 
@@ -28,9 +29,11 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get('/dashboard')).data.dashboard as DashboardData,
     refetchInterval: serverUI ? () => pollWhenVisible(20_000) : false,
     staleTime: 15_000,
+    placeholderData: (prev) => prev,
   })
 
   const d = dashQ.data
+  const dashLoading = dashQ.isLoading && d == null
   const sys = d?.system_stats
   const serviceShortcutsSupported = (sys?.os ?? '').toLowerCase().includes('linux')
 
@@ -180,6 +183,10 @@ export default function DashboardPage() {
       return a.name.localeCompare(b.name)
     })
 
+  if (dashLoading) {
+    return <DashboardSkeleton showCharts={serverUI} />
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -237,7 +244,7 @@ export default function DashboardPage() {
                 {t('dashboard.disk_usage')}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                {dashQ.isLoading ? '…' : `${fmtGb(sys?.disk_used)} / ${fmtGb(sys?.disk_total)}`}
+                {dashQ.isFetching && !sys ? '…' : `${fmtGb(sys?.disk_used)} / ${fmtGb(sys?.disk_total)}`}
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {sys?.disk_percent != null ? `%${Math.round(sys.disk_percent)} dolu` : '—'}
@@ -262,7 +269,7 @@ export default function DashboardPage() {
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
               </div>
               <p className="text-2xl font-bold leading-none text-gray-900 dark:text-white">
-                {dashQ.isLoading ? '…' : stat.value}
+                {dashQ.isFetching && d == null ? '…' : stat.value}
               </p>
             </div>
             <p className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">{stat.label}</p>
@@ -303,7 +310,7 @@ export default function DashboardPage() {
             </p>
           ) : (
             <div className="space-y-4">
-              <ResourceChartsSection stats={sys} loading={dashQ.isLoading} />
+              <ResourceChartsSection stats={sys} loading={dashQ.isFetching && sys == null} />
               {sys.uptime != null && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t('dashboard.uptime_approx')}: {Math.floor(sys.uptime / 3600)}h

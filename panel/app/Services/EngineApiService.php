@@ -90,9 +90,12 @@ class EngineApiService
         return $this->withEngineAuth(Http::timeout($timeout));
     }
 
-    public function getSystemStats(): array
+    public function getSystemStats(string $scope = 'full'): array
     {
-        return $this->get('/api/v1/system/stats')['data'] ?? [];
+        $scope = $scope === 'overview' ? 'overview' : 'full';
+        $path = '/api/v1/system/stats?scope='.rawurlencode($scope);
+
+        return $this->get($path)['data'] ?? [];
     }
 
     public function getServices(): array
