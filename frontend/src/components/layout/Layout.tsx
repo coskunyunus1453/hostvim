@@ -8,9 +8,6 @@ import { useUiModeStore } from '../../store/uiModeStore'
 import { useAuthStore } from '../../store/authStore'
 import { authService } from '../../services/authService'
 import { mustEnrollTwoFactor } from '../../lib/authRoles'
-import SiteStackAlertsModal from '../domains/SiteStackAlertsModal'
-import { useStackAlertsModal } from '../../hooks/useStackAlertsModal'
-
 export default function Layout() {
   const { t } = useTranslation()
   const sidebarCollapsed = useThemeStore((s) => s.sidebarCollapsed)
@@ -28,8 +25,6 @@ export default function Layout() {
   const onboardingSeen = useUiModeStore((s) => s.onboardingSeen)
   const setMode = useUiModeStore((s) => s.setMode)
   const markOnboardingSeen = useUiModeStore((s) => s.markOnboardingSeen)
-  const stackAlerts = useStackAlertsModal()
-
   useEffect(() => {
     if (!token) {
       return
@@ -139,7 +134,6 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-      <SiteStackAlertsModal open={stackAlerts.open} onClose={() => stackAlerts.setOpen(false)} />
     </div>
   )
 }
