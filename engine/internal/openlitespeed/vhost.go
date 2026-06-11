@@ -388,7 +388,7 @@ func ApplyBackendVhost(cfg *config.Config, domain, docRoot, phpSocket string, al
 	return applyVhostInner(cfg, domain, docRoot, phpSocket, "", "", aliases, false, true)
 }
 
-// ApplyVhost vhconf + virtualhost parçası + map + include indeksini yazar; istenirse lswsctrl configtest/reload.
+// ApplyVhost vhconf + virtualhost parçası + map + include indeksini yazar; istenirse lswsctrl reload.
 func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS bool) error {
 	return applyVhostInner(cfg, domain, docRoot, phpSocket, sslFullchain, sslPrivkey, aliases, forceHTTPS, false)
 }
@@ -495,14 +495,8 @@ func applyVhostInner(cfg *config.Config, domain, docRoot, phpSocket, sslFullchai
 }
 
 func olsConfigTest(cfg *config.Config) error {
-	bin := ctrlBin(cfg)
-	if _, err := os.Stat(bin); err != nil {
-		return nil
-	}
-	out, err := exec.Command(bin, "configtest").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("openlitespeed configtest: %w — %s", err, strings.TrimSpace(string(out)))
-	}
+	// OpenLiteSpeed lswsctrl'de configtest yok; yapılandırma reload/restart ile uygulanır.
+	_ = cfg
 	return nil
 }
 

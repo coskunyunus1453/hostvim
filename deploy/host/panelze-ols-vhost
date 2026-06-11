@@ -16,8 +16,10 @@ ols_vhid() {
 
 ols_reload() {
   if [[ -x "$CTRL" ]]; then
-    "$CTRL" configtest
-    "$CTRL" reload || "$CTRL" restart
+    # lswsctrl: start|stop|restart|reload|status — configtest yok (Apache gibi değil)
+    if ! "$CTRL" reload 2>/dev/null; then
+      "$CTRL" restart
+    fi
   else
     systemctl reload lshttpd 2>/dev/null || systemctl reload openlitespeed 2>/dev/null || true
   fi
