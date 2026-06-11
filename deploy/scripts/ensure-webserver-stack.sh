@@ -122,14 +122,23 @@ if [[ "$restarted" -eq 0 ]]; then
 fi
 
 echo "==> helper doğrulama"
-out_apache="$(sudo -u www-data sudo -n /usr/local/sbin/panelze-apache-vhost disable panelze-test.conf 2>&1 || true)"
-if ! grep -qiE 'geçersiz|invalid' <<<"$out_apache"; then
-  echo "Hata: panelze-apache-vhost çalışmıyor: $out_apache" >&2
+# Geçersiz girdi ile sudo+helper yolunu test et (başarılı disable Syntax OK döner — yanlış pozitif olmasın)
+out_apache="$(sudo -u www-data sudo -n /usr/local/sbin/panelze-apache-vhost disable test.conf 2>&1 || true)"
+if grep -qiE 'sudo:|not allowed|password required' <<<"$out_apache"; then
+  echo "Hata: panelze-apache-vhost sudo çalışmıyor: $out_apache" >&2
   exit 1
 fi
-out_ols="$(sudo -u www-data sudo -n /usr/local/sbin/panelze-ols-vhost remove invalid.invalid 2>&1 || true)"
-if ! grep -qiE 'geçersiz|invalid' <<<"$out_ols"; then
-  echo "Hata: panelze-ols-vhost çalışmıyor: $out_ols" >&2
+if ! grep -qiE 'geçersiz|invalid|izin verilmeyen' <<<"$out_apache"; then
+  echo "Hata: panelze-apache-vhost reddetmedi (beklenen geçersiz dosya adı): $out_apache" >&2
+  exit 1
+fi
+out_ols="$(sudo -u www-data sudo -n /usr/local/sbin/panelze-ols-vhost remove .invalid 2>&1 || true)"
+if grep -qiE 'sudo:|not allowed|password required' <<<"$out_ols"; then
+  echo "Hata: panelze-ols-vhost sudo çalışmıyor: $out_ols" >&2
+  exit 1
+fi
+if ! grep -qiE 'geçersiz|invalid|izin verilmeyen' <<<"$out_ols"; then
+  echo "Hata: panelze-ols-vhost reddetmedi (beklenen geçersiz domain): $out_ols" >&2
   exit 1
 fi
 
