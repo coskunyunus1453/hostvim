@@ -131,23 +131,45 @@ elif [[ -f /etc/panelze/engine.yaml ]]; then
   ENGINE_CFG="/etc/panelze/engine.yaml"
 fi
 
-ensure_engine_edge_proxy() {
-  local cfg="$1"
-  [[ -f "$cfg" ]] || return 0
-  if grep -qE '^[[:space:]]*nginx_edge_proxy:[[:space:]]*true[[:space:]]*$' "$cfg"; then
-    echo "==> $cfg nginx_edge_proxy: true"
+set_engine_yaml_bool() {
+  local cfg="$1" key="$2" want="$3"
+  if grep -qE "^[[:space:]]*${key}:[[:space:]]*${want}[[:space:]]*$" "$cfg"; then
     return 0
   fi
-  cp -a "$cfg" "${cfg}.bak.$(date +%Y%m%d%H%M%S)"
-  if grep -q 'nginx_edge_proxy' "$cfg"; then
-    sed -i 's/^\([[:space:]]*nginx_edge_proxy:\).*/\1 true/' "$cfg"
+  if grep -q "^[[:space:]]*${key}:" "$cfg"; then
+    sed -i "s/^\([[:space:]]*${key}:\).*/\1 ${want}/" "$cfg"
   else
-    sed -i '/^hosting:/a\  nginx_edge_proxy: true' "$cfg"
+    sed -i "/^hosting:/a\\  ${key}: ${want}" "$cfg"
   fi
-  echo "==> $cfg nginx_edge_proxy etkinleştirildi (nginx 80/443 → Apache/OLS backend)"
+  echo "==> $cfg ${key}: ${want}"
 }
 
-ensure_engine_edge_proxy "$ENGINE_CFG"
+ensure_engine_hosting_flags() {
+  local cfg="$1"
+  [[ -f "$cfg" ]] || return 0
+  local backed=0
+  patch_bool() {
+    local key="$1" want="$2"
+    if grep -qE "^[[:space:]]*${key}:[[:space:]]*${want}[[:space:]]*$" "$cfg"; then
+      return 0
+    fi
+    if [[ "$backed" -eq 0 ]]; then
+      cp -a "$cfg" "${cfg}.bak.$(date +%Y%m%d%H%M%S)"
+      backed=1
+    fi
+    set_engine_yaml_bool "$cfg" "$key" "$want"
+  }
+  patch_bool nginx_manage_vhosts true
+  patch_bool nginx_edge_proxy true
+  if [[ -f /etc/apache2/ports.conf ]] || command -v apache2ctl >/dev/null 2>&1; then
+    patch_bool apache_manage_vhosts true
+  fi
+  if [[ -x /usr/local/lsws/bin/lswsctrl ]]; then
+    patch_bool openlitespeed_manage_vhosts true
+  fi
+}
+
+ensure_engine_hosting_flags "$ENGINE_CFG"
 
 write_panelze_engine_unit() {
   sed \
