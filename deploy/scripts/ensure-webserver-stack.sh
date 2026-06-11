@@ -85,6 +85,13 @@ fi
 (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine)
 chmod 755 /usr/local/bin/panelze-engine
 
+echo "==> legacy engine binary adları (hostvim-engine / panelsar-engine)"
+for legacy in hostvim-engine panelsar-engine; do
+  if [[ -f /etc/systemd/system/${legacy}.service ]] || [[ -e /usr/local/bin/$legacy ]]; then
+    install -m 755 /usr/local/bin/panelze-engine "/usr/local/bin/$legacy"
+  fi
+done
+
 if ! engine_binary_has_marker /usr/local/bin/panelze-engine 'ols-staging'; then
   echo "Hata: panelze-engine güncel değil (ols-staging işareti yok — derleme başarısız olabilir)" >&2
   exit 1
@@ -98,15 +105,24 @@ elif [[ -f /etc/panelze/engine.yaml ]]; then
   CONFIG_DIR="/etc/panelze"
 fi
 
-if [[ ! -f /etc/systemd/system/panelze-engine.service ]] && [[ ! -f /etc/systemd/system/hostvim-engine.service ]]; then
-  echo "==> systemd panelze-engine.service"
+write_panelze_engine_unit() {
   sed \
     -e "s|__PANELZE_HOME__|$PANELZE_HOME|g" \
     -e "s|__ENGINE_BINARY__|/usr/local/bin/panelze-engine|g" \
     -e "s|PANELZE_CONFIG_DIR=/etc/panelze|PANELZE_CONFIG_DIR=$CONFIG_DIR|g" \
-    "$PANELZE_HOME/deploy/systemd/panelze-engine.service" > /etc/systemd/system/panelze-engine.service
+    "$PANELZE_HOME/deploy/systemd/panelze-engine.service"
+}
+
+if [[ ! -f /etc/systemd/system/panelze-engine.service ]] && [[ ! -f /etc/systemd/system/hostvim-engine.service ]]; then
+  echo "==> systemd panelze-engine.service"
+  write_panelze_engine_unit > /etc/systemd/system/panelze-engine.service
   systemctl daemon-reload
   systemctl enable panelze-engine 2>/dev/null || true
+elif [[ -f /etc/systemd/system/panelze-engine.service ]] \
+  && grep -q 'ExecStart=/usr/local/bin/hostvim-engine' /etc/systemd/system/panelze-engine.service 2>/dev/null; then
+  echo "==> panelze-engine.service ExecStart düzeltiliyor"
+  write_panelze_engine_unit > /etc/systemd/system/panelze-engine.service
+  systemctl daemon-reload
 fi
 
 free_engine_port
