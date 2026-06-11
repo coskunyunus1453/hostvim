@@ -92,10 +92,16 @@ m = re.search(re.escape(begin) + r'(.*?)' + re.escape(end), text, re.S)
 if not m:
     raise SystemExit('panelze-ols-backend listener bloğu yok')
 body = m.group(1)
-body = re.sub(r'(?m)^\\s*include\\s+conf/conf\\.d/panelze-ols-http-maps\\.conf.*\\n', '', body)
-body = re.sub(r'(?m)^\\s*map\\s+' + re.escape(vhid) + r'.*\\n', '', body)
-body = body.rstrip() + '\\n  ' + map_line.strip() + '\\n'
-text = text[:m.start(1)] + body + text[m.end(1):]
+maps = [ln.strip() for ln in re.findall(r'(?m)^\\s*map\\s+panelze-[^\\n]+', body)]
+maps = [ln for ln in maps if not ln.startswith('map ' + vhid + ' ')]
+maps.append(map_line.strip())
+port_m = re.search(r'\\*:(\\d+)', body)
+port = port_m.group(1) if port_m else '8088'
+new_body = '\\nlistener panelzeBackend {\\n  address                 *:' + port + '\\n  secure                  0\\n'
+for mp in maps:
+    new_body += '  ' + mp + '\\n'
+new_body += '}\\n'
+text = text[:m.start(1)] + new_body + text[m.end(1):]
 "
 }
 
@@ -110,8 +116,15 @@ m = re.search(re.escape(begin) + r'(.*?)' + re.escape(end), text, re.S)
 if not m:
     raise SystemExit(0)
 body = m.group(1)
-body = re.sub(r'(?m)^\\s*map\\s+' + re.escape(vhid) + r'.*\\n', '', body)
-text = text[:m.start(1)] + body + text[m.end(1):]
+maps = [ln.strip() for ln in re.findall(r'(?m)^\\s*map\\s+panelze-[^\\n]+', body)]
+maps = [ln for ln in maps if not ln.startswith('map ' + vhid + ' ')]
+port_m = re.search(r'\\*:(\\d+)', body)
+port = port_m.group(1) if port_m else '8088'
+new_body = '\\nlistener panelzeBackend {\\n  address                 *:' + port + '\\n  secure                  0\\n'
+for mp in maps:
+    new_body += '  ' + mp + '\\n'
+new_body += '}\\n'
+text = text[:m.start(1)] + new_body + text[m.end(1):]
 "
 }
 
