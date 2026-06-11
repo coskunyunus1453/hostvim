@@ -77,6 +77,29 @@ if [[ -f "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" ]]; then
   bash "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" || echo "Uyarı: OLS setup atlandı" >&2
 fi
 
+fix_ols_map_commas() {
+  local f
+  for f in /usr/local/lsws/conf/conf.d/panelze-ols-http-maps.conf /usr/local/lsws/conf/conf.d/panelze-ols-https-maps.conf; do
+    [[ -f "$f" ]] || continue
+    awk '
+      /^map panelze-/ {
+        if ($0 ~ /,/) { print; next }
+        out = "map " $2
+        for (i = 3; i <= NF; i++) {
+          out = out (i == 3 ? " " : ", ") $i
+        }
+        print out
+        next
+      }
+      { print }
+    ' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  done
+  if [[ -x /usr/local/lsws/bin/lswsctrl ]]; then
+    /usr/local/lsws/bin/lswsctrl reload 2>/dev/null || true
+  fi
+}
+fix_ols_map_commas
+
 echo "==> engine derle"
 if ! command -v go >/dev/null 2>&1; then
   echo "Hata: go yok — engine güncellenemedi" >&2

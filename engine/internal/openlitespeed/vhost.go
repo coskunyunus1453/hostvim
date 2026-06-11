@@ -224,7 +224,8 @@ func upsertMapFile(path, vhid string, domains []string) error {
 		kept = append(kept, ln)
 	}
 	if len(domains) > 0 {
-		kept = append(kept, prefix+strings.Join(domains, " "))
+		// OLS listener map: domain listesi virgülle ayrılır (boşlukla değil).
+		kept = append(kept, prefix+strings.Join(domains, ", "))
 	}
 	return writeLines(path, kept)
 }
@@ -476,7 +477,7 @@ func applyVhostInner(cfg *config.Config, domain, docRoot, phpSocket, sslFullchai
 	if len(doms) == 0 {
 		return fmt.Errorf("invalid map domains")
 	}
-	httpMapLine := "map " + vhid + " " + strings.Join(doms, " ")
+	httpMapLine := "map " + vhid + " " + strings.Join(doms, ", ")
 	if err := os.WriteFile(filepath.Join(staging, "http-map.txt"), []byte(httpMapLine+"\n"), 0o644); err != nil {
 		return fmt.Errorf("write ols http map: %w", err)
 	}
