@@ -128,9 +128,10 @@ return [
         'token_ttl' => max(30, (int) env('PANELZE_PMA_SIGNON_TTL', 90)),
     ],
 
-    /** Roundcube webmail: tek tık panel → /webmail-signon → Roundcube oturumu */
+    /** Roundcube webmail: tek tık panel → webmail.*/panelze-signon → Roundcube oturumu */
     'webmail_signon' => [
         'token_ttl' => max(30, (int) env('PANELZE_WEBMAIL_SIGNON_TTL', 90)),
+        'internal_key' => trim((string) env('PANELZE_WEBMAIL_SIGNON_INTERNAL_KEY', '')),
     ],
 
     /**

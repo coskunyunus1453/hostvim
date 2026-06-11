@@ -53,12 +53,34 @@ class WebmailSignonService
             'webmail_url' => $webmailUrl,
         ], now()->addSeconds($ttl));
 
+        $signonUrl = rtrim($webmailUrl, '/').'/panelze-signon?token='.urlencode($token);
+
         return [
             'token' => $token,
-            'signon_url' => url('/webmail-signon?token='.urlencode($token)),
+            'signon_url' => $signonUrl,
             'webmail_url' => $webmailUrl,
             'expires_in' => $ttl,
         ];
+    }
+
+    /**
+     * Eski panel /webmail-signon bağlantıları için (tüketmeden) hedef webmail URL'si.
+     */
+    public function peekWebmailUrlForToken(string $token): ?string
+    {
+        $token = trim($token);
+        if ($token === '' || strlen($token) > 128) {
+            return null;
+        }
+
+        $payload = Cache::get($this->cacheKey($token));
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $webmailUrl = rtrim((string) ($payload['webmail_url'] ?? ''), '/');
+
+        return $webmailUrl !== '' ? $webmailUrl : null;
     }
 
     /**

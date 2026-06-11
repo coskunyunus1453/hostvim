@@ -14,7 +14,7 @@
             Temaları gerçek kullanım alanına göre ayırdık: genel görünüm ayarları tüm temalara, Neon içerik alanları ise yalnızca Neon tema aktifken uygulanır.
         </p>
 
-        <form method="POST" action="{{ route('admin.theme-settings.update') }}" class="space-y-8" x-data="{ tab: 'general' }">
+        <form method="POST" action="{{ route('admin.theme-settings.update') }}" class="space-y-8" id="hv-theme-settings-form">
             @csrf
             @method('PUT')
             @if ($embedded)
@@ -22,26 +22,23 @@
                 <input type="hidden" name="tab" value="theme">
             @endif
 
-            <div class="admin-card">
-                <div class="flex flex-wrap gap-2">
-                    <button type="button" class="admin-btn-outline px-4 py-2 text-xs"
-                            :class="tab === 'general' ? '!border-orange-500 !text-orange-700 dark:!text-orange-200' : ''"
-                            @click="tab = 'general'">
+            <div class="admin-card" data-hv-theme-tabs>
+                <div class="flex flex-wrap gap-2" role="tablist" aria-label="Tema alt sekmeleri">
+                    <button type="button" role="tab" aria-selected="true" data-hv-theme-tab="general"
+                            class="admin-btn-outline px-4 py-2 text-xs !border-orange-500 !text-orange-700 dark:!text-orange-200">
                         Genel tema
                     </button>
-                    <button type="button" class="admin-btn-outline px-4 py-2 text-xs"
-                            :class="tab === 'neon_top' ? '!border-orange-500 !text-orange-700 dark:!text-orange-200' : ''"
-                            @click="tab = 'neon_top'">
+                    <button type="button" role="tab" aria-selected="false" data-hv-theme-tab="neon_top"
+                            class="admin-btn-outline px-4 py-2 text-xs">
                         Neon üst alan
                     </button>
-                    <button type="button" class="admin-btn-outline px-4 py-2 text-xs"
-                            :class="tab === 'neon_features' ? '!border-orange-500 !text-orange-700 dark:!text-orange-200' : ''"
-                            @click="tab = 'neon_features'">
+                    <button type="button" role="tab" aria-selected="false" data-hv-theme-tab="neon_features"
+                            class="admin-btn-outline px-4 py-2 text-xs">
                         Neon özellik blokları
                     </button>
                 </div>
 
-                <div x-show="tab === 'general'" x-cloak class="mt-6 space-y-8">
+                <div data-hv-theme-panel="general" role="tabpanel" class="mt-6 space-y-8">
                     <div>
                         <h2 class="admin-label-block text-base">Aktif tema</h2>
                         <p class="mt-1 text-xs text-slate-600 dark:text-slate-500">Orange ve Turquoise klasik yerleşimi kullanır. Neon, kendi header/footer ve ana sayfa düzenine geçer.</p>
@@ -79,7 +76,7 @@
                     </div>
                 </div>
 
-                <div x-show="tab === 'neon_top'" x-cloak class="mt-6 space-y-6">
+                <div data-hv-theme-panel="neon_top" role="tabpanel" class="mt-6 hidden space-y-6">
                     <div>
                         <h2 class="admin-label-block text-base">Neon tema — üst tanıtım alanı</h2>
                         <p class="mt-1 text-xs text-slate-600 dark:text-slate-500">Bu içerik yalnızca Neon aktifken ana sayfanın üst bölümünde görünür.</p>
@@ -108,7 +105,7 @@
                     </div>
                 </div>
 
-                <div x-show="tab === 'neon_features'" x-cloak class="mt-6 space-y-8">
+                <div data-hv-theme-panel="neon_features" role="tabpanel" class="mt-6 hidden space-y-8">
                     <div class="space-y-6">
                         <div>
                             <h2 class="admin-label-block text-base">Neon tema — orta bölüm (5 madde)</h2>
@@ -196,6 +193,31 @@
 
     <script>
         (function () {
+            document.querySelectorAll('[data-hv-theme-tabs]').forEach(function (root) {
+                var tabs = root.querySelectorAll('[data-hv-theme-tab]');
+                var panels = root.querySelectorAll('[data-hv-theme-panel]');
+
+                function show(id) {
+                    panels.forEach(function (panel) {
+                        var on = panel.getAttribute('data-hv-theme-panel') === id;
+                        panel.classList.toggle('hidden', !on);
+                    });
+                    tabs.forEach(function (tab) {
+                        var on = tab.getAttribute('data-hv-theme-tab') === id;
+                        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+                        tab.classList.toggle('!border-orange-500', on);
+                        tab.classList.toggle('!text-orange-700', on);
+                        tab.classList.toggle('dark:!text-orange-200', on);
+                    });
+                }
+
+                tabs.forEach(function (tab) {
+                    tab.addEventListener('click', function () {
+                        show(tab.getAttribute('data-hv-theme-tab'));
+                    });
+                });
+            });
+
             var p = document.getElementById('theme_primary_hex_picker');
             var t = document.getElementById('theme_primary_hex');
             var c = document.getElementById('clear_hex');

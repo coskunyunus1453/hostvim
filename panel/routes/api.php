@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\DomainNginxVhostController;
 use App\Http\Controllers\Api\EmailAccountController;
 use App\Http\Controllers\Api\FileManagerController;
 use App\Http\Controllers\Api\HostingTargetsController;
+use App\Http\Controllers\Api\Internal\WebmailSignonConsumeController;
 use App\Http\Controllers\Api\FtpController;
 use App\Http\Controllers\Api\Integrations\WhmcsProvisioningController;
 use App\Http\Controllers\Api\Integrations\WhmcsResourcesController;
@@ -66,6 +67,9 @@ use App\Http\Controllers\Reseller\ResellerRoleController;
 use App\Http\Controllers\Reseller\ResellerWhiteLabelController;
 use App\Services\EngineApiService;
 use Illuminate\Support\Facades\Route;
+
+Route::post('internal/webmail-signon/consume', [WebmailSignonConsumeController::class, 'consume'])
+    ->middleware('throttle:60,1');
 
 Route::get('branding', [BrandingController::class, 'showPublic']);
 Route::get('branding/files/{filename}', [BrandingController::class, 'serveFile'])

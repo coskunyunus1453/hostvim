@@ -12,7 +12,18 @@
     <title>{{ $title }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(function () {
+                if (typeof window.Alpine === 'undefined') {
+                    var s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/alpinejs@3.15.11/dist/cdn.min.js';
+                    s.defer = true;
+                    document.head.appendChild(s);
+                }
+            }, 400);
+        });
+    </script>
     <script>
         (function () {
             var t = localStorage.getItem('hv-theme');

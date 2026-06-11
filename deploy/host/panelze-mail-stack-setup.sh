@@ -236,6 +236,22 @@ location ~ \.php$ {
 NGX
 sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" /etc/nginx/snippets/panelze-roundcube-php.conf
 
+cat >/etc/nginx/snippets/panelze-roundcube-signon.conf <<'NGX'
+location = /panelze-signon {
+    include snippets/fastcgi-php.conf;
+    fastcgi_param SCRIPT_FILENAME /usr/share/roundcube/panelze-signon.php;
+    fastcgi_pass unix:PHP_SOCK_PLACEHOLDER;
+}
+NGX
+sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" /etc/nginx/snippets/panelze-roundcube-signon.conf
+
+install -d -m 0755 /usr/local/share/panelze
+_HERE="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "${_HERE}/panelze-roundcube-signon.php" ]]; then
+  install -m 0644 "${_HERE}/panelze-roundcube-signon.php" /usr/local/share/panelze/panelze-roundcube-signon.php
+  install -m 0644 "${_HERE}/panelze-roundcube-signon.php" /usr/share/roundcube/panelze-signon.php
+fi
+
 cat >/etc/nginx/sites-available/panelze-roundcube <<'NGX'
 server {
   listen 80;
@@ -247,11 +263,19 @@ server {
   location / {
     try_files $uri $uri/ /index.php?$query_string;
   }
+  include snippets/panelze-roundcube-signon.conf;
   include snippets/panelze-roundcube-php.conf;
 }
 NGX
 
 ln -sf /etc/nginx/sites-available/panelze-roundcube /etc/nginx/sites-enabled/50-panelze-roundcube.conf
+
+CFG_SCRIPT="${_HERE}/../scripts/configure-roundcube-signon.sh"
+if [[ -x "$CFG_SCRIPT" ]]; then
+  bash "$CFG_SCRIPT" || true
+elif [[ -f "$CFG_SCRIPT" ]]; then
+  bash "$CFG_SCRIPT" || true
+fi
 
 echo "==> Servisler..."
 systemctl enable postfix dovecot opendkim nginx

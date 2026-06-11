@@ -14,7 +14,7 @@ class SecureHeaders
         $response = $next($request);
 
         // SSO köprüsü: Roundcube farklı origin'e POST; sıkı form-action/script CSP engeller.
-        if ($request->is('webmail-signon')) {
+        if ($request->is('webmail-signon') || $request->is('*/webmail-signon')) {
             $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
             $response->headers->set('X-Content-Type-Options', 'nosniff');
             $response->headers->set(
