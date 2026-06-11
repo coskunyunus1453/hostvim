@@ -57,6 +57,7 @@ echo "==> vhost sudo helper betikleri"
 install_helper nginx-vhost
 install_helper apache-vhost
 install_helper ols-vhost
+cleanup_legacy_nginx_vhosts
 
 echo "==> sudoers"
 bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
@@ -76,6 +77,39 @@ echo "==> OpenLiteSpeed backend :8088"
 if [[ -f "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" ]]; then
   bash "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" || echo "Uyarı: OLS setup atlandı" >&2
 fi
+
+cleanup_legacy_nginx_vhosts() {
+  local removed=0 base domain panelze
+  shopt -s nullglob
+  for legacy in /etc/nginx/sites-enabled/hostvim-*.conf /etc/nginx/sites-enabled/panelsar-*.conf; do
+    [[ -e "$legacy" ]] || continue
+    base="$(basename "$legacy")"
+    domain="${base#hostvim-}"
+    domain="${domain#panelsar-}"
+    panelze="/etc/nginx/sites-enabled/panelze-${domain}"
+    if [[ -L "$panelze" || -f "$panelze" ]]; then
+      rm -f "$legacy"
+      removed=1
+      echo "==> eski nginx vhost kaldırıldı: $base (panelze-${domain} aktif)"
+    fi
+  done
+  if [[ "$removed" -eq 1 ]] && command -v nginx >/dev/null 2>&1; then
+    nginx -t 2>/dev/null && nginx -s reload 2>/dev/null || true
+  fi
+}
+
+reapply_ols_from_staging() {
+  local d domain
+  [[ -x /usr/local/sbin/panelze-ols-vhost ]] || return 0
+  [[ -d "$PANELZE_HOME/data/ols-staging" ]] || return 0
+  for d in "$PANELZE_HOME/data/ols-staging"/*; do
+    [[ -d "$d" && -f "$d/vhconf.conf" && -f "$d/http-map.txt" ]] || continue
+    domain="$(basename "$d")"
+    if /usr/local/sbin/panelze-ols-vhost apply "$d" 2>/dev/null; then
+      echo "==> OLS vhost güncellendi: $domain"
+    fi
+  done
+}
 
 fix_ols_map_commas() {
   local f
@@ -99,6 +133,7 @@ fix_ols_map_commas() {
   fi
 }
 fix_ols_map_commas
+reapply_ols_from_staging
 
 echo "==> engine derle"
 if ! command -v go >/dev/null 2>&1; then

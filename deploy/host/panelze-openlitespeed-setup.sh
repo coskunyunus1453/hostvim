@@ -32,7 +32,12 @@ panelze_ols_bind_backend() {
     -e 's/\*:708088/*:7080/' \
     "$cfg" 2>/dev/null || true
 
+  # Mevcut panelzeBackend + domain map'leri silme (ensure/deploy tekrarı tüm OLS sitelerini kırar).
   if grep -q "$MARK_BEGIN" "$cfg"; then
+    if grep -q "listener panelzeBackend" "$cfg"; then
+      echo "==> OpenLiteSpeed panelzeBackend zaten yapılandırılmış (map'ler korunuyor)"
+      return 0
+    fi
     sed -i "/$MARK_BEGIN/,/$MARK_END/d" "$cfg"
   fi
 
