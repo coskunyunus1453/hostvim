@@ -19,6 +19,18 @@ install_helper() {
   ln -sfn "/usr/local/sbin/panelze-${base}" "/usr/local/sbin/panelsar-${base}"
 }
 
+engine_binary_has_marker() {
+  local bin="$1"
+  local marker="$2"
+  [[ -x "$bin" ]] || return 1
+  if command -v strings >/dev/null 2>&1; then
+    strings "$bin" | grep -qF "$marker"
+    return
+  fi
+  # binutils yoksa (minimal sunucu) grep -a ile binary içinde ara
+  grep -aqF "$marker" "$bin" 2>/dev/null
+}
+
 free_engine_port() {
   local pids pid comm
   pids="$(lsof -ti :9090 2>/dev/null || true)"
@@ -73,10 +85,11 @@ fi
 (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine)
 chmod 755 /usr/local/bin/panelze-engine
 
-if ! strings /usr/local/bin/panelze-engine | grep -q 'ols-staging'; then
-  echo "Hata: panelze-engine eski sürüm (ols-staging yok)" >&2
+if ! engine_binary_has_marker /usr/local/bin/panelze-engine 'ols-staging'; then
+  echo "Hata: panelze-engine güncel değil (ols-staging işareti yok — derleme başarısız olabilir)" >&2
   exit 1
 fi
+echo "==> panelze-engine güncel (ols-staging staging helper desteği)"
 
 CONFIG_DIR="/etc/panelze"
 if [[ -f /etc/hostvim/engine.yaml ]]; then
