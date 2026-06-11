@@ -126,9 +126,10 @@ return [
     'phpmyadmin_signon' => [
         'session_name' => env('PANELZE_PMA_SIGNON_SESSION', 'SignonSession'),
         'token_ttl' => max(30, (int) env('PANELZE_PMA_SIGNON_TTL', 90)),
+        'internal_key' => trim((string) env('PANELZE_PMA_SIGNON_INTERNAL_KEY', '')),
     ],
 
-    /** Roundcube webmail: tek tık panel → webmail.*/panelze-signon → Roundcube oturumu */
+    /** Roundcube webmail: panelden webmail host panelze-signon ile Roundcube oturumu */
     'webmail_signon' => [
         'token_ttl' => max(30, (int) env('PANELZE_WEBMAIL_SIGNON_TTL', 90)),
         'internal_key' => trim((string) env('PANELZE_WEBMAIL_SIGNON_INTERNAL_KEY', '')),
