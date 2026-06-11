@@ -17,11 +17,29 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}"
+# Hostvim sunucu: Laravel kökü public_html içinde (nginx root = .../public_html/public)
+if [[ -z "${LANDING_ROOT:-}" ]]; then
+  if [[ -f /var/www/hostvim/data/www/panelze.com/public_html/artisan ]]; then
+    LANDING_ROOT="/var/www/hostvim/data/www/panelze.com/public_html"
+  elif [[ -f /var/www/hostvim/landing/artisan ]]; then
+    LANDING_ROOT="/var/www/hostvim/landing"
+  else
+    LANDING_ROOT="/var/www/panelze/data/www/panelze.com"
+  fi
+fi
+PANELZE_HOME="${PANELZE_HOME:-$(dirname "$(dirname "$LANDING_ROOT")" 2>/dev/null)/panelze}"
+if [[ ! -d "$PANELZE_HOME/.git" && -d /var/www/hostvim/.git ]]; then
+  PANELZE_HOME="/var/www/hostvim"
+fi
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
-LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
-PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"
+if [[ -z "${PUBLIC_HTML:-}" ]]; then
+  if [[ -d "$LANDING_ROOT/public" ]]; then
+    PUBLIC_HTML="$LANDING_ROOT/public"
+  else
+    PUBLIC_HTML="$LANDING_ROOT/public_html"
+  fi
+fi
 RUN_USER="${RUN_USER:-www-data}"
 SKIP_COMPOSER="${SKIP_COMPOSER:-0}"
 
