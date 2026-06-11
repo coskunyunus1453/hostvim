@@ -145,7 +145,17 @@ class DomainService
     public function switchPhpVersion(Domain $domain, string $version): void
     {
         DB::transaction(function () use ($domain, $version): void {
-            $resp = $this->engineApi->createSite($domain->name, $domain->user_id, $version, $domain->server_type ?? 'nginx');
+            $resp = $this->engineApi->reapplyWebServer(
+                $domain->name,
+                $version,
+                (string) ($domain->server_type ?? 'nginx'),
+            );
+            if (! empty($resp['needs_reprovision'])) {
+                $domain->update(['php_version' => $version]);
+                $this->reprovision($domain);
+
+                return;
+            }
             if (! empty($resp['error'])) {
                 abort(503, (string) $resp['error']);
             }
@@ -193,12 +203,17 @@ class DomainService
         $serverType = $this->engineApi->normalizeServerType($serverType);
         $this->engineApi->assertServerTypeVhostManaged($serverType);
         DB::transaction(function () use ($domain, $serverType): void {
-            $resp = $this->engineApi->createSite(
+            $resp = $this->engineApi->reapplyWebServer(
                 $domain->name,
-                (int) $domain->user_id,
                 (string) ($domain->php_version ?? '8.2'),
-                $serverType
+                $serverType,
             );
+            if (! empty($resp['needs_reprovision'])) {
+                $domain->update(['server_type' => $serverType]);
+                $this->reprovision($domain);
+
+                return;
+            }
             if (! empty($resp['error'])) {
                 abort(503, (string) $resp['error']);
             }

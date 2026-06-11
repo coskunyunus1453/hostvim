@@ -60,30 +60,16 @@ else
 fi
 
 if [[ "$SKIP_ENGINE" != "1" ]]; then
-  ENGINE_CMD=""
-  if [[ -d "$PANELZE_HOME/engine/cmd/panelze-engine" ]]; then
-    ENGINE_CMD="panelze-engine"
-  elif [[ -d "$PANELZE_HOME/engine/cmd/panelze-engine" ]]; then
-    ENGINE_CMD="panelze-engine"
-  fi
-  if [[ -n "$ENGINE_CMD" ]] && command -v go >/dev/null 2>&1; then
-    echo "==> $ENGINE_CMD derleniyor -> /usr/local/bin/panelze-engine"
-    if ! (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine "./cmd/$ENGINE_CMD"); then
-      echo "Hata: engine derlenemedi (yukarıdaki Go hatasına bakın)." >&2
+  if [[ "$(id -u)" -eq 0 ]] && [[ -f "$SCRIPT_DIR/ensure-webserver-stack.sh" ]] && [[ -d "$PANELZE_HOME/engine/cmd/panelze-engine" ]]; then
+    echo "==> engine + web sunucu stack (helper, apache:8080, ols:8088)"
+    PANELZE_HOME="$PANELZE_HOME" bash "$SCRIPT_DIR/ensure-webserver-stack.sh"
+  elif [[ -d "$PANELZE_HOME/engine/cmd/panelze-engine" ]] && command -v go >/dev/null 2>&1; then
+    echo "==> panelze-engine derleniyor -> /usr/local/bin/panelze-engine"
+    if ! (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine); then
+      echo "Hata: engine derlenemedi." >&2
       exit 1
     fi
-    mkdir -p "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging"
-    chown www-data:www-data "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging" 2>/dev/null || true
-    restarted=0
-    for svc in panelze-engine hostvim-engine panelsar-engine; do
-      if systemctl list-unit-files "${svc}.service" 2>/dev/null | grep -qE 'enabled|disabled|static'; then
-        systemctl restart "$svc" && echo "==> $svc yeniden başlatıldı" && restarted=1 && break
-      fi
-    done
-    if [[ "$restarted" -eq 0 ]]; then
-      echo "Uyarı: engine systemd servisi bulunamadı (panelze-engine / hostvim-engine). Elle kontrol edin." >&2
-    fi
-  elif [[ -n "$ENGINE_CMD" ]]; then
+  elif [[ -d "$PANELZE_HOME/engine/cmd/panelze-engine" ]]; then
     echo "Uyarı: go yok; engine atlandı." >&2
   fi
 fi

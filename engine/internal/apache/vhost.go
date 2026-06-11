@@ -246,9 +246,16 @@ func apacheVhostHelperPath(cfg *config.Config) string {
 
 func runApacheVhostHelper(cfg *config.Config, action, arg string) error {
 	helper := apacheVhostHelperPath(cfg)
+	if _, err := os.Stat(helper); err != nil {
+		return fmt.Errorf("apache vhost helper yok (%s): sunucuda root ile bash deploy/scripts/ensure-webserver-stack.sh çalıştırın", helper)
+	}
 	out, err := exec.Command("sudo", "-n", helper, action, arg).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s %s: %w — %s", helper, action, err, strings.TrimSpace(string(out)))
+		msg := strings.TrimSpace(string(out))
+		if strings.Contains(msg, "not allowed") || strings.Contains(msg, "password") {
+			return fmt.Errorf("apache vhost sudo reddedildi — ensure-engine-sudoers.sh ve ensure-webserver-stack.sh çalıştırın: %s", msg)
+		}
+		return fmt.Errorf("%s %s: %w — %s", helper, action, err, msg)
 	}
 	return nil
 }

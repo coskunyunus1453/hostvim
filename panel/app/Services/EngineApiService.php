@@ -178,6 +178,19 @@ class EngineApiService
         ]);
     }
 
+    /**
+     * Mevcut site dosyalarını silmeden web sunucu / PHP vhost yeniden uygular.
+     *
+     * @return array<string, mixed>
+     */
+    public function reapplyWebServer(string $domain, string $phpVersion, string $serverType): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/reapply-webserver', [
+            'php_version' => $phpVersion,
+            'server_type' => $this->normalizeServerType($serverType),
+        ]);
+    }
+
     public function deleteSite(string $domain): array
     {
         $path = '/api/v1/sites/'.rawurlencode($domain);
@@ -1729,9 +1742,7 @@ class EngineApiService
                 $response = $this->clientLong($timeout)->post($this->baseUrl.$path, $data);
                 $json = $response->json() ?? [];
                 if (! $response->successful()) {
-                    $msg = $this->formatEngineHttpError($response, $json);
-
-                    $payload = ['error' => $msg];
+                    $payload = $this->engineErrorPayload($response, $json);
                     if (is_string($json['output'] ?? null)) {
                         $payload['output'] = $json['output'];
                     }

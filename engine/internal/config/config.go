@@ -169,6 +169,7 @@ func Load() (*Config, error) {
 		configDir = "/etc/panelze"
 	}
 	viper.AddConfigPath(configDir)
+	viper.AddConfigPath("/etc/hostvim")
 	viper.AddConfigPath("/etc/panelze")
 	viper.AddConfigPath("/etc/panelsar")
 	viper.AddConfigPath(filepath.Join(".", "configs"))

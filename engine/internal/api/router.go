@@ -85,6 +85,7 @@ func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.En
 			site.POST("/rename", handleRenameSite(cfg))
 			site.POST("/:domain/suspend", handleSuspendSite(cfg, d))
 			site.POST("/:domain/activate", handleActivateSite(cfg, d))
+			site.POST("/:domain/reapply-webserver", handleReapplyWebServer(cfg))
 			site.POST("/:domain/document-root", handleSetDocumentRoot(cfg, d))
 			site.DELETE("/:domain", handleDeleteSite(cfg, d))
 			site.GET("", handleListSites(cfg, d))
@@ -279,6 +280,94 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			"openlitespeed_vhost":  cfg.Hosting.OLSManageVhosts,
 			"php_fpm_manage_pools": cfg.Hosting.PHPFPMmanagePools,
 			"php_fpm_socket":       phpSocket,
+		})
+	}
+}
+
+// handleReapplyWebServer mevcut site dosyalarını koruyarak yalnızca meta + vhost günceller (PHP / web sunucu geçişi).
+func handleReapplyWebServer(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		domain := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		var req struct {
+			ServerType string `json:"server_type"`
+			PHPVersion string `json:"php_version"`
+		}
+		_ = c.ShouldBindJSON(&req)
+
+		siteRoot := filepath.Join(cfg.Paths.WebRoot, domain)
+		if _, err := os.Stat(siteRoot); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":             "domain root not found",
+				"needs_reprovision": true,
+			})
+			return
+		}
+
+		oldMeta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+		phpV := strings.TrimSpace(req.PHPVersion)
+		if phpV == "" && oldMeta != nil {
+			phpV = strings.TrimSpace(oldMeta.PHPVersion)
+		}
+		if phpV == "" {
+			phpV = "8.2"
+		}
+		st := strings.TrimSpace(req.ServerType)
+		if st == "" && oldMeta != nil {
+			st = strings.TrimSpace(oldMeta.ServerType)
+		}
+		if st == "" {
+			st = "nginx"
+		}
+		st = sites.NormalizeServerType(st)
+
+		docRoot, err := sites.Provision(cfg.Paths.WebRoot, domain, phpV, st)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ps := phpfpmSettings(cfg)
+		phpSocket := nginx.EffectivePHPSocket(phpV, cfg.Hosting.PHPFPMsocket)
+		if cfg.Hosting.PHPFPMmanagePools {
+			sock, _, _, perr := phpfpm.WritePool(ps, domain, phpV, docRoot)
+			if perr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": perr.Error()})
+				return
+			}
+			phpSocket = sock
+			if cfg.Hosting.PHPFPMreloadAfterPool {
+				_ = phpfpm.Reload(phpV)
+			}
+		}
+
+		metaNow, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+		if err := hosting.ApplyWebServer(cfg, domain, docRoot, metaNow, phpSocket); err != nil {
+			if oldMeta != nil {
+				_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, oldMeta)
+				docRootOld := strings.TrimSpace(oldMeta.DocumentRoot)
+				if docRootOld == "" {
+					docRootOld = filepath.Join(cfg.Paths.WebRoot, domain, "public_html")
+				}
+				sockOld := nginx.EffectivePHPSocket(oldMeta.PHPVersion, cfg.Hosting.PHPFPMsocket)
+				if cfg.Hosting.PHPFPMmanagePools {
+					sockOld = ps.SocketForDomain(domain)
+				}
+				_ = hosting.ApplyWebServer(cfg, domain, docRootOld, oldMeta, sockOld)
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ok":            true,
+			"domain":        domain,
+			"document_root": docRoot,
+			"server_type":   st,
+			"message":       "web server configuration reapplied",
 		})
 	}
 }
