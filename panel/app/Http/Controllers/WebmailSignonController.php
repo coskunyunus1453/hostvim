@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
- * Geriye dönük uyumluluk: eski panel /webmail-signon bağlantıları webmail.*/panelze-signon'a yönlendirilir.
+ * Geriye donuk uyumluluk: eski panel /webmail-signon baglantilari webmail host panelze-signon'a yonlendirilir.
  */
 class WebmailSignonController extends Controller
 {
