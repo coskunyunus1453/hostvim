@@ -19,6 +19,9 @@ class DomainService
 
     public function create(User $user, string $name, string $phpVersion, string $serverType): Domain
     {
+        $serverType = $this->engineApi->normalizeServerType($serverType);
+        $this->engineApi->assertServerTypeVhostManaged($serverType);
+
         return DB::transaction(function () use ($user, $name, $phpVersion, $serverType) {
             $name = strtolower(trim($name));
             $existing = Domain::query()->where('name', $name)->first();
@@ -152,7 +155,8 @@ class DomainService
 
     public function switchServerType(Domain $domain, string $serverType): void
     {
-        $serverType = in_array($serverType, ['nginx', 'apache', 'openlitespeed'], true) ? $serverType : 'nginx';
+        $serverType = $this->engineApi->normalizeServerType($serverType);
+        $this->engineApi->assertServerTypeVhostManaged($serverType);
         DB::transaction(function () use ($domain, $serverType): void {
             $resp = $this->engineApi->createSite(
                 $domain->name,

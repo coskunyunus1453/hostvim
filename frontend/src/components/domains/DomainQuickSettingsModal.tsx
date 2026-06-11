@@ -53,6 +53,21 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
   )
   const sslTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const switchableServersQ = useQuery({
+    queryKey: ['domains', 'switchable-server-types'],
+    queryFn: async () =>
+      (await api.get('/domains/switchable-server-types')).data as { server_types: string[] },
+    staleTime: 120_000,
+    enabled: open,
+  })
+  const switchableServerTypes = switchableServersQ.data?.server_types ?? [
+    'nginx',
+    'apache',
+    'openlitespeed',
+  ]
+  const serverTypeSelectable = (type: string, current: string) =>
+    switchableServerTypes.includes(type) || type === current
+
   useEffect(() => {
     if (domain) {
       setPhp(domain.php_version)
@@ -773,14 +788,33 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
                   setServer(e.target.value as 'nginx' | 'apache' | 'openlitespeed')
                 }
               >
-                <option value="nginx">nginx</option>
-                <option value="apache">Apache</option>
-                <option value="openlitespeed">{t('domains.server_openlitespeed')}</option>
+                <option
+                  value="nginx"
+                  disabled={!serverTypeSelectable('nginx', domain.server_type)}
+                >
+                  nginx
+                </option>
+                <option
+                  value="apache"
+                  disabled={!serverTypeSelectable('apache', domain.server_type)}
+                >
+                  Apache
+                </option>
+                <option
+                  value="openlitespeed"
+                  disabled={!serverTypeSelectable('openlitespeed', domain.server_type)}
+                >
+                  {t('domains.server_openlitespeed')}
+                </option>
               </select>
               <button
                 type="button"
                 className="btn-primary"
-                disabled={server === domain.server_type || serverM.isPending}
+                disabled={
+                  server === domain.server_type ||
+                  serverM.isPending ||
+                  !serverTypeSelectable(server, domain.server_type)
+                }
                 onClick={() => serverM.mutate()}
               >
                 {serverM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('domains.apply')}

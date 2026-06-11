@@ -148,6 +148,19 @@ export default function DomainsPage() {
     queryKey: ['domains', 'paginated'],
     queryFn: async () => (await api.get('/domains')).data,
   })
+  const switchableServersQ = useQuery({
+    queryKey: ['domains', 'switchable-server-types'],
+    queryFn: async () =>
+      (await api.get('/domains/switchable-server-types')).data as { server_types: string[] },
+    staleTime: 120_000,
+  })
+  const switchableServerTypes = switchableServersQ.data?.server_types ?? [
+    'nginx',
+    'apache',
+    'openlitespeed',
+  ]
+  const serverTypeSelectable = (type: string, current: string) =>
+    switchableServerTypes.includes(type) || type === current
   const healthSitesQ = useQuery({
     queryKey: ['monitoring-health-sites', 50],
     queryFn: async () =>
@@ -696,10 +709,19 @@ export default function DomainsPage() {
               </div>
               <div>
                 <label className="label">{t('domains.server_type')}</label>
-                <select name="server_type" className="input w-full" defaultValue="nginx">
-                  <option value="nginx">nginx</option>
-                  <option value="apache">Apache</option>
-                  <option value="openlitespeed">{t('domains.server_openlitespeed')}</option>
+                <select name="server_type" className="input w-full" defaultValue={switchableServerTypes[0] ?? 'nginx'}>
+                  <option value="nginx" disabled={!switchableServerTypes.includes('nginx')}>
+                    nginx
+                  </option>
+                  <option value="apache" disabled={!switchableServerTypes.includes('apache')}>
+                    Apache
+                  </option>
+                  <option
+                    value="openlitespeed"
+                    disabled={!switchableServerTypes.includes('openlitespeed')}
+                  >
+                    {t('domains.server_openlitespeed')}
+                  </option>
                 </select>
               </div>
               <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
@@ -1103,9 +1125,24 @@ export default function DomainsPage() {
                               serverM.mutate({ id: domain.id, server_type: next })
                             }}
                           >
-                            <option value="nginx">nginx</option>
-                            <option value="apache">Apache</option>
-                            <option value="openlitespeed">{t('domains.server_openlitespeed')}</option>
+                            <option
+                              value="nginx"
+                              disabled={!serverTypeSelectable('nginx', domain.server_type)}
+                            >
+                              nginx
+                            </option>
+                            <option
+                              value="apache"
+                              disabled={!serverTypeSelectable('apache', domain.server_type)}
+                            >
+                              Apache
+                            </option>
+                            <option
+                              value="openlitespeed"
+                              disabled={!serverTypeSelectable('openlitespeed', domain.server_type)}
+                            >
+                              {t('domains.server_openlitespeed')}
+                            </option>
                           </select>
                           <button
                             type="button"

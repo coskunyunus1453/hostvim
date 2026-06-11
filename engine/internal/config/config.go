@@ -108,9 +108,13 @@ type HostingConfig struct {
 	ApacheReloadAfterVhost bool   `mapstructure:"apache_reload_after_vhost"`
 	// ApacheHTTPPort — Nginx panel 80 kullanırken 8080 (çakışmasız). 0 veya yoksa 80.
 	ApacheHTTPPort int `mapstructure:"apache_http_port"`
+	// NginxEdgeProxy — Apache/OLS siteleri için nginx 80/443 edge + backend proxy (mevcut nginx siteleri değişmez).
+	NginxEdgeProxy bool `mapstructure:"nginx_edge_proxy"`
 
 	// OpenLiteSpeed (server_type: openlitespeed) — conf.d parçaları + listener map dosyaları.
 	OLSManageVhosts       bool   `mapstructure:"openlitespeed_manage_vhosts"`
+	// OLSHTTPPort — edge modunda backend dinleyici (varsayılan 8088; 80/443 nginx'de kalır).
+	OLSHTTPPort           int    `mapstructure:"openlitespeed_http_port"`
 	OLSConfRoot           string `mapstructure:"openlitespeed_conf_root"`
 	OLSReloadAfterVhost   bool   `mapstructure:"openlitespeed_reload_after_vhost"`
 	OLSCtrlPath           string `mapstructure:"openlitespeed_ctrl_path"`
@@ -137,6 +141,10 @@ type HostingConfig struct {
 
 	// NginxVhostHelper — sudo ile çağrılan betik (varsayılan: /usr/local/sbin/panelze-nginx-vhost).
 	NginxVhostHelper string `mapstructure:"nginx_vhost_helper"`
+	// ApacheVhostHelper — Apache sites-available/enabled (varsayılan: /usr/local/sbin/panelze-apache-vhost).
+	ApacheVhostHelper string `mapstructure:"apache_vhost_helper"`
+	// OLSVhostHelper — OpenLiteSpeed vhost/map parçaları (varsayılan: /usr/local/sbin/panelze-ols-vhost).
+	OLSVhostHelper string `mapstructure:"ols_vhost_helper"`
 	// StackInstallScript — panel stack demetleri için sudo betiği (varsayılan: /usr/local/sbin/panelze-stack-install).
 	StackInstallScript string `mapstructure:"stack_install_script"`
 	// MailProvisionScript — panel posta kutularını Dovecot/Postfix'e yazar (varsayılan: /usr/local/sbin/panelze-mail-provision).
@@ -267,8 +275,10 @@ func setDefaults() {
 	viper.SetDefault("hosting.apache_sites_enabled", "/etc/apache2/sites-enabled")
 	viper.SetDefault("hosting.apache_reload_after_vhost", false)
 	viper.SetDefault("hosting.apache_http_port", 80)
+	viper.SetDefault("hosting.nginx_edge_proxy", false)
 
 	viper.SetDefault("hosting.openlitespeed_manage_vhosts", false)
+	viper.SetDefault("hosting.openlitespeed_http_port", 8088)
 	viper.SetDefault("hosting.openlitespeed_conf_root", "/usr/local/lsws")
 	viper.SetDefault("hosting.openlitespeed_reload_after_vhost", false)
 	viper.SetDefault("hosting.openlitespeed_ctrl_path", "")

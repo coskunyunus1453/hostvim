@@ -1,0 +1,109 @@
+#!/bin/bash
+# Panelze engine (www-data) — OpenLiteSpeed vhost/map parçaları (root)
+set -euo pipefail
+
+ACTION="${1:?}"
+ARG="${2:?}"
+
+OLS_ROOT="${PANELZE_OLS_ROOT:-/usr/local/lsws}"
+CTRL="${PANELZE_OLS_CTRL:-$OLS_ROOT/bin/lswsctrl}"
+
+ols_vhid() {
+  local d="${1,,}"
+  d="${d//./-}"
+  echo "panelze-${d}"
+}
+
+ols_reload() {
+  if [[ -x "$CTRL" ]]; then
+    "$CTRL" configtest
+    "$CTRL" reload || "$CTRL" restart
+  else
+    systemctl reload lshttpd 2>/dev/null || systemctl reload openlitespeed 2>/dev/null || true
+  fi
+}
+
+upsert_include() {
+  local idx="$OLS_ROOT/conf/conf.d/panelze-ols-vhosts.conf"
+  local line="include conf/conf.d/${1}.conf"
+  mkdir -p "$(dirname "$idx")"
+  touch "$idx"
+  grep -Fqx "$line" "$idx" 2>/dev/null || echo "$line" >>"$idx"
+}
+
+remove_include() {
+  local idx="$OLS_ROOT/conf/conf.d/panelze-ols-vhosts.conf"
+  local line="include conf/conf.d/${1}.conf"
+  [[ -f "$idx" ]] || return 0
+  grep -Fv "$line" "$idx" >"${idx}.tmp" && mv "${idx}.tmp" "$idx"
+}
+
+upsert_map() {
+  local mapfile="$1"
+  local vhid="$2"
+  local line="$3"
+  mkdir -p "$(dirname "$mapfile")"
+  touch "$mapfile"
+  if [[ ! -s "$mapfile" ]]; then
+    cat >>"$mapfile" <<'HDR'
+# Panelze — OpenLiteSpeed HTTP(S) listener map parçası.
+HDR
+  fi
+  grep -v "^map ${vhid} " "$mapfile" >"${mapfile}.tmp" || true
+  echo "$line" >>"${mapfile}.tmp"
+  mv "${mapfile}.tmp" "$mapfile"
+}
+
+remove_map() {
+  local mapfile="$1"
+  local vhid="$2"
+  [[ -f "$mapfile" ]] || return 0
+  grep -v "^map ${vhid} " "$mapfile" >"${mapfile}.tmp" || true
+  mv "${mapfile}.tmp" "$mapfile"
+}
+
+case "$ACTION" in
+  apply)
+    STAGING="$ARG"
+    if [[ ! "$STAGING" =~ ^/var/www/[^/]+/data/ols-staging/[a-zA-Z0-9.-]+$ ]]; then
+      echo "panelze-ols-vhost: izin verilmeyen staging: $STAGING" >&2
+      exit 1
+    fi
+    DOMAIN="$(basename "$STAGING")"
+    VHID="$(ols_vhid "$DOMAIN")"
+    [[ -f "$STAGING/vhconf.conf" && -f "$STAGING/fragment.conf" && -f "$STAGING/http-map.txt" ]] || {
+      echo "panelze-ols-vhost: eksik staging dosyası" >&2
+      exit 1
+    }
+    mkdir -p "$OLS_ROOT/conf/vhosts/panelze-${DOMAIN}"
+    mkdir -p "$OLS_ROOT/conf/conf.d"
+    cp "$STAGING/vhconf.conf" "$OLS_ROOT/conf/vhosts/panelze-${DOMAIN}/vhconf.conf"
+    cp "$STAGING/fragment.conf" "$OLS_ROOT/conf/conf.d/${VHID}.conf"
+    upsert_include "$VHID"
+    upsert_map "$OLS_ROOT/conf/conf.d/panelze-ols-http-maps.conf" "$VHID" "$(cat "$STAGING/http-map.txt")"
+    if [[ -f "$STAGING/https-map.txt" ]]; then
+      upsert_map "$OLS_ROOT/conf/conf.d/panelze-ols-https-maps.conf" "$VHID" "$(cat "$STAGING/https-map.txt")"
+    else
+      remove_map "$OLS_ROOT/conf/conf.d/panelze-ols-https-maps.conf" "$VHID"
+    fi
+    ols_reload
+    ;;
+  remove)
+    DOMAIN="${ARG,,}"
+    [[ "$DOMAIN" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$ ]] || {
+      echo "panelze-ols-vhost: geçersiz domain" >&2
+      exit 1
+    }
+    VHID="$(ols_vhid "$DOMAIN")"
+    remove_map "$OLS_ROOT/conf/conf.d/panelze-ols-http-maps.conf" "$VHID"
+    remove_map "$OLS_ROOT/conf/conf.d/panelze-ols-https-maps.conf" "$VHID"
+    remove_include "$VHID"
+    rm -f "$OLS_ROOT/conf/conf.d/${VHID}.conf"
+    rm -rf "$OLS_ROOT/conf/vhosts/panelze-${DOMAIN}"
+    ols_reload
+    ;;
+  *)
+    echo "panelze-ols-vhost: kullanım: apply <staging-dir> | remove <domain>" >&2
+    exit 1
+    ;;
+esac

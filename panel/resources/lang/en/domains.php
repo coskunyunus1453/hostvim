@@ -8,6 +8,7 @@ return [
     'php_switched' => 'PHP version updated.',
     'status_updated' => 'Site status updated.',
     'server_switched' => 'Web server type updated.',
+    'server_type_not_managed' => 'Virtual host management for :server is disabled on this server. Enable it in Admin → Web server settings, or use nginx if OpenLiteSpeed is not installed.',
     'delete_confirm_expected' => 'DELETEALLDATA',
     'delete_confirm_mismatch' => 'Confirmation phrase does not match. Type the exact phrase shown in your language.',
     'subdomain_prefix_required' => 'Subdomain prefix is required (e.g. blog).',

@@ -108,9 +108,67 @@ class EngineApiService
         return $this->post("/api/v1/services/{$name}/{$action}");
     }
 
+  /** @var list<string> */
+    public const SERVER_TYPES = ['nginx', 'apache', 'openlitespeed'];
+
+    public function normalizeServerType(string $serverType): string
+    {
+        return in_array($serverType, self::SERVER_TYPES, true) ? $serverType : 'nginx';
+    }
+
+    /**
+     * Engine yapılandırmasında vhost yazımı açık olan web sunucuları.
+     *
+     * @return list<string>
+     */
+    public function listManagedServerTypes(): array
+    {
+        $settings = $this->getWebServerSettings();
+        $out = [];
+        foreach (self::SERVER_TYPES as $type) {
+            if ($this->isServerTypeVhostManaged($type, $settings)) {
+                $out[] = $type;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $settings
+     */
+    public function isServerTypeVhostManaged(string $serverType, ?array $settings = null): bool
+    {
+        $serverType = $this->normalizeServerType($serverType);
+        $settings ??= $this->getWebServerSettings();
+
+        $nginxManaged = (bool) ($settings['nginx_manage_vhosts'] ?? false);
+        $edgeProxy = (bool) ($settings['nginx_edge_proxy'] ?? false);
+
+        return match ($serverType) {
+            'nginx' => $nginxManaged,
+            'apache' => (bool) ($settings['apache_manage_vhosts'] ?? false)
+                && (! $edgeProxy || $nginxManaged),
+            'openlitespeed' => (bool) ($settings['openlitespeed_manage_vhosts'] ?? false)
+                && (! $edgeProxy || $nginxManaged),
+            default => false,
+        };
+    }
+
+    public function assertServerTypeVhostManaged(string $serverType): void
+    {
+        if ($this->isServerTypeVhostManaged($serverType)) {
+            return;
+        }
+
+        abort(422, __('domains.server_type_not_managed', [
+            'server' => $serverType,
+        ]));
+    }
+
     public function createSite(string $domain, int $userId, string $phpVersion = '8.2', string $serverType = 'nginx'): array
     {
-        $serverType = in_array($serverType, ['nginx', 'apache'], true) ? $serverType : 'nginx';
+        $serverType = $this->normalizeServerType($serverType);
 
         return $this->postChecked('/api/v1/sites', [
             'domain' => $domain,

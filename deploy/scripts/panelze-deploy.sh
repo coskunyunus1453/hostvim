@@ -68,12 +68,21 @@ if [[ "$SKIP_ENGINE" != "1" ]]; then
   fi
   if [[ -n "$ENGINE_CMD" ]] && command -v go >/dev/null 2>&1; then
     echo "==> $ENGINE_CMD derleniyor -> /usr/local/bin/panelze-engine"
-    (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine "./cmd/$ENGINE_CMD")
-    for svc in panelze-engine panelze-engine panelsar-engine; do
-      if systemctl is-active "$svc" >/dev/null 2>&1; then
-        systemctl restart "$svc"
+    if ! (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine "./cmd/$ENGINE_CMD"); then
+      echo "Hata: engine derlenemedi (yukarıdaki Go hatasına bakın)." >&2
+      exit 1
+    fi
+    mkdir -p "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging"
+    chown www-data:www-data "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging" 2>/dev/null || true
+    restarted=0
+    for svc in panelze-engine hostvim-engine panelsar-engine; do
+      if systemctl list-unit-files "${svc}.service" 2>/dev/null | grep -qE 'enabled|disabled|static'; then
+        systemctl restart "$svc" && echo "==> $svc yeniden başlatıldı" && restarted=1 && break
       fi
     done
+    if [[ "$restarted" -eq 0 ]]; then
+      echo "Uyarı: engine systemd servisi bulunamadı (panelze-engine / hostvim-engine). Elle kontrol edin." >&2
+    fi
   elif [[ -n "$ENGINE_CMD" ]]; then
     echo "Uyarı: go yok; engine atlandı." >&2
   fi
@@ -146,12 +155,30 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool stack-install
   install_host_tool mail-stack-setup.sh
   install_host_tool mail-provision
+  install_host_tool mail-dkim-sync
   install_host_tool bind-sync
   install_host_tool node-pm2
   install_host_tool nginx-vhost
+  install_host_tool apache-vhost
+  install_host_tool ols-vhost
   install_host_tool security
   if [[ -f "$SCRIPT_DIR/ensure-security-defaults.sh" ]]; then
     PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-security-defaults.sh" || true
+  fi
+  if [[ -f "$SCRIPT_DIR/fix-dovecot-virtual-auth.sh" ]]; then
+    bash "$SCRIPT_DIR/fix-dovecot-virtual-auth.sh" || true
+  fi
+  if [[ -f "$SCRIPT_DIR/fix-mail-firewall.sh" ]]; then
+    bash "$SCRIPT_DIR/fix-mail-firewall.sh" || true
+  fi
+  if [[ -f "$SCRIPT_DIR/configure-roundcube-signon.sh" ]] && dpkg-query -W -f='${Status}' roundcube-core 2>/dev/null | grep -q 'install ok'; then
+    bash "$SCRIPT_DIR/configure-roundcube-signon.sh" || true
+  fi
+  if [[ -f "$SCRIPT_DIR/configure-phpmyadmin-signon.sh" ]] && [[ -d /etc/phpmyadmin ]]; then
+    bash "$SCRIPT_DIR/configure-phpmyadmin-signon.sh" || true
+  fi
+  if [[ -f "$SCRIPT_DIR/fix-roundcube-smtp.sh" ]] && dpkg-query -W -f='${Status}' roundcube-core 2>/dev/null | grep -q 'install ok'; then
+    bash "$SCRIPT_DIR/fix-roundcube-smtp.sh" || true
   fi
   install_host_tool terminal-root
   install_host_tool php-ini

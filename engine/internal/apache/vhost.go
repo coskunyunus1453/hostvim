@@ -221,8 +221,49 @@ func sitesEnabled(cfg *config.Config) string {
 	return s
 }
 
+func stagingDir(cfg *config.Config) string {
+	if cfg != nil && strings.TrimSpace(cfg.Paths.VhostsDir) != "" {
+		return filepath.Join(filepath.Dir(cfg.Paths.VhostsDir), "apache-vhosts")
+	}
+	if cfg != nil && strings.TrimSpace(cfg.Paths.WebRoot) != "" {
+		return filepath.Join(filepath.Dir(cfg.Paths.WebRoot), "apache-vhosts")
+	}
+	return "/var/www/panelze/data/apache-vhosts"
+}
+
+const defaultApacheVhostHelper = "/usr/local/sbin/panelze-apache-vhost"
+
+func apacheVhostHelperPath(cfg *config.Config) string {
+	if cfg == nil {
+		return defaultApacheVhostHelper
+	}
+	s := strings.TrimSpace(cfg.Hosting.ApacheVhostHelper)
+	if s != "" {
+		return s
+	}
+	return defaultApacheVhostHelper
+}
+
+func runApacheVhostHelper(cfg *config.Config, action, arg string) error {
+	helper := apacheVhostHelperPath(cfg)
+	out, err := exec.Command("sudo", "-n", helper, action, arg).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s %s: %w — %s", helper, action, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// ApplyBackendVhost nginx edge proxy arkasında yalnızca HTTP backend (apache_http_port, varsayılan 8080).
+func ApplyBackendVhost(cfg *config.Config, domain, docRoot, phpSocket string, aliases []string) error {
+	return applyVhostInner(cfg, domain, docRoot, phpSocket, "", "", aliases, false, true)
+}
+
 // ApplyVhost Debian/Ubuntu sites-available + sites-enabled sembolik bağ.
 func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS bool) error {
+	return applyVhostInner(cfg, domain, docRoot, phpSocket, sslFullchain, sslPrivkey, aliases, forceHTTPS, false)
+}
+
+func applyVhostInner(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS, backendOnly bool) error {
 	if !cfg.Hosting.ApacheManageVhosts {
 		return nil
 	}
@@ -239,18 +280,9 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 		sock = "/run/php/php8.2-fpm.sock"
 	}
 
-	availDir := sitesAvailable(cfg)
-	enDir := sitesEnabled(cfg)
-	if err := os.MkdirAll(availDir, 0o755); err != nil {
-		return fmt.Errorf("apache sites-available: %w", err)
-	}
-	if err := os.MkdirAll(enDir, 0o755); err != nil {
-		return fmt.Errorf("apache sites-enabled: %w", err)
-	}
-
 	chain := strings.TrimSpace(sslFullchain)
 	key := strings.TrimSpace(sslPrivkey)
-	useSSL := chain != "" && key != ""
+	useSSL := !backendOnly && chain != "" && key != ""
 
 	tplStr := tplHTTP
 	if useSSL {
@@ -288,51 +320,26 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 	}
 
 	base := confBaseName(domain)
-	avail := filepath.Join(availDir, base)
-	enabled := filepath.Join(enDir, base)
+	staging := stagingDir(cfg)
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return fmt.Errorf("apache staging dir: %w", err)
+	}
+	avail := filepath.Join(staging, base)
 
 	oldAvail, readAvailErr := os.ReadFile(avail)
 	hadAvail := readAvailErr == nil
 
-	var oldLinkTarget string
-	hadOldLink := false
-	if fi, err := os.Lstat(enabled); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		if tgt, err := os.Readlink(enabled); err == nil && tgt != "" {
-			oldLinkTarget = tgt
-			hadOldLink = true
-		}
+	if err := os.WriteFile(avail, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write apache vhost: %w", err)
 	}
 
-	rollback := func() {
-		_ = os.Remove(enabled)
-		if hadOldLink && oldLinkTarget != "" {
-			_ = os.Symlink(oldLinkTarget, enabled)
-		}
+	if err := runApacheVhostHelper(cfg, "enable", avail); err != nil {
 		if hadAvail {
 			_ = os.WriteFile(avail, oldAvail, 0o644)
 		} else {
 			_ = os.Remove(avail)
 		}
-	}
-
-	if err := os.WriteFile(avail, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write apache vhost: %w", err)
-	}
-	_ = os.Remove(enabled)
-	if err := os.Symlink(avail, enabled); err != nil {
-		rollback()
-		return fmt.Errorf("apache symlink: %w", err)
-	}
-
-	if err := apacheTestConfig(); err != nil {
-		rollback()
 		return err
-	}
-
-	if cfg.Hosting.ApacheReloadAfterVhost {
-		if err := reloadApacheErr(); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -346,11 +353,8 @@ func RemoveVhost(cfg *config.Config, domain string) error {
 		return fmt.Errorf("invalid domain")
 	}
 	base := confBaseName(domain)
-	_ = os.Remove(filepath.Join(sitesEnabled(cfg), base))
-	_ = os.Remove(filepath.Join(sitesAvailable(cfg), base))
-	if cfg.Hosting.ApacheReloadAfterVhost {
-		_ = reloadApacheErr()
-	}
+	_ = runApacheVhostHelper(cfg, "disable", base)
+	_ = os.Remove(filepath.Join(stagingDir(cfg), base))
 	return nil
 }
 
@@ -360,14 +364,11 @@ func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 		return
 	}
 	base := confBaseName(domain)
-	_ = os.Remove(filepath.Join(sitesEnabled(cfg), base))
-	_ = os.Remove(filepath.Join(sitesAvailable(cfg), base))
+	_ = runApacheVhostHelper(cfg, "disable", base)
+	_ = os.Remove(filepath.Join(stagingDir(cfg), base))
 	leg := "panelsar-" + strings.ToLower(domain) + ".conf"
-	_ = os.Remove(filepath.Join(sitesEnabled(cfg), leg))
-	_ = os.Remove(filepath.Join(sitesAvailable(cfg), leg))
-	if cfg.Hosting.ApacheReloadAfterVhost {
-		_ = reloadApacheErr()
-	}
+	_ = runApacheVhostHelper(cfg, "disable", leg)
+	_ = os.Remove(filepath.Join(stagingDir(cfg), leg))
 }
 
 func apacheTestConfig() error {
@@ -405,10 +406,10 @@ func VhostFilePath(cfg *config.Config, domain string) (string, error) {
 	if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {
 		return "", fmt.Errorf("invalid domain")
 	}
-	availDir := sitesAvailable(cfg)
-	availClean, err := filepath.Abs(filepath.Clean(availDir))
+	staging := stagingDir(cfg)
+	availClean, err := filepath.Abs(filepath.Clean(staging))
 	if err != nil {
-		return "", fmt.Errorf("apache sites-available: %w", err)
+		return "", fmt.Errorf("apache staging dir: %w", err)
 	}
 	base := confBaseName(domain)
 	p := filepath.Join(availClean, base)
@@ -463,58 +464,23 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 	if err != nil {
 		return err
 	}
-	base := confBaseName(strings.ToLower(strings.TrimSpace(domain)))
-	availDir := sitesAvailable(cfg)
-	enDir := sitesEnabled(cfg)
-	if err := os.MkdirAll(availDir, 0o755); err != nil {
-		return fmt.Errorf("apache sites-available: %w", err)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return fmt.Errorf("apache staging dir: %w", err)
 	}
-	if err := os.MkdirAll(enDir, 0o755); err != nil {
-		return fmt.Errorf("apache sites-enabled: %w", err)
-	}
-	enabled := filepath.Join(enDir, base)
 
 	oldAvail, readAvailErr := os.ReadFile(p)
 	hadAvail := readAvailErr == nil
 
-	var oldLinkTarget string
-	hadOldLink := false
-	if fi, err := os.Lstat(enabled); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		if tgt, err := os.Readlink(enabled); err == nil && tgt != "" {
-			oldLinkTarget = tgt
-			hadOldLink = true
-		}
+	if err := os.WriteFile(p, content, 0o644); err != nil {
+		return fmt.Errorf("write apache vhost: %w", err)
 	}
-
-	rollback := func() {
-		_ = os.Remove(enabled)
-		if hadOldLink && oldLinkTarget != "" {
-			_ = os.Symlink(oldLinkTarget, enabled)
-		}
+	if err := runApacheVhostHelper(cfg, "enable", p); err != nil {
 		if hadAvail {
 			_ = os.WriteFile(p, oldAvail, 0o644)
 		} else {
 			_ = os.Remove(p)
 		}
-	}
-
-	if err := os.WriteFile(p, content, 0o644); err != nil {
-		return fmt.Errorf("write apache vhost: %w", err)
-	}
-	_ = os.Remove(enabled)
-	if err := os.Symlink(p, enabled); err != nil {
-		rollback()
-		return fmt.Errorf("apache symlink: %w", err)
-	}
-	if err := apacheTestConfig(); err != nil {
-		rollback()
 		return err
-	}
-	if cfg.Hosting.ApacheReloadAfterVhost {
-		if err := reloadApacheErr(); err != nil {
-			rollback()
-			return err
-		}
 	}
 	prev := apachePrevPath(p)
 	if hadAvail && len(oldAvail) > 0 {
@@ -539,11 +505,6 @@ func RevertVhostRaw(cfg *config.Config, domain string) error {
 	if err != nil || len(bytes.TrimSpace(prevBody)) == 0 {
 		return fmt.Errorf("no saved previous version to restore")
 	}
-	domain = strings.ToLower(strings.TrimSpace(domain))
-	base := confBaseName(domain)
-	enDir := sitesEnabled(cfg)
-	enabled := filepath.Join(enDir, base)
-
 	var curContent []byte
 	hadCur := false
 	if b, rerr := os.ReadFile(p); rerr == nil {
@@ -551,48 +512,15 @@ func RevertVhostRaw(cfg *config.Config, domain string) error {
 		hadCur = true
 	}
 
-	var oldLinkTarget string
-	hadOldLink := false
-	if fi, err := os.Lstat(enabled); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		if tgt, err := os.Readlink(enabled); err == nil && tgt != "" {
-			oldLinkTarget = tgt
-			hadOldLink = true
-		}
-	}
-
-	revertRollback := func() {
-		_ = os.Remove(enabled)
-		if hadOldLink && oldLinkTarget != "" {
-			_ = os.Symlink(oldLinkTarget, enabled)
-		}
-		if hadCur {
-			_ = os.WriteFile(p, curContent, 0o644)
-		}
-	}
-
 	if err := os.WriteFile(p, prevBody, 0o644); err != nil {
 		return fmt.Errorf("write apache vhost: %w", err)
 	}
-	_ = os.Remove(enabled)
-	if err := os.Symlink(p, enabled); err != nil {
+	if err := runApacheVhostHelper(cfg, "enable", p); err != nil {
 		if hadCur {
 			_ = os.WriteFile(p, curContent, 0o644)
+			_ = runApacheVhostHelper(cfg, "enable", p)
 		}
-		_ = os.Remove(enabled)
-		if hadOldLink && oldLinkTarget != "" {
-			_ = os.Symlink(oldLinkTarget, enabled)
-		}
-		return fmt.Errorf("apache symlink: %w", err)
-	}
-	if err := apacheTestConfig(); err != nil {
-		revertRollback()
 		return err
-	}
-	if cfg.Hosting.ApacheReloadAfterVhost {
-		if err := reloadApacheErr(); err != nil {
-			revertRollback()
-			return err
-		}
 	}
 	if hadCur && len(curContent) > 0 {
 		_ = os.WriteFile(prev, curContent, 0o600)

@@ -1,0 +1,63 @@
+#!/bin/bash
+# Panelze engine (www-data) — Apache sites-available/enabled + graceful reload
+set -euo pipefail
+
+ACTION="${1:?}"
+ARG="${2:?}"
+
+AVAIL="/etc/apache2/sites-available"
+ENABLED="/etc/apache2/sites-enabled"
+
+apache_test_reload() {
+  if command -v apache2ctl >/dev/null 2>&1; then
+    apache2ctl configtest
+    apache2ctl graceful
+  else
+    apachectl configtest
+    apachectl graceful
+  fi
+}
+
+case "$ACTION" in
+  enable)
+    CONF="$ARG"
+    if [[ "$CONF" =~ ^/var/www/[^/]+/data/apache-vhosts/(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]]; then
+      :
+    else
+      echo "panelze-apache-vhost: izin verilmeyen conf yolu: $CONF" >&2
+      exit 1
+    fi
+    [[ -f "$CONF" ]] || { echo "panelze-apache-vhost: conf yok: $CONF" >&2; exit 1; }
+    BASE="$(basename "$CONF")"
+    TARGET_AVAIL="${AVAIL}/${BASE}"
+    TARGET_EN="${ENABLED}/${BASE}"
+    OLD_EN=""
+    if [[ -L "$TARGET_EN" ]]; then
+      OLD_EN="$(readlink -f "$TARGET_EN" 2>/dev/null || true)"
+    fi
+    ln -sf "$CONF" "$TARGET_AVAIL"
+    ln -sf "$TARGET_AVAIL" "$TARGET_EN"
+    if ! apache_test_reload 2>/tmp/panelze-apache-test.log; then
+      rm -f "$TARGET_EN"
+      if [[ -n "$OLD_EN" && -f "$OLD_EN" ]]; then
+        ln -sf "$OLD_EN" "$TARGET_EN" || true
+        apache_test_reload 2>/dev/null || true
+      fi
+      cat /tmp/panelze-apache-test.log >&2
+      exit 1
+    fi
+    ;;
+  disable)
+    BASE="$ARG"
+    [[ "$BASE" =~ ^(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]] || {
+      echo "panelze-apache-vhost: geçersiz dosya adı" >&2
+      exit 1
+    }
+    rm -f "${ENABLED}/${BASE}" "${AVAIL}/${BASE}"
+    apache_test_reload
+    ;;
+  *)
+    echo "panelze-apache-vhost: kullanım: enable <staging-conf> | disable <basename.conf>" >&2
+    exit 1
+    ;;
+esac

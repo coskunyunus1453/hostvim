@@ -72,11 +72,13 @@ hosting:
   php_fpm_pool_group: "www-data"
   # Apache (server_type: apache); prod’da true + yazma yetkisi
   apache_manage_vhosts: false
+  nginx_edge_proxy: false
   apache_sites_available: "/etc/apache2/sites-available"
   apache_sites_enabled: "/etc/apache2/sites-enabled"
   apache_reload_after_vhost: false
   # OpenLiteSpeed (server_type: openlitespeed); prod: manage true + httpd_config içine include satırları (paket başlık yorumlarına bakın)
   openlitespeed_manage_vhosts: false
+  openlitespeed_http_port: 8088
   openlitespeed_conf_root: "/usr/local/lsws"
   openlitespeed_reload_after_vhost: false
   openlitespeed_ctrl_path: ""

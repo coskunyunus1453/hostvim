@@ -8,6 +8,7 @@ return [
     'php_switched' => 'PHP sürümü güncellendi.',
     'status_updated' => 'Site durumu güncellendi.',
     'server_switched' => 'Web sunucu türü güncellendi.',
+    'server_type_not_managed' => ':server için sanal host yönetimi bu sunucuda kapalı. Yönetici → Web sunucu ayarlarından ilgili seçeneği etkinleştirin veya OpenLiteSpeed kurulu değilse nginx kullanın.',
     'delete_confirm_expected' => 'SILMEKİSTİYORUM',
     'delete_confirm_mismatch' => 'Onay metni eşleşmiyor. Dil dosyanızdaki ifadeyi aynen yazın.',
     'subdomain_prefix_required' => 'Alt alan adı ön eki gerekli (ör. blog).',

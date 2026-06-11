@@ -74,13 +74,16 @@ hosting:
   php_fpm_socket: "__PHP_FPM_SOCKET__"
   nginx_reload_after_vhost: true
   php_fpm_manage_pools: false
-  apache_manage_vhosts: false
+  # Nginx 80/443 edge; Apache/OLS backend — mevcut nginx siteleri aynı kalır
+  nginx_edge_proxy: true
+  apache_manage_vhosts: true
+  apache_reload_after_vhost: true
   # Nginx panel 80/443 kullanır; Apache HTTP bu portta (çakışma yok)
   apache_http_port: 8080
-  # OpenLiteSpeed: aynı makinede 80/443 tek dinleyici kuralına dikkat; engine vh + map parçaları üretir
-  openlitespeed_manage_vhosts: false
+  openlitespeed_manage_vhosts: true
   openlitespeed_conf_root: "/usr/local/lsws"
-  openlitespeed_reload_after_vhost: false
+  openlitespeed_http_port: 8088
+  openlitespeed_reload_after_vhost: true
   openlitespeed_ctrl_path: ""
   manage_ssl: true
   certbot_path: "/usr/bin/certbot"

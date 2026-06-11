@@ -78,6 +78,36 @@ func httpsMapsPath(cfg *config.Config) string {
 	return filepath.Join(confRoot(cfg), "conf", "conf.d", olsHTTPSMapsFile)
 }
 
+func olsStagingDir(cfg *config.Config, domain string) string {
+	base := filepath.Dir(cfg.Paths.WebRoot)
+	if base == "" || base == "." {
+		base = "/var/www/panelze/data"
+	}
+	return filepath.Join(base, "ols-staging", strings.ToLower(strings.TrimSpace(domain)))
+}
+
+const defaultOLSVhostHelper = "/usr/local/sbin/panelze-ols-vhost"
+
+func olsVhostHelperPath(cfg *config.Config) string {
+	if cfg == nil {
+		return defaultOLSVhostHelper
+	}
+	s := strings.TrimSpace(cfg.Hosting.OLSVhostHelper)
+	if s != "" {
+		return s
+	}
+	return defaultOLSVhostHelper
+}
+
+func runOLSVhostHelper(cfg *config.Config, action, arg string) error {
+	helper := olsVhostHelperPath(cfg)
+	out, err := exec.Command("sudo", "-n", helper, action, arg).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s %s: %w — %s", helper, action, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func olsUDS(sock string) string {
 	s := strings.TrimSpace(sock)
 	s = strings.TrimPrefix(s, "unix:")
@@ -346,8 +376,17 @@ const fragTpl = `virtualhost {{.VhostID}} {
 }
 `
 
+// ApplyBackendVhost nginx edge proxy arkasında yalnızca HTTP backend (openlitespeed_http_port, varsayılan 8088).
+func ApplyBackendVhost(cfg *config.Config, domain, docRoot, phpSocket string, aliases []string) error {
+	return applyVhostInner(cfg, domain, docRoot, phpSocket, "", "", aliases, false, true)
+}
+
 // ApplyVhost vhconf + virtualhost parçası + map + include indeksini yazar; istenirse lswsctrl configtest/reload.
 func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS bool) error {
+	return applyVhostInner(cfg, domain, docRoot, phpSocket, sslFullchain, sslPrivkey, aliases, forceHTTPS, false)
+}
+
+func applyVhostInner(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, sslPrivkey string, aliases []string, forceHTTPS, backendOnly bool) error {
 	if !cfg.Hosting.OLSManageVhosts {
 		return nil
 	}
@@ -366,7 +405,7 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 	}
 	chain := strings.TrimSpace(sslFullchain)
 	key := strings.TrimSpace(sslPrivkey)
-	useSSL := chain != "" && key != ""
+	useSSL := !backendOnly && chain != "" && key != ""
 
 	vhid := VhostID(domain)
 	vhRoot := filepath.Join(cfg.Paths.WebRoot, domain, ".panelze", "ols")
@@ -400,25 +439,18 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 		return err
 	}
 
-	confDir := vhConfDir(cfg, domain)
-	if err := os.MkdirAll(confDir, 0o755); err != nil {
-		return err
-	}
-	vhPath := vhConfPath(cfg, domain)
-	if err := os.MkdirAll(filepath.Join(confRoot(cfg), "conf", "conf.d"), 0o755); err != nil {
-		return err
+	staging := olsStagingDir(cfg, domain)
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return fmt.Errorf("ols staging dir: %w", err)
 	}
 
-	fp := fragmentPath(cfg, vhid)
-
-	if err := os.WriteFile(vhPath, vhbuf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(staging, "vhconf.conf"), vhbuf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write ols vhconf: %w", err)
 	}
 
 	configRel := "conf/vhosts/panelze-" + domain + "/vhconf.conf"
 	ft, err := template.New("frag").Parse(fragTpl)
 	if err != nil {
-		_ = os.Remove(vhPath)
 		return err
 	}
 	var fbuf bytes.Buffer
@@ -427,45 +459,30 @@ func ApplyVhost(cfg *config.Config, domain, docRoot, phpSocket, sslFullchain, ss
 		"VHRoot":    vhRoot,
 		"ConfigRel": configRel,
 	}); err != nil {
-		_ = os.Remove(vhPath)
 		return err
 	}
-	if err := os.WriteFile(fp, fbuf.Bytes(), 0o644); err != nil {
-		_ = os.Remove(vhPath)
+	if err := os.WriteFile(filepath.Join(staging, "fragment.conf"), fbuf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write ols virtualhost fragment: %w", err)
-	}
-
-	if err := upsertIncludeIndex(cfg, vhid); err != nil {
-		removeVhostFiles(cfg, domain)
-		return fmt.Errorf("ols vhosts index: %w", err)
 	}
 
 	doms := mapDomains(domain, aliases)
 	if len(doms) == 0 {
-		removeVhostFiles(cfg, domain)
 		return fmt.Errorf("invalid map domains")
 	}
-	if err := upsertMapFile(httpMapsPath(cfg), vhid, doms); err != nil {
-		removeVhostFiles(cfg, domain)
-		return fmt.Errorf("ols http maps: %w", err)
+	httpMapLine := "map " + vhid + " " + strings.Join(doms, " ")
+	if err := os.WriteFile(filepath.Join(staging, "http-map.txt"), []byte(httpMapLine+"\n"), 0o644); err != nil {
+		return fmt.Errorf("write ols http map: %w", err)
 	}
 	if useSSL {
-		if err := upsertMapFile(httpsMapsPath(cfg), vhid, doms); err != nil {
-			removeVhostFiles(cfg, domain)
-			return fmt.Errorf("ols https maps: %w", err)
+		if err := os.WriteFile(filepath.Join(staging, "https-map.txt"), []byte(httpMapLine+"\n"), 0o644); err != nil {
+			return fmt.Errorf("write ols https map: %w", err)
 		}
 	} else {
-		_ = removeMapLines(httpsMapsPath(cfg), vhid)
+		_ = os.Remove(filepath.Join(staging, "https-map.txt"))
 	}
 
-	if cfg.Hosting.OLSReloadAfterVhost {
-		if err := olsConfigTest(cfg); err != nil {
-			removeVhostFiles(cfg, domain)
-			return err
-		}
-		if err := olsReload(cfg); err != nil {
-			return err
-		}
+	if err := runOLSVhostHelper(cfg, "apply", staging); err != nil {
+		return err
 	}
 	return nil
 }
@@ -507,9 +524,6 @@ func RemoveVhost(cfg *config.Config, domain string) error {
 		return nil
 	}
 	removeVhostFiles(cfg, domain)
-	if cfg.Hosting.OLSReloadAfterVhost {
-		_ = olsReload(cfg)
-	}
 	return nil
 }
 
@@ -518,18 +532,11 @@ func removeVhostFiles(cfg *config.Config, domain string) {
 	if domain == "" || strings.Contains(domain, "..") {
 		return
 	}
-	vhid := VhostID(domain)
-	_ = removeMapLines(httpMapsPath(cfg), vhid)
-	_ = removeMapLines(httpsMapsPath(cfg), vhid)
-	_ = removeIncludeIndex(cfg, vhid)
-	_ = os.Remove(fragmentPath(cfg, vhid))
-	_ = os.RemoveAll(vhConfDir(cfg, domain))
+	_ = runOLSVhostHelper(cfg, "remove", domain)
+	_ = os.RemoveAll(olsStagingDir(cfg, domain))
 }
 
 // RemoveVhostBestEffort site silme / tip değişimi; bayrak kapalı olsa da temizler.
 func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 	removeVhostFiles(cfg, domain)
-	if cfg.Hosting.OLSManageVhosts && cfg.Hosting.OLSReloadAfterVhost {
-		_ = olsReload(cfg)
-	}
 }

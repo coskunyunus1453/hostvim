@@ -27,6 +27,7 @@
 #   WITH_PHPMYADMIN=1           # apt phpMyAdmin + Nginx /phpmyadmin + PHPMYADMIN_URL
 #   WITH_CERTBOT=1              # certbot + python3-certbot-nginx (Let's Encrypt)
 #   WITH_APACHE=1               # apache2; Nginx 80 ile çakışmaz — Apache :8080 + engine apache_http_port: 8080
+#   WITH_OPENLITESPEED=1        # OpenLiteSpeed backend :8088 (nginx edge 80/443)
 #   WITH_LOCAL_POSTFIX=1        # Postfix + mailutils (panel giden posta: sendmail; Admin → Giden posta’dan SMTP’ye geçilebilir)
 #   WITH_MAIL_STACK_WEBMAIL=1   # Tam posta + Roundcube webmail (müşteri e-posta sayfasından kullanım için; varsayılan: 1)
 #   WITH_BIND_DNS=1             # BIND9 yetkili DNS — panel DNS kayıtları sunucuda yayınlanır (varsayılan: 1)
@@ -366,11 +367,20 @@ if [[ "${SKIP_APT:-}" != "1" ]]; then
   fi
 
   if [[ "${WITH_APACHE:-1}" == "1" ]] || [[ "${WITH_APACHE:-1}" == "yes" ]]; then
-    apt-get install -y -qq apache2
+    apt-get install -y -qq apache2 libapache2-mod-fcgid
+    a2enmod proxy_fcgi rewrite headers 2>/dev/null || true
     panelze_apache_bind_8080
     systemctl enable apache2
     systemctl restart apache2
-    echo "==> Apache etkin: HTTP :8080 (Nginx panel :80). Engine apache_http_port=8080 ile uyumlu."
+    echo "==> Apache etkin: HTTP :8080 (Nginx edge :80/:443). Engine apache_http_port=8080 ile uyumlu."
+  fi
+
+  if [[ "${WITH_OPENLITESPEED:-1}" == "1" ]] || [[ "${WITH_OPENLITESPEED:-1}" == "yes" ]]; then
+    if [[ -x "$REPO_ROOT/deploy/host/panelze-openlitespeed-setup.sh" ]]; then
+      chmod +x "$REPO_ROOT/deploy/host/panelze-openlitespeed-setup.sh"
+      PANELZE_OLS_HTTP_PORT="${PANELZE_OLS_HTTP_PORT:-8088}" bash "$REPO_ROOT/deploy/host/panelze-openlitespeed-setup.sh"
+      install -m 755 "$REPO_ROOT/deploy/host/panelze-openlitespeed-setup.sh" /usr/local/sbin/panelze-openlitespeed-setup
+    fi
   fi
 
   if [[ "${WITH_PHPMYADMIN:-1}" == "1" ]] || [[ "${WITH_PHPMYADMIN:-1}" == "yes" ]]; then
@@ -408,7 +418,7 @@ fi
 # PHP-FPM soketi (apt sonrası)
 PHP_FPM_SOCK="$(detect_php_fpm_sock)"
 
-mkdir -p "$PANELZE_HOME/data"/{www,tmp,ssl,backups,logs,vhosts}
+mkdir -p "$PANELZE_HOME/data"/{www,tmp,ssl,backups,logs,vhosts,apache-vhosts,ols-staging}
 mkdir -p /etc/panelze
 chown -R www-data:www-data "$PANELZE_HOME/data"
 
@@ -524,6 +534,8 @@ fi
 
 # Engine www-data iken nginx sites-enabled'a yazamaz; sudo ile izinli betikler
 install_host_tool nginx-vhost
+install_host_tool apache-vhost
+install_host_tool ols-vhost
 install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
@@ -565,6 +577,10 @@ fi
 cat > /etc/sudoers.d/panelze-engine <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-apache-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-apache-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ols-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-ols-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
@@ -1003,8 +1019,9 @@ if [[ "${SKIP_UFW:-}" != "1" ]] && command -v ufw >/dev/null 2>&1; then
   ufw allow OpenSSH >/dev/null 2>&1 || ufw allow 22/tcp
   ufw allow 'Nginx Full' >/dev/null 2>&1 || { ufw allow 80/tcp; ufw allow 443/tcp; }
   if [[ "${WITH_APACHE:-1}" == "1" ]] || [[ "${WITH_APACHE:-1}" == "yes" ]]; then
-    ufw allow 8080/tcp >/dev/null 2>&1 || true
+    ufw allow 8080/tcp comment 'Apache backend' >/dev/null 2>&1 || true
   fi
+  # OLS backend yalnızca loopback/nginx proxy — dışarıya açmayın (8088 UFW'de yok)
   if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
     ufw allow 53/tcp comment 'BIND DNS' >/dev/null 2>&1 || ufw allow 53/tcp
     ufw allow 53/udp comment 'BIND DNS' >/dev/null 2>&1 || ufw allow 53/udp
@@ -1120,7 +1137,10 @@ if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]];
   echo "  Fresh mode:     ON (RESET_PANEL_DB=1)"
 fi
 if [[ "${WITH_APACHE:-1}" == "1" ]] || [[ "${WITH_APACHE:-1}" == "yes" ]]; then
-  echo "  Apache HTTP:    :8080 (alan adı Apache seçiliyse http://alan:8080 — SSL için Nginx veya ayrı plan)"
+  echo "  Apache backend: :8080 (nginx edge 80/443 — panelden Apache seçilen siteler standart URL ile açılır)"
+fi
+if [[ "${WITH_OPENLITESPEED:-1}" == "1" ]] || [[ "${WITH_OPENLITESPEED:-1}" == "yes" ]]; then
+  echo "  OpenLiteSpeed:  :8088 backend (nginx edge 80/443)"
 fi
 if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
   if systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; then

@@ -13,9 +13,14 @@ SUDOERS="/etc/sudoers.d/panelze-engine"
 cat >"$SUDOERS" <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-apache-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-apache-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ols-vhost
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-ols-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-dkim-sync
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-php-ini
