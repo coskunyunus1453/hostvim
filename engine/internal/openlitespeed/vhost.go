@@ -375,7 +375,7 @@ type vhTplData struct {
 	AccLog        string
 }
 
-const fragTpl = `virtualhost {{.VhostID}} {
+const fragTpl = `virtualHost {{.VhostID}} {
   vhRoot                  {{.VHRoot}}
   configFile              {{.ConfigRel}}
   allowSymbolLink         1

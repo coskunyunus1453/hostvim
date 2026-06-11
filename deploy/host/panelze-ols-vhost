@@ -1,5 +1,5 @@
 #!/bin/bash
-# Panelze engine (www-data) — OpenLiteSpeed vhost/map parçaları (root)
+# Panelze engine (www-data) — OpenLiteSpeed vhost (httpd_config + listener map, root)
 set -euo pipefail
 
 ACTION="${1:?}"
@@ -7,6 +7,9 @@ ARG="${2:?}"
 
 OLS_ROOT="${PANELZE_OLS_ROOT:-/usr/local/lsws}"
 CTRL="${PANELZE_OLS_CTRL:-$OLS_ROOT/bin/lswsctrl}"
+HTTPD_CFG="$OLS_ROOT/conf/httpd_config.conf"
+BACKEND_MARK_BEGIN="# >>> panelze-ols-backend >>>"
+BACKEND_MARK_END="# <<< panelze-ols-backend <<<"
 
 ols_vhid() {
   local d="${1,,}"
@@ -16,7 +19,6 @@ ols_vhid() {
 
 ols_reload() {
   if [[ -x "$CTRL" ]]; then
-    # lswsctrl: start|stop|restart|reload|status — configtest yok (Apache gibi değil)
     if ! "$CTRL" reload 2>/dev/null; then
       "$CTRL" restart
     fi
@@ -25,43 +27,92 @@ ols_reload() {
   fi
 }
 
-upsert_include() {
-  local idx="$OLS_ROOT/conf/conf.d/panelze-ols-vhosts.conf"
-  local line="include conf/conf.d/${1}.conf"
-  mkdir -p "$(dirname "$idx")"
-  touch "$idx"
-  grep -Fqx "$line" "$idx" 2>/dev/null || echo "$line" >>"$idx"
+ols_edit_httpd() {
+  local py="$1"
+  [[ -f "$HTTPD_CFG" ]] || { echo "panelze-ols-vhost: $HTTPD_CFG yok" >&2; exit 1; }
+  python3 - "$HTTPD_CFG" <<PY
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+text = path.read_text()
+$py
+path.write_text(text)
+PY
 }
 
-remove_include() {
-  local idx="$OLS_ROOT/conf/conf.d/panelze-ols-vhosts.conf"
-  local line="include conf/conf.d/${1}.conf"
-  [[ -f "$idx" ]] || return 0
-  grep -Fv "$line" "$idx" >"${idx}.tmp" && mv "${idx}.tmp" "$idx"
+upsert_httpd_vhost() {
+  local domain="$1" vhid="$2" vhroot="$3" config_rel="$4"
+  local begin="# >>> panelze-vhost ${domain} >>>"
+  local end="# <<< panelze-vhost ${domain} <<<"
+  ols_edit_httpd "
+import re
+begin = ${begin@Q}
+end = ${end@Q}
+block = '''${begin}
+virtualHost ${vhid} {
+    vhRoot                   ${vhroot}
+    configFile               ${config_rel}
+    allowSymbolLink          1
+    enableScript             1
+    restrained               0
+}
+${end}
+'''
+pat = re.compile(re.escape(begin) + r'.*?' + re.escape(end) + r'\n?', re.S)
+text = pat.sub('', text)
+anchor = ${BACKEND_MARK_BEGIN@Q}
+if anchor not in text:
+    raise SystemExit('panelze-ols-backend bloğu yok — panelze-openlitespeed-setup.sh çalıştırın')
+text = text.replace(anchor, block + '\n' + anchor, 1)
+"
 }
 
-upsert_map() {
-  local mapfile="$1"
-  local vhid="$2"
-  local line="$3"
-  mkdir -p "$(dirname "$mapfile")"
-  touch "$mapfile"
-  if [[ ! -s "$mapfile" ]]; then
-    cat >>"$mapfile" <<'HDR'
-# Panelze — OpenLiteSpeed HTTP(S) listener map parçası.
-HDR
-  fi
-  grep -v "^map ${vhid} " "$mapfile" >"${mapfile}.tmp" || true
-  echo "$line" >>"${mapfile}.tmp"
-  mv "${mapfile}.tmp" "$mapfile"
+remove_httpd_vhost() {
+  local domain="$1"
+  local begin="# >>> panelze-vhost ${domain} >>>"
+  local end="# <<< panelze-vhost ${domain} <<<"
+  ols_edit_httpd "
+import re
+begin = ${begin@Q}
+end = ${end@Q}
+pat = re.compile(re.escape(begin) + r'.*?' + re.escape(end) + r'\n?', re.S)
+text = pat.sub('', text)
+"
 }
 
-remove_map() {
-  local mapfile="$1"
-  local vhid="$2"
-  [[ -f "$mapfile" ]] || return 0
-  grep -v "^map ${vhid} " "$mapfile" >"${mapfile}.tmp" || true
-  mv "${mapfile}.tmp" "$mapfile"
+upsert_listener_map() {
+  local vhid="$1" map_line="$2"
+  ols_edit_httpd "
+import re
+begin = ${BACKEND_MARK_BEGIN@Q}
+end = ${BACKEND_MARK_END@Q}
+vhid = ${vhid@Q}
+map_line = ${map_line@Q}
+m = re.search(re.escape(begin) + r'(.*?)' + re.escape(end), text, re.S)
+if not m:
+    raise SystemExit('panelze-ols-backend listener bloğu yok')
+body = m.group(1)
+body = re.sub(r'(?m)^\\s*include\\s+conf/conf\\.d/panelze-ols-http-maps\\.conf.*\\n', '', body)
+body = re.sub(r'(?m)^\\s*map\\s+' + re.escape(vhid) + r'.*\\n', '', body)
+body = body.rstrip() + '\\n  ' + map_line.strip() + '\\n'
+text = text[:m.start(1)] + body + text[m.end(1):]
+"
+}
+
+remove_listener_map() {
+  local vhid="$1"
+  ols_edit_httpd "
+import re
+begin = ${BACKEND_MARK_BEGIN@Q}
+end = ${BACKEND_MARK_END@Q}
+vhid = ${vhid@Q}
+m = re.search(re.escape(begin) + r'(.*?)' + re.escape(end), text, re.S)
+if not m:
+    raise SystemExit(0)
+body = m.group(1)
+body = re.sub(r'(?m)^\\s*map\\s+' + re.escape(vhid) + r'.*\\n', '', body)
+text = text[:m.start(1)] + body + text[m.end(1):]
+"
 }
 
 case "$ACTION" in
@@ -73,20 +124,30 @@ case "$ACTION" in
     fi
     DOMAIN="$(basename "$STAGING")"
     VHID="$(ols_vhid "$DOMAIN")"
-    [[ -f "$STAGING/vhconf.conf" && -f "$STAGING/fragment.conf" && -f "$STAGING/http-map.txt" ]] || {
+    [[ -f "$STAGING/vhconf.conf" && -f "$STAGING/http-map.txt" ]] || {
       echo "panelze-ols-vhost: eksik staging dosyası" >&2
       exit 1
     }
+    VH_ROOT=""
+    if [[ -f "$STAGING/fragment.conf" ]]; then
+      VH_ROOT="$(awk '/^[[:space:]]*vhRoot/{print $2; exit}' "$STAGING/fragment.conf")"
+    fi
+    if [[ -z "$VH_ROOT" && -f "$STAGING/vhroot.txt" ]]; then
+      VH_ROOT="$(tr -d '\r\n' <"$STAGING/vhroot.txt")"
+    fi
+    if [[ -z "$VH_ROOT" ]]; then
+      DOC_ROOT="$(awk '/^[[:space:]]*docRoot/{print $2; exit}' "$STAGING/vhconf.conf")"
+      VH_ROOT="$(dirname "$DOC_ROOT")/.panelze/ols"
+    fi
     mkdir -p "$OLS_ROOT/conf/vhosts/panelze-${DOMAIN}"
-    mkdir -p "$OLS_ROOT/conf/conf.d"
+    mkdir -p "$(dirname "$VH_ROOT")"
+    mkdir -p "$VH_ROOT/logs"
     cp "$STAGING/vhconf.conf" "$OLS_ROOT/conf/vhosts/panelze-${DOMAIN}/vhconf.conf"
-    cp "$STAGING/fragment.conf" "$OLS_ROOT/conf/conf.d/${VHID}.conf"
-    upsert_include "$VHID"
-    upsert_map "$OLS_ROOT/conf/conf.d/panelze-ols-http-maps.conf" "$VHID" "$(cat "$STAGING/http-map.txt")"
+    CONFIG_REL="conf/vhosts/panelze-${DOMAIN}/vhconf.conf"
+    upsert_httpd_vhost "$DOMAIN" "$VHID" "$VH_ROOT" "$CONFIG_REL"
+    upsert_listener_map "$VHID" "$(tr -d '\r' <"$STAGING/http-map.txt" | head -1)"
     if [[ -f "$STAGING/https-map.txt" ]]; then
-      upsert_map "$OLS_ROOT/conf/conf.d/panelze-ols-https-maps.conf" "$VHID" "$(cat "$STAGING/https-map.txt")"
-    else
-      remove_map "$OLS_ROOT/conf/conf.d/panelze-ols-https-maps.conf" "$VHID"
+      echo "panelze-ols-vhost: uyarı: HTTPS map nginx edge modunda OLS listener'a yazılmaz" >&2
     fi
     ols_reload
     ;;
@@ -97,9 +158,8 @@ case "$ACTION" in
       exit 1
     }
     VHID="$(ols_vhid "$DOMAIN")"
-    remove_map "$OLS_ROOT/conf/conf.d/panelze-ols-http-maps.conf" "$VHID"
-    remove_map "$OLS_ROOT/conf/conf.d/panelze-ols-https-maps.conf" "$VHID"
-    remove_include "$VHID"
+    remove_listener_map "$VHID" || true
+    remove_httpd_vhost "$DOMAIN" || true
     rm -f "$OLS_ROOT/conf/conf.d/${VHID}.conf"
     rm -rf "$OLS_ROOT/conf/vhosts/panelze-${DOMAIN}"
     ols_reload

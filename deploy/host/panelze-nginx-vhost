@@ -24,6 +24,11 @@ case "$ACTION" in
       OLD_ABS="$(readlink -f "$TARGET" 2>/dev/null || true)"
     fi
     ln -sf "$CONF" "$TARGET"
+    # Eski hostvim-* vhost aynı server_name ile 443'te kalırsa edge proxy çalışmaz
+    LEGACY="/etc/nginx/sites-enabled/hostvim-${BASE#panelze-}"
+    [[ -L "$LEGACY" || -f "$LEGACY" ]] && rm -f "$LEGACY"
+    LEGACY2="/etc/nginx/sites-enabled/panelsar-${BASE#panelze-}"
+    [[ -L "$LEGACY2" || -f "$LEGACY2" ]] && rm -f "$LEGACY2"
     if ! nginx -t 2>/tmp/panelze-nginx-test.log; then
       rm -f "$TARGET"
       if [[ -n "$OLD_ABS" && -f "$OLD_ABS" ]]; then
@@ -37,7 +42,7 @@ case "$ACTION" in
     ;;
   disable)
     BASE="$ARG"
-    [[ "$BASE" =~ ^(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]] || {
+    [[ "$BASE" =~ ^(panelze|panelsar|hostvim)-[a-zA-Z0-9.-]+\.conf$ ]] || {
       echo "panelze-nginx-vhost: geçersiz dosya adı" >&2
       exit 1
     }
