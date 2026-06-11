@@ -46,6 +46,13 @@ class DomainController extends Controller
         return response()->json(['data' => $rows]);
     }
 
+    public function switchableServerTypes(): JsonResponse
+    {
+        return response()->json([
+            'server_types' => $this->engine->listManagedServerTypes(),
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([

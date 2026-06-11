@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\DomainNginxVhostController;
 use App\Http\Controllers\Api\EmailAccountController;
 use App\Http\Controllers\Api\FileManagerController;
 use App\Http\Controllers\Api\HostingTargetsController;
+use App\Http\Controllers\Api\Internal\PhpMyAdminSignonConsumeController;
 use App\Http\Controllers\Api\Internal\WebmailSignonConsumeController;
 use App\Http\Controllers\Api\FtpController;
 use App\Http\Controllers\Api\Integrations\WhmcsProvisioningController;
@@ -69,6 +70,8 @@ use App\Services\EngineApiService;
 use Illuminate\Support\Facades\Route;
 
 Route::post('internal/webmail-signon/consume', [WebmailSignonConsumeController::class, 'consume'])
+    ->middleware('throttle:60,1');
+Route::post('internal/phpmyadmin-signon/consume', [PhpMyAdminSignonConsumeController::class, 'consume'])
     ->middleware('throttle:60,1');
 
 Route::get('branding', [BrandingController::class, 'showPublic']);
@@ -121,6 +124,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('ability:domains:read')->group(function () {
         Route::get('hosting/targets', [HostingTargetsController::class, 'index']);
         Route::get('domains/options', [DomainController::class, 'options']);
+        Route::get('domains/switchable-server-types', [DomainController::class, 'switchableServerTypes']);
         Route::get('domains', [DomainController::class, 'index']);
         Route::get('domains/stack-alerts', [SiteStackController::class, 'alerts']);
         Route::get('domains/{domain}', [DomainController::class, 'show']);
