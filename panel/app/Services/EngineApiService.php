@@ -157,7 +157,16 @@ class EngineApiService
 
     public function assertServerTypeVhostManaged(string $serverType): void
     {
-        if ($this->isServerTypeVhostManaged($serverType)) {
+        $settings = $this->getWebServerSettings();
+        if ($settings === []) {
+            if (! $this->engineAuthConfigured()) {
+                abort(503, (string) __('messages.engine_auth_missing'));
+            }
+
+            abort(503, (string) __('messages.engine_auth_mismatch'));
+        }
+
+        if ($this->isServerTypeVhostManaged($serverType, $settings)) {
             return;
         }
 

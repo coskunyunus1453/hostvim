@@ -169,7 +169,9 @@ ensure_engine_hosting_flags() {
   fi
 }
 
-ensure_engine_hosting_flags "$ENGINE_CFG"
+for cfg in /etc/hostvim/engine.yaml /etc/panelze/engine.yaml /etc/panelsar/engine.yaml; do
+  ensure_engine_hosting_flags "$cfg"
+done
 
 write_panelze_engine_unit() {
   sed \
@@ -179,16 +181,13 @@ write_panelze_engine_unit() {
     "$PANELZE_HOME/deploy/systemd/panelze-engine.service"
 }
 
-if [[ ! -f /etc/systemd/system/panelze-engine.service ]] && [[ ! -f /etc/systemd/system/hostvim-engine.service ]]; then
-  echo "==> systemd panelze-engine.service"
+if [[ -f /etc/systemd/system/panelze-engine.service ]] \
+  || [[ -f /etc/systemd/system/hostvim-engine.service ]] \
+  || [[ -f /etc/systemd/system/panelsar-engine.service ]]; then
+  echo "==> systemd panelze-engine.service (CONFIG_DIR=$CONFIG_DIR)"
   write_panelze_engine_unit > /etc/systemd/system/panelze-engine.service
   systemctl daemon-reload
   systemctl enable panelze-engine 2>/dev/null || true
-elif [[ -f /etc/systemd/system/panelze-engine.service ]] \
-  && grep -q 'ExecStart=/usr/local/bin/hostvim-engine' /etc/systemd/system/panelze-engine.service 2>/dev/null; then
-  echo "==> panelze-engine.service ExecStart düzeltiliyor"
-  write_panelze_engine_unit > /etc/systemd/system/panelze-engine.service
-  systemctl daemon-reload
 fi
 
 free_engine_port
