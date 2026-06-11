@@ -157,20 +157,35 @@ func Provision(webRoot, domain, phpVersion, serverType string) (documentRoot str
 		sslEn = oldMeta.SSLEnabled
 	}
 	docRoot := filepath.Join(webRoot, domain, "public_html")
+	if oldMeta != nil && strings.TrimSpace(oldMeta.DocumentRoot) != "" {
+		docRoot = filepath.Clean(oldMeta.DocumentRoot)
+	}
 	if err := os.MkdirAll(docRoot, 0o755); err != nil {
 		return "", err
 	}
-	html := defaultSiteIndexHTML(domain, false, docRoot, phpVersion)
-	index := filepath.Join(docRoot, "index.html")
-	if err := os.WriteFile(index, html, 0o644); err != nil {
-		return "", err
+	if oldMeta == nil {
+		html := defaultSiteIndexHTML(domain, false, docRoot, phpVersion)
+		index := filepath.Join(docRoot, "index.html")
+		if err := os.WriteFile(index, html, 0o644); err != nil {
+			return "", err
+		}
 	}
-	if err := WriteSiteMeta(webRoot, domain, &SiteMeta{
+	meta := &SiteMeta{
 		PHPVersion:   phpVersion,
 		DocumentRoot: docRoot,
 		ServerType:   st,
 		SSLEnabled:   sslEn,
-	}); err != nil {
+	}
+	if oldMeta != nil {
+		meta.Aliases = append([]string(nil), oldMeta.Aliases...)
+		meta.ForceHTTPS = oldMeta.ForceHTTPS
+		meta.PerformanceMode = oldMeta.PerformanceMode
+		meta.AppProfile = oldMeta.AppProfile
+		meta.NodeApp = oldMeta.NodeApp
+		meta.RedirectRules = append([]RedirectRule(nil), oldMeta.RedirectRules...)
+		meta.SSLEnabled = oldMeta.SSLEnabled
+	}
+	if err := WriteSiteMeta(webRoot, domain, meta); err != nil {
 		return "", err
 	}
 	return docRoot, nil

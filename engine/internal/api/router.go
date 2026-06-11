@@ -165,6 +165,40 @@ func handleRestartService(d *daemon.Daemon) gin.HandlerFunc {
 	}
 }
 
+// rollbackFailedSiteProvision yeni site oluşturma başarısız olunca eski siteyi geri yükler; yalnızca ilk kurulumda dizini siler.
+func rollbackFailedSiteProvision(cfg *config.Config, domain, phpV string, oldMeta *sites.SiteMeta, ps phpfpm.HostingPoolSettings, poolPrev []byte, poolHadPrev bool, oldPoolBak []byte, oldPoolBakHad bool) {
+	if cfg.Hosting.PHPFPMmanagePools {
+		_ = phpfpm.RestorePoolConf(ps, domain, phpV, poolPrev, poolHadPrev)
+		if cfg.Hosting.PHPFPMreloadAfterPool {
+			_ = phpfpm.Reload(phpV)
+		}
+		if oldPoolBakHad && oldMeta != nil {
+			_ = phpfpm.RestorePoolConf(ps, domain, oldMeta.PHPVersion, oldPoolBak, true)
+			if cfg.Hosting.PHPFPMreloadAfterPool {
+				_ = phpfpm.Reload(oldMeta.PHPVersion)
+			}
+		}
+	}
+	if oldMeta == nil {
+		_ = sites.Remove(cfg.Paths.WebRoot, domain)
+		return
+	}
+	restored := *oldMeta
+	if strings.TrimSpace(restored.PHPVersion) == "" {
+		restored.PHPVersion = phpV
+	}
+	_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, &restored)
+	docRoot := strings.TrimSpace(restored.DocumentRoot)
+	if docRoot == "" {
+		docRoot = filepath.Join(cfg.Paths.WebRoot, domain, "public_html")
+	}
+	phpSocket := nginx.EffectivePHPSocket(restored.PHPVersion, cfg.Hosting.PHPFPMsocket)
+	if cfg.Hosting.PHPFPMmanagePools {
+		phpSocket = ps.SocketForDomain(domain)
+	}
+	_ = hosting.ApplyWebServer(cfg, domain, docRoot, &restored, phpSocket)
+}
+
 func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -202,16 +236,14 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			sock, pprev, phad, perr := phpfpm.WritePool(ps, req.Domain, phpV, docRoot)
 			poolPrev, poolHadPrev = pprev, phad
 			if perr != nil {
-				_ = sites.Remove(cfg.Paths.WebRoot, req.Domain)
+				rollbackFailedSiteProvision(cfg, req.Domain, phpV, oldMeta, ps, poolPrev, poolHadPrev, oldPoolBak, oldPoolBakHad)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": perr.Error()})
 				return
 			}
 			phpSocket = sock
 			if cfg.Hosting.PHPFPMreloadAfterPool {
 				if rerr := phpfpm.Reload(phpV); rerr != nil {
-					_ = phpfpm.RestorePoolConf(ps, req.Domain, phpV, poolPrev, poolHadPrev)
-					_ = phpfpm.Reload(phpV)
-					_ = sites.Remove(cfg.Paths.WebRoot, req.Domain)
+					rollbackFailedSiteProvision(cfg, req.Domain, phpV, oldMeta, ps, poolPrev, poolHadPrev, oldPoolBak, oldPoolBakHad)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": rerr.Error()})
 					return
 				}
@@ -226,19 +258,7 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 
 		metaNow, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
 		if err := hosting.ApplyWebServer(cfg, req.Domain, docRoot, metaNow, phpSocket); err != nil {
-			if cfg.Hosting.PHPFPMmanagePools {
-				_ = phpfpm.RestorePoolConf(ps, req.Domain, phpV, poolPrev, poolHadPrev)
-				if cfg.Hosting.PHPFPMreloadAfterPool {
-					_ = phpfpm.Reload(phpV)
-				}
-				if oldPoolBakHad && oldMeta != nil {
-					_ = phpfpm.RestorePoolConf(ps, req.Domain, oldMeta.PHPVersion, oldPoolBak, true)
-					if cfg.Hosting.PHPFPMreloadAfterPool {
-						_ = phpfpm.Reload(oldMeta.PHPVersion)
-					}
-				}
-			}
-			_ = sites.Remove(cfg.Paths.WebRoot, req.Domain)
+			rollbackFailedSiteProvision(cfg, req.Domain, phpV, oldMeta, ps, poolPrev, poolHadPrev, oldPoolBak, oldPoolBakHad)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
