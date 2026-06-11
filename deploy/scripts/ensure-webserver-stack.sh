@@ -99,11 +99,32 @@ fi
 echo "==> panelze-engine güncel (ols-staging staging helper desteği)"
 
 CONFIG_DIR="/etc/panelze"
+ENGINE_CFG="/etc/panelze/engine.yaml"
 if [[ -f /etc/hostvim/engine.yaml ]]; then
   CONFIG_DIR="/etc/hostvim"
+  ENGINE_CFG="/etc/hostvim/engine.yaml"
 elif [[ -f /etc/panelze/engine.yaml ]]; then
   CONFIG_DIR="/etc/panelze"
+  ENGINE_CFG="/etc/panelze/engine.yaml"
 fi
+
+ensure_engine_edge_proxy() {
+  local cfg="$1"
+  [[ -f "$cfg" ]] || return 0
+  if grep -qE '^[[:space:]]*nginx_edge_proxy:[[:space:]]*true[[:space:]]*$' "$cfg"; then
+    echo "==> $cfg nginx_edge_proxy: true"
+    return 0
+  fi
+  cp -a "$cfg" "${cfg}.bak.$(date +%Y%m%d%H%M%S)"
+  if grep -q 'nginx_edge_proxy' "$cfg"; then
+    sed -i 's/^\([[:space:]]*nginx_edge_proxy:\).*/\1 true/' "$cfg"
+  else
+    sed -i '/^hosting:/a\  nginx_edge_proxy: true' "$cfg"
+  fi
+  echo "==> $cfg nginx_edge_proxy etkinleştirildi (nginx 80/443 → Apache/OLS backend)"
+}
+
+ensure_engine_edge_proxy "$ENGINE_CFG"
 
 write_panelze_engine_unit() {
   sed \
