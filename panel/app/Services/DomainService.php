@@ -153,6 +153,41 @@ class DomainService
         });
     }
 
+    /**
+     * Panel kaydı var; engine tarafında site dizini / meta / vhost eksikse yeniden oluşturur.
+     */
+    public function reprovision(Domain $domain): Domain
+    {
+        return DB::transaction(function () use ($domain): Domain {
+            $serverType = $this->engineApi->normalizeServerType((string) ($domain->server_type ?? 'nginx'));
+            $this->engineApi->assertServerTypeVhostManaged($serverType);
+
+            $resp = $this->engineApi->createSite(
+                $domain->name,
+                (int) $domain->user_id,
+                (string) ($domain->php_version ?? '8.2'),
+                $serverType,
+            );
+            if (! empty($resp['error'])) {
+                abort(503, (string) $resp['error']);
+            }
+            if (empty($resp['domain'])) {
+                abort(503, 'Engine yanıt vermedi; motor çalışıyor mu ve ENGINE_INTERNAL_KEY eşleşiyor mu kontrol edin.');
+            }
+
+            $fallbackRoot = rtrim((string) config('panelze.hosting_web_root'), DIRECTORY_SEPARATOR);
+            $documentRoot = (string) ($resp['document_root'] ?? $fallbackRoot.DIRECTORY_SEPARATOR.$domain->name.DIRECTORY_SEPARATOR.'public_html');
+
+            $domain->update([
+                'document_root' => $documentRoot,
+                'server_type' => $serverType,
+            ]);
+            $this->setPanelStatus($domain, 'active');
+
+            return $domain->fresh();
+        });
+    }
+
     public function switchServerType(Domain $domain, string $serverType): void
     {
         $serverType = $this->engineApi->normalizeServerType($serverType);

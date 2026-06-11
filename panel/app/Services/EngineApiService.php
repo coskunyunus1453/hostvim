@@ -1664,7 +1664,7 @@ class EngineApiService
             $response = $this->client()->get($this->baseUrl.$path);
             $json = $response->json() ?? [];
             if (! $response->successful()) {
-                return ['error' => $this->formatEngineHttpError($response, $json)];
+                return $this->engineErrorPayload($response, $json);
             }
 
             return $json;
@@ -1673,6 +1673,23 @@ class EngineApiService
 
             return ['error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     * @return array<string, mixed>
+     */
+    private function engineErrorPayload(Response $response, array $json): array
+    {
+        $out = ['error' => $this->formatEngineHttpError($response, $json)];
+        if (! empty($json['needs_reprovision'])) {
+            $out['needs_reprovision'] = true;
+        }
+        if (isset($json['hint']) && is_string($json['hint'])) {
+            $out['hint'] = $json['hint'];
+        }
+
+        return $out;
     }
 
     /**

@@ -26,7 +26,11 @@ class SiteStackController extends Controller
 
         $report = $this->advisor->scan($domain);
         if (! empty($report['error'])) {
-            return response()->json(['message' => (string) $report['error']], 422);
+            return response()->json([
+                'message' => (string) $report['error'],
+                'needs_reprovision' => (bool) ($report['needs_reprovision'] ?? false),
+                'engine_error' => $report['engine_error'] ?? null,
+            ], 422);
         }
 
         return response()->json($report);

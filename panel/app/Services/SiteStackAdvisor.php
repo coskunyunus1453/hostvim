@@ -23,7 +23,17 @@ class SiteStackAdvisor
     {
         $raw = $this->engine->siteStackScan($domain->name);
         if (! empty($raw['error'])) {
-            return ['error' => (string) $raw['error']];
+            $err = (string) $raw['error'];
+            $needsReprovision = ! empty($raw['needs_reprovision']) || $this->isMissingSiteFilesError($err);
+            if ($needsReprovision) {
+                return [
+                    'error' => (string) __('domains.site_files_missing'),
+                    'needs_reprovision' => true,
+                    'engine_error' => $err,
+                ];
+            }
+
+            return ['error' => $err];
         }
 
         $scan = $this->translator->localizeScan((array) ($raw['scan'] ?? []));
@@ -264,5 +274,14 @@ class SiteStackAdvisor
             'server' => $server,
             'confidence' => $conf,
         ]);
+    }
+
+    private function isMissingSiteFilesError(string $error): bool
+    {
+        $low = strtolower($error);
+
+        return str_contains($low, 'site not found')
+            || str_contains($low, 'site meta not found')
+            || str_contains($low, 'domain root not found');
     }
 }

@@ -45,6 +45,11 @@ type ScanResponse = {
   docroot_aligned?: boolean
 }
 
+type ScanErrorBody = {
+  message?: string
+  needs_reprovision?: boolean
+}
+
 type Props = {
   domain: DomainQuickRow
   open: boolean
@@ -79,6 +84,33 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
     enabled: open && domain.id > 0,
     queryFn: async () => (await api.get<ScanResponse>(`/domains/${domain.id}/stack-scan`)).data,
     staleTime: 8_000,
+    retry: false,
+  })
+
+  const scanErr = scanQ.error as { response?: { data?: ScanErrorBody } } } | null
+  const needsReprovision = Boolean(scanErr?.response?.data?.needs_reprovision)
+
+  const reprovisionM = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{ message?: string; domain?: { id: number } }>(
+        `/domains/${domain.id}/reprovision`,
+        {},
+      )
+      return data
+    },
+    onSuccess: () => {
+      toast.success(t('domains.stack_reprovision_ok'))
+      void qc.invalidateQueries({ queryKey: ['domains'] })
+      void qc.invalidateQueries({ queryKey: ['domain-stack-scan', domain.id] })
+      void qc.invalidateQueries({
+        queryKey: ['domain-vhost-editor', domain.id, domain.server_type ?? 'nginx'],
+      })
+      void scanQ.refetch()
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? t('domains.stack_reprovision_failed'))
+    },
   })
 
   useEffect(() => {
@@ -156,7 +188,28 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
       )}
 
       {scanQ.isError && (
-        <p className="mt-3 text-xs text-red-600 dark:text-red-400">{t('domains.stack_scan_failed')}</p>
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-red-600 dark:text-red-400">
+            {needsReprovision
+              ? t('domains.stack_scan_site_missing')
+              : scanErr?.response?.data?.message ?? t('domains.stack_scan_failed')}
+          </p>
+          {needsReprovision && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              disabled={reprovisionM.isPending}
+              onClick={() => reprovisionM.mutate()}
+            >
+              {reprovisionM.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Wrench className="h-3.5 w-3.5" />
+              )}
+              {t('domains.stack_reprovision_btn')}
+            </button>
+          )}
+        </div>
       )}
 
       {scan && !scanQ.isLoading && (

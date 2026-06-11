@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -29,7 +30,11 @@ func handleStaticOutActivate(cfg *config.Config) gin.HandlerFunc {
 		base := detectDocumentRootBase(cfg.Paths.WebRoot, domain)
 		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
 		if err != nil || meta == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":             "site not found",
+				"hint":              "site directory or meta missing; use panel reprovision to recreate",
+				"needs_reprovision": true,
+			})
 			return
 		}
 		docRoot, err := hosting.ActivateStaticOutExport(cfg, domain, base, meta)
@@ -51,7 +56,11 @@ func handleNormalizePublicURLs(cfg *config.Config) gin.HandlerFunc {
 		base := detectDocumentRootBase(cfg.Paths.WebRoot, domain)
 		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
 		if err != nil || meta == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":             "site not found",
+				"hint":              "site directory or meta missing; use panel reprovision to recreate",
+				"needs_reprovision": true,
+			})
 			return
 		}
 		docRoot := strings.TrimSpace(meta.DocumentRoot)
@@ -97,7 +106,20 @@ func handleStackScan(cfg *config.Config) gin.HandlerFunc {
 		base := detectDocumentRootBase(cfg.Paths.WebRoot, domain)
 		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
 		if err != nil || meta == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":             "site not found",
+				"hint":              "site directory or meta missing; use panel reprovision to recreate",
+				"needs_reprovision": true,
+			})
+			return
+		}
+		siteRoot := filepath.Join(cfg.Paths.WebRoot, domain)
+		if _, statErr := os.Stat(siteRoot); statErr != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":             "domain root not found",
+				"hint":              "site directory missing; use panel reprovision to recreate",
+				"needs_reprovision": true,
+			})
 			return
 		}
 		docRoot := strings.TrimSpace(meta.DocumentRoot)
@@ -107,6 +129,14 @@ func handleStackScan(cfg *config.Config) gin.HandlerFunc {
 		serverType := strings.TrimSpace(meta.ServerType)
 		scan, err := hosting.ScanSiteStack(base, docRoot, serverType)
 		if err != nil {
+			if os.IsNotExist(err) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error":             "domain root not found",
+					"hint":              "site directory missing; use panel reprovision to recreate",
+					"needs_reprovision": true,
+				})
+				return
+			}
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}

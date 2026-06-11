@@ -198,6 +198,32 @@ class DomainController extends Controller
         ]);
     }
 
+    public function reprovision(Request $request, Domain $domain): JsonResponse
+    {
+        $this->authorize('update', $domain);
+
+        try {
+            $fresh = $this->domainService->reprovision($domain);
+        } catch (\Throwable $e) {
+            report($e);
+            $code = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 503;
+            if (! is_int($code) || $code < 400 || $code > 599) {
+                $code = 503;
+            }
+            $msg = $e->getMessage() ?: __('domains.reprovision_failed');
+            if (EngineApiService::isLikelyConnectionFailure($msg)) {
+                $msg = 'Engine servisine ulasilamiyor. ENGINE_API_URL, ENGINE_INTERNAL_KEY ve panelze-engine servisini kontrol edin.';
+            }
+
+            return response()->json(['message' => $msg], $code);
+        }
+
+        return response()->json([
+            'message' => __('domains.reprovisioned'),
+            'domain' => $fresh,
+        ]);
+    }
+
     public function switchServer(Request $request, Domain $domain): JsonResponse
     {
         $this->authorize('update', $domain);

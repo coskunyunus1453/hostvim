@@ -459,31 +459,18 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	})
 
 	api.GET("/security/advisor", func(c *gin.Context) {
-		rules, _ := panelmirror.FirewallRulesList(cfg)
-		fail2banOn, fail2banErr := security.EnabledStatus("fail2ban")
-		modsecOn, modsecErr := security.EnabledStatus("modsec")
-		clamavOn, clamavErr := security.EnabledStatus("clamav")
-		clamavLast, _ := panelmirror.SecurityGetValue(cfg, "clamav_last_scan")
-		fbInstalled, fbErrDisp := normalizeSecurityComponent(fail2banErr)
-		msInstalled, msErrDisp := normalizeSecurityComponent(modsecErr)
-		cvInstalled, cvErrDisp := normalizeSecurityComponent(clamavErr)
-		ruleItems := make([]interface{}, len(rules))
-		for i, r := range rules {
-			ruleItems[i] = r
-		}
-		score, items := security.BuildAdvisorReport(map[string]interface{}{
-			"fail2ban": gin.H{"enabled": fail2banOn, "installed": fbInstalled, "error": fbErrDisp},
-			"modsecurity": gin.H{"enabled": modsecOn, "installed": msInstalled, "error": msErrDisp},
-			"clamav": gin.H{"enabled": clamavOn, "installed": cvInstalled, "last_scan": nullIfEmpty(clamavLast), "error": cvErrDisp},
-			"firewall": gin.H{"recent_rules": ruleItems},
+		full := buildSecurityOverviewResponse(cfg)
+		advisor, _ := full["advisor"].(gin.H)
+		c.JSON(http.StatusOK, gin.H{
+			"score":    advisor["score"],
+			"items":    advisor["items"],
+			"overview": gin.H{
+				"fail2ban":    full["fail2ban"],
+				"modsecurity": full["modsecurity"],
+				"clamav":      full["clamav"],
+				"firewall":    full["firewall"],
+			},
 		})
-		overview := gin.H{
-			"fail2ban":    gin.H{"enabled": fail2banOn, "installed": fbInstalled, "error": fbErrDisp},
-			"modsecurity": gin.H{"enabled": modsecOn, "installed": msInstalled, "error": msErrDisp},
-			"clamav":      gin.H{"enabled": clamavOn, "installed": cvInstalled, "last_scan": nullIfEmpty(clamavLast), "error": cvErrDisp},
-			"firewall":    gin.H{"recent_rules": rules},
-		}
-		c.JSON(http.StatusOK, gin.H{"score": score, "items": items, "overview": overview})
 	})
 
 	api.POST("/security/bootstrap-defaults", func(c *gin.Context) {
@@ -495,52 +482,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"message": "security defaults applied", "result": res})
 	})
 	api.GET("/security/overview", func(c *gin.Context) {
-		rules, _ := panelmirror.FirewallRulesList(cfg)
-		fail2banOn, fail2banErr := security.EnabledStatus("fail2ban")
-		modsecOn, modsecErr := security.EnabledStatus("modsec")
-		clamavOn, clamavErr := security.EnabledStatus("clamav")
-		clamavLast, _ := panelmirror.SecurityGetValue(cfg, "clamav_last_scan")
-		fwOn, _ := security.FirewallActive()
-
-		fbInstalled, fbErrDisp := normalizeSecurityComponent(fail2banErr)
-		msInstalled, msErrDisp := normalizeSecurityComponent(modsecErr)
-		cvInstalled, cvErrDisp := normalizeSecurityComponent(clamavErr)
-
-		c.JSON(http.StatusOK, gin.H{
-			"fail2ban": gin.H{
-				"enabled":   fail2banOn,
-				"installed": fbInstalled,
-				"jails":     []string{"sshd", "panelze-auth", "panelsar-auth"}, // panelsar-auth: eski fail2ban jail adı
-				"settings": func() gin.H {
-					b, f, m, e := security.Fail2banJailGet()
-					_, jailErr := normalizeSecurityComponent(e)
-					return gin.H{
-						"bantime":  b,
-						"findtime": f,
-						"maxretry": m,
-						"error":    jailErr,
-					}
-				}(),
-				"error": fbErrDisp,
-			},
-			"firewall": gin.H{
-				"enabled":        fwOn,
-				"backend":        "iptables",
-				"default_policy": "DROP",
-				"recent_rules":   rules,
-			},
-			"modsecurity": gin.H{
-				"enabled":   modsecOn,
-				"installed": msInstalled,
-				"error":     msErrDisp,
-			},
-			"clamav": gin.H{
-				"enabled":   clamavOn,
-				"installed": cvInstalled,
-				"last_scan": nullIfEmpty(clamavLast),
-				"error":     cvErrDisp,
-			},
-		})
+		c.JSON(http.StatusOK, buildSecurityOverviewResponse(cfg))
 	})
 	api.POST("/security/fail2ban/toggle", func(c *gin.Context) {
 		var req struct {
@@ -1245,7 +1187,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			}
 			return
 		}
-		if sites.NormalizeServerType(meta.ServerType) != "nginx" {
+		if !nginxVhostManaged(cfg, meta) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "site is not using nginx"})
 			return
 		}
@@ -1287,7 +1229,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			}
 			return
 		}
-		if sites.NormalizeServerType(meta.ServerType) != "nginx" {
+		if !nginxVhostManaged(cfg, meta) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"error":       "site is not using nginx",
 				"server_type": strings.TrimSpace(meta.ServerType),
@@ -1350,7 +1292,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			}
 			return
 		}
-		if sites.NormalizeServerType(meta.ServerType) != "nginx" {
+		if !nginxVhostManaged(cfg, meta) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"error":       "site is not using nginx",
 				"server_type": strings.TrimSpace(meta.ServerType),
@@ -1556,7 +1498,10 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				"nginx_reload_after_vhost":         cfg.Hosting.NginxReloadAfterVhost,
 				"apache_manage_vhosts":             cfg.Hosting.ApacheManageVhosts,
 				"apache_reload_after_vhost":        cfg.Hosting.ApacheReloadAfterVhost,
+				"apache_http_port":                 cfg.Hosting.ApacheHTTPPort,
+				"nginx_edge_proxy":                 cfg.Hosting.NginxEdgeProxy,
 				"openlitespeed_manage_vhosts":      cfg.Hosting.OLSManageVhosts,
+				"openlitespeed_http_port":          cfg.Hosting.OLSHTTPPort,
 				"openlitespeed_conf_root":          strings.TrimSpace(cfg.Hosting.OLSConfRoot),
 				"openlitespeed_reload_after_vhost": cfg.Hosting.OLSReloadAfterVhost,
 				"openlitespeed_ctrl_path":          strings.TrimSpace(cfg.Hosting.OLSCtrlPath),
@@ -1796,7 +1741,10 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				"nginx_reload_after_vhost":         cfg.Hosting.NginxReloadAfterVhost,
 				"apache_manage_vhosts":             cfg.Hosting.ApacheManageVhosts,
 				"apache_reload_after_vhost":        cfg.Hosting.ApacheReloadAfterVhost,
+				"apache_http_port":                 cfg.Hosting.ApacheHTTPPort,
+				"nginx_edge_proxy":                 cfg.Hosting.NginxEdgeProxy,
 				"openlitespeed_manage_vhosts":      cfg.Hosting.OLSManageVhosts,
+				"openlitespeed_http_port":          cfg.Hosting.OLSHTTPPort,
 				"openlitespeed_conf_root":          strings.TrimSpace(cfg.Hosting.OLSConfRoot),
 				"openlitespeed_reload_after_vhost": cfg.Hosting.OLSReloadAfterVhost,
 				"openlitespeed_ctrl_path":          strings.TrimSpace(cfg.Hosting.OLSCtrlPath),
@@ -2887,6 +2835,18 @@ func handleFileUpload(cfg *config.Config) gin.HandlerFunc {
 }
 
 var fileDomainRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$`)
+
+// nginxVhostManaged doğrudan nginx veya nginx edge proxy (Apache/OLS backend) siteleri.
+func nginxVhostManaged(cfg *config.Config, meta *sites.SiteMeta) bool {
+	if meta == nil {
+		return false
+	}
+	st := sites.NormalizeServerType(meta.ServerType)
+	if st == "nginx" {
+		return true
+	}
+	return hosting.NginxEdgeProxyEnabled(cfg)
+}
 
 func resolveFileManagerRoot(cfg *config.Config, domain string) (string, error) {
 	d := strings.ToLower(strings.TrimSpace(domain))

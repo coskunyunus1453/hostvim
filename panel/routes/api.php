@@ -138,6 +138,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::delete('domains/{domain}', [DomainController::class, 'destroy']);
         Route::post('domains/{domain}/php', [DomainController::class, 'switchPhp']);
         Route::post('domains/{domain}/status', [DomainController::class, 'setStatus']);
+        Route::post('domains/{domain}/reprovision', [DomainController::class, 'reprovision']);
         Route::post('domains/{domain}/server', [DomainController::class, 'switchServer']);
         Route::post('domains/{domain}/subdomains', [DomainController::class, 'storeSubdomain']);
         Route::delete('domains/{domain}/subdomains', [DomainController::class, 'destroySubdomain']);
