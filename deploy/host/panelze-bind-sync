@@ -7,19 +7,27 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_SCRIPTS="$(cd "$_HERE/../scripts" && pwd)"
-# shellcheck source=../scripts/lib/resolve-paths.sh
-source "$_SCRIPTS/lib/resolve-paths.sh"
+_resolve_panelze_home() {
+  if [[ -n "${PANELZE_HOME:-}" && -d "${PANELZE_HOME}/panel" ]]; then
+    echo "$PANELZE_HOME"
+    return
+  fi
+  local d
+  for d in /var/www/panelze /var/www/hostvim; do
+    if [[ -d "$d/panel" ]]; then
+      echo "$d"
+      return
+    fi
+  done
+  echo /var/www/panelze
+}
 
 _resolve_panel_root() {
   local candidate
   for candidate in \
     "${PANEL_ROOT:-}" \
     "${PANELZE_HOME:+$PANELZE_HOME/panel}" \
-    "$(resolve_panelze_home)/panel" \
-    /var/www/panelze/panel \
-    /var/www/hostvim/panel; do
+    "$(_resolve_panelze_home)/panel"; do
     [[ -n "$candidate" && -f "${candidate}/artisan" ]] || continue
     printf '%s\n' "$candidate"
     return 0
@@ -27,25 +35,21 @@ _resolve_panel_root() {
   return 1
 }
 
-PANELZE_HOME="${PANELZE_HOME:-$(resolve_panelze_home)}"
+PANELZE_HOME="$(_resolve_panelze_home)"
 PANEL_ROOT="$(_resolve_panel_root || true)"
 if [[ -z "$PANEL_ROOT" ]]; then
   echo "panelze-bind-sync: panel bulunamadı (PANEL_ROOT / PANELZE_HOME)" >&2
   exit 1
 fi
 
+SCRIPT_DIR="${PANELZE_HOME}/deploy/scripts"
 ZONES_DIR="/var/lib/bind/panelze/zones"
 mkdir -p "$ZONES_DIR"
 chown bind:bind "$ZONES_DIR" 2>/dev/null || true
 chmod 775 "$ZONES_DIR" 2>/dev/null || true
 
-if [[ -f "$_SCRIPTS/ensure-bind-config.sh" ]]; then
-  bash "$_SCRIPTS/ensure-bind-config.sh"
-fi
-
-# Eski hostvim zone include devre dışı kalsın (çift/eksik zone önlenir)
-if [[ -f /etc/bind/named.conf.hostvim-zones ]] && grep -q 'named.conf.hostvim-zones' /etc/bind/named.conf.local 2>/dev/null; then
-  bash "$_SCRIPTS/ensure-bind-config.sh"
+if [[ -f "$SCRIPT_DIR/ensure-bind-config.sh" ]]; then
+  bash "$SCRIPT_DIR/ensure-bind-config.sh"
 fi
 
 cd "${PANEL_ROOT}"
