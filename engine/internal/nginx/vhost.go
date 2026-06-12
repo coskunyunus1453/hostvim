@@ -166,7 +166,21 @@ server {
         access_log off;
     }
 
+    location ^~ /uploads/ {
+        try_files $uri @panelze_uploads_public;
+    }
+    location @panelze_uploads_public {
+        root {{.DocRoot}}/public;
+        try_files $uri =404;
+        access_log off;
+    }
+
     location ^~ /assets/ {
+        try_files $uri @panelze_assets_public;
+        access_log off;
+    }
+    location @panelze_assets_public {
+        root {{.DocRoot}}/public;
         try_files $uri =404;
         access_log off;
     }
@@ -267,7 +281,21 @@ server {
         access_log off;
     }
 
+    location ^~ /uploads/ {
+        try_files $uri @panelze_uploads_public;
+    }
+    location @panelze_uploads_public {
+        root {{.DocRoot}}/public;
+        try_files $uri =404;
+        access_log off;
+    }
+
     location ^~ /assets/ {
+        try_files $uri @panelze_assets_public;
+        access_log off;
+    }
+    location @panelze_assets_public {
+        root {{.DocRoot}}/public;
         try_files $uri =404;
         access_log off;
     }
@@ -379,7 +407,21 @@ server {
         access_log off;
     }
 
+    location ^~ /uploads/ {
+        try_files $uri @panelze_uploads_public;
+    }
+    location @panelze_uploads_public {
+        root {{.DocRoot}}/public;
+        try_files $uri =404;
+        access_log off;
+    }
+
     location ^~ /assets/ {
+        try_files $uri @panelze_assets_public;
+        access_log off;
+    }
+    location @panelze_assets_public {
+        root {{.DocRoot}}/public;
         try_files $uri =404;
         access_log off;
     }
@@ -481,7 +523,21 @@ server {
         access_log off;
     }
 
+    location ^~ /uploads/ {
+        try_files $uri @panelze_uploads_public;
+    }
+    location @panelze_uploads_public {
+        root {{.DocRoot}}/public;
+        try_files $uri =404;
+        access_log off;
+    }
+
     location ^~ /assets/ {
+        try_files $uri @panelze_assets_public;
+        access_log off;
+    }
+    location @panelze_assets_public {
+        root {{.DocRoot}}/public;
         try_files $uri =404;
         access_log off;
     }
