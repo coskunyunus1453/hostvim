@@ -3,9 +3,25 @@
 # /etc/sudoers.d/panelze-engine içinde NOPASSWD tanımlı olmalı.
 set -euo pipefail
 
-PM2_HOME="${PANELZE_PM2_HOME:-/var/www/panelze/data/pm2}"
-RUN_USER="${PANELZE_PM2_USER:-www-data}"
-PM2_BIN="${PANELZE_PM2_BIN:-/usr/bin/pm2}"
+if [[ -n "${PANELZE_PM2_HOME:-}" ]]; then
+  PM2_HOME="$PANELZE_PM2_HOME"
+elif [[ -n "${HOSTVIM_PM2_HOME:-}" ]]; then
+  PM2_HOME="$HOSTVIM_PM2_HOME"
+elif [[ -d /var/www/hostvim/data/pm2 ]]; then
+  PM2_HOME="/var/www/hostvim/data/pm2"
+else
+  PM2_HOME="/var/www/panelze/data/pm2"
+fi
+RUN_USER="${PANELZE_PM2_USER:-${HOSTVIM_PM2_USER:-www-data}}"
+PM2_BIN="${PANELZE_PM2_BIN:-${HOSTVIM_PM2_BIN:-/usr/bin/pm2}}"
+
+# Ölü daemon soketleri PM2'yi EACCES ile kilitleyebilir — temizle.
+if [[ -f "$PM2_HOME/pm2.pid" ]]; then
+  pid="$(tr -d '[:space:]' < "$PM2_HOME/pm2.pid" 2>/dev/null || true)"
+  if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$PM2_HOME/pm2.pid" "$PM2_HOME/rpc.sock" "$PM2_HOME/pub.sock"
+  fi
+fi
 
 if [[ ! -x "$PM2_BIN" ]] && command -v pm2 >/dev/null 2>&1; then
   PM2_BIN="$(command -v pm2)"
