@@ -327,11 +327,6 @@ func Start(cfg *config.Config, domain string) (string, error) {
 		"start", npmBin(cfg),
 		"--name", name,
 		"--cwd", workAbs,
-		"--max-restarts", "100",
-		"--restart-delay", "4000",
-		"--min-uptime", "5000",
-		"--max-memory-restart", "512M",
-		"--time",
 		"--",
 		"run", script,
 	}
