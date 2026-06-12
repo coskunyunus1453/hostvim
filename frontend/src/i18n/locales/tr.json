@@ -1232,6 +1232,7 @@
     "google_not_configured_admin": "Google Drive yapılandırılmamış. Hub kullanılmıyorsa sunucu .env ile tanımlayın.",
     "google_configured_hub": "OAuth Panelze merkezinden yüklendi. Müşteriler «Google Drive bağla» ile kendi hesaplarını bağlayabilir.",
     "google_connect_hint": "Hazır — kendi Google hesabınızı bağlayın; yedekler sizin Drive'ınıza gider.",
+    "google_callback_processing": "Google Drive bağlantısı tamamlanıyor…",
     "google_setup_guide_btn": "Kurulum rehberi",
     "google_connect_guide_btn": "Nasıl bağlarım?",
     "google_setup_modal_title": "Google Drive yedekleme rehberi",

@@ -26,6 +26,7 @@ const DatabasesPage = lazy(() => import('./pages/DatabasesPage'))
 const FtpPage = lazy(() => import('./pages/FtpPage'))
 const EmailPage = lazy(() => import('./pages/EmailPage'))
 const BackupsPage = lazy(() => import('./pages/BackupsPage'))
+const GoogleDriveCallbackPage = lazy(() => import('./pages/GoogleDriveCallbackPage'))
 const CronPage = lazy(() => import('./pages/CronPage'))
 const FileManagerPage = lazy(() => import('./pages/FileManagerPage'))
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
@@ -123,7 +124,7 @@ export default function App() {
         <Route path="files" element={<LazyPage><FileManagerPage /></LazyPage>} />
         <Route path="ftp" element={<LazyPage><FtpPage /></LazyPage>} />
         <Route path="ssl" element={<SslPage />} />
-        <Route path="backups/google-callback" element={<LazyPage><BackupsPage /></LazyPage>} />
+        <Route path="backups/google-callback" element={<LazyPage><GoogleDriveCallbackPage /></LazyPage>} />
         <Route path="backups" element={<LazyPage><BackupsPage /></LazyPage>} />
         <Route path="cron" element={<AdvancedRoute><LazyPage><CronPage /></LazyPage></AdvancedRoute>} />
         <Route path="monitoring" element={<AdvancedRoute><LazyPage><ProFeatureGate moduleKey="monitoring_advanced"><MonitoringPage /></ProFeatureGate></LazyPage></AdvancedRoute>} />

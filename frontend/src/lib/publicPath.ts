@@ -24,3 +24,15 @@ export function inferPublicPathPrefix(): string {
   }
   return path.slice(0, idx)
 }
+
+/** Laravel API kökü — deep link (/backups/google-callback vb.) yolundan türetilmez. */
+export function panelAppRootForApi(): string {
+  const prefix = inferPublicPathPrefix().replace(/\/+$/, '')
+  if (prefix) {
+    return `${prefix.replace(/\/admin$/, '')}/`
+  }
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    return '/admin/'
+  }
+  return '/'
+}

@@ -2,20 +2,14 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 import { useNotificationsStore } from '../store/notificationsStore'
 import { effectiveLoginPath } from '../config/profile'
-import { inferPublicPathPrefix } from '../lib/publicPath'
+import { inferPublicPathPrefix, panelAppRootForApi } from '../lib/publicPath'
 import i18n from '../i18n'
 
 function resolvePanelApiBase(): string {
   if (typeof window !== 'undefined') {
     try {
-      const inferredPrefix = inferPublicPathPrefix().replace(/\/+$/, '')
-      if (inferredPrefix) {
-        const appRootPath = `${inferredPrefix.replace(/\/admin$/, '')}/`
-        return new URL('index.php/api', `${window.location.origin}${appRootPath}`).href.replace(/\/+$/, '')
-      }
-      const current = new URL(window.location.href)
-      const rootPath = current.pathname.replace(/\/admin(?:\/.*)?$/, '/')
-      return new URL('index.php/api', `${current.origin}${rootPath}`).href.replace(/\/+$/, '')
+      const rootPath = panelAppRootForApi()
+      return new URL('index.php/api', `${window.location.origin}${rootPath}`).href.replace(/\/+$/, '')
     } catch {
       /* fallthrough */
     }

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import {
   Cloud,
@@ -82,7 +81,6 @@ export default function BackupsPage() {
     param: false,
   })
   const { domainId: uploadDomainId, setDomainId: setUploadDomainId } = useAutoDomainId({ param: false })
-  const [searchParams, setSearchParams] = useSearchParams()
   const uploadRef = useRef<HTMLInputElement>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [showDest, setShowDest] = useState(false)
@@ -228,42 +226,6 @@ export default function BackupsPage() {
       toast.error(ax.response?.data?.message ?? String(err))
     },
   })
-
-  // Google OAuth callback (/backups/google-callback)
-  useEffect(() => {
-    const isCallback = window.location.pathname.includes('google-callback')
-    const code = searchParams.get('code')
-    const state = searchParams.get('state')
-    const gdriveError = searchParams.get('gdrive_error')
-    if (gdriveError) {
-      toast.error(gdriveError)
-      searchParams.delete('gdrive_error')
-      setSearchParams(searchParams, { replace: true })
-      window.history.replaceState({}, '', '/backups')
-      return
-    }
-    if (!isCallback || !code || !state) return
-
-    ;(async () => {
-      try {
-        await api.post('/backups/google-drive/complete', { code, state })
-        toast.success(t('backups.google_connected'))
-        qc.invalidateQueries({ queryKey: ['backups-gdrive'] })
-        qc.invalidateQueries({ queryKey: ['backup-destinations'] })
-      } catch (err: unknown) {
-        const ax = err as { response?: { data?: { message?: string } } }
-        toast.error(ax.response?.data?.message ?? String(err))
-      } finally {
-        searchParams.delete('code')
-        searchParams.delete('state')
-        searchParams.delete('scope')
-        setSearchParams(searchParams, { replace: true })
-        if (isCallback) {
-          window.history.replaceState({}, '', '/backups')
-        }
-      }
-    })()
-  }, [searchParams, setSearchParams, qc, t])
 
   const createM = useMutation({
     mutationFn: async (payload: { domain_id: number; type: string; destination_id?: number }) =>

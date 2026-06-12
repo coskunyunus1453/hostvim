@@ -1231,6 +1231,7 @@
     "google_not_configured_admin": "Google Drive is not configured. Without the hub, set GOOGLE_DRIVE_* in server .env.",
     "google_configured_hub": "OAuth is loaded from Panelze central. Customers can use «Connect Google Drive».",
     "google_connect_hint": "Ready — connect your Google account; backups go to your Drive.",
+    "google_callback_processing": "Completing Google Drive connection…",
     "google_setup_guide_btn": "Setup guide",
     "google_connect_guide_btn": "How do I connect?",
     "google_setup_modal_title": "Google Drive backup guide",
