@@ -66,6 +66,7 @@ func IsNodeProfile(profile string) bool {
 
 const metaDirName = ".panelze"
 const legacyMetaDirName = ".panelsar"
+const hostvimMetaDirName = ".hostvim"
 
 func metaDir(webRoot, domain string) string {
 	return filepath.Join(webRoot, domain, metaDirName)
@@ -92,24 +93,43 @@ func legacyMetaFile(webRoot, domain string) string {
 	return filepath.Join(legacySiteMetaDir(webRoot, domain), "site.json")
 }
 
+func hostvimMetaFile(webRoot, domain string) string {
+	return filepath.Join(webRoot, domain, hostvimMetaDirName, "site.json")
+}
+
+func readSiteMetaBytes(webRoot, domain string) ([]byte, error) {
+	candidates := []string{
+		metaFile(webRoot, domain),
+		legacyMetaFile(webRoot, domain),
+		hostvimMetaFile(webRoot, domain),
+	}
+	var lastErr error
+	for _, p := range candidates {
+		b, err := os.ReadFile(p)
+		if err == nil {
+			return b, nil
+		}
+		if !os.IsNotExist(err) {
+			lastErr = err
+		}
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, os.ErrNotExist
+}
+
 // ReadSiteMeta mevcut site meta verisini okur; yoksa nil, nil döner.
 func ReadSiteMeta(webRoot, domain string) (*SiteMeta, error) {
 	if domain == "" || strings.Contains(domain, "..") {
 		return nil, nil
 	}
-	p := metaFile(webRoot, domain)
-	b, err := os.ReadFile(p)
+	b, err := readSiteMetaBytes(webRoot, domain)
 	if err != nil {
 		if os.IsNotExist(err) {
-			p = legacyMetaFile(webRoot, domain)
-			b, err = os.ReadFile(p)
+			return nil, nil
 		}
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil, nil
-			}
-			return nil, err
-		}
+		return nil, err
 	}
 	var m SiteMeta
 	if err := json.Unmarshal(b, &m); err != nil {
