@@ -87,7 +87,7 @@ export default function SiteStackAdvisorPanel({ domain, open }: Props) {
     retry: false,
   })
 
-  const scanErr = scanQ.error as { response?: { data?: ScanErrorBody } } } | null
+  const scanErr = scanQ.error as { response?: { data?: ScanErrorBody } } | null
   const needsReprovision = Boolean(scanErr?.response?.data?.needs_reprovision)
 
   const reprovisionM = useMutation({
