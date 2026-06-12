@@ -146,6 +146,7 @@ class SslIssueService
             'certificate' => $cert->fresh(),
             'engine' => $engine,
             'hostname' => $target->hostname,
+            'diagnostics' => $diagnostics,
         ];
     }
 

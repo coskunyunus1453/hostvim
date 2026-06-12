@@ -65,11 +65,13 @@ class SslController extends Controller
             ], fn ($v) => $v !== null), $result['http_status']);
         }
 
-        return response()->json([
+        return response()->json(array_filter([
             'message' => $result['message'] ?? __('ssl.issued'),
             'certificate' => $result['certificate'] ?? null,
             'engine' => $result['engine'] ?? null,
-        ]);
+            'diagnostics' => $result['diagnostics'] ?? null,
+            'hostname' => $result['hostname'] ?? null,
+        ], fn ($v) => $v !== null));
     }
 
     public function renew(Request $request, Domain $domain): JsonResponse

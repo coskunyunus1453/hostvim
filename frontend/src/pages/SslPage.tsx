@@ -1,10 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import api from '../services/api'
-import { Lock, RefreshCw, ShieldOff, Info } from 'lucide-react'
+import { Lock, RefreshCw, ShieldOff, Info, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useHostingTargets, type HostingTarget } from '../hooks/useHostingTargets'
+import SslProgressModal, {
+  type SslJobAction,
+  type SslJobState,
+} from '../components/ssl/SslProgressModal'
+
+const SSL_TIMEOUT_MS = 900_000
 
 type Cert = {
   id: number
@@ -17,6 +23,8 @@ type Cert = {
   domain?: { id: number; name: string; force_https?: boolean; ssl_enabled?: boolean }
   site_subdomain?: { id: number; hostname: string } | null
 }
+
+type DiagnosticRow = { key?: string; ok?: boolean; message?: string }
 
 function statusLabel(status: string | undefined, t: (k: string) => string): string {
   switch (status) {
@@ -54,16 +62,27 @@ function certKey(domainId: number, subdomainId?: number | null): string {
   return subdomainId ? `${domainId}:s:${subdomainId}` : `${domainId}:d`
 }
 
+function formatDiagnostics(rows: DiagnosticRow[] | undefined): string[] {
+  if (!rows?.length) return []
+  return rows.map((row) => {
+    const mark = row.ok ? '✓' : '✗'
+    const msg = row.message ?? row.key ?? ''
+    return `${mark} ${msg}`
+  })
+}
+
 export default function SslPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [manualTarget, setManualTarget] = useState<HostingTarget | null>(null)
   const [manualCert, setManualCert] = useState('')
   const [manualKey, setManualKey] = useState('')
+  const [job, setJob] = useState<SslJobState | null>(null)
 
   const sslQ = useQuery({
     queryKey: ['ssl'],
     queryFn: async () => (await api.get('/ssl')).data as { certificates: Cert[] },
+    refetchInterval: job?.status === 'running' ? 2500 : false,
   })
 
   const targetsQ = useHostingTargets()
@@ -85,42 +104,114 @@ export default function SslPage() {
   const sslBody = (target: HostingTarget) =>
     target.subdomain_id ? { subdomain_id: target.subdomain_id } : {}
 
+  const startJob = useCallback((target: HostingTarget, action: SslJobAction, initialLogs: string[] = []) => {
+    const startedAt = Date.now()
+    setJob({
+      target,
+      action,
+      startedAt,
+      progress: 8,
+      stepIndex: 0,
+      logs: initialLogs,
+      status: 'running',
+    })
+  }, [])
+
+  const finishJob = useCallback(
+    (success: boolean, logs: string[], errorMessage?: string) => {
+      setJob((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          status: success ? 'success' : 'error',
+          progress: success ? 100 : prev.progress,
+          stepIndex: success
+            ? ACTION_STEP_COUNT(prev.action) - 1
+            : prev.stepIndex,
+          logs: [...prev.logs, ...logs],
+          errorMessage,
+        }
+      })
+    },
+    [],
+  )
+
+  const onProgressTick = useCallback((progress: number, stepIndex: number) => {
+    setJob((prev) => {
+      if (!prev || prev.status !== 'running') return prev
+      return { ...prev, progress, stepIndex }
+    })
+  }, [])
+
   const issueM = useMutation({
-    mutationFn: async (target: HostingTarget) =>
-      api.post(`/domains/${target.domain_id}/ssl/issue`, sslBody(target)),
-    onSuccess: () => {
-      toast.success(t('ssl.issued'))
+    mutationFn: (target: HostingTarget) =>
+      api.post(`/domains/${target.domain_id}/ssl/issue`, sslBody(target), {
+        timeout: SSL_TIMEOUT_MS,
+      }),
+    onMutate: (target) =>
+      startJob(target, 'issue', [t('ssl.progress_started', { host: target.hostname })]),
+    onSuccess: (res) => {
+      const data = res.data ?? {}
+      finishJob(
+        true,
+        [
+          ...formatDiagnostics(data.diagnostics),
+          String(data.message ?? t('ssl.issued')),
+        ],
+      )
+      toast.success(String(data.message ?? t('ssl.issued')))
       invalidate()
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const ax = err as {
+        response?: { data?: { message?: string; diagnostics?: DiagnosticRow[] } }
+        message?: string
+      }
+      const msg = ax.response?.data?.message ?? ax.message ?? String(err)
+      finishJob(false, formatDiagnostics(ax.response?.data?.diagnostics), msg)
+      toast.error(msg)
     },
   })
 
   const renewM = useMutation({
-    mutationFn: async (target: HostingTarget) =>
-      api.post(`/domains/${target.domain_id}/ssl/renew`, sslBody(target)),
-    onSuccess: () => {
-      toast.success(t('ssl.renewed'))
+    mutationFn: (target: HostingTarget) =>
+      api.post(`/domains/${target.domain_id}/ssl/renew`, sslBody(target), {
+        timeout: SSL_TIMEOUT_MS,
+      }),
+    onMutate: (target) =>
+      startJob(target, 'renew', [t('ssl.progress_started', { host: target.hostname })]),
+    onSuccess: (res) => {
+      const data = res.data ?? {}
+      finishJob(true, [String(data.message ?? t('ssl.renewed'))])
+      toast.success(String(data.message ?? t('ssl.renewed')))
       invalidate()
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const ax = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg = ax.response?.data?.message ?? ax.message ?? String(err)
+      finishJob(false, [], msg)
+      toast.error(msg)
     },
   })
 
   const revokeM = useMutation({
-    mutationFn: async (target: HostingTarget) =>
-      api.post(`/domains/${target.domain_id}/ssl/revoke`, sslBody(target)),
-    onSuccess: () => {
-      toast.success(t('ssl.revoked'))
+    mutationFn: (target: HostingTarget) =>
+      api.post(`/domains/${target.domain_id}/ssl/revoke`, sslBody(target), {
+        timeout: 120_000,
+      }),
+    onMutate: (target) =>
+      startJob(target, 'revoke', [t('ssl.progress_started', { host: target.hostname })]),
+    onSuccess: (res) => {
+      const data = res.data ?? {}
+      finishJob(true, [String(data.message ?? t('ssl.revoked'))])
+      toast.success(String(data.message ?? t('ssl.revoked')))
       invalidate()
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const ax = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg = ax.response?.data?.message ?? ax.message ?? String(err)
+      finishJob(false, [], msg)
+      toast.error(msg)
     },
   })
 
@@ -142,23 +233,41 @@ export default function SslPage() {
 
   const manualM = useMutation({
     mutationFn: async (vars: { target: HostingTarget; certificate: string; private_key: string }) =>
-      api.post(`/domains/${vars.target.domain_id}/ssl/manual`, {
-        certificate: vars.certificate,
-        private_key: vars.private_key,
-        ...(vars.target.subdomain_id ? { subdomain_id: vars.target.subdomain_id } : {}),
-      }),
-    onSuccess: () => {
-      toast.success(t('ssl.manual_uploaded'))
+      api.post(
+        `/domains/${vars.target.domain_id}/ssl/manual`,
+        {
+          certificate: vars.certificate,
+          private_key: vars.private_key,
+          ...(vars.target.subdomain_id ? { subdomain_id: vars.target.subdomain_id } : {}),
+        },
+        { timeout: 120_000 },
+      ),
+    onMutate: (vars) =>
+      startJob(vars.target, 'manual', [t('ssl.progress_started', { host: vars.target.hostname })]),
+    onSuccess: (res) => {
+      const data = res.data ?? {}
+      finishJob(true, [String(data.message ?? t('ssl.manual_uploaded'))])
+      toast.success(String(data.message ?? t('ssl.manual_uploaded')))
       setManualTarget(null)
       setManualCert('')
       setManualKey('')
       invalidate()
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const ax = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg = ax.response?.data?.message ?? ax.message ?? String(err)
+      finishJob(false, [], msg)
+      toast.error(msg)
     },
   })
+
+  const busyKey = job?.status === 'running' ? job.target.key : null
+
+  const isRowBusy = (ht: HostingTarget, action?: SslJobAction) => {
+    if (!busyKey || busyKey !== ht.key) return false
+    if (!action || !job) return true
+    return job.action === action
+  }
 
   const daysUntil = (iso: string | null | undefined): number | null => {
     if (!iso) return null
@@ -170,6 +279,12 @@ export default function SslPage() {
 
   return (
     <div className="space-y-6">
+      <SslProgressModal
+        job={job}
+        onClose={() => setJob(null)}
+        onTick={onProgressTick}
+      />
+
       <div className="flex items-center gap-3">
         <Lock className="h-8 w-8 text-green-500" />
         <div>
@@ -216,11 +331,12 @@ export default function SslPage() {
                   const autoRenew = c?.auto_renew ?? false
                   const days = daysUntil(c?.expires_at ?? ht.ssl_expiry ?? null)
                   const expiringSoon = days !== null && days >= 0 && days <= 30
+                  const rowLocked = busyKey === ht.key
 
                   return (
                     <tr
                       key={ht.key}
-                      className="border-t border-gray-100 dark:border-gray-800"
+                      className={`border-t border-gray-100 dark:border-gray-800 ${rowLocked ? 'bg-primary-50/40 dark:bg-primary-900/10' : ''}`}
                     >
                       <td className="px-4 py-3 font-medium">
                         <span className={isSub ? 'pl-4 font-mono text-sm' : ''}>
@@ -239,7 +355,11 @@ export default function SslPage() {
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(c?.status ?? ht.ssl_status ?? undefined)}`}
                         >
-                          {c ? statusLabel(c.status, t) : ht.ssl_status ? statusLabel(ht.ssl_status, t) : t('ssl.no_cert')}
+                          {c
+                            ? statusLabel(c.status, t)
+                            : ht.ssl_status
+                              ? statusLabel(ht.ssl_status, t)
+                              : t('ssl.no_cert')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-500">
@@ -269,7 +389,7 @@ export default function SslPage() {
                                 type="checkbox"
                                 className="rounded border-gray-300"
                                 checked={forceHttps}
-                                disabled={!hasSsl || settingsM.isPending}
+                                disabled={!hasSsl || settingsM.isPending || rowLocked}
                                 onChange={(e) =>
                                   settingsM.mutate({ id: ht.domain_id, force_https: e.target.checked })
                                 }
@@ -284,7 +404,7 @@ export default function SslPage() {
                                 type="checkbox"
                                 className="rounded border-gray-300"
                                 checked={autoRenew}
-                                disabled={!c || settingsM.isPending}
+                                disabled={!c || settingsM.isPending || rowLocked}
                                 onChange={(e) =>
                                   settingsM.mutate({ id: ht.domain_id, auto_renew: e.target.checked })
                                 }
@@ -298,36 +418,48 @@ export default function SslPage() {
                         <div className="flex flex-wrap justify-end gap-1">
                           <button
                             type="button"
-                            className="btn-secondary text-xs py-1 px-2"
-                            disabled={issueM.isPending}
+                            className="btn-secondary text-xs py-1 px-2 inline-flex items-center gap-1"
+                            disabled={rowLocked}
                             onClick={() => issueM.mutate(ht)}
                           >
+                            {isRowBusy(ht, 'issue') ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : null}
                             {t('ssl.issue')}
                           </button>
                           <button
                             type="button"
                             className="btn-secondary text-xs py-1 px-2 inline-flex items-center gap-1"
-                            disabled={!c || renewM.isPending}
+                            disabled={!c || rowLocked}
                             onClick={() => renewM.mutate(ht)}
                           >
-                            <RefreshCw className="h-3 w-3" />
+                            {isRowBusy(ht, 'renew') ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3" />
+                            )}
                             {t('ssl.renew')}
                           </button>
                           <button
                             type="button"
                             className="btn-secondary text-xs py-1 px-2 text-red-600 inline-flex items-center gap-1"
-                            disabled={!hasSsl || revokeM.isPending}
+                            disabled={!hasSsl || rowLocked}
                             onClick={() => {
                               if (window.confirm(t('ssl.confirm_revoke'))) revokeM.mutate(ht)
                             }}
                           >
-                            <ShieldOff className="h-3 w-3" />
+                            {isRowBusy(ht, 'revoke') ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <ShieldOff className="h-3 w-3" />
+                            )}
                             {t('ssl.revoke')}
                           </button>
                           {!isSub && (
                             <button
                               type="button"
                               className="btn-secondary text-xs py-1 px-2"
+                              disabled={rowLocked}
                               onClick={() => setManualTarget(ht)}
                             >
                               {t('ssl.manual_upload')}
@@ -367,7 +499,7 @@ export default function SslPage() {
           <div className="flex gap-2">
             <button
               type="button"
-              className="btn-primary"
+              className="btn-primary inline-flex items-center gap-2"
               disabled={manualM.isPending || manualCert.length < 64 || manualKey.length < 64}
               onClick={() =>
                 manualM.mutate({
@@ -377,6 +509,7 @@ export default function SslPage() {
                 })
               }
             >
+              {manualM.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               {t('ssl.manual_upload')}
             </button>
             <button type="button" className="btn-secondary" onClick={() => setManualTarget(null)}>
@@ -387,4 +520,19 @@ export default function SslPage() {
       )}
     </div>
   )
+}
+
+function ACTION_STEP_COUNT(action: SslJobAction): number {
+  switch (action) {
+    case 'issue':
+      return 5
+    case 'renew':
+      return 4
+    case 'revoke':
+      return 3
+    case 'manual':
+      return 2
+    default:
+      return 3
+  }
 }
