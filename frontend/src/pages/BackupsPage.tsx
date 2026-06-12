@@ -6,7 +6,9 @@ import api from '../services/api'
 import {
   Cloud,
   Download,
+  ExternalLink,
   HardDrive,
+  HelpCircle,
   Plus,
   RotateCcw,
   Shield,
@@ -101,6 +103,7 @@ export default function BackupsPage() {
     enabled: true,
   })
   const [restoreTarget, setRestoreTarget] = useState<BackupRow | null>(null)
+  const [showGdriveGuide, setShowGdriveGuide] = useState(false)
 
   const q = useQuery({
     queryKey: ['backups', domainFilter],
@@ -428,20 +431,24 @@ export default function BackupsPage() {
                 </p>
               )}
               {!gdriveQ.data?.configured && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-xs text-amber-700 dark:text-amber-300">{t('backups.google_not_configured')}</p>
-                  {isAdmin && gdriveQ.data?.redirect_uri && (
-                    <p className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-2.5 py-2 text-[11px] text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-100">
-                      {t('backups.google_not_configured_admin_steps', {
-                        redirectUri: gdriveQ.data.redirect_uri,
-                      })}
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                  {isAdmin ? t('backups.google_not_configured_admin') : t('backups.google_not_configured_customer')}
+                </p>
+              )}
+              {gdriveQ.data?.configured && !gdriveQ.data?.connected && (
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">{t('backups.google_connect_hint')}</p>
               )}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-secondary text-sm inline-flex items-center gap-1.5"
+              onClick={() => setShowGdriveGuide(true)}
+            >
+              <HelpCircle className="h-4 w-4" />
+              {gdriveQ.data?.configured ? t('backups.google_connect_guide_btn') : t('backups.google_setup_guide_btn')}
+            </button>
             {gdriveQ.data?.connected ? (
               <button type="button" className="btn-secondary text-sm" onClick={() => disconnectGdriveM.mutate()} disabled={disconnectGdriveM.isPending}>
                 {t('backups.google_disconnect')}
@@ -621,6 +628,86 @@ export default function BackupsPage() {
           ))}
         </div>
       </div>
+
+      {/* Google Drive setup / connect guide */}
+      {showGdriveGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 bg-white dark:bg-gray-900">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('backups.google_setup_modal_title')}</h2>
+              <button type="button" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" onClick={() => setShowGdriveGuide(false)} aria-label={t('common.close')}>
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('backups.google_setup_modal_intro')}</p>
+
+            {isAdmin && !gdriveQ.data?.configured && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('backups.google_setup_admin_section')}</h3>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <li>
+                    {t('backups.google_setup_admin_step1')}{' '}
+                    <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                      {t('backups.google_setup_link_console')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                  <li>
+                    {t('backups.google_setup_admin_step2')}{' '}
+                    <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                      {t('backups.google_setup_link_drive_api')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                  <li>
+                    {t('backups.google_setup_admin_step3')}{' '}
+                    <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                      {t('backups.google_setup_link_consent')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                  <li>
+                    {t('backups.google_setup_admin_step4')}{' '}
+                    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                      {t('backups.google_setup_link_credentials')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                  <li>
+                    {t('backups.google_setup_admin_step5')}
+                    {gdriveQ.data?.redirect_uri && (
+                      <code className="mt-1 block rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-mono break-all dark:border-gray-700 dark:bg-gray-800">
+                        {gdriveQ.data.redirect_uri}
+                      </code>
+                    )}
+                  </li>
+                  <li>
+                    {t('backups.google_setup_admin_step6')}
+                    <pre className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-mono dark:border-gray-700 dark:bg-gray-800 whitespace-pre-wrap">{`GOOGLE_DRIVE_CLIENT_ID=...\nGOOGLE_DRIVE_CLIENT_SECRET=...`}</pre>
+                  </li>
+                  <li>{t('backups.google_setup_admin_step7')}</li>
+                  <li>{t('backups.google_setup_admin_step8')}</li>
+                </ol>
+              </section>
+            )}
+
+            <section className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('backups.google_setup_customer_section')}</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                <li>{t('backups.google_setup_customer_step1')}</li>
+                <li>{t('backups.google_setup_customer_step2')}</li>
+                <li>{t('backups.google_setup_customer_step3')}</li>
+                <li>{t('backups.google_setup_customer_step4')}</li>
+              </ol>
+              {!gdriveQ.data?.configured && !isAdmin && (
+                <p className="text-sm text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-950/30">
+                  {t('backups.google_setup_customer_not_ready')}
+                </p>
+              )}
+            </section>
+
+            <button type="button" className="btn-secondary w-full" onClick={() => setShowGdriveGuide(false)}>
+              {t('common.close')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Restore modal */}
       {restoreTarget && (
