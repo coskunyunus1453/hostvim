@@ -185,8 +185,11 @@ export default function Sidebar() {
     },
   ]
 
+  /** Kolay modda bile yönetici için görünür kalsın (nameserver / sunucu IP). */
+  const easyAdminKeepPaths = new Set(['/admin/dns-settings', '/admin/server-settings'])
+
   const [openAdminMenus, setOpenAdminMenus] = useState<Record<string, boolean>>({
-    'admin-server': false,
+    'admin-server': true,
     'admin-access': false,
   })
 
@@ -222,7 +225,13 @@ export default function Sidebar() {
     () =>
       adminSubmenus
         .map((m) => ({ ...m, items: m.items.filter((i) => i.allow) }))
-        .map((m) => ({ ...m, items: mode === 'easy' ? [] : m.items }))
+        .map((m) => ({
+          ...m,
+          items:
+            mode === 'easy'
+              ? m.items.filter((i) => easyAdminKeepPaths.has(i.path))
+              : m.items,
+        }))
         .filter((m) => m.items.length > 0),
     [isAdmin, canWebserverSettings, canPhpSettings, mode],
   )
@@ -375,7 +384,7 @@ export default function Sidebar() {
             </p>
             <div className="space-y-2">
               {visibleAdminMenus.map((menu) => {
-                const isOpen = openAdminMenus[menu.id] ?? false
+                const isOpen = openAdminMenus[menu.id] ?? menu.id === 'admin-server'
                 return (
                   <div key={menu.id} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
                     <button
