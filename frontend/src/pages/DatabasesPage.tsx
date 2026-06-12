@@ -122,7 +122,6 @@ export default function DatabasesPage() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [createType, setCreateType] = useState('mysql')
-  const [editAccessDb, setEditAccessDb] = useState<DbRow | null>(null)
   const [editCredentialsDb, setEditCredentialsDb] = useState<DbRow | null>(null)
   const [importDb, setImportDb] = useState<DbRow | null>(null)
   const [passwordReveal, setPasswordReveal] = useState<{
@@ -240,21 +239,6 @@ export default function DatabasesPage() {
       if (ax.response?.data?.code === 'pro_license_required' && isAdmin) {
         navigate('/admin/license')
       }
-    },
-  })
-
-  const patchAccessM = useMutation({
-    mutationFn: async ({ id, grant_host }: { id: number; grant_host: string }) => {
-      await api.patch(`/databases/${id}`, { grant_host })
-    },
-    onSuccess: () => {
-      toast.success(t('databases.access_updated'))
-      qc.invalidateQueries({ queryKey: ['databases'] })
-      setEditAccessDb(null)
-    },
-    onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
     },
   })
 
@@ -472,14 +456,31 @@ export default function DatabasesPage() {
     }
   }, [importDb])
 
+  const parseApiErrorText = (txt: string, fallback: string): string => {
+    const trimmed = txt.trim()
+    if (!trimmed) return fallback
+    if (trimmed.startsWith('{')) {
+      try {
+        const j = JSON.parse(trimmed) as { message?: string }
+        if (j.message) return String(j.message)
+      } catch {
+        /* ignore */
+      }
+    }
+    const title = trimmed.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim()
+    if (title && !/^server error$/i.test(title)) return title
+    return trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 280) || fallback
+  }
+
   const runExport = async (db: DbRow) => {
     const token = useAuthStore.getState().token
     const locale = (i18n.language || 'en').split('-')[0]
+    const pending = toast.loading(t('databases.export_progress'))
     try {
       const res = await fetch(`${apiBaseUrl}/databases/${db.id}/export`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          Accept: '*/*',
+          Accept: 'application/sql, application/json, */*',
           'X-Locale': locale,
         },
       })
@@ -491,9 +492,9 @@ export default function DatabasesPage() {
           if (j.message) msg = String(j.message)
         } else {
           const txt = await res.text().catch(() => '')
-          if (txt) msg = txt.slice(0, 240)
+          msg = parseApiErrorText(txt, msg)
         }
-        toast.error(msg)
+        toast.error(msg, { id: pending })
         return
       }
       const blob = await res.blob()
@@ -507,8 +508,9 @@ export default function DatabasesPage() {
       a.download = fn
       a.click()
       URL.revokeObjectURL(url)
+      toast.success(t('databases.export_done'), { id: pending })
     } catch {
-      toast.error(t('databases.export_failed'))
+      toast.error(t('databases.export_failed'), { id: pending })
     }
   }
 
@@ -769,16 +771,6 @@ export default function DatabasesPage() {
                         </td>
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            {db.type === 'mysql' && (
-                              <button
-                                type="button"
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
-                                title={t('databases.edit_access')}
-                                onClick={() => setEditAccessDb(db)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                            )}
                             {(db.type === 'mysql' || db.type === 'postgresql') && (
                               <button
                                 type="button"
@@ -1343,55 +1335,6 @@ export default function DatabasesPage() {
                 {t('common.close')}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {editAccessDb && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {t('databases.edit_access')}
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{editAccessDb.name}</p>
-            <form
-              className="space-y-3"
-              onSubmit={(ev) => {
-                ev.preventDefault()
-                const fd = new FormData(ev.currentTarget)
-                patchAccessM.mutate({
-                  id: editAccessDb.id,
-                  grant_host: String(fd.get('grant_host') || ''),
-                })
-              }}
-            >
-              <div>
-                <label className="label">{t('databases.grant_host')}</label>
-                <select
-                  name="grant_host"
-                  className="input w-full"
-                  defaultValue={editAccessDb.grant_host?.trim() || 'localhost'}
-                >
-                  {grantHostSelectOptions(editAccessDb.grant_host).map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setEditAccessDb(null)}
-                >
-                  {t('common.cancel')}
-                </button>
-                <button type="submit" className="btn-primary" disabled={patchAccessM.isPending}>
-                  {t('common.save')}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

@@ -1258,7 +1258,7 @@
     "connect_title": "Connection summary",
     "imap_label": "IMAP server (typical)",
     "smtp_label": "SMTP server (typical)",
-    "ports_hint": "Hostvim mail stack (Postfix + Dovecot): IMAPS 993, SMTP submission 587 (STARTTLS), SMTPS 465. IMAP 143 is optional with STARTTLS.",
+    "ports_hint": "Panelze mail stack (Postfix + Dovecot): IMAPS 993, SMTP submission 587 (STARTTLS), SMTPS 465. IMAP 143 is optional with STARTTLS.",
     "ports_table_title": "Ports & encryption",
     "port_col_service": "Service",
     "port_col_port": "Port",

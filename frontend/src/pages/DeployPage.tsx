@@ -5,8 +5,7 @@ import { Rocket, Copy, Play } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
-import { useDomainsList } from '../hooks/useDomains'
-import { useSearchParams } from 'react-router-dom'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
 type DeployConfig = {
   id: number
@@ -31,9 +30,7 @@ type DeployRun = {
 export default function DeployPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [searchParams] = useSearchParams()
-  const domainsQ = useDomainsList()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: 'domain' })
   const [repoUrl, setRepoUrl] = useState('')
   const [branch, setBranch] = useState('main')
   const [runtime, setRuntime] = useState<'laravel' | 'node' | 'php'>('laravel')
@@ -41,15 +38,6 @@ export default function DeployPage() {
   const [autoDeploy, setAutoDeploy] = useState(false)
   const [selectedRun, setSelectedRun] = useState<DeployRun | null>(null)
   const [wizardRuntimeTouched, setWizardRuntimeTouched] = useState(false)
-
-  useEffect(() => {
-    if (domainId !== '') return
-    const raw = searchParams.get('domain')
-    const n = raw ? Number(raw) : NaN
-    if (Number.isFinite(n) && n > 0) {
-      setDomainId(n)
-    }
-  }, [domainId, searchParams])
 
   const cfgQ = useQuery({
     queryKey: ['deploy-config', domainId],

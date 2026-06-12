@@ -9,7 +9,7 @@ fi
 
 SUDOERS="/etc/sudoers.d/panelze-engine"
 
-# Her deploy'da tam liste yazılır (eksik kural / eski hostvim satırları kalmasın).
+# Her deploy'da tam liste yazılır (eksik kural / eski marka satırları kalmasın).
 cat >"$SUDOERS" <<'SUDOERS'
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-nginx-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-nginx-vhost

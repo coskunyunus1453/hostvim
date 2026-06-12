@@ -63,7 +63,7 @@ class BindZoneWriter
         $val = trim((string) $r->value);
 
         if ($type === 'TXT' && $val !== '') {
-            $val = '"'.str_replace('"', '\\"', $val).'"';
+            $val = $this->formatTxtRdata($val);
         }
 
         if ($type === 'MX') {
@@ -82,6 +82,24 @@ class BindZoneWriter
         }
 
         return sprintf('%s %d IN %s %s', $fqdn, $ttl, $type, $val);
+    }
+
+    private function formatTxtRdata(string $value): string
+    {
+        $value = trim($value, "\" \t\n\r");
+        if ($value === '') {
+            return '""';
+        }
+        if (strlen($value) <= 250) {
+            return '"'.str_replace('"', '\\"', $value).'"';
+        }
+        $chunks = str_split($value, 250);
+        $quoted = array_map(
+            static fn (string $chunk) => '"'.str_replace('"', '\\"', $chunk).'"',
+            $chunks
+        );
+
+        return '( '.implode(' ', $quoted).' )';
     }
 
     private function fqdn(string $host, string $zone): string

@@ -10,7 +10,7 @@ class BootstrapDomainDnsCommand extends Command
 {
     protected $signature = 'panelze:dns-bootstrap {--domain= : Tek alan adı} {--all : Tüm aktif domainler}';
 
-    protected $description = 'Domainlere varsayılan DNS kayıtlarını ekler (@, www, mail, webmail, NS glue)';
+    protected $description = 'Domainlere varsayılan DNS kayıtlarını ekler (A, MX, SPF, DMARC, DKIM, NS glue)';
 
     public function handle(DomainDnsBootstrapService $bootstrap): int
     {

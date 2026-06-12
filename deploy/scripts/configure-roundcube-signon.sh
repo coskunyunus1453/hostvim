@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Roundcube «panelze-signon» — Panelze tek tık webmail girişi için bir kez çalıştırın.
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/resolve-paths.sh
+source "$SCRIPT_DIR/lib/resolve-paths.sh"
 
-PANEL_ENV="${PANEL_ENV:-/var/www/hostvim/panel/.env}"
-if [[ ! -f "$PANEL_ENV" ]] && [[ -f /var/www/panelze/panel/.env ]]; then
-  PANEL_ENV="/var/www/panelze/panel/.env"
-fi
+PANEL_ENV="${PANEL_ENV:-$(resolve_panel_root)/.env}"
 
 if [[ ! -f "$PANEL_ENV" ]]; then
   echo "Panel .env bulunamadı: $PANEL_ENV" >&2
@@ -14,7 +14,7 @@ fi
 
 read_env() {
   local key="$1"
-  grep -E "^${key}=" "$PANEL_ENV" | head -1 | cut -d= -f2- | tr -d '\r"'\'''
+  grep -E "^${key}=" "$PANEL_ENV" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r"'\''' || true
 }
 
 APP_URL="$(read_env APP_URL)"
@@ -65,8 +65,9 @@ NGX_SNIP="/etc/nginx/snippets/panelze-roundcube-signon.conf"
 if [[ ! -f "$NGX_SNIP" ]]; then
   cat > "$NGX_SNIP" <<'NGX'
 location = /panelze-signon {
-    include snippets/fastcgi-php.conf;
+    include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME /usr/share/roundcube/panelze-signon.php;
+    fastcgi_param SCRIPT_NAME /panelze-signon.php;
     fastcgi_pass unix:PHP_SOCK_PLACEHOLDER;
 }
 NGX
@@ -78,14 +79,40 @@ NGX
   sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" "$NGX_SNIP"
 fi
 
-ROUNDCUBE_SITE="/etc/nginx/sites-available/panelze-roundcube"
-if [[ -f "$ROUNDCUBE_SITE" ]] && ! grep -q 'panelze-roundcube-signon.conf' "$ROUNDCUBE_SITE"; then
-  sed -i '/include snippets\/panelze-roundcube-php.conf;/i\  include snippets/panelze-roundcube-signon.conf;' "$ROUNDCUBE_SITE"
-  nginx -t
+patch_roundcube_site() {
+  local site="$1"
+  local php_snippet="$2"
+  [[ -f "$site" ]] || return 0
+  if grep -q 'panelze-roundcube-signon.conf' "$site"; then
+    return 0
+  fi
+  if grep -q "include snippets/${php_snippet};" "$site"; then
+    sed -i "/include snippets\/${php_snippet};/i\\  include snippets/panelze-roundcube-signon.conf;" "$site"
+  else
+    sed -i '/location \/ {/a\  include snippets/panelze-roundcube-signon.conf;' "$site"
+  fi
+}
+
+patch_roundcube_site "/etc/nginx/sites-available/panelze-roundcube" "panelze-roundcube-php.conf"
+# Eski kurulum nginx site adı (tek seferlik geçiş)
+patch_roundcube_site "/etc/nginx/sites-available/hostvim-roundcube" "hostvim-roundcube-php.conf"
+
+if nginx -t 2>/dev/null; then
   systemctl reload nginx
 fi
 
-if [[ -d /var/www/hostvim/panel ]] || [[ -d /var/www/panelze/panel ]]; then
+# Roundcube IMAP/SMTP: localhost yerine yerel TLS (Dovecot 993 / Postfix submission 587)
+if [[ -f /etc/roundcube/config.local.inc.php ]]; then
+  if ! grep -q "imap_host" /etc/roundcube/config.local.inc.php; then
+    sed -i "/<?php/a \$config['imap_host'] = 'ssl://127.0.0.1';" /etc/roundcube/config.local.inc.php
+  fi
+fi
+CFG_SMTP="$SCRIPT_DIR/fix-roundcube-smtp.sh"
+if [[ -f "$CFG_SMTP" ]]; then
+  bash "$CFG_SMTP" || true
+fi
+
+if [[ -d "$(dirname "$PANEL_ENV")" ]]; then
   PANEL_DIR="$(dirname "$PANEL_ENV")"
   (cd "$PANEL_DIR" && php artisan config:clear >/dev/null 2>&1 || true)
 fi

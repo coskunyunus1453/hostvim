@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { useAuthStore } from '../store/authStore'
 
 type BackupRow = {
@@ -76,11 +76,12 @@ export default function BackupsPage() {
   const { t } = useTranslation()
   const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
   const qc = useQueryClient()
-  const domainsQ = useDomainsList()
+  const { domainId: domainFilter, setDomainId: setDomainFilter, domainsQ } = useAutoDomainId({
+    param: false,
+  })
+  const { domainId: uploadDomainId, setDomainId: setUploadDomainId } = useAutoDomainId({ param: false })
   const [searchParams, setSearchParams] = useSearchParams()
   const uploadRef = useRef<HTMLInputElement>(null)
-
-  const [domainFilter, setDomainFilter] = useState<number | ''>('')
   const [showAdd, setShowAdd] = useState(false)
   const [showDest, setShowDest] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
@@ -100,7 +101,6 @@ export default function BackupsPage() {
     enabled: true,
   })
   const [restoreTarget, setRestoreTarget] = useState<BackupRow | null>(null)
-  const [uploadDomainId, setUploadDomainId] = useState<number | ''>('')
 
   const q = useQuery({
     queryKey: ['backups', domainFilter],

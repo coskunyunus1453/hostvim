@@ -260,6 +260,8 @@ class DatabaseController extends Controller
         $filename = $safeName.'_'.date('Y-m-d_His').'.sql';
 
         try {
+            $this->databaseService->assertExportReady($database);
+
             return response()->streamDownload(function () use ($database): void {
                 if ($database->type === 'mysql') {
                     $this->databaseService->streamMysqlDump($database, function (string $chunk): void {

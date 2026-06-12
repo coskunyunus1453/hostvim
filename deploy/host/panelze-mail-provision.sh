@@ -76,6 +76,13 @@ def write_lines(path: str, lines: list[str]) -> None:
         if lines:
             fh.write("\n")
     os.chmod(tmp, 0o640)
+    try:
+        import grp
+
+        gid = grp.getgrnam("dovecot").gr_gid
+        os.chown(tmp, 0, gid)
+    except (KeyError, PermissionError, OSError):
+        pass
     os.replace(tmp, path)
 
 write_lines("/etc/dovecot/passwd", passwd_lines)
@@ -88,4 +95,10 @@ postmap /etc/postfix/virtual_mailbox_maps
 postmap /etc/postfix/virtual_alias_maps
 systemctl reload postfix >/dev/null 2>&1 || true
 systemctl reload dovecot >/dev/null 2>&1 || true
+
+DKIM_SYNC="/usr/local/sbin/panelze-mail-dkim-sync"
+[[ -x "$DKIM_SYNC" ]] && "$DKIM_SYNC" "$STATE_DIR" || true
+
+postmap /etc/postfix/virtual_mailbox_domains 2>/dev/null || true
+
 echo "OK mail-provision"

@@ -5,7 +5,7 @@ import { HardDrive, Plus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { copyPlaintextWithToasts } from '../lib/copyText'
 import api from '../services/api'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
 type FtpRow = {
   id: number
@@ -25,8 +25,7 @@ type EngineFtpRow = {
 export default function FtpPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const domainsQ = useDomainsList()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [showAdd, setShowAdd] = useState(false)
 
   const q = useQuery({

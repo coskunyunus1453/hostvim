@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
+
 class MailStackService
 {
     public function __construct(
@@ -39,7 +41,21 @@ class MailStackService
         }
 
         $this->dnsBootstrap->repairAllActiveDomains();
+        $this->syncProvision();
 
         return ['ok' => true, 'output' => is_string($result['output'] ?? null) ? $result['output'] : null];
+    }
+
+    /** Panel/engine posta hesaplarını Dovecot + Postfix'e yazar. */
+    public function syncProvision(): void
+    {
+        if (! $this->isWebmailStackInstalled()) {
+            return;
+        }
+
+        $sync = $this->engine->mailProvisionSync();
+        if (! empty($sync['error'])) {
+            Log::warning('mailProvisionSync failed', ['error' => $sync['error']]);
+        }
     }
 }

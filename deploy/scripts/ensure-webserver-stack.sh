@@ -8,8 +8,12 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PANELZE_HOME="${PANELZE_HOME:-/var/www/hostvim}"
+# shellcheck source=lib/resolve-paths.sh
+source "$SCRIPT_DIR/lib/resolve-paths.sh"
+PANELZE_HOME="$(resolve_panelze_home)"
 cd "$PANELZE_HOME"
+migrate_engine_config_to_panelze
+migrate_panelze_home_symlink
 
 install_helper() {
   local base="$1"
@@ -36,47 +40,17 @@ free_engine_port() {
   pids="$(lsof -ti :9090 2>/dev/null || true)"
   [[ -n "$pids" ]] || return 0
   systemctl stop panelze-engine 2>/dev/null || true
-  systemctl stop hostvim-engine 2>/dev/null || true
   systemctl stop panelsar-engine 2>/dev/null || true
   sleep 1
   pids="$(lsof -ti :9090 2>/dev/null || true)"
   for pid in $pids; do
     comm="$(ps -p "$pid" -o comm= 2>/dev/null | tr -d '[:space:]')"
-    if [[ "$comm" =~ ^(panelze-engine|panelsar-engine|hostvim-engine|go)$ ]]; then
+    if [[ "$comm" =~ ^(panelze-engine|panelsar-engine|go)$ ]]; then
       kill -TERM "$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
     fi
   done
   sleep 1
 }
-
-echo "==> staging dizinleri"
-mkdir -p "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging"
-chown www-data:www-data "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging"
-
-echo "==> vhost sudo helper betikleri"
-install_helper nginx-vhost
-install_helper apache-vhost
-install_helper ols-vhost
-cleanup_legacy_nginx_vhosts
-
-echo "==> sudoers"
-bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
-
-echo "==> Apache backend :8080"
-if [[ -f /etc/apache2/ports.conf ]]; then
-  a2enmod proxy_fcgi rewrite headers 2>/dev/null || true
-  sed -i \
-    -e 's/^Listen 80$/Listen 8080/' \
-    -e 's/^Listen \[::\]:80$/Listen [::]:8080/' \
-    /etc/apache2/ports.conf 2>/dev/null || true
-  systemctl enable apache2 2>/dev/null || true
-  apache2ctl configtest 2>/dev/null && systemctl restart apache2 2>/dev/null || true
-fi
-
-echo "==> OpenLiteSpeed backend :8088"
-if [[ -f "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" ]]; then
-  bash "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" || echo "Uyarı: OLS setup atlandı" >&2
-fi
 
 cleanup_legacy_nginx_vhosts() {
   local removed=0 base domain panelze
@@ -132,6 +106,36 @@ fix_ols_map_commas() {
     /usr/local/lsws/bin/lswsctrl reload 2>/dev/null || true
   fi
 }
+
+echo "==> staging dizinleri"
+mkdir -p "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging"
+chown www-data:www-data "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging"
+
+echo "==> vhost sudo helper betikleri"
+install_helper nginx-vhost
+install_helper apache-vhost
+install_helper ols-vhost
+cleanup_legacy_nginx_vhosts
+
+echo "==> sudoers"
+bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
+
+echo "==> Apache backend :8080"
+if [[ -f /etc/apache2/ports.conf ]]; then
+  a2enmod proxy_fcgi rewrite headers 2>/dev/null || true
+  sed -i \
+    -e 's/^Listen 80$/Listen 8080/' \
+    -e 's/^Listen \[::\]:80$/Listen [::]:8080/' \
+    /etc/apache2/ports.conf 2>/dev/null || true
+  systemctl enable apache2 2>/dev/null || true
+  apache2ctl configtest 2>/dev/null && systemctl restart apache2 2>/dev/null || true
+fi
+
+echo "==> OpenLiteSpeed backend :8088"
+if [[ -f "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" ]]; then
+  bash "$PANELZE_HOME/deploy/host/panelze-openlitespeed-setup.sh" || echo "Uyarı: OLS setup atlandı" >&2
+fi
+
 fix_ols_map_commas
 reapply_ols_from_staging
 
@@ -143,8 +147,8 @@ fi
 (cd "$PANELZE_HOME/engine" && go build -buildvcs=false -o /usr/local/bin/panelze-engine ./cmd/panelze-engine)
 chmod 755 /usr/local/bin/panelze-engine
 
-echo "==> legacy engine binary adları (hostvim-engine / panelsar-engine)"
-for legacy in hostvim-engine panelsar-engine; do
+echo "==> legacy engine binary adı (panelsar-engine)"
+for legacy in panelsar-engine; do
   if [[ -f /etc/systemd/system/${legacy}.service ]] || [[ -e /usr/local/bin/$legacy ]]; then
     install -m 755 /usr/local/bin/panelze-engine "/usr/local/bin/$legacy"
   fi
@@ -158,12 +162,9 @@ echo "==> panelze-engine güncel (ols-staging staging helper desteği)"
 
 CONFIG_DIR="/etc/panelze"
 ENGINE_CFG="/etc/panelze/engine.yaml"
-if [[ -f /etc/hostvim/engine.yaml ]]; then
+if [[ ! -f "$ENGINE_CFG" && -f /etc/hostvim/engine.yaml ]]; then
   CONFIG_DIR="/etc/hostvim"
   ENGINE_CFG="/etc/hostvim/engine.yaml"
-elif [[ -f /etc/panelze/engine.yaml ]]; then
-  CONFIG_DIR="/etc/panelze"
-  ENGINE_CFG="/etc/panelze/engine.yaml"
 fi
 
 set_engine_yaml_bool() {
@@ -204,7 +205,7 @@ ensure_engine_hosting_flags() {
   fi
 }
 
-for cfg in /etc/hostvim/engine.yaml /etc/panelze/engine.yaml /etc/panelsar/engine.yaml; do
+for cfg in /etc/panelze/engine.yaml /etc/panelsar/engine.yaml; do
   ensure_engine_hosting_flags "$cfg"
 done
 
@@ -222,13 +223,14 @@ if [[ -f /etc/systemd/system/panelze-engine.service ]] \
   echo "==> systemd panelze-engine.service (CONFIG_DIR=$CONFIG_DIR)"
   write_panelze_engine_unit > /etc/systemd/system/panelze-engine.service
   systemctl daemon-reload
+  migrate_engine_service_to_panelze
   systemctl enable panelze-engine 2>/dev/null || true
 fi
 
 free_engine_port
 
 restarted=0
-for svc in panelze-engine hostvim-engine panelsar-engine; do
+for svc in panelze-engine panelsar-engine; do
   if systemctl list-unit-files "${svc}.service" 2>/dev/null | grep -qE 'enabled|disabled|static'; then
     systemctl restart "$svc" && echo "==> $svc yeniden başlatıldı" && restarted=1 && break
   fi

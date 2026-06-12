@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import { Download, Loader2 } from 'lucide-react'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { notify } from '../lib/notify'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { Link } from 'react-router-dom'
@@ -60,8 +60,7 @@ function categoryLabel(t: (k: string) => string, c: AppCategory): string {
 export default function InstallerPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const domainsQ = useDomainsList()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [wpDatabaseId, setWpDatabaseId] = useState<number | ''>('')
   const [tablePrefix, setTablePrefix] = useState('wp_')
   const [installWoo, setInstallWoo] = useState(false)

@@ -17,20 +17,22 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-# Hostvim sunucu: Laravel kökü public_html içinde (nginx root = .../public_html/public)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/resolve-paths.sh
+source "$SCRIPT_DIR/lib/resolve-paths.sh"
+
+# Panelze landing: Laravel kökü public_html içinde olabilir
 if [[ -z "${LANDING_ROOT:-}" ]]; then
-  if [[ -f /var/www/hostvim/data/www/panelze.com/public_html/artisan ]]; then
-    LANDING_ROOT="/var/www/hostvim/data/www/panelze.com/public_html"
-  elif [[ -f /var/www/hostvim/landing/artisan ]]; then
-    LANDING_ROOT="/var/www/hostvim/landing"
+  _home="$(resolve_panelze_home)"
+  if [[ -f "$_home/data/www/panelze.com/public_html/artisan" ]]; then
+    LANDING_ROOT="$_home/data/www/panelze.com/public_html"
+  elif [[ -f "$_home/landing/artisan" ]]; then
+    LANDING_ROOT="$_home/landing"
   else
     LANDING_ROOT="/var/www/panelze/data/www/panelze.com"
   fi
 fi
-PANELZE_HOME="${PANELZE_HOME:-$(dirname "$(dirname "$LANDING_ROOT")" 2>/dev/null)/panelze}"
-if [[ ! -d "$PANELZE_HOME/.git" && -d /var/www/hostvim/.git ]]; then
-  PANELZE_HOME="/var/www/hostvim"
-fi
+PANELZE_HOME="${PANELZE_HOME:-$(resolve_panelze_home)}"
 PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 if [[ -z "${PUBLIC_HTML:-}" ]]; then

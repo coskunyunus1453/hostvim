@@ -8,6 +8,7 @@ import api from '../services/api'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
 type ModuleRow = {
   id: number
@@ -35,7 +36,6 @@ type MigrationRun = {
   output?: string
   error_message?: string
 }
-type DomainRow = { id: number; name: string; document_root?: string }
 type PreflightResponse = { ok: boolean; checks: { key: string; ok: boolean; message: string }[] }
 type DiscoverResponse = {
   suggested_source_path?: string | null
@@ -67,7 +67,9 @@ export default function PluginsStorePage() {
   const [sourcePort, setSourcePort] = useState('22')
   const [sourceUser, setSourceUser] = useState('')
   const [sourcePath, setSourcePath] = useState('')
-  const [targetDomainId, setTargetDomainId] = useState<number | ''>('')
+  const { domainId: targetDomainId, setDomainId: setTargetDomainId, domainsQ } = useAutoDomainId({
+    param: false,
+  })
   const [authType, setAuthType] = useState<'password' | 'token' | 'ssh_key'>('ssh_key')
   const [secret, setSecret] = useState('')
   const [dbName, setDbName] = useState('')
@@ -98,12 +100,6 @@ export default function PluginsStorePage() {
     queryFn: async () => (await api.get('/plugins/migrations/runs')).data as { runs: MigrationRun[] },
     refetchInterval: () => pollWhenVisible(15_000),
   })
-  const domainsQ = useQuery({
-    queryKey: ['domains-lite'],
-    queryFn: async () => (await api.get('/domains/options')).data.data as DomainRow[],
-    staleTime: 120_000,
-  })
-
   const targetDomainName = useMemo(() => {
     if (targetDomainId === '') return ''
     const d = domainsQ.data?.find((x) => x.id === targetDomainId)

@@ -11,18 +11,29 @@ class MailDnsService
     ) {}
 
     /**
-     * mail + webmail (ve eksikse @/www) A kayıtlarını panel DNS'ine ekler.
+     * MX, SPF, DMARC ve (posta kutusu varsa) DKIM kayıtlarını otomatik oluşturur.
      *
-     * @return array{created: int, skipped: int, error?: string}
+     * @return array{created: int, skipped: int, mail_created: int, error?: string}
      */
     public function ensureMailDns(Domain $domain): array
     {
-        $result = $this->dnsBootstrap->ensureDefaults($domain);
+        $result = $this->dnsBootstrap->repairAndProvision($domain);
+
+        if (! empty($result['error'])) {
+            return [
+                'created' => 0,
+                'skipped' => 0,
+                'mail_created' => 0,
+                'error' => $result['error'],
+            ];
+        }
+
+        $created = (int) ($result['created'] ?? 0);
 
         return [
-            'created' => (int) ($result['created'] ?? 0),
+            'created' => $created,
             'skipped' => (int) ($result['skipped'] ?? 0),
-            'error' => $result['error'] ?? null,
+            'mail_created' => $created,
         ];
     }
 }

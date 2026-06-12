@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRightLeft, Plus, Save, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
 type RedirectRule = {
   id: string
@@ -29,8 +29,7 @@ const emptyRule = (): RedirectRule => ({
 export default function RedirectsPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const domainsQ = useDomainsList()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [rules, setRules] = useState<RedirectRule[]>([])
 
   const redirectsQ = useQuery({

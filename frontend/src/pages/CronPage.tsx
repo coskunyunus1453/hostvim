@@ -17,7 +17,7 @@ import {
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { CRON_PRESETS, joinCronFields, parseCronFields, presetIdForSchedule } from '../utils/cronHumanize'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
 type CronSuggestion = {
   id: string
@@ -98,10 +98,9 @@ export default function CronPage() {
   const [description, setDescription] = useState('')
   const [logJob, setLogJob] = useState<CronRow | null>(null)
   const [logFilter, setLogFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'timeout'>('all')
-  const [discoverDomainId, setDiscoverDomainId] = useState<number | ''>('')
+  const { domainId: discoverDomainId, setDomainId: setDiscoverDomainId, domainsQ } =
+    useAutoDomainId({ param: false })
   const [discoverDeep, setDiscoverDeep] = useState(true)
-
-  const domainsQ = useDomainsList()
 
   const q = useQuery({
     queryKey: ['cron'],
@@ -144,7 +143,6 @@ export default function CronPage() {
     if (modal === 'create') {
       setCommand('')
       setDescription('')
-      setDiscoverDomainId('')
       setMode('preset')
       setPresetKey('every_5')
       setCustomLine('*/5 * * * *')

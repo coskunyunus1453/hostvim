@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, FileText, RefreshCcw } from 'lucide-react'
 import api from '../services/api'
 import { useIsAdmin } from '../hooks/useRequireAdmin'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
 type DomainLogEntry = {
   type: string
@@ -110,11 +110,9 @@ function buildTabBadges(logs: DomainLogEntry[]): Record<string, TabBadge> {
 export default function AdminLogsPage() {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domains: domainsFromHook } = useAutoDomainId({ param: false })
   const [logLines, setLogLines] = useState(200)
   const [activeTab, setActiveTab] = useState<string>('')
-
-  const domainsQ = useDomainsList()
 
   const logsQ = useQuery({
     queryKey: ['admin-logs', domainId, logLines],
@@ -127,7 +125,7 @@ export default function AdminLogsPage() {
 
   const diagnostics = useMemo(() => buildDiagnostics(logsQ.data?.logs ?? []), [logsQ.data?.logs])
   const tabBadges = useMemo(() => buildTabBadges(logsQ.data?.logs ?? []), [logsQ.data?.logs])
-  const domains = domainsQ.data ?? []
+  const domains = domainsFromHook
   const logEntries = logsQ.data?.logs ?? []
 
   const orderedTabs = useMemo(() => {

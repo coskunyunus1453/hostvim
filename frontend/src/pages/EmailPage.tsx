@@ -20,7 +20,7 @@ import toast from 'react-hot-toast'
 import { copyPlaintextWithToasts } from '../lib/copyText'
 import clsx from 'clsx'
 import api from '../services/api'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { useAuthStore } from '../store/authStore'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
 
@@ -115,8 +115,7 @@ export default function EmailPage() {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles?.some((r) => r.name === 'admin')
 
-  const domainsQ = useDomainsList()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: 'domain' })
   const [showAdd, setShowAdd] = useState(false)
   const [showAddForwarder, setShowAddForwarder] = useState(false)
   const [editing, setEditing] = useState<MailRow | null>(null)
@@ -154,14 +153,6 @@ export default function EmailPage() {
     },
     [setSearchParams],
   )
-
-  useEffect(() => {
-    const raw = searchParams.get('domain')
-    if (!raw || !domainsQ.data?.length) return
-    const id = Number(raw)
-    if (!Number.isFinite(id)) return
-    if (domainsQ.data.some((d) => d.id === id)) setDomainId(id)
-  }, [searchParams, domainsQ.data])
 
   const domainName = useMemo(
     () => (domainsQ.data ?? []).find((d) => d.id === domainId)?.name ?? '',
@@ -283,8 +274,14 @@ export default function EmailPage() {
   const accounts: MailRow[] = q.data?.accounts ?? []
   const forwarders: ForwarderRow[] = q.data?.forwarders ?? []
   const mailStackReady = Boolean(q.data?.mail_stack_ready)
-  const webmailUrl: string | undefined = safeExternalHttpUrl(q.data?.webmail_url ?? '') ?? undefined
-  const webmailStatus = q.data?.webmail_status as { host?: string; dns_ok?: boolean; hint?: string } | undefined
+  const webmailStatus = q.data?.webmail_status as {
+    host?: string
+    dns_ok?: boolean
+    ns_delegated?: boolean
+    hint?: string
+    panel_ns?: string[]
+    public_ns?: string[]
+  } | undefined
 
   const webmailLoginM = useMutation({
     mutationFn: async (accountId: number) => {
@@ -432,14 +429,6 @@ export default function EmailPage() {
           <div className="p-4 sm:p-5" role="tabpanel">
             {emailTab === 'mailboxes' && (
               <>
-                {mailStackReady && accounts.length > 0 && (
-                  <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-100">
-                    <p className="font-medium">{t('email.webmail_login_hint')}</p>
-                    {webmailUrl && (
-                      <p className="mt-1 font-mono text-[11px] opacity-90">{webmailUrl}</p>
-                    )}
-                  </div>
-                )}
                 {q.isLoading ? (
                   <p className="py-10 text-center text-gray-500">{t('common.loading')}</p>
                 ) : q.isError ? (
@@ -651,30 +640,18 @@ export default function EmailPage() {
                   )
                 )}
 
-                {webmailUrl && (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a href={webmailUrl} target="_blank" rel="noreferrer" className="btn-primary py-1.5 text-xs">
-                        {t('email.webmail_open')}
-                      </a>
-                      <code className="text-xs text-emerald-800 dark:text-emerald-200">{webmailUrl}</code>
-                      <button
-                        type="button"
-                        className="btn-secondary py-1.5 text-xs"
-                        onClick={() => copyHost(webmailUrl)}
-                      >
-                        <Copy className="mr-1 inline h-3 w-3" />
-                        {t('email.copy_host')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {!webmailUrl && webmailStatus?.host && (
+                {webmailStatus?.host && webmailStatus.dns_ok === false && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
                     <div className="font-medium">
-                      Webmail linki hazır değil: <code>{webmailStatus.host}</code>
+                      {t('email.webmail_dns_pending', { host: webmailStatus.host })}
                     </div>
-                    <div className="mt-1">{webmailStatus.hint ?? 'DNS kontrolü başarısız.'}</div>
+                    <div className="mt-1">{webmailStatus.hint ?? t('email.webmail_dns_check_failed')}</div>
+                    {webmailStatus.ns_delegated === false && (
+                      <div className="mt-2 text-[11px] opacity-90">
+                        Panel NS: {(webmailStatus.panel_ns ?? []).join(', ') || '—'} · Kayıt sağlayıcı NS:{' '}
+                        {(webmailStatus.public_ns ?? []).join(', ') || '—'}
+                      </div>
+                    )}
                     {mailStackReady && !webmailStatus.dns_ok && typeof domainId === 'number' && (
                       <button
                         type="button"
@@ -747,6 +724,12 @@ export default function EmailPage() {
                   <h2 className="text-base font-semibold">{t('email.guide_title')}</h2>
                 </div>
                 <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">{t('email.guide_intro')}</p>
+                <ol className="mb-5 list-decimal space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
+                  <li>{t('email.guide_step_mailboxes')}</li>
+                  <li>{t('email.guide_step_webmail')}</li>
+                  <li>{t('email.guide_step_clients')}</li>
+                  <li>{t('email.guide_step_dns')}</li>
+                </ol>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-lg border border-gray-200 bg-white/80 p-4 dark:border-gray-600 dark:bg-gray-800/50">
                     <div className="mb-2 flex items-center gap-2 font-medium text-gray-900 dark:text-white">

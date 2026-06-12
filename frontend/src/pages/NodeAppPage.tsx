@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import { Cpu, Play, Square, RotateCcw, Wand2, Package, Hammer, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useHostingTargets, targetSelectValue, parseTargetSelectValue } from '../hooks/useHostingTargets'
+import {
+  useHostingTargets,
+  targetSelectValue,
+  parseTargetSelectValue,
+  useAutoHostingTargetSelection,
+} from '../hooks/useHostingTargets'
 
 type WorkDirCandidate = {
   rel: string
@@ -50,6 +55,9 @@ export default function NodeAppPage() {
   const autoHealedRef = useRef<Set<string>>(new Set())
 
   const targets = targetsQ.data ?? []
+
+  useAutoHostingTargetSelection(targets, domainId, subdomainId, setDomainId, setSubdomainId)
+
   const currentTarget = useMemo(
     () =>
       targets.find((t) =>

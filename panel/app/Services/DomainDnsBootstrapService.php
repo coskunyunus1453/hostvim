@@ -12,6 +12,7 @@ class DomainDnsBootstrapService
         private EngineApiService $engine,
         private DnsRecordValidator $validator,
         private PanelDnsSettingsService $dnsSettings,
+        private MailDkimService $dkim,
     ) {}
 
     /**
@@ -95,37 +96,25 @@ class DomainDnsBootstrapService
         $skipped = 0;
 
         foreach ($this->plannedRecords($domain, $ip) as $row) {
-            $existing = $domain->dnsRecords()
-                ->where('type', $row['type'])
-                ->where('name', $row['name'])
-                ->first();
+            [$rowCreated, $rowSkipped] = $this->applyPlannedRecord($domain, $row);
+            $created += $rowCreated;
+            $skipped += $rowSkipped;
+        }
 
-            if ($existing) {
-                if ($row['type'] === 'A' && ! $this->validator->isValidAValue((string) $existing->value)) {
-                    $existing->update(['value' => $row['value']]);
-                    $this->syncEngineRecord($domain, $existing->fresh());
-                    $created++;
-                } else {
-                    $skipped++;
-                }
-
-                continue;
+        if ($domain->emailAccounts()->exists()) {
+            $zone = strtolower(trim($domain->name));
+            $this->dkim->syncDomainKeys([$zone]);
+            $dkimTxt = $this->dkim->txtRecordValueForDomain($zone);
+            if ($dkimTxt !== null) {
+                [$rowCreated, $rowSkipped] = $this->applyPlannedRecord($domain, [
+                    'type' => 'TXT',
+                    'name' => 'default._domainkey',
+                    'value' => $dkimTxt,
+                    'ttl' => 3600,
+                ]);
+                $created += $rowCreated;
+                $skipped += $rowSkipped;
             }
-
-            $record = $domain->dnsRecords()->create([
-                'type' => $row['type'],
-                'name' => $row['name'],
-                'value' => $row['value'],
-                'ttl' => $row['ttl'] ?? 3600,
-                'priority' => $row['priority'] ?? null,
-            ]);
-
-            $this->engine->dnsCreate($domain->name, array_merge($row, [
-                'id' => (string) $record->id,
-                'ttl' => $row['ttl'] ?? 3600,
-                'priority' => $row['priority'] ?? null,
-            ]));
-            $created++;
         }
 
         if ($syncBind && $created > 0) {
@@ -177,7 +166,80 @@ class DomainDnsBootstrapService
             }
         }
 
+        $mxHost = 'mail.'.$zone;
+        $records[] = [
+            'type' => 'MX',
+            'name' => '@',
+            'value' => $mxHost,
+            'priority' => 10,
+            'ttl' => 3600,
+        ];
+        $records[] = [
+            'type' => 'TXT',
+            'name' => '@',
+            'value' => "v=spf1 mx a ip4:{$ip} ~all",
+            'ttl' => 3600,
+        ];
+        $records[] = [
+            'type' => 'TXT',
+            'name' => '_dmarc',
+            'value' => "v=DMARC1; p=quarantine; rua=mailto:postmaster@{$zone}",
+            'ttl' => 3600,
+        ];
+
         return $records;
+    }
+
+    /**
+     * @param  array{type: string, name: string, value: string, ttl?: int, priority?: int|null}  $row
+     * @return array{0: int, 1: int}
+     */
+    private function applyPlannedRecord(Domain $domain, array $row): array
+    {
+        $existing = $domain->dnsRecords()
+            ->where('type', $row['type'])
+            ->where('name', $row['name'])
+            ->first();
+
+        if ($existing) {
+            $needsUpdate = false;
+
+            if ($row['type'] === 'A' && ! $this->validator->isValidAValue((string) $existing->value)) {
+                $needsUpdate = true;
+            } elseif (in_array($row['type'], ['MX', 'TXT'], true)) {
+                $needsUpdate = (string) $existing->value !== (string) $row['value']
+                    || (int) ($existing->priority ?? 0) !== (int) ($row['priority'] ?? 0);
+            }
+
+            if ($needsUpdate) {
+                $existing->update([
+                    'value' => $row['value'],
+                    'priority' => $row['priority'] ?? null,
+                    'ttl' => $row['ttl'] ?? 3600,
+                ]);
+                $this->syncEngineRecord($domain, $existing->fresh());
+
+                return [1, 0];
+            }
+
+            return [0, 1];
+        }
+
+        $record = $domain->dnsRecords()->create([
+            'type' => $row['type'],
+            'name' => $row['name'],
+            'value' => $row['value'],
+            'ttl' => $row['ttl'] ?? 3600,
+            'priority' => $row['priority'] ?? null,
+        ]);
+
+        $this->engine->dnsCreate($domain->name, array_merge($row, [
+            'id' => (string) $record->id,
+            'ttl' => $row['ttl'] ?? 3600,
+            'priority' => $row['priority'] ?? null,
+        ]));
+
+        return [1, 0];
     }
 
     private function glueHostForZone(string $ns, string $zone): ?string

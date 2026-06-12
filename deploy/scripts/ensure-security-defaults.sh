@@ -34,6 +34,10 @@ OUT="$(/usr/local/sbin/panelze-security security-bootstrap-defaults 2>&1)" || {
 }
 echo "$OUT"
 
+if [[ -f "$SCRIPT_DIR/fix-mail-firewall.sh" ]] && { systemctl is-active postfix >/dev/null 2>&1 || command -v postfix >/dev/null 2>&1; }; then
+  bash "$SCRIPT_DIR/fix-mail-firewall.sh" || true
+fi
+
 if [[ -f "$PANEL_ROOT/artisan" ]]; then
   echo "==> Güvenlik önbelleği temizleniyor"
   if command -v panelze_run_artisan >/dev/null 2>&1; then

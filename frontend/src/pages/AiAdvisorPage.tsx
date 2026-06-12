@@ -19,7 +19,7 @@ import {
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import api from '../services/api'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import {
   Bar,
   BarChart,
@@ -148,13 +148,11 @@ export default function AiAdvisorPage() {
   const [input, setInput] = useState('')
   /** Gönderildi, API yanıtı beklenirken gösterilen kullanıcı mesajı (WhatsApp tarzı anında temiz input). */
   const [pendingUserText, setPendingUserText] = useState<string | null>(null)
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [contextMode, setContextMode] = useState<'server' | 'site' | 'file'>('server')
   const [filePath, setFilePath] = useState('')
   const [providerDraft, setProviderDraft] = useState<Record<string, { api_key: string; model: string; enabled: boolean; is_default: boolean }>>({})
   const chatEndRef = useRef<HTMLDivElement>(null)
-
-  const domainsQ = useDomainsList()
 
   const settingsQ = useQuery({
     queryKey: ['ai-assistant-settings'],

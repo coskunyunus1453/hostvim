@@ -12,8 +12,8 @@ _resolve_panel_root() {
   for candidate in \
     "${PANEL_ROOT:-}" \
     "${PANELZE_HOME:+$PANELZE_HOME/panel}" \
-    /var/www/hostvim/panel \
-    /var/www/panelze/panel; do
+    /var/www/panelze/panel \
+    /var/www/hostvim/panel; do
     [[ -n "$candidate" && -f "${candidate}/artisan" ]] || continue
     printf '%s\n' "$candidate"
     return 0

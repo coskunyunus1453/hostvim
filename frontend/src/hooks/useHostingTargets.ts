@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
 
@@ -43,4 +44,37 @@ export function parseTargetSelectValue(value: string): { domainId: number; subdo
   }
   const n = Number(value)
   return { domainId: n }
+}
+
+export function hostingTargetMatches(
+  t: HostingTarget,
+  domainId: number,
+  subdomainId?: number,
+): boolean {
+  if (t.domain_id !== domainId) return false
+  if (subdomainId) return t.subdomain_id === subdomainId
+  return t.subdomain_id === null
+}
+
+/** Hedef listesinde seçim yoksa API sırasındaki ilk siteyi seçer. */
+export function useAutoHostingTargetSelection(
+  targets: HostingTarget[],
+  domainId: number | '',
+  subdomainId: number | undefined,
+  setDomainId: (id: number | '') => void,
+  setSubdomainId: (id: number | undefined) => void,
+) {
+  useEffect(() => {
+    if (targets.length === 0) return
+    if (
+      domainId !== '' &&
+      targets.some((t) => hostingTargetMatches(t, domainId, subdomainId))
+    ) {
+      return
+    }
+    const first = targets[0]
+    if (!first) return
+    setDomainId(first.domain_id)
+    setSubdomainId(first.subdomain_id ?? undefined)
+  }, [targets, domainId, subdomainId, setDomainId, setSubdomainId])
 }

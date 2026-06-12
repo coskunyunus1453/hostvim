@@ -80,6 +80,11 @@ postconf -e "smtpd_recipient_restrictions=permit_sasl_authenticated,permit_mynet
 postconf -e "mynetworks=127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128"
 postconf -e "inet_interfaces=all"
 postconf -e "myhostname=${HOST_FQDN}"
+postconf -e "inet_protocols=ipv4"
+SERVER_IP="$(hostname -I | awk '{print $1}')"
+if [[ -n "$SERVER_IP" ]]; then
+  postconf -e "smtp_bind_address=${SERVER_IP}"
+fi
 postconf -e "milter_default_action=accept"
 postconf -e "milter_protocol=6"
 postconf -e "smtpd_milters=${OPENDKIM_MILTER}"
@@ -126,8 +131,13 @@ EOF
 fi
 
 echo "==> Dovecot (sanal kutular + Postfix SASL; TLS snakeoil)..."
+# Sanal posta kutuları: sistem PAM yerine yalnızca passwd-file (panelze-mail-provision).
+if grep -q '^!include auth-system.conf.ext' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null; then
+  sed -i 's/^!include auth-system.conf.ext/#!include auth-system.conf.ext  # panelze: virtual mail only/' /etc/dovecot/conf.d/10-auth.conf
+fi
+
 cat >/etc/dovecot/conf.d/99-panelze-mail-stack.conf <<'EOF'
-mail_location = maildir:/var/mail/vmail/%d/%n
+mail_location = maildir:%h
 mail_privileged_group = mail
 auth_mechanisms = plain login
 disable_plaintext_auth = no
@@ -138,8 +148,8 @@ passdb {
 }
 
 userdb {
-  driver = static
-  args = uid=vmail gid=vmail home=/var/mail/vmail/%d/%n
+  driver = passwd-file
+  args = username_format=%u /etc/dovecot/passwd
 }
 
 ssl_cert = </etc/ssl/certs/ssl-cert-snakeoil.pem
@@ -200,6 +210,7 @@ install -d -m 0755 /etc/roundcube
 cat >/etc/roundcube/config.local.inc.php <<'PHP'
 <?php
 $config['product_name'] = 'Panelze Webmail';
+$config['imap_host'] = 'ssl://127.0.0.1';
 $config['default_host'] = 'ssl://127.0.0.1';
 $config['default_port'] = 993;
 $config['imap_conn_options'] = [
@@ -209,17 +220,11 @@ $config['imap_conn_options'] = [
     'allow_self_signed' => true,
   ],
 ];
-$config['smtp_server'] = 'tls://127.0.0.1';
-$config['smtp_port'] = 587;
-$config['smtp_user'] = '%u';
-$config['smtp_pass'] = '%p';
-$config['smtp_conn_options'] = [
-  'ssl' => [
-    'verify_peer' => false,
-    'verify_peer_name' => false,
-    'allow_self_signed' => true,
-  ],
-];
+# Aynı sunucu: Postfix mynetworks (127.0.0.0/8) — TLS/SMTP şifresi gerekmez
+$config['smtp_host'] = '127.0.0.1';
+$config['smtp_port'] = 25;
+$config['smtp_user'] = '';
+$config['smtp_pass'] = '';
 PHP
 
 echo "==> Nginx (webmail.* — panel varsayılanına dokunulmadı)..."
@@ -238,8 +243,9 @@ sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" /etc/nginx/snippets/panelze-roundc
 
 cat >/etc/nginx/snippets/panelze-roundcube-signon.conf <<'NGX'
 location = /panelze-signon {
-    include snippets/fastcgi-php.conf;
+    include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME /usr/share/roundcube/panelze-signon.php;
+    fastcgi_param SCRIPT_NAME /panelze-signon.php;
     fastcgi_pass unix:PHP_SOCK_PLACEHOLDER;
 }
 NGX
@@ -299,7 +305,14 @@ fi
 echo ""
 echo "=== Panelze mail stack tamam (mail-stack-webmail) ==="
 echo "FQDN: ${HOST_FQDN}"
-echo "Güvenlik duvarı önerisi: ufw allow 25,80,443,143,465,587,993/tcp"
+echo "==> Posta portları (UFW + PANELZE-FW)..."
+for _pz_port in 25 143 465 587 993; do
+  command -v ufw >/dev/null 2>&1 && ufw allow "${_pz_port}/tcp" comment 'Panelze mail' >/dev/null 2>&1 || true
+  if [[ -x /usr/local/sbin/panelze-security ]]; then
+    /usr/local/sbin/panelze-security firewall-rule-apply allow tcp "${_pz_port}" any >/dev/null 2>&1 || true
+  fi
+done
+command -v ufw >/dev/null 2>&1 && ufw reload >/dev/null 2>&1 || true
 echo ""
 echo "DKIM DNS (default._domainkey.${HOST_FQDN} TXT):"
 [[ -f /etc/opendkim/keys/default/default.txt ]] && cat /etc/opendkim/keys/default/default.txt

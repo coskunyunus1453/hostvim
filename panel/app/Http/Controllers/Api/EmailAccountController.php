@@ -38,6 +38,10 @@ class EmailAccountController extends Controller
             abort(403);
         }
 
+        if ($this->mailStack->isWebmailStackInstalled()) {
+            $this->mailStack->syncProvision();
+        }
+
         $wm = $this->webmail->statusForDomain($domain, true);
 
         return response()->json([
@@ -57,6 +61,9 @@ class EmailAccountController extends Controller
             'webmail_status' => [
                 'host' => $wm['host'],
                 'dns_ok' => $wm['dns_ok'],
+                'ns_delegated' => $wm['ns_delegated'],
+                'public_ns' => $wm['public_ns'],
+                'panel_ns' => $wm['panel_ns'],
                 'ips' => $wm['ips'],
                 'scheme' => $wm['scheme'],
                 'hint' => $wm['hint'],
@@ -107,6 +114,9 @@ class EmailAccountController extends Controller
             'quota_mb' => $account->quota_mb,
         ]);
 
+        $this->mailStack->syncProvision();
+        $this->mailDns->ensureMailDns($domain);
+
         return response()->json([
             'message' => __('email.created'),
             'account' => $account,
@@ -123,6 +133,23 @@ class EmailAccountController extends Controller
         }
 
         try {
+            $emailAccount->loadMissing('domain');
+            $domainName = $emailAccount->domain?->name;
+            if ($domainName !== null && is_string($emailAccount->password) && $emailAccount->password !== '') {
+                $this->engine->mailPatchMailbox($domainName, [
+                    'email' => $emailAccount->email,
+                    'password' => $emailAccount->password,
+                ]);
+                $sync = $this->engine->mailProvisionSync();
+                if (! empty($sync['error'])) {
+                    Log::warning('Webmail login: mail provision sync failed', [
+                        'domain' => $domainName,
+                        'email' => $emailAccount->email,
+                        'error' => $sync['error'],
+                    ]);
+                }
+            }
+
             $session = $this->webmailSignon->mintForAccount($emailAccount);
         } catch (\Throwable $e) {
             return response()->json([
@@ -202,6 +229,8 @@ class EmailAccountController extends Controller
                     'email' => $emailAccount->email,
                     'error' => $res['error'],
                 ]);
+            } else {
+                $this->mailStack->syncProvision();
             }
         }
 

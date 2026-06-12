@@ -53,6 +53,15 @@ type AdvisorItem = {
   ok: boolean
 }
 
+type FreeFeatureState = 'active' | 'inactive' | 'setup'
+
+function resolveFreeFeatureState(installed?: boolean, enabled?: boolean): FreeFeatureState {
+  if (installed === false) return 'setup'
+  if (enabled) return 'active'
+  if (installed === true) return 'inactive'
+  return 'setup'
+}
+
 function ProPill() {
   return (
     <span className="ml-2 inline-flex items-center rounded-md bg-violet-600/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">
@@ -182,6 +191,7 @@ export default function SecurityPage() {
   const [siteRuleDomain, setSiteRuleDomain] = useState('')
   const [siteRuleMode, setSiteRuleMode] = useState<'allow' | 'deny' | 'exception'>('deny')
   const [siteRuleTarget, setSiteRuleTarget] = useState('/wp-login\\.php$')
+  const [loadProgress, setLoadProgress] = useState(12)
   const domainsQ = useDomainsList()
 
   const tabs = useMemo(
@@ -203,14 +213,7 @@ export default function SecurityPage() {
     queryKey: ['security-overview'],
     queryFn: async () => (await api.get('/security/overview')).data,
     refetchInterval: () => pollWhenVisible(90_000),
-    staleTime: 45_000,
-  })
-  const advisorQ = useQuery({
-    queryKey: ['security-advisor'],
-    queryFn: async () => (await api.get('/security/advisor')).data,
-    enabled: tab === 'advisor',
-    refetchInterval: tab === 'advisor' ? () => pollWhenVisible(120_000) : false,
-    staleTime: 45_000,
+    staleTime: 60_000,
   })
   const intelPolicyQ = useQuery({
     queryKey: ['security-intel-policy'],
@@ -258,7 +261,6 @@ export default function SecurityPage() {
     onSuccess: () => {
       toast.success(t('security.bootstrap.toast'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
-      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; hint?: string }; status?: number } }
@@ -277,7 +279,6 @@ export default function SecurityPage() {
     onSuccess: () => {
       toast.success(t('security.toast.rule_sent'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
-      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; hint?: string }; status?: number } }
@@ -317,7 +318,6 @@ export default function SecurityPage() {
       }
       toast.success(t('security.toast.setting_updated'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
-      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown, vars) => {
       if (vars.key !== 'clamav') {
@@ -353,7 +353,6 @@ export default function SecurityPage() {
       }))
       toast.success(t('security.toast.install_done'))
       qc.invalidateQueries({ queryKey: ['security-overview'] })
-      qc.invalidateQueries({ queryKey: ['security-advisor'] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; hint?: string }; status?: number } }
@@ -549,7 +548,7 @@ export default function SecurityPage() {
     onSuccess: () => {
       toast.success(t('security.ssh.harden_applied'))
       void sshHardeningQ.refetch()
-      void qc.invalidateQueries({ queryKey: ['security-advisor'] })
+      void qc.invalidateQueries({ queryKey: ['security-overview'] })
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string; hint?: string } } }
@@ -673,6 +672,7 @@ export default function SecurityPage() {
     }
     modsecurity?: { enabled?: boolean; installed?: boolean; error?: string }
     clamav?: { enabled?: boolean; installed?: boolean; last_scan?: unknown; error?: string }
+    advisor?: { score?: number; items?: AdvisorItem[] }
   }
   type FimStatus = {
     baseline_exists?: boolean
@@ -700,19 +700,14 @@ export default function SecurityPage() {
   const fimStatus = (fimStatusQ.data?.result?.status ?? {}) as FimStatus
   const fimReady = !!fimStatus.baseline_exists
   const productFeatures = useMemo(() => {
-    const hasFirewall = overview?.firewall?.enabled === true
-    const hasFail2ban = !!overview?.fail2ban?.enabled
-    const hasModsec = !!overview?.modsecurity?.enabled
-    const hasClamav = !!overview?.clamav?.enabled
-
     const intelMode = String((intelPolicyQ.data?.policy?.mode ?? 'observe') || 'observe').toLowerCase()
     const intelLive = String(intelStatusQ.data?.status?.db_version ?? '').trim().length > 0
     return {
       free: [
-        { key: 'firewall', active: hasFirewall },
-        { key: 'fail2ban', active: hasFail2ban },
-        { key: 'modsec', active: hasModsec },
-        { key: 'clamav', active: hasClamav },
+        { key: 'firewall', state: resolveFreeFeatureState(true, overview?.firewall?.enabled) },
+        { key: 'fail2ban', state: resolveFreeFeatureState(overview?.fail2ban?.installed, overview?.fail2ban?.enabled) },
+        { key: 'modsec', state: resolveFreeFeatureState(overview?.modsecurity?.installed, overview?.modsecurity?.enabled) },
+        { key: 'clamav', state: resolveFreeFeatureState(overview?.clamav?.installed, overview?.clamav?.enabled) },
       ],
       pro: [
         { key: 'rate_limit', active: ['wordpress', 'laravel', 'api'].includes(String(rateLimitQ.data?.result?.profile ?? '')) },
@@ -734,8 +729,8 @@ export default function SecurityPage() {
     return { enabledCount, total, pct, fail2banOk, firewallOk, modsecOk, clamavOk }
   }, [overview])
 
-  const advisorScore = typeof advisorQ.data?.score === 'number' ? advisorQ.data.score : null
-  const advisorItems = (advisorQ.data?.items ?? []) as AdvisorItem[]
+  const advisorScore = typeof overview?.advisor?.score === 'number' ? overview.advisor.score : null
+  const advisorItems = (overview?.advisor?.items ?? []) as AdvisorItem[]
   const advisorOpenCount = advisorItems.filter((i) => !i.ok).length
 
   const advisorScoreLabel = (score: number) => {
@@ -806,6 +801,18 @@ export default function SecurityPage() {
     if (typeof s.maxretry === 'number') setJailMaxretry(s.maxretry)
   }, [overview?.fail2ban?.settings])
 
+  useEffect(() => {
+    if (!q.isLoading && !q.isFetching) {
+      setLoadProgress(100)
+      return
+    }
+    setLoadProgress(18)
+    const timer = window.setInterval(() => {
+      setLoadProgress((p) => (p >= 92 ? p : p + 6))
+    }, 220)
+    return () => window.clearInterval(timer)
+  }, [q.isLoading, q.isFetching])
+
   const proFeatureStatus = (active: boolean) => {
     if (active) return t('security.product.available')
     if (hasSecurityPro) return t('security.product.configure')
@@ -869,6 +876,24 @@ export default function SecurityPage() {
         </div>
         {refreshBtn}
       </div>
+
+      {(q.isLoading || (q.isFetching && !overview)) && (
+        <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-900/40 dark:bg-primary-950/20">
+          <div className="flex items-start gap-3">
+            <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-primary-600 dark:text-primary-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">{t('security.loading.title')}</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{t('security.loading.hint')}</p>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-950/50">
+                <div
+                  className="h-full rounded-full bg-primary-600 transition-all duration-300 ease-out dark:bg-primary-500"
+                  style={{ width: `${loadProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-900/60">
         <div className="-mx-1 flex gap-1 overflow-x-auto pb-1">
@@ -968,20 +993,25 @@ export default function SecurityPage() {
           </div>
           <p className="mb-3 text-xs text-gray-600 dark:text-gray-300">{t('security.product.free_desc')}</p>
           <div className="space-y-2">
-            {productFeatures.free.map((f) => (
+            {productFeatures.free.map((f) => {
+              const labelKey =
+                f.state === 'active' ? 'available' : f.state === 'inactive' ? 'inactive' : 'setup_needed'
+              return (
               <div
                 key={f.key}
                 className={clsx(
                   'flex items-center justify-between rounded-lg border px-3 py-2 text-xs',
-                  f.active
+                  f.state === 'active'
                     ? 'border-emerald-300 bg-emerald-100/70 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100'
-                    : 'border-amber-300 bg-amber-100/70 text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-100',
+                    : f.state === 'inactive'
+                      ? 'border-slate-300 bg-slate-100/70 text-slate-800 dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-200'
+                      : 'border-amber-300 bg-amber-100/70 text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-100',
                 )}
               >
                 <span>{t(`security.product.features.${f.key}`)}</span>
-                <span className="font-semibold">{f.active ? t('security.product.available') : t('security.product.setup_needed')}</span>
+                <span className="font-semibold">{t(`security.product.${labelKey}`)}</span>
               </div>
-            ))}
+            )})}
           </div>
         </div>
 
@@ -1023,9 +1053,9 @@ export default function SecurityPage() {
 
       {tab === 'advisor' && (
         <div className="space-y-6">
-          {advisorQ.isLoading ? (
-            <p className="text-gray-500">{t('common.loading')}</p>
-          ) : advisorQ.isError ? (
+          {q.isLoading && !overview ? (
+            <p className="text-gray-500">{t('security.loading.title')}</p>
+          ) : q.isError ? (
             <p className="text-sm text-amber-600">{t('security.advisor.load_error')}</p>
           ) : (
             <>
@@ -1053,7 +1083,7 @@ export default function SecurityPage() {
                     </div>
                   ) : (
                     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      {advisorOpenCount} {t('security.product.setup_needed').toLowerCase()}
+                      {t('security.advisor.open_items', { count: advisorOpenCount })}
                     </p>
                   )}
                   <div className="mt-4 space-y-3">

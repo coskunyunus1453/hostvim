@@ -1010,6 +1010,10 @@ EOF
         "$0" firewall-rule-apply allow tcp 80 any >>"$BOOT_LOG" 2>&1 || true
         "$0" firewall-rule-apply allow tcp 443 any >>"$BOOT_LOG" 2>&1 || true
         "$0" firewall-rule-apply allow tcp 8080 any >>"$BOOT_LOG" 2>&1 || true
+        for _mail_port in 25 143 465 587 993; do
+          "$0" firewall-rule-apply allow tcp "${_mail_port}" any >>"$BOOT_LOG" 2>&1 || true
+          command -v ufw >/dev/null 2>&1 && ufw allow "${_mail_port}/tcp" comment 'Panelze mail' >>"$BOOT_LOG" 2>&1 || true
+        done
         date -u +%Y-%m-%dT%H:%M:%SZ >"$MARKER"
       fi
       if "$0" firewall-status | grep -qx enabled; then

@@ -16,9 +16,11 @@ class SecurityController extends Controller
 
     public function overview(Request $request): JsonResponse
     {
-        $overview = Cache::remember('panelze:security:overview', 45, function () {
-            return $this->engine->securityOverview();
-        });
+        $overview = $this->cachedSecurityOverview();
+
+        if (! empty($overview['error'])) {
+            return $this->securityErrorResponse((string) $overview['error'], $overview);
+        }
 
         return response()->json(['overview' => $overview]);
     }
@@ -31,7 +33,6 @@ class SecurityController extends Controller
         }
 
         Cache::forget('panelze:security:overview');
-        Cache::forget('panelze:security:advisor');
 
         return response()->json([
             'message' => 'Varsayılan güvenlik katmanları uygulandı.',
@@ -41,14 +42,27 @@ class SecurityController extends Controller
 
     public function advisor(): JsonResponse
     {
-        $report = Cache::remember('panelze:security:advisor', 45, function () {
-            return $this->engine->securityAdvisor();
-        });
-        if (! empty($report['error'])) {
-            return $this->securityErrorResponse($report['error'], $report);
+        $overview = $this->cachedSecurityOverview();
+        if (! empty($overview['error'])) {
+            return $this->securityErrorResponse((string) $overview['error'], $overview);
         }
 
-        return response()->json($report, 200);
+        $advisor = is_array($overview['advisor'] ?? null) ? $overview['advisor'] : [];
+
+        return response()->json([
+            'score' => (int) ($advisor['score'] ?? 0),
+            'items' => $advisor['items'] ?? [],
+        ], 200);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cachedSecurityOverview(): array
+    {
+        return Cache::remember('panelze:security:overview', 60, function () {
+            return $this->engine->securityOverview();
+        });
     }
 
     public function firewall(Request $request): JsonResponse

@@ -186,8 +186,8 @@ export default function Sidebar() {
   ]
 
   const [openAdminMenus, setOpenAdminMenus] = useState<Record<string, boolean>>({
-    'admin-server': true,
-    'admin-access': true,
+    'admin-server': false,
+    'admin-access': false,
   })
 
   const easyHiddenPaths = new Set([
@@ -230,6 +230,22 @@ export default function Sidebar() {
   useEffect(() => {
     closeMobileSidebar()
   }, [location.pathname, closeMobileSidebar])
+
+  useEffect(() => {
+    const path = location.pathname
+    if (!path.startsWith('/admin')) return
+    setOpenAdminMenus((prev) => {
+      let next = prev
+      for (const menu of adminSubmenus) {
+        const active = menu.items.some((item) => path === item.path || path.startsWith(`${item.path}/`))
+        if (active && !prev[menu.id]) {
+          if (next === prev) next = { ...prev }
+          next[menu.id] = true
+        }
+      }
+      return next
+    })
+  }, [location.pathname])
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)')
@@ -359,7 +375,7 @@ export default function Sidebar() {
             </p>
             <div className="space-y-2">
               {visibleAdminMenus.map((menu) => {
-                const isOpen = openAdminMenus[menu.id] ?? true
+                const isOpen = openAdminMenus[menu.id] ?? false
                 return (
                   <div key={menu.id} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
                     <button

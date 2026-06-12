@@ -31,31 +31,148 @@ class DatabaseService
     private function plainPasswordForOps(Database $database): string
     {
         try {
-            return (string) $database->getAttribute('password');
+            $plain = (string) $database->getAttribute('password');
         } catch (Throwable) {
             $raw = $database->getRawOriginal('password');
             if (! is_string($raw) || $raw === '') {
                 throw new \InvalidArgumentException(__('databases.password_unreadable'));
             }
             try {
-                return decrypt($raw);
+                $plain = decrypt($raw);
             } catch (Throwable) {
-                return $raw;
+                $plain = $raw;
             }
         }
+
+        return $this->normalizeStoredPassword($plain);
     }
 
     /**
-     * mysql / mysqldump / psql: localhost soket kullanır; kullanıcı çoğu zaman @127.0.0.1 veya TCP ile eşleşir → 1045.
+     * Eski kayıtlarda şifre PHP serialize ile saklanmış olabilir (s:9:"secret";).
      */
-    private function cliConnectHost(Database $database): string
+    private function normalizeStoredPassword(string $plain): string
+    {
+        $plain = trim($plain);
+        if ($plain === '') {
+            return $plain;
+        }
+
+        if (
+            preg_match('/^[abisOdNRC]/', $plain) === 1
+            && ($decoded = @unserialize($plain, ['allowed_classes' => false])) !== false
+            && is_string($decoded)
+        ) {
+            return $decoded;
+        }
+
+        return $plain;
+    }
+
+    /**
+     * mysql / mysqldump: grant_host (localhost soket) ile TCP 127.0.0.1 farklı @host kayıtlarıdır → 1045.
+     */
+    private function mysqlCliHost(Database $database): string
+    {
+        $grant = $database->mysqlGrantHost();
+
+        if ($this->mysqlProvisioner->enabled()) {
+            try {
+                return $this->mysqlProvisioner->resolveActualUserHost($database->username, $grant);
+            } catch (\InvalidArgumentException $e) {
+                throw $e;
+            } catch (\Throwable) {
+                // admin PDO yoksa panel kaydı
+            }
+        }
+
+        return $grant !== '' ? $grant : 'localhost';
+    }
+
+    private function postgresCliHost(Database $database): string
     {
         $h = trim((string) $database->host);
         if ($h === '' || strcasecmp($h, 'localhost') === 0 || $h === '::1') {
-            return '127.0.0.1';
+            return 'localhost';
         }
 
         return $h;
+    }
+
+    public function assertExportReady(Database $database): void
+    {
+        if ($database->type === 'mysql') {
+            $this->assertMysqlCliConnection($database);
+        } elseif ($database->type === 'postgresql') {
+            $this->assertPostgresCliConnection($database);
+        }
+    }
+
+    private function assertMysqlCliConnection(Database $database): void
+    {
+        if ($database->type !== 'mysql') {
+            throw new \InvalidArgumentException(__('databases.export_not_mysql'));
+        }
+        if (! $this->mysqlProvisioner->enabled()) {
+            throw new \InvalidArgumentException(__('databases.provision_disabled_export'));
+        }
+
+        $bin = (string) config('panelze.database_tools.mysql_path', 'mysql');
+        $plain = $this->plainPasswordForOps($database);
+        $process = new Process(
+            [
+                $bin,
+                '-h', $this->mysqlCliHost($database),
+                '-P', (string) ($database->port ?: 3306),
+                '-u', $database->username,
+                '-N', '-B',
+                '-e', 'SELECT 1',
+            ],
+            null,
+            ['MYSQL_PWD' => $plain],
+            null,
+            30.0,
+        );
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException(
+                trim($process->getErrorOutput() ?: $process->getOutput()) ?: __('databases.export_failed')
+            );
+        }
+    }
+
+    private function assertPostgresCliConnection(Database $database): void
+    {
+        if ($database->type !== 'postgresql') {
+            throw new \InvalidArgumentException(__('databases.export_not_postgresql'));
+        }
+        if (! $this->postgresProvisioner->enabled()) {
+            throw new \InvalidArgumentException(__('databases.provision_disabled_export'));
+        }
+
+        $bin = (string) config('panelze.database_tools.psql_path', 'psql');
+        $plain = $this->plainPasswordForOps($database);
+        $process = new Process(
+            [
+                $bin,
+                '-h', $this->postgresCliHost($database),
+                '-p', (string) ($database->port ?: 5432),
+                '-U', $database->username,
+                '-d', $database->name,
+                '-tAc', 'SELECT 1',
+            ],
+            null,
+            ['PGPASSWORD' => $plain],
+            null,
+            30.0,
+        );
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException(
+                trim($process->getErrorOutput() ?: $process->getOutput()) ?: __('databases.export_failed')
+            );
+        }
     }
 
     /**
@@ -69,10 +186,15 @@ class DatabaseService
             throw new \InvalidArgumentException(__('databases.phpmyadmin_sso_mysql_only'));
         }
 
+        $host = $this->mysqlCliHost($database);
+        if (strcasecmp($host, 'localhost') === 0) {
+            $host = '127.0.0.1';
+        }
+
         return [
             'username' => (string) $database->username,
             'password' => $this->plainPasswordForOps($database),
-            'host' => $this->cliConnectHost($database),
+            'host' => $host,
             'port' => (int) ($database->port ?: 3306),
             'database' => (string) $database->name,
         ];
@@ -364,8 +486,8 @@ class DatabaseService
         $bin = (string) config('panelze.database_tools.mysqldump_path', 'mysqldump');
         $args = [
             $bin,
-            '-h', $this->cliConnectHost($database),
-            '-P', (string) $database->port,
+            '-h', $this->mysqlCliHost($database),
+            '-P', (string) ($database->port ?: 3306),
             '-u', $database->username,
             '--single-transaction',
             '--quick',
@@ -403,8 +525,8 @@ class DatabaseService
         $bin = (string) config('panelze.database_tools.pg_dump_path', 'pg_dump');
         $args = [
             $bin,
-            '-h', $this->cliConnectHost($database),
-            '-p', (string) $database->port,
+            '-h', $this->postgresCliHost($database),
+            '-p', (string) ($database->port ?: 5432),
             '-U', $database->username,
             '--no-owner',
             '--no-acl',
@@ -467,8 +589,8 @@ class DatabaseService
             $process = new Process(
                 [
                     $bin,
-                    '-h', $this->cliConnectHost($database),
-                    '-P', (string) $database->port,
+                    '-h', $this->mysqlCliHost($database),
+                    '-P', (string) ($database->port ?: 3306),
                     '-u', $database->username,
                     '--default-character-set=utf8mb4',
                     '--one-database',
@@ -521,8 +643,8 @@ class DatabaseService
         $process = new Process(
             [
                 $bin,
-                '-h', $this->cliConnectHost($database),
-                '-p', (string) $database->port,
+                '-h', $this->postgresCliHost($database),
+                '-p', (string) ($database->port ?: 5432),
                 '-U', $database->username,
                 '-d', $database->name,
                 '-v', 'ON_ERROR_STOP=1',

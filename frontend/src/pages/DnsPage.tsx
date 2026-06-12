@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Globe, Plus, Trash2, Download, Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
-import { useDomainsList } from '../hooks/useDomains'
+import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { useAuthStore } from '../store/authStore'
 
 type DnsRow = {
@@ -21,8 +21,7 @@ export default function DnsPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
-  const domainsQ = useDomainsList()
-  const [domainId, setDomainId] = useState<number | ''>('')
+  const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [showAdd, setShowAdd] = useState(false)
 
   const recordsQ = useQuery({

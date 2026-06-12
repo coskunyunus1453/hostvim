@@ -37,7 +37,11 @@ class PhpMyAdminSignonService
             'db' => $creds['database'],
         ], now()->addSeconds($ttl));
 
-        $signonUrl = url('/pma-signon?token='.urlencode($token));
+        $pmaBase = rtrim((string) config('panelze.ui.phpmyadmin_url', ''), '/');
+        if ($pmaBase === '') {
+            $pmaBase = rtrim((string) config('app.url', ''), '/').'/phpmyadmin';
+        }
+        $signonUrl = $pmaBase.'/panelze-pma-signon.php?token='.urlencode($token);
 
         return [
             'token' => $token,
@@ -76,11 +80,12 @@ class PhpMyAdminSignonService
         if ($base === '') {
             $base = rtrim((string) config('app.url', ''), '/').'/phpmyadmin';
         }
+        $params = [];
         if ($databaseName !== '') {
-            $base .= (str_contains($base, '?') ? '&' : '?').'db='.rawurlencode($databaseName);
+            $params['db'] = $databaseName;
         }
 
-        return $base.'/';
+        return $base.'/index.php'.($params !== [] ? '?'.http_build_query($params) : '');
     }
 
     private function cacheKey(string $token): string

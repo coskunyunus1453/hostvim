@@ -1259,7 +1259,7 @@
     "connect_title": "Bağlantı özeti",
     "imap_label": "IMAP sunucusu (tahmini)",
     "smtp_label": "SMTP sunucusu (tahmini)",
-    "ports_hint": "Hostvim posta yığını (Postfix + Dovecot): IMAPS 993, SMTP gönderim 587 (STARTTLS), SMTPS 465. IMAP 143 isteğe bağlı (STARTTLS).",
+    "ports_hint": "Panelze posta yığını (Postfix + Dovecot): IMAPS 993, SMTP gönderim 587 (STARTTLS), SMTPS 465. IMAP 143 isteğe bağlı (STARTTLS).",
     "ports_table_title": "Portlar ve şifreleme",
     "port_col_service": "Servis",
     "port_col_port": "Port",

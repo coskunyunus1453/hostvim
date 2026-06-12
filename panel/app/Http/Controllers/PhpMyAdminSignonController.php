@@ -24,6 +24,12 @@ class PhpMyAdminSignonController extends Controller
         if ($sessionName !== '') {
             session_name($sessionName);
         }
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
         }

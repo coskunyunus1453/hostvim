@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { fromEvent } from 'file-selector'
 import { useDropzone, type DropEvent } from 'react-dropzone'
 import api from '../services/api'
 import {
@@ -300,147 +301,6 @@ function isAlreadyExistsErrorMessage(msg: string): boolean {
   return s.includes('already exists') || s.includes('file exists') || s.includes('exist')
 }
 
-type FsEntryLike = {
-  isFile?: boolean
-  isDirectory?: boolean
-  name?: string
-  file?: (cb: (file: File) => void, onError?: (err: unknown) => void) => void
-  createReader?: () => {
-    readEntries: (cb: (entries: FsEntryLike[]) => void, onError?: (err: unknown) => void) => void
-  }
-}
-
-async function readAllDirEntries(reader: {
-  readEntries: (cb: (entries: FsEntryLike[]) => void, onError?: (err: unknown) => void) => void
-}): Promise<FsEntryLike[]> {
-  const out: FsEntryLike[] = []
-  for (;;) {
-    const chunk = await new Promise<FsEntryLike[]>((resolve) => {
-      reader.readEntries((entries) => resolve(entries ?? []), () => resolve([]))
-    })
-    if (!chunk.length) break
-    out.push(...chunk)
-  }
-  return out
-}
-
-async function walkDroppedEntry(
-  entry: FsEntryLike,
-  prefix: string,
-  out: FileWithRelPath[],
-): Promise<void> {
-  if (entry.isFile && entry.file) {
-    const f = await new Promise<File | null>((resolve) => {
-      entry.file!(
-        (file) => resolve(file),
-        () => resolve(null),
-      )
-    })
-    if (!f) return
-    const name = entry.name || f.name
-    const rel = prefix ? `${prefix}/${name}` : name
-    // browser file objesine göreli yol bilgisi ekle
-    Object.defineProperty(f, 'webkitRelativePath', { value: rel, configurable: true })
-    out.push(f as FileWithRelPath)
-    return
-  }
-  if (entry.isDirectory && entry.createReader) {
-    const name = entry.name || ''
-    const nextPrefix = name ? (prefix ? `${prefix}/${name}` : name) : prefix
-    const reader = entry.createReader()
-    const children = await readAllDirEntries(reader)
-    for (const child of children) {
-      await walkDroppedEntry(child, nextPrefix, out)
-    }
-  }
-}
-
-function dropHasDirectoryEntry(items: DataTransferItem[]): boolean {
-  for (const item of items) {
-    const anyItem = item as DataTransferItem & { webkitGetAsEntry?: () => FsEntryLike | null }
-    if (typeof anyItem.webkitGetAsEntry !== 'function') continue
-    try {
-      const entry = anyItem.webkitGetAsEntry()
-      if (entry?.isDirectory) return true
-    } catch {
-      /* tarayıcı entry okuyamadı */
-    }
-  }
-  return false
-}
-
-async function getFilesFromDropEvent(evt: DropEvent): Promise<File[]> {
-  const maybeInput = (evt as Event & { target?: EventTarget | null }).target
-  if (maybeInput instanceof HTMLInputElement && maybeInput.files?.length) {
-    return Array.from(maybeInput.files)
-  }
-
-  const dragEvt = evt as DragEvent
-  const dt = dragEvt.dataTransfer
-  if (!dt) return []
-
-  const plainFiles = Array.from(dt.files || [])
-  const items = Array.from(dt.items || [])
-  const hasWebkitEntries = items.some(
-    (it) => typeof (it as DataTransferItem & { webkitGetAsEntry?: () => unknown }).webkitGetAsEntry === 'function',
-  )
-
-  // Çoklu düz dosya sürüklemesinde webkitGetAsEntry güvenilir değil; dt.files kullan.
-  if (
-    plainFiles.length > 0 &&
-    (!hasWebkitEntries || (!dropHasDirectoryEntry(items) && items.every((it) => it.kind === 'file')))
-  ) {
-    return plainFiles
-  }
-
-  if (!hasWebkitEntries) {
-    return plainFiles
-  }
-
-  const out: FileWithRelPath[] = []
-  const seen = new Set<string>()
-  const pushFile = (f: File, rel?: string) => {
-    const relPath = rel && rel.trim() !== '' ? rel.replace(/\\/g, '/') : ''
-    const key = relPath ? relPath : `${f.name}:${f.size}:${f.lastModified}`
-    if (seen.has(key)) return
-    seen.add(key)
-    if (relPath) {
-      try {
-        Object.defineProperty(f, 'webkitRelativePath', { value: relPath, configurable: true })
-      } catch {
-        /* ignore */
-      }
-    }
-    out.push(f as FileWithRelPath)
-  }
-
-  for (const item of items) {
-    const anyItem = item as DataTransferItem & { webkitGetAsEntry?: () => FsEntryLike | null }
-    let entry: FsEntryLike | null = null
-    if (typeof anyItem.webkitGetAsEntry === 'function') {
-      try {
-        entry = anyItem.webkitGetAsEntry()
-      } catch {
-        entry = null
-      }
-    }
-    if (entry) {
-      await walkDroppedEntry(entry, '', out)
-      continue
-    }
-    if (item.kind === 'file') {
-      const f = item.getAsFile()
-      if (f) pushFile(f)
-    }
-  }
-
-  if (out.length < plainFiles.length) {
-    for (const f of plainFiles) pushFile(f)
-  }
-
-  return out.length > 0 ? out : plainFiles
-}
-
 const FILEMGR_HELP_KEY = 'panelze_filemgr_help_seen'
 
 export default function FileManagerPage() {
@@ -564,6 +424,7 @@ export default function FileManagerPage() {
   } | null>(null)
 
   const [uploadBusy, setUploadBusy] = useState(false)
+  const uploadBatchLock = useRef(false)
   const [uploadProgressView, setUploadProgressView] = useState<FileUploadProgressView | null>(null)
   const [uploadConflictDialog, setUploadConflictDialog] = useState<{
     open: boolean
@@ -1182,27 +1043,31 @@ export default function FileManagerPage() {
   const processIncomingFiles = useCallback(
     async (rawFiles: File[]) => {
       if (!domainId || rawFiles.length === 0) return
-      const basePath = path
-      const items: NormalizedUploadItem[] = []
-      for (const file of rawFiles) {
-        const wrp = (file as FileWithRelPath).webkitRelativePath
-        const relFromBase =
-          wrp && String(wrp).trim() !== '' ? String(wrp).replace(/\\/g, '/') : file.name
-        if (!isSafeRelativePath(relFromBase)) {
-          toast.error(t('files.invalid_path'))
-          continue
-        }
-        const segs = relFromBase.split('/').filter(Boolean)
-        if (segs.length === 0) continue
-        const baseName = segs[segs.length - 1]
-        const parentSub = segs.length > 1 ? segs.slice(0, -1).join('/') : ''
-        const parentRel = parentSub ? joinRel(basePath, parentSub) : basePath
-        items.push({ file, relFromBase, parentRel, baseName })
-      }
-      if (items.length === 0) return
-
+      if (uploadBatchLock.current) return
+      uploadBatchLock.current = true
       setUploadBusy(true)
+      const basePath = path
       try {
+        const items: NormalizedUploadItem[] = []
+        for (const file of rawFiles) {
+          const hinted = (file as FileWithRelPath & { path?: string }).path
+            || (file as FileWithRelPath).webkitRelativePath
+          const wrp = hinted && String(hinted).trim() !== '' ? String(hinted) : ''
+          const relFromBase =
+            wrp !== '' ? wrp.replace(/\\/g, '/') : file.name
+          if (!isSafeRelativePath(relFromBase)) {
+            toast.error(t('files.invalid_path'))
+            continue
+          }
+          const segs = relFromBase.split('/').filter(Boolean)
+          if (segs.length === 0) continue
+          const baseName = segs[segs.length - 1]
+          const parentSub = segs.length > 1 ? segs.slice(0, -1).join('/') : ''
+          const parentRel = parentSub ? joinRel(basePath, parentSub) : basePath
+          items.push({ file, relFromBase, parentRel, baseName })
+        }
+        if (items.length === 0) return
+
         const rootListing = await fetchAllFileEntries(domainId, basePath, subdomainId)
         const allowed: NormalizedUploadItem[] = []
         for (const it of items) {
@@ -1252,6 +1117,7 @@ export default function FileManagerPage() {
         const ax = err as { response?: { data?: { message?: string } } }
         toast.error(ax.response?.data?.message ?? String(err))
       } finally {
+        uploadBatchLock.current = false
         setUploadBusy(false)
       }
     },
@@ -1678,8 +1544,19 @@ export default function FileManagerPage() {
   })
 
   const onDrop = useCallback(
-    (accepted: File[]) => {
-      void processIncomingFiles(accepted)
+    async (accepted: File[], _rejections: unknown, event: DropEvent) => {
+      let batch: File[] = []
+      try {
+        const picked = await fromEvent(event)
+        batch = picked.filter((f): f is File => f instanceof File)
+      } catch {
+        batch = accepted
+      }
+      if (batch.length === 0) {
+        batch = accepted
+      }
+      if (batch.length === 0) return
+      await processIncomingFiles(batch)
     },
     [processIncomingFiles],
   )
@@ -1689,7 +1566,7 @@ export default function FileManagerPage() {
     disabled: domainId === '' || uploadBusy,
     noClick: true,
     multiple: true,
-    getFilesFromEvent: getFilesFromDropEvent,
+    getFilesFromEvent: fromEvent,
   })
 
   const entries = filesQ.data?.entries ?? []
