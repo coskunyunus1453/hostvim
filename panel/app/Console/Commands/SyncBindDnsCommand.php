@@ -13,7 +13,9 @@ class SyncBindDnsCommand extends Command
 
     public function handle(BindDnsService $bind): int
     {
-        $result = $bind->writeZonesAndReload();
+        $result = function_exists('posix_geteuid') && posix_geteuid() === 0
+            ? $bind->writeZonesAndReload()
+            : $bind->syncViaSudo();
         $msg = (string) ($result['message'] ?? '');
         if ($result['ok'] ?? false) {
             $this->info($msg !== '' ? $msg : 'BIND sync tamam');

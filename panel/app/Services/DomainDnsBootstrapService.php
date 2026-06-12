@@ -66,7 +66,8 @@ class DomainDnsBootstrapService
         $created = (int) ($defaults['created'] ?? 0);
         $skipped = (int) ($defaults['skipped'] ?? 0);
 
-        if ($removed > 0 || $repaired > 0 || $created > 0) {
+        // Zone dosyası BIND'e kayıtlı olmayabilir (eski kurulum); kayıt değişmese de senkron gerekli.
+        if ($this->dnsSettings->bindEnabled()) {
             $this->bindDns->syncViaSudo();
         }
 

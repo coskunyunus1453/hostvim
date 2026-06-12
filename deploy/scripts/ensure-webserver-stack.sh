@@ -260,4 +260,17 @@ if ! grep -qiE 'geçersiz|invalid|izin verilmeyen' <<<"$out_ols"; then
   exit 1
 fi
 
+echo "==> BIND DNS (panelze zones, tüm domainler)"
+ENSURE_BIND="$SCRIPT_DIR/ensure-bind-config.sh"
+if [[ -f "$ENSURE_BIND" ]] && command -v named-checkconf >/dev/null 2>&1; then
+  bash "$ENSURE_BIND" || echo "Uyarı: BIND config kontrolü atlandı" >&2
+fi
+if [[ -x /usr/local/sbin/panelze-bind-sync ]]; then
+  PANELZE_HOME="$PANELZE_HOME" PANEL_ROOT="${PANELZE_HOME}/panel" \
+    /usr/local/sbin/panelze-bind-sync || echo "Uyarı: BIND sync başarısız" >&2
+elif [[ -f "${PANELZE_HOME}/panel/artisan" ]]; then
+  (cd "${PANELZE_HOME}/panel" && php artisan panelze:sync-bind-dns --no-interaction) \
+    || echo "Uyarı: BIND sync (artisan) başarısız" >&2
+fi
+
 echo "OK webserver stack (CONFIG_DIR=$CONFIG_DIR)"

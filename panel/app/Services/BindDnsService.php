@@ -56,9 +56,12 @@ class BindDnsService
         $confPath = (string) config('panelze.dns.conf_path', '/etc/bind/named.conf.panelze-zones');
         $serial = (int) date('YmdH');
 
-        if (! is_dir($zonesDir) && ! @mkdir($zonesDir, 0755, true) && ! is_dir($zonesDir)) {
+        if (! is_dir($zonesDir) && ! @mkdir($zonesDir, 0775, true) && ! is_dir($zonesDir)) {
             return ['ok' => false, 'zones' => 0, 'message' => 'Zone dizini oluşturulamadı: '.$zonesDir];
         }
+        @chmod($zonesDir, 0775);
+        @chown($zonesDir, 'bind');
+        @chgrp($zonesDir, 'bind');
 
         [$ns1, $ns2] = $this->nameServers();
         $serverIp = $this->serverIp();

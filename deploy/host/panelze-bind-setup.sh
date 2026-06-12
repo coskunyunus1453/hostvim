@@ -20,7 +20,7 @@ apt-get install -y -qq bind9 bind9utils bind9-dnsutils
 
 mkdir -p "${ZONES_DIR}"
 chown bind:bind "${ZONES_DIR}"
-chmod 755 "${ZONES_DIR}"
+chmod 775 "${ZONES_DIR}"
 
 if [[ -f "${OPTIONS_FILE}" ]]; then
   cp -a "${OPTIONS_FILE}" "${OPTIONS_FILE}.bak-panelze" 2>/dev/null || true

@@ -134,4 +134,17 @@ fi
 echo "==> panelze:install-check"
 panelze_run_artisan panelze:install-check --ping || true
 
+if [[ "$(id -u)" -eq 0 ]] && command -v named-checkconf >/dev/null 2>&1; then
+  ENSURE_BIND="$DEPLOY_SCRIPTS/ensure-bind-config.sh"
+  if [[ -f "$ENSURE_BIND" ]]; then
+    echo "==> BIND yapılandırması (panelze zones)"
+    bash "$ENSURE_BIND" || true
+  fi
+  if [[ -x /usr/local/sbin/panelze-bind-sync ]]; then
+    echo "==> BIND DNS senkronu"
+    PANELZE_HOME="${PANELZE_HOME:-$(cd "$PANEL_ROOT/.." && pwd)}" PANEL_ROOT="$PANEL_ROOT" \
+      /usr/local/sbin/panelze-bind-sync || true
+  fi
+fi
+
 echo "Tamam."

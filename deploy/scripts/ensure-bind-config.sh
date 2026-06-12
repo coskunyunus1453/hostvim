@@ -32,8 +32,18 @@ EOF
   echo "ensure-bind-config: panelze include eklendi"
 fi
 
+mkdir -p /var/lib/bind/panelze/zones
+chown bind:bind /var/lib/bind/panelze/zones 2>/dev/null || true
+chmod 775 /var/lib/bind/panelze/zones 2>/dev/null || true
 touch "$PANELZE_SNIPPET"
 chmod 644 "$PANELZE_SNIPPET"
+
+# Eski hostvim snippet dosyası kalsa bile named.conf.local'dan kaldırılmış olmalı
+if [[ -f /etc/bind/named.conf.hostvim-zones ]] && ! grep -q 'named.conf.hostvim-zones' "$LOCAL_CONF" 2>/dev/null; then
+  if [[ ! -f /etc/bind/named.conf.hostvim-zones.disabled ]]; then
+    cp -a /etc/bind/named.conf.hostvim-zones /etc/bind/named.conf.hostvim-zones.bak 2>/dev/null || true
+  fi
+fi
 
 if named-checkconf >/dev/null 2>&1; then
   if command -v rndc >/dev/null 2>&1; then
