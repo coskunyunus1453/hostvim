@@ -117,7 +117,10 @@ export default function BackupsPage() {
     queryKey: ['backups-gdrive'],
     queryFn: async () => (await api.get('/backups/google-drive/status')).data as {
       configured: boolean
+      credential_source?: 'hub' | 'env' | null
+      hub_expected?: boolean
       redirect_uri?: string | null
+      hub_integrations_url?: string | null
       connected: boolean
       destination?: { id: number; name: string; email?: string }
     },
@@ -432,8 +435,15 @@ export default function BackupsPage() {
               )}
               {!gdriveQ.data?.configured && (
                 <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                  {isAdmin ? t('backups.google_not_configured_admin') : t('backups.google_not_configured_customer')}
+                  {gdriveQ.data?.hub_expected
+                    ? t('backups.google_not_configured_hub')
+                    : isAdmin
+                      ? t('backups.google_not_configured_admin')
+                      : t('backups.google_not_configured_customer')}
                 </p>
+              )}
+              {gdriveQ.data?.configured && gdriveQ.data.credential_source === 'hub' && (
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-2">{t('backups.google_configured_hub')}</p>
               )}
               {gdriveQ.data?.configured && !gdriveQ.data?.connected && (
                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">{t('backups.google_connect_hint')}</p>
@@ -641,32 +651,50 @@ export default function BackupsPage() {
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">{t('backups.google_setup_modal_intro')}</p>
 
-            {isAdmin && !gdriveQ.data?.configured && (
+            {isAdmin && !gdriveQ.data?.configured && gdriveQ.data?.hub_expected && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('backups.google_setup_hub_section')}</h3>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <li>
+                    {t('backups.google_setup_hub_step1')}{' '}
+                    {gdriveQ.data?.hub_integrations_url && (
+                      <a href={gdriveQ.data.hub_integrations_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                        {t('backups.google_setup_hub_link')} <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </li>
+                  <li>
+                    {t('backups.google_setup_hub_step2')}{' '}
+                    <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                      {t('backups.google_setup_link_drive_api')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                    {' · '}
+                    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
+                      {t('backups.google_setup_link_credentials')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                  <li>
+                    {t('backups.google_setup_hub_step3')}
+                    {gdriveQ.data?.redirect_uri && (
+                      <code className="mt-1 block rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-mono break-all dark:border-gray-700 dark:bg-gray-800">
+                        {gdriveQ.data.redirect_uri}
+                      </code>
+                    )}
+                  </li>
+                  <li>{t('backups.google_setup_hub_step4')}</li>
+                  <li>{t('backups.google_setup_hub_step5')}</li>
+                </ol>
+              </section>
+            )}
+
+            {isAdmin && !gdriveQ.data?.configured && !gdriveQ.data?.hub_expected && (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('backups.google_setup_admin_section')}</h3>
                 <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
                   <li>
-                    {t('backups.google_setup_admin_step1')}{' '}
-                    <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
-                      {t('backups.google_setup_link_console')} <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </li>
-                  <li>
                     {t('backups.google_setup_admin_step2')}{' '}
                     <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
                       {t('backups.google_setup_link_drive_api')} <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </li>
-                  <li>
-                    {t('backups.google_setup_admin_step3')}{' '}
-                    <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
-                      {t('backups.google_setup_link_consent')} <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </li>
-                  <li>
-                    {t('backups.google_setup_admin_step4')}{' '}
-                    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline">
-                      {t('backups.google_setup_link_credentials')} <ExternalLink className="h-3 w-3" />
                     </a>
                   </li>
                   <li>
@@ -682,7 +710,6 @@ export default function BackupsPage() {
                     <pre className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-mono dark:border-gray-700 dark:bg-gray-800 whitespace-pre-wrap">{`GOOGLE_DRIVE_CLIENT_ID=...\nGOOGLE_DRIVE_CLIENT_SECRET=...`}</pre>
                   </li>
                   <li>{t('backups.google_setup_admin_step7')}</li>
-                  <li>{t('backups.google_setup_admin_step8')}</li>
                 </ol>
               </section>
             )}
@@ -695,7 +722,7 @@ export default function BackupsPage() {
                 <li>{t('backups.google_setup_customer_step3')}</li>
                 <li>{t('backups.google_setup_customer_step4')}</li>
               </ol>
-              {!gdriveQ.data?.configured && !isAdmin && (
+              {!gdriveQ.data?.configured && (
                 <p className="text-sm text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-950/30">
                   {t('backups.google_setup_customer_not_ready')}
                 </p>

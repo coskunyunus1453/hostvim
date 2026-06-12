@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BackupDestination;
+use App\Services\GoogleDriveConfigService;
 use App\Services\GoogleDriveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,7 @@ class BackupGoogleDriveController extends Controller
 {
     public function __construct(
         private GoogleDriveService $googleDrive,
+        private GoogleDriveConfigService $googleDriveConfig,
     ) {}
 
     public function status(Request $request): JsonResponse
@@ -25,7 +27,10 @@ class BackupGoogleDriveController extends Controller
 
         return response()->json([
             'configured' => $this->googleDrive->isConfigured(),
-            'redirect_uri' => $this->googleDrive->isConfigured() ? null : $this->googleDrive->redirectUri(),
+            'credential_source' => $this->googleDriveConfig->credentialSource(),
+            'hub_expected' => $this->googleDriveConfig->hubFeatureExpected(),
+            'redirect_uri' => $this->googleDrive->redirectUri(),
+            'hub_integrations_url' => $this->hubIntegrationsAdminUrl(),
             'connected' => $dest !== null,
             'destination' => $dest ? [
                 'id' => $dest->id,
@@ -89,5 +94,15 @@ class BackupGoogleDriveController extends Controller
             'files' => app(\App\Services\BackupStorageService::class)
                 ->listRemoteFiles($backupDestination, $domain !== '' ? $domain : null),
         ]);
+    }
+
+    private function hubIntegrationsAdminUrl(): ?string
+    {
+        $base = rtrim(trim((string) config('panelze.license_server', '')), '/');
+        if ($base === '') {
+            return null;
+        }
+
+        return $base.'/admin/integrations-settings';
     }
 }

@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocPageController;
 use App\Http\Controllers\Admin\LandingTranslationController;
 use App\Http\Controllers\Admin\InstallSettingsController;
+use App\Http\Controllers\Admin\IntegrationsSettingsController;
 use App\Http\Controllers\Admin\LocaleSettingsController;
 use App\Http\Controllers\Admin\NavMenuItemController;
 use App\Http\Controllers\Admin\PanelReleaseController;
@@ -196,6 +197,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::get('saas', SaasDashboardController::class)->name('saas.dashboard');
             Route::get('billing-settings', [BillingSettingsController::class, 'edit'])->name('billing-settings.edit');
             Route::put('billing-settings', [BillingSettingsController::class, 'update'])->name('billing-settings.update');
+            Route::get('integrations-settings', [IntegrationsSettingsController::class, 'edit'])->name('integrations-settings.edit');
+            Route::put('integrations-settings', [IntegrationsSettingsController::class, 'update'])->name('integrations-settings.update');
             $saasResourceNames = static fn (string $segment): array => [
                 'index' => "saas.{$segment}.index",
                 'create' => "saas.{$segment}.create",

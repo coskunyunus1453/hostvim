@@ -16,7 +16,7 @@ return [
     'download_unavailable' => 'No downloadable backup file found.',
     'upload_required' => 'Backup archive (.tar.gz) is required.',
     'upload_failed' => 'File upload failed.',
-    'google_drive_not_configured' => 'Google Drive OAuth is not configured (GOOGLE_DRIVE_CLIENT_ID / SECRET).',
+    'google_drive_not_configured' => 'Google Drive OAuth is not configured. Set it in Panelze.com → Panel integrations or server .env.',
     'google_drive_state_invalid' => 'OAuth session invalid or expired. Try again.',
     'google_drive_connected' => 'Google Drive connected.',
     'google_drive_disconnected' => 'Google Drive disconnected.',

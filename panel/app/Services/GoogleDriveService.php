@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 
 class GoogleDriveService
 {
+    public function __construct(
+        private GoogleDriveConfigService $config,
+    ) {}
+
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
     private const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -21,7 +25,7 @@ class GoogleDriveService
 
     public function isConfigured(): bool
     {
-        return $this->clientId() !== '' && $this->clientSecret() !== '';
+        return $this->config->isConfigured();
     }
 
     public function redirectUri(): string
@@ -310,12 +314,12 @@ class GoogleDriveService
 
     private function clientId(): string
     {
-        return trim((string) config('panelze.google_drive.client_id', ''));
+        return $this->config->clientId();
     }
 
     private function clientSecret(): string
     {
-        return trim((string) config('panelze.google_drive.client_secret', ''));
+        return $this->config->clientSecret();
     }
 
     private function stateCacheKey(string $state): string

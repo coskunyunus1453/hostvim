@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\LandingSiteSetting;
 use App\Models\PanelRelease;
 use App\Models\SaasCustomer;
 use App\Models\SaasLicense;
 use App\Models\SaasLicenseProduct;
+use App\Models\SaasProductModule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -43,6 +45,52 @@ class LicenseHubApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('valid', true)
             ->assertJsonPath('plan', 'pro');
+    }
+
+    public function test_license_validate_includes_google_drive_integrations_when_configured(): void
+    {
+        config(['panelze_saas.license_api_secret' => 'test-secret']);
+
+        SaasProductModule::query()->create([
+            'key' => 'backups_pro',
+            'label' => 'Backups Pro',
+            'ui_paths' => ['/backups'],
+            'api_route_prefixes' => ['backups/google-drive'],
+            'is_active' => true,
+            'sort_order' => 20,
+        ]);
+
+        LandingSiteSetting::put('integrations.google_drive.enabled', '1');
+        LandingSiteSetting::put('integrations.google_drive.client_id', 'test-client-id');
+        LandingSiteSetting::put('integrations.google_drive.client_secret', 'test-client-secret');
+
+        $customer = SaasCustomer::query()->create([
+            'name' => 'Drive Co',
+            'email' => 'drive@example.com',
+        ]);
+        $product = SaasLicenseProduct::query()->create([
+            'code' => 'pro',
+            'name' => 'Pro',
+            'default_limits' => [],
+            'default_modules' => ['backups_pro' => true],
+            'is_active' => true,
+            'sort_order' => 0,
+        ]);
+        SaasLicense::query()->create([
+            'saas_customer_id' => $customer->id,
+            'saas_license_product_id' => $product->id,
+            'license_key' => 'hv_drivekey',
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson('/api/v1/license/validate', ['key' => 'hv_drivekey'], [
+            'Authorization' => 'Bearer test-secret',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('valid', true)
+            ->assertJsonPath('integrations.google_drive.client_id', 'test-client-id')
+            ->assertJsonPath('integrations.google_drive.client_secret', 'test-client-secret');
     }
 
     public function test_license_validate_rejects_wrong_bearer_when_secret_configured(): void

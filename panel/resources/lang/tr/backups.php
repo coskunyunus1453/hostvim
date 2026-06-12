@@ -16,7 +16,7 @@ return [
     'download_unavailable' => 'İndirilebilir yedek dosyası bulunamadı.',
     'upload_required' => 'Yedek arşivi (.tar.gz) gerekli.',
     'upload_failed' => 'Dosya yüklenemedi.',
-    'google_drive_not_configured' => 'Google Drive OAuth yapılandırılmamış (GOOGLE_DRIVE_CLIENT_ID / SECRET).',
+    'google_drive_not_configured' => 'Google Drive OAuth henüz yapılandırılmamış. Panelze.com → Panel entegrasyonları veya sunucu .env.',
     'google_drive_state_invalid' => 'OAuth oturumu geçersiz veya süresi doldu. Tekrar deneyin.',
     'google_drive_connected' => 'Google Drive bağlandı.',
     'google_drive_disconnected' => 'Google Drive bağlantısı kaldırıldı.',

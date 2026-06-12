@@ -9,6 +9,9 @@ use Illuminate\Support\Carbon;
 
 class SaasLicenseValidationService
 {
+    public function __construct(
+        private PanelIntegrationsService $integrations,
+    ) {}
     /**
      * @return array<string, mixed>
      */
@@ -58,6 +61,8 @@ class SaasLicenseValidationService
             return $this->invalid('product_inactive', $license);
         }
 
+        $features = $this->buildFeatures($license);
+
         return [
             'valid' => true,
             'status' => $license->status,
@@ -65,7 +70,8 @@ class SaasLicenseValidationService
             'plan_name' => $product->name,
             'expires_at' => $this->iso($license->expires_at),
             'limits' => $this->mergeLimits($license),
-            'features' => $this->buildFeatures($license),
+            'features' => $features,
+            'integrations' => $this->integrationsPayload($features),
             'customer' => [
                 'name' => (string) $license->customer->name,
                 'email' => (string) ($license->customer->email ?? ''),
@@ -169,6 +175,23 @@ class SaasLicenseValidationService
                 'ui_paths' => $mod->ui_paths ?? [],
                 'api_route_prefixes' => $mod->api_route_prefixes ?? [],
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, array{enabled: bool, quota: int|null}>  $features
+     * @return array<string, mixed>
+     */
+    private function integrationsPayload(array $features): array
+    {
+        $out = [];
+        if (($features['backups_pro']['enabled'] ?? false) === true) {
+            $gd = $this->integrations->googleDriveForPanel();
+            if ($gd !== null) {
+                $out['google_drive'] = $gd;
+            }
         }
 
         return $out;
