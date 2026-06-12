@@ -35,7 +35,20 @@ class GoogleDriveService
             return $custom;
         }
 
+        if ($this->usesHubRedirect()) {
+            $hub = rtrim(trim((string) config('panelze.license_server', '')), '/');
+            if ($hub !== '') {
+                return $hub.'/backups/google-callback';
+            }
+        }
+
         return rtrim((string) config('app.url'), '/').'/backups/google-callback';
+    }
+
+    private function usesHubRedirect(): bool
+    {
+        return $this->config->credentialSource() === 'hub'
+            && rtrim(trim((string) config('panelze.license_server', '')), '/') !== '';
     }
 
     /**
@@ -49,6 +62,10 @@ class GoogleDriveService
         $state = Str::random(40);
         Cache::put($this->stateCacheKey($state), $userId, now()->addMinutes(15));
 
+        $oauthState = $this->usesHubRedirect()
+            ? $this->compositeOAuthState($state)
+            : $state;
+
         $query = http_build_query([
             'client_id' => $this->clientId(),
             'redirect_uri' => $this->redirectUri(),
@@ -56,7 +73,7 @@ class GoogleDriveService
             'scope' => self::SCOPE,
             'access_type' => 'offline',
             'prompt' => 'consent',
-            'state' => $state,
+            'state' => $oauthState,
         ]);
 
         return ['url' => self::AUTH_URL.'?'.$query, 'state' => $state];
@@ -325,5 +342,14 @@ class GoogleDriveService
     private function stateCacheKey(string $state): string
     {
         return 'panelze:gdrive_oauth:'.$state;
+    }
+
+    /** Google state: panelState.base64url(panelOrigin) — hub callback panelze.com üzerinden döner. */
+    private function compositeOAuthState(string $panelState): string
+    {
+        $origin = rtrim((string) config('app.url'), '/');
+        $encoded = rtrim(strtr(base64_encode($origin), '+/', '-_'), '=');
+
+        return $panelState.'.'.$encoded;
     }
 }

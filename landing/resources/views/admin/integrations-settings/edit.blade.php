@@ -49,11 +49,11 @@
                     <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" class="underline">OAuth istemci</a> olusturun (Web uygulamasi).
                 </li>
                 <li>
-                    <strong>Yetkili yonlendirme URI</strong> listesine her panel kurulumunun adresini ekleyin:
+                    <strong>Yetkili yonlendirme URI</strong> (tum paneller icin yalnizca bu — Google Console):
                     <code class="mt-1 block rounded-lg border border-amber-300/60 bg-white/60 px-2 py-1.5 font-mono text-[11px] dark:border-amber-800 dark:bg-slate-900">
-                        https://PANEL-ADRESI/backups/google-callback
+                        {{ rtrim(config('app.url'), '/') }}/backups/google-callback
                     </code>
-                    Ornek: <code class="font-mono text-[11px]">https://207.180.237.13/backups/google-callback</code> veya musteri panel domaini.
+                    OAuth panelze.com uzerinden doner; musteri paneline otomatik iletilir. Ayrica OAuth izin ekraninda <strong>Test kullanicilari</strong> listesine baglanacak Gmail adreslerini ekleyin (uygulama «Testing» modundaysa).
                 </li>
                 <li>Client ID ve Secret degerlerini yukariya kaydedin.</li>
                 <li>Panel sunucularinda musteriler <em>Google Drive bagla</em> ile kendi Google hesaplarini baglar.</li>

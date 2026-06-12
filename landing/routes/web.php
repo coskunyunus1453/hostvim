@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\CommunityPostController;
 use App\Http\Controllers\Admin\CommunitySiteMetaController;
 use App\Http\Controllers\Admin\CommunityTopicController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\GoogleDriveOAuthProxyController;
 use App\Http\Controllers\Admin\DocPageController;
 use App\Http\Controllers\Admin\LandingTranslationController;
 use App\Http\Controllers\Admin\InstallSettingsController;
@@ -48,6 +49,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::permanentRedirect('/kurulum', '/setup');
 Route::permanentRedirect('/fiyatlandirma', '/pricing');
+
+// Google Drive OAuth — tüm panel kurulumları için tek redirect URI (panelze.com/backups/google-callback)
+Route::get('/backups/google-callback', GoogleDriveOAuthProxyController::class)
+    ->name('oauth.google-drive.proxy');
 
 // /media/ birçok sunucuda Nginx alias veya panel tarafından ele geçirilir; Laravel'e hiç düşmez. Çakışmasız önek kullan.
 Route::get('/hv-landing/{ext}/{base}', [LandingMediaController::class, 'show'])

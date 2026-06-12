@@ -40,7 +40,8 @@ class SaasLicenseValidationService
         }
 
         $now = Carbon::now();
-        if ($license->starts_at && $license->starts_at->isFuture()) {
+        // MySQL NOW() ile uygulama saat dilimi kayması «henüz başlamadı» yanlış pozitifi verebilir.
+        if ($license->starts_at && $license->starts_at->gt($now->copy()->addMinute())) {
             return $this->invalid('not_started', $license);
         }
 

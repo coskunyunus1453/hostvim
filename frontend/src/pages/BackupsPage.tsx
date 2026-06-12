@@ -234,6 +234,14 @@ export default function BackupsPage() {
     const isCallback = window.location.pathname.includes('google-callback')
     const code = searchParams.get('code')
     const state = searchParams.get('state')
+    const gdriveError = searchParams.get('gdrive_error')
+    if (gdriveError) {
+      toast.error(gdriveError)
+      searchParams.delete('gdrive_error')
+      setSearchParams(searchParams, { replace: true })
+      window.history.replaceState({}, '', '/backups')
+      return
+    }
     if (!isCallback || !code || !state) return
 
     ;(async () => {
