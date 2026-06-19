@@ -45,6 +45,10 @@ import {
   Link2,
   Cpu,
   ArrowRightLeft,
+  Receipt,
+  LifeBuoy,
+  Wallet,
+  Headphones,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useProFeatures } from '../../hooks/useProFeatures'
@@ -118,7 +122,7 @@ export default function Sidebar() {
       items: [
         { path: '/domains', icon: Globe, label: 'nav.domains', ability: 'domains:read' },
         { path: '/dns', icon: Network, label: 'nav.dns', ability: 'dns:read' },
-        { path: '/redirects', icon: ArrowRightLeft, label: 'nav.redirects', ability: 'domains:write' },
+        { path: '/redirects', icon: ArrowRightLeft, label: 'nav.redirects', ability: 'domains:read' },
         { path: '/databases', icon: Database, label: 'nav.databases', ability: 'databases:read' },
         { path: '/email', icon: Mail, label: 'nav.email', ability: 'email:read' },
         { path: '/files', icon: FolderOpen, label: 'nav.files', ability: 'files:read' },
@@ -147,6 +151,8 @@ export default function Sidebar() {
       id: 'account',
       title: 'nav.group_account',
       items: [
+        { path: '/invoices', icon: Receipt, label: 'nav.invoices', ability: 'billing:read' },
+        { path: '/support', icon: LifeBuoy, label: 'nav.support', ability: 'support:read' },
         { path: '/reseller', icon: Users, label: 'nav.reseller', ability: '__reseller__' },
         { path: '/reseller/branding', icon: Palette, label: 'nav.reseller_branding', ability: 'reseller:white_label' },
         { path: '/settings', icon: Settings, label: 'nav.settings', ability: null },
@@ -179,6 +185,8 @@ export default function Sidebar() {
         { path: '/admin/users', icon: Users, label: 'nav.users', allow: isAdmin },
         { path: '/admin/roles', icon: Tags, label: 'nav.roles', allow: isAdmin },
         { path: '/admin/packages', icon: Package, label: 'nav.packages', allow: isAdmin },
+        { path: '/admin/billing', icon: Wallet, label: 'nav.admin_billing', allow: isAdmin },
+        { path: '/admin/support', icon: Headphones, label: 'nav.admin_support', allow: isAdmin },
         { path: '/admin/whmcs', icon: Link2, label: 'nav.whmcs_integration', allow: isAdmin },
         { path: '/admin/license', icon: KeyRound, label: 'nav.license', allow: isAdmin },
       ],

@@ -35,6 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('panelze:stack-scan-hourly')->hourly()->withoutOverlapping();
         // Müşteri cron'ları: mutex takılırsa (deploy/kill) tüm siteler durur — kısa süre sonra otomatik açılsın.
         $schedule->command('cron:run-due')->everyMinute()->withoutOverlapping(20);
+        // Faturalama & otomasyon: yenileme faturaları + tahsilat takibi (hatırlatma/askı/fesih).
+        $schedule->command('billing:generate-renewals')->dailyAt('06:00')->withoutOverlapping();
+        $schedule->command('billing:dunning')->dailyAt('09:00')->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware) {
         // Nginx / TLS sonlandırma arkasında doğru şema (wss, secure() vb.)
@@ -58,6 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'vendor_host' => EnforceVendorHost::class,
             'whmcs.integration' => AuthenticateWhmcsIntegration::class,
             'pro.feature' => RequireProFeature::class,
+            'security.center' => \App\Http\Middleware\EnsureSecurityCenterAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -48,6 +48,10 @@ const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'))
 const PluginsStorePage = lazy(() => import('./pages/PluginsStorePage'))
 const AiAdvisorPage = lazy(() => import('./pages/AiAdvisorPage'))
 const CuriousPage = lazy(() => import('./pages/CuriousPage'))
+const InvoicesPage = lazy(() => import('./pages/InvoicesPage'))
+const SupportPage = lazy(() => import('./pages/SupportPage'))
+const AdminBillingPage = lazy(() => import('./pages/AdminBillingPage'))
+const AdminSupportPage = lazy(() => import('./pages/AdminSupportPage'))
 
 function PageLoader() {
   const { t } = useTranslation()
@@ -133,6 +137,8 @@ export default function App() {
         <Route path="node-apps" element={<AdvancedRoute><NodeAppPage /></AdvancedRoute>} />
         <Route path="deploy" element={<AdvancedRoute><DeployPage /></AdvancedRoute>} />
         <Route path="billing" element={<AdvancedRoute><ProFeatureGate moduleKey="stripe_billing"><BillingPage /></ProFeatureGate></AdvancedRoute>} />
+        <Route path="invoices" element={<LazyPage><InvoicesPage /></LazyPage>} />
+        <Route path="support" element={<LazyPage><SupportPage /></LazyPage>} />
         <Route path="reseller" element={<AdvancedRoute><ResellerPage /></AdvancedRoute>} />
         <Route path="reseller/branding" element={<AdvancedRoute><ResellerBrandingPage /></AdvancedRoute>} />
         <Route path="onboarding" element={<OnboardingPage />} />
@@ -142,6 +148,8 @@ export default function App() {
         <Route path="admin/users" element={<AdvancedRoute><LazyPage><AdminUsersPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/roles" element={<AdvancedRoute><LazyPage><AdminRolesPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/packages" element={<AdvancedRoute><LazyPage><AdminPackagesPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/billing" element={<AdvancedRoute><LazyPage><AdminBillingPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/support" element={<AdvancedRoute><LazyPage><AdminSupportPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/whmcs" element={<AdvancedRoute><LazyPage><AdminWhmcsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/system" element={<AdvancedRoute><LazyPage><AdminSystemPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/server-settings" element={<AdvancedRoute><LazyPage><AdminServerSettingsPage /></LazyPage></AdvancedRoute>} />

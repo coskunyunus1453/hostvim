@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\HostingPackage;
+use App\Models\Invoice;
 use App\Models\Subscription as PanelSubscription;
 use App\Models\User;
+use App\Services\Billing\InvoiceService;
 use App\Services\PanelLicenseService;
 use App\Services\SafeAuditLogger;
 use App\Services\UserHostingPackageSync;
@@ -25,12 +27,16 @@ class BillingController extends Controller
     public function __construct(
         private UserHostingPackageSync $hostingPackageSync,
         private PanelLicenseService $panelLicense,
+        private InvoiceService $invoiceService,
     ) {}
 
     public function licenseSummary(): JsonResponse
     {
+        $summary = $this->panelLicense->billingSummary();
+        unset($summary['customer'], $summary['code']);
+
         return response()->json([
-            'license' => $this->panelLicense->billingSummary(),
+            'license' => $summary,
         ]);
     }
 
@@ -66,7 +72,9 @@ class BillingController extends Controller
             ], 422);
         }
 
-        $package = HostingPackage::findOrFail($validated['package_id']);
+        $package = HostingPackage::query()
+            ->where('is_active', true)
+            ->findOrFail($validated['package_id']);
         $amount = $validated['billing_cycle'] === 'yearly' ? $package->price_yearly : $package->price_monthly;
         $stripe = new StripeClient($secret);
 
@@ -94,8 +102,14 @@ class BillingController extends Controller
                 ],
                 'quantity' => 1,
             ]],
-            'success_url' => $validated['success_url'] ?? url('/billing/success'),
-            'cancel_url' => $validated['cancel_url'] ?? url('/billing/cancel'),
+            'success_url' => $this->validatedRedirectUrl(
+                $validated['success_url'] ?? null,
+                url('/billing?checkout=success')
+            ),
+            'cancel_url' => $this->validatedRedirectUrl(
+                $validated['cancel_url'] ?? null,
+                url('/billing?checkout=cancel')
+            ),
         ]);
 
         return response()->json(['url' => $session->url, 'id' => $session->id]);
@@ -123,10 +137,41 @@ class BillingController extends Controller
             'customer.subscription.created',
             'customer.subscription.updated' => $this->syncSubscriptionFromStripeEvent($event),
             'customer.subscription.deleted' => $this->syncSubscriptionFromStripeEvent($event),
+            'checkout.session.completed' => $this->handleCheckoutCompleted($event),
             default => null,
         };
 
         return response()->json(['received' => true]);
+    }
+
+    /** Tek seferlik fatura ödemesi (Checkout payment mode) tamamlandığında faturayı ödenmiş işaretle. */
+    private function handleCheckoutCompleted(Event $event): void
+    {
+        $session = $event->data->object;
+        $mode = $session->mode ?? null;
+        if ($mode !== 'payment') {
+            return; // abonelik akışı subscription event'leriyle yönetilir
+        }
+
+        $invoiceId = null;
+        if (isset($session->metadata['invoice_id'])) {
+            $raw = (string) $session->metadata['invoice_id'];
+            $invoiceId = ctype_digit($raw) ? (int) $raw : null;
+        }
+        if ($invoiceId === null) {
+            return;
+        }
+
+        $invoice = Invoice::query()->find($invoiceId);
+        if ($invoice === null || ! $invoice->isPayable()) {
+            return;
+        }
+
+        $this->invoiceService->markPaid(
+            $invoice,
+            method: 'stripe',
+            reference: (string) ($session->payment_intent ?? $session->id ?? ''),
+        );
     }
 
     private function syncSubscriptionFromStripeEvent(Event $event): void
@@ -248,5 +293,32 @@ class BillingController extends Controller
         $value = $metadata[$key];
 
         return $value === null || $value === '' ? null : (string) $value;
+    }
+
+    private function validatedRedirectUrl(?string $url, string $fallback): string
+    {
+        if ($url === null || trim($url) === '') {
+            return $fallback;
+        }
+
+        $appBase = rtrim((string) config('app.url', ''), '/');
+        $appParts = parse_url($appBase);
+        $parts = parse_url($url);
+        if (! is_array($parts) || ! is_array($appParts)) {
+            return $fallback;
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return $fallback;
+        }
+
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $appHost = strtolower((string) ($appParts['host'] ?? ''));
+        if ($host === '' || $appHost === '' || $host !== $appHost) {
+            return $fallback;
+        }
+
+        return $url;
     }
 }

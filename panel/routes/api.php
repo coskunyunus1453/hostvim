@@ -12,6 +12,12 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ServerMysqlSettingsController;
 use App\Http\Controllers\Admin\WebServerSettingsController;
 use App\Http\Controllers\Admin\WhmcsModuleController;
+use App\Http\Controllers\Admin\Billing\AdminBillingController;
+use App\Http\Controllers\Admin\Billing\BillingSettingsController;
+use App\Http\Controllers\Admin\SupportAdminController;
+use App\Http\Controllers\Api\Billing\InvoiceController;
+use App\Http\Controllers\Api\Billing\OrderController;
+use App\Http\Controllers\Api\SupportTicketController;
 use App\Http\Controllers\Api\AiAdvisorController;
 use App\Http\Controllers\Api\AiAssistantController;
 use App\Http\Controllers\Api\AuthController;
@@ -27,6 +33,7 @@ use App\Http\Controllers\Api\DnsRecordController;
 use App\Http\Controllers\Api\DocumentRootController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\DomainApacheVhostController;
+use App\Http\Controllers\Api\DomainOlsVhostController;
 use App\Http\Controllers\Api\DomainNginxVhostController;
 use App\Http\Controllers\Api\EmailAccountController;
 use App\Http\Controllers\Api\FileManagerController;
@@ -87,10 +94,10 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware(['auth:sanctum', 'abilities:access:customer-panel'])->group(function () {
         Route::get('2fa/status', [TwoFactorController::class, 'status']);
-        Route::post('2fa/setup', [TwoFactorController::class, 'setup']);
-        Route::post('2fa/verify', [TwoFactorController::class, 'verify']);
-        Route::post('2fa/backup-codes/regenerate', [TwoFactorController::class, 'regenerateBackupCodes']);
-        Route::post('2fa/disable', [TwoFactorController::class, 'disable']);
+        Route::post('2fa/setup', [TwoFactorController::class, 'setup'])->middleware('throttle:20,1');
+        Route::post('2fa/verify', [TwoFactorController::class, 'verify'])->middleware('throttle:12,1');
+        Route::post('2fa/backup-codes/regenerate', [TwoFactorController::class, 'regenerateBackupCodes'])->middleware('throttle:6,1');
+        Route::post('2fa/disable', [TwoFactorController::class, 'disable'])->middleware('throttle:10,1');
 
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
@@ -100,7 +107,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_password_change'])->group(function () {
     Route::patch('user/profile', [ProfileController::class, 'update']);
-    Route::post('user/password', [ProfileController::class, 'password']);
+    Route::post('user/password', [ProfileController::class, 'password'])->middleware('throttle:10,1');
     Route::post('user/onboarding/complete', [ProfileController::class, 'completeOnboarding']);
 
     Route::middleware('ability:dashboard:read')->group(function () {
@@ -131,6 +138,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('domains/{domain}/logs', [DomainController::class, 'logs']);
         Route::get('domains/{domain}/traffic', [DomainController::class, 'traffic']);
         Route::get('domains/{domain}/stack-scan', [SiteStackController::class, 'scan']);
+        Route::get('domains/{domain}/performance', [PerformanceController::class, 'show']);
+        Route::get('domains/{domain}/redirects', [RedirectController::class, 'index']);
     });
     Route::middleware('ability:domains:write')->group(function () {
         Route::post('domains', [DomainController::class, 'store']);
@@ -146,9 +155,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::delete('domains/{domain}/aliases', [DomainController::class, 'destroyAlias']);
         Route::post('domains/{domain}/document-root', [DocumentRootController::class, 'update']);
         Route::post('domains/{domain}/stack-fix', [SiteStackController::class, 'fix']);
-        Route::get('domains/{domain}/performance', [PerformanceController::class, 'show']);
         Route::post('domains/{domain}/performance', [PerformanceController::class, 'update']);
-        Route::get('domains/{domain}/redirects', [RedirectController::class, 'index']);
         Route::put('domains/{domain}/redirects', [RedirectController::class, 'update']);
         Route::get('domains/{domain}/nginx-vhost', [DomainNginxVhostController::class, 'show']);
         Route::put('domains/{domain}/nginx-vhost', [DomainNginxVhostController::class, 'update']);
@@ -156,6 +163,9 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('domains/{domain}/apache-vhost', [DomainApacheVhostController::class, 'show']);
         Route::put('domains/{domain}/apache-vhost', [DomainApacheVhostController::class, 'update']);
         Route::post('domains/{domain}/apache-vhost/revert', [DomainApacheVhostController::class, 'revert']);
+        Route::get('domains/{domain}/ols-vhost', [DomainOlsVhostController::class, 'show']);
+        Route::put('domains/{domain}/ols-vhost', [DomainOlsVhostController::class, 'update']);
+        Route::post('domains/{domain}/ols-vhost/revert', [DomainOlsVhostController::class, 'revert']);
     });
 
     Route::middleware('ability:databases:read')->group(function () {
@@ -221,6 +231,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->middleware('throttle:backups-write');
         Route::post('backups/{backup}/restore', [BackupController::class, 'restore'])->middleware('throttle:backups-write');
         Route::post('backups/{backup}/sync', [BackupController::class, 'sync'])->middleware('throttle:backups-write');
+        Route::post('backups/{backup}/retry', [BackupController::class, 'retry'])->middleware('throttle:backups-write');
         Route::post('backups/destinations', [BackupController::class, 'storeDestination'])->middleware('throttle:backups-write');
         Route::patch('backups/destinations/{backupDestination}', [BackupController::class, 'updateDestination'])->middleware('throttle:backups-write');
         Route::delete('backups/destinations/{backupDestination}', [BackupController::class, 'destroyDestination'])->middleware('throttle:backups-write');
@@ -309,25 +320,25 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
             Route::delete('sessions/{aiChatSession}', [AiAssistantController::class, 'destroySession']);
             Route::get('sessions/{aiChatSession}/messages', [AiAssistantController::class, 'messages']);
             Route::post('chat', [AiAssistantController::class, 'chat'])->middleware('throttle:30,1');
+            Route::post('execute-actions', [AiAssistantController::class, 'executeActions']);
         });
     });
     Route::middleware(['ability:files:write', 'pro.feature:ai_advisor'])->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);
-    Route::middleware(['ability:files:write', 'pro.feature:ai_advisor'])->post('ai-assistant/execute-actions', [AiAssistantController::class, 'executeActions']);
     Route::middleware(['ability:files:read', 'pro.feature:ai_advisor'])->post('ai-assistant/read-file', [AiAssistantController::class, 'readFile']);
     Route::middleware(['ability:files:read', 'pro.feature:ai_advisor'])->post('domains/{domain}/ai/file-editor', [AiAdvisorController::class, 'fileEditor']);
     Route::middleware(['ability:tools:run', 'pro.feature:ai_advisor'])->get('domains/{domain}/ai/deploy', [AiAdvisorController::class, 'deploy']);
     Route::middleware(['ability:dashboard:read', 'pro.feature:ai_advisor'])->get('domains/{domain}/ai/slow-site', [AiAdvisorController::class, 'slowSite']);
 
-    Route::middleware('ability:security:read')->get('security/overview', [SecurityController::class, 'overview']);
-    Route::middleware('ability:security:read')->get('security/advisor', [SecurityController::class, 'advisor']);
-    Route::middleware('ability:security:read')->get('security/rate-limit/profile', [SecurityController::class, 'getRateLimitProfile']);
-    Route::middleware('ability:security:read')->get('security/modsecurity/site-rules', [SecurityController::class, 'getModSecuritySiteRules']);
-    Route::middleware('ability:security:read')->get('security/intel/policy', [SecurityController::class, 'intelPolicy']);
-    Route::middleware('ability:security:read')->get('security/intel/status', [SecurityController::class, 'intelStatus']);
-    Route::middleware('ability:security:read')->get('security/fim/status', [SecurityController::class, 'fimStatus']);
-    Route::middleware('ability:security:read')->get('security/ssh/hardening', [SecurityController::class, 'sshHardening']);
-    Route::middleware('ability:security:read')->get('security/ddos/sysctl', [SecurityController::class, 'ddosSysctl']);
-    Route::middleware('ability:security:read')->get('security/alerts', [SecurityController::class, 'alerts']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/overview', [SecurityController::class, 'overview']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/advisor', [SecurityController::class, 'advisor']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/rate-limit/profile', [SecurityController::class, 'getRateLimitProfile']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/modsecurity/site-rules', [SecurityController::class, 'getModSecuritySiteRules']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/intel/policy', [SecurityController::class, 'intelPolicy']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/intel/status', [SecurityController::class, 'intelStatus']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/fim/status', [SecurityController::class, 'fimStatus']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/ssh/hardening', [SecurityController::class, 'sshHardening']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/ddos/sysctl', [SecurityController::class, 'ddosSysctl']);
+    Route::middleware(['security.center', 'ability:security:read'])->get('security/alerts', [SecurityController::class, 'alerts']);
 
     Route::middleware(['ability:curious:read', 'pro.feature:curious_tools'])->prefix('curious')->group(function () {
         Route::middleware('throttle:curious-speed')->group(function () {
@@ -344,7 +355,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
             ->middleware('throttle:curious-seo');
     });
 
-    Route::middleware(['role:admin', 'ability:security:write'])->group(function () {
+    Route::middleware(['security.center', 'role:admin', 'ability:security:write'])->group(function () {
         Route::post('security/firewall', [SecurityController::class, 'firewall']);
         Route::post('security/fail2ban/toggle', [SecurityController::class, 'toggleFail2ban']);
         Route::post('security/fail2ban/install', [SecurityController::class, 'installFail2ban']);
@@ -415,9 +426,27 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('billing/packages', [BillingController::class, 'packages']);
         Route::get('billing/subscriptions', [BillingController::class, 'subscriptions']);
         Route::get('billing/license', [BillingController::class, 'licenseSummary']);
+        Route::get('billing/orders', [OrderController::class, 'index']);
+        Route::get('billing/orders/{order}', [OrderController::class, 'show']);
+        Route::get('billing/invoices', [InvoiceController::class, 'index']);
+        Route::get('billing/invoices/{invoice}', [InvoiceController::class, 'show']);
     });
-    Route::middleware(['ability:billing:write', 'pro.feature:stripe_billing'])
+    Route::middleware(['ability:billing:write', 'pro.feature:stripe_billing', 'throttle:10,1'])
         ->post('billing/checkout', [BillingController::class, 'checkout']);
+    Route::middleware(['ability:billing:write', 'throttle:20,1'])->group(function () {
+        Route::post('billing/orders', [OrderController::class, 'store']);
+        Route::post('billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay']);
+    });
+
+    Route::middleware('ability:support:read')->group(function () {
+        Route::get('support/tickets', [SupportTicketController::class, 'index']);
+        Route::get('support/tickets/{supportTicket}', [SupportTicketController::class, 'show']);
+    });
+    Route::middleware(['ability:support:write', 'throttle:30,1'])->group(function () {
+        Route::post('support/tickets', [SupportTicketController::class, 'store']);
+        Route::post('support/tickets/{supportTicket}/reply', [SupportTicketController::class, 'reply']);
+        Route::post('support/tickets/{supportTicket}/close', [SupportTicketController::class, 'close']);
+    });
 
     Route::middleware(['role:admin|vendor_admin|vendor_support|vendor_finance|vendor_devops', 'require_admin_2fa'])->post('terminal/session', [TerminalController::class, 'session']);
 
@@ -451,14 +480,14 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     });
 
     Route::middleware(['role:admin', 'require_admin_2fa'])->prefix('admin')->group(function () {
-        Route::post('settings/branding', [BrandingController::class, 'update']);
+        Route::post('settings/branding', [BrandingController::class, 'update'])->middleware('throttle:15,1');
         Route::get('settings/branding', [BrandingController::class, 'config']);
         Route::put('settings/branding', [BrandingController::class, 'updateConfig']);
         Route::get('settings/branding/diagnostics', [BrandingController::class, 'diagnostics']);
         Route::get('abilities/registry', [RoleController::class, 'registry']);
         Route::apiResource('roles', RoleController::class)->except(['show']);
         Route::get('stack/modules', [StackController::class, 'modules']);
-        Route::post('stack/install', [StackController::class, 'install']);
+        Route::post('stack/install', [StackController::class, 'install'])->middleware('throttle:6,1');
         Route::get('stack/runs', [StackController::class, 'runs']);
         Route::get('stack/runs/{stackInstallRun}', [StackController::class, 'showRun']);
         Route::post('stack/runs/{stackInstallRun}/cancel', [StackController::class, 'cancelRun']);
@@ -475,12 +504,38 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('settings/mail/setup-stack', [OutboundMailSettingsController::class, 'setupMailStack']);
         Route::get('settings/terminal', [TerminalSettingsController::class, 'show']);
         Route::put('settings/terminal', [TerminalSettingsController::class, 'update']);
-        Route::apiResource('users', UserController::class);
-        Route::post('users/{user}/suspend', [UserController::class, 'suspend']);
-        Route::post('users/{user}/activate', [UserController::class, 'activate']);
-        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword']);
-        Route::apiResource('packages', PackageController::class);
+        Route::get('users', [UserController::class, 'index']);
+        Route::post('users', [UserController::class, 'store'])->middleware('throttle:20,1');
+        Route::get('users/{user}', [UserController::class, 'show']);
+        Route::put('users/{user}', [UserController::class, 'update']);
+        Route::patch('users/{user}', [UserController::class, 'update']);
+        Route::post('users/{user}/suspend', [UserController::class, 'suspend'])->middleware('throttle:30,1');
+        Route::post('users/{user}/activate', [UserController::class, 'activate'])->middleware('throttle:30,1');
+        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('throttle:10,1');
+        Route::apiResource('packages', PackageController::class)->except(['show']);
         Route::get('integrations/whmcs/module-zip', [WhmcsModuleController::class, 'downloadModuleZip']);
+
+        // Faturalama & otomasyon yönetimi
+        Route::get('billing/stats', [AdminBillingController::class, 'stats']);
+        Route::get('billing/orders', [AdminBillingController::class, 'orders']);
+        Route::post('billing/orders/{order}/cancel', [AdminBillingController::class, 'cancelOrder']);
+        Route::get('billing/invoices', [AdminBillingController::class, 'invoices']);
+        Route::get('billing/invoices/{invoice}', [AdminBillingController::class, 'showInvoice']);
+        Route::post('billing/invoices', [AdminBillingController::class, 'storeInvoice'])->middleware('throttle:30,1');
+        Route::post('billing/invoices/{invoice}/mark-paid', [AdminBillingController::class, 'markPaid']);
+        Route::post('billing/invoices/{invoice}/cancel', [AdminBillingController::class, 'cancelInvoice']);
+        Route::get('billing/services', [AdminBillingController::class, 'services']);
+        Route::post('billing/services/{subscription}/suspend', [AdminBillingController::class, 'suspendService']);
+        Route::post('billing/services/{subscription}/unsuspend', [AdminBillingController::class, 'unsuspendService']);
+        Route::post('billing/services/{subscription}/terminate', [AdminBillingController::class, 'terminateService']);
+        Route::get('settings/billing', [BillingSettingsController::class, 'show']);
+        Route::put('settings/billing', [BillingSettingsController::class, 'update']);
+
+        // Destek talebi yönetimi
+        Route::get('support/tickets', [SupportAdminController::class, 'index']);
+        Route::get('support/tickets/{supportTicket}', [SupportAdminController::class, 'show']);
+        Route::post('support/tickets/{supportTicket}/reply', [SupportAdminController::class, 'reply'])->middleware('throttle:60,1');
+        Route::patch('support/tickets/{supportTicket}', [SupportAdminController::class, 'update']);
     });
 
     Route::prefix('admin')->middleware(['role:admin', 'require_admin_2fa', 'ability:webserver:read'])->group(function () {
@@ -512,19 +567,19 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
     Route::middleware('role:reseller|admin|vendor_admin')->prefix('reseller')->group(function () {
         Route::middleware('ability:reseller:users')->group(function () {
             Route::get('users', [UserController::class, 'index']);
-            Route::post('users', [UserController::class, 'store']);
+            Route::post('users', [UserController::class, 'store'])->middleware('throttle:20,1');
         });
-        Route::middleware('ability:reseller:packages')->get('packages', [PackageController::class, 'index']);
+        Route::middleware('ability:reseller:packages')->get('packages', [PackageController::class, 'resellerIndex']);
         Route::middleware('ability:reseller:roles')->group(function () {
             Route::get('abilities/registry', [ResellerRoleController::class, 'abilityRegistry']);
             Route::get('roles', [ResellerRoleController::class, 'index']);
-            Route::post('roles', [ResellerRoleController::class, 'store']);
-            Route::put('roles/{role}', [ResellerRoleController::class, 'update']);
+            Route::post('roles', [ResellerRoleController::class, 'store'])->middleware('throttle:20,1');
+            Route::put('roles/{role}', [ResellerRoleController::class, 'update'])->middleware('throttle:20,1');
             Route::delete('roles/{role}', [ResellerRoleController::class, 'destroy']);
         });
         Route::middleware('ability:reseller:white_label')->group(function () {
             Route::get('white-label', [ResellerWhiteLabelController::class, 'show']);
-            Route::post('white-label', [ResellerWhiteLabelController::class, 'update']);
+            Route::post('white-label', [ResellerWhiteLabelController::class, 'update'])->middleware('throttle:10,1');
         });
     });
 

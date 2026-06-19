@@ -29,11 +29,14 @@ class PanelRolesAndPermissionsSeeder extends Seeder
         $allNames = collect($registry)->pluck('name')->filter()->values()->all();
         $userDeny = [
             'monitoring:server',
+            'security:read',
             'security:write',
             'webserver:read',
             'webserver:write',
             'php:read',
             'php:write',
+            'billing:admin',
+            'support:admin',
             'reseller:users',
             'reseller:packages',
             'reseller:roles',

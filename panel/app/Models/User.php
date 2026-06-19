@@ -99,6 +99,21 @@ class User extends Authenticatable
         return $this->hasMany(Subscription::class);
     }
 
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
     public function backups()
     {
         return $this->hasMany(Backup::class);
