@@ -79,7 +79,13 @@ interface DomainManagementInterface
     /**
      * Domaini saglayicida gercek olarak register eder (otomatik satin alma).
      *
+     * $registrant verilirse domain musteri adina (musteri bilgileriyle olusturulan
+     * contact ile) kaydedilir; verilmezse/basarisiz olursa hesabin varsayilan
+     * contact'ina dusulur. Beklenen anahtarlar: name, email, phone, address, city,
+     * country, postal_code, company.
+     *
+     * @param  array<string, mixed>|null  $registrant
      * @return array{ok: bool, message: string, expires_at?: ?string, status?: ?string}
      */
-    public function registerDomain(DomainRegistrar $account, string $domain, int $years, bool $autoRenew, bool $privacyHigh): array;
+    public function registerDomain(DomainRegistrar $account, string $domain, int $years, bool $autoRenew, bool $privacyHigh, ?array $registrant = null): array;
 }
