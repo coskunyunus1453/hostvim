@@ -4,6 +4,7 @@ namespace App\Services\Cloud;
 
 use App\Jobs\FulfillCloudOrderJob;
 use App\Mail\TemplatedMail;
+use App\Models\CloudProvider;
 use App\Models\CloudServer;
 use App\Models\EmailTemplate;
 use App\Models\Order;

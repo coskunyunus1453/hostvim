@@ -5,6 +5,7 @@ namespace App\Services\Domain;
 use App\Models\DomainRegistrar;
 use App\Models\DomainTld;
 use App\Services\Domain\Registrar\DomainRegistrarResolver;
+use App\Support\DomainTldCatalog;
 use Illuminate\Support\Facades\Log;
 
 class DomainPricingSyncService
@@ -104,6 +105,124 @@ class DomainPricingSyncService
         $account->update(['is_enabled' => true]);
 
         return $this->syncAll();
+    }
+
+    /**
+     * Hazir TLD katalogundaki uzantilari (yaklasik maliyetlerle) toplu ekler.
+     * Mevcut kayitlara DOKUNMAZ (elle girilen fiyatlar korunur).
+     *
+     * @return array{created: int, skipped: int}
+     */
+    public function importFromCatalog(bool $activate = true): array
+    {
+        $created = 0;
+        $skipped = 0;
+
+        foreach (DomainTldCatalog::all() as $entry) {
+            $tld = $this->normalizeTld($entry['tld']);
+
+            if (DomainTld::query()->where('tld', $tld)->exists()) {
+                $skipped++;
+
+                continue;
+            }
+
+            $row = new DomainTld();
+            $row->fill([
+                'tld' => $tld,
+                'wholesale_register' => $entry['register'],
+                'wholesale_renew' => $entry['renew'] ?? $entry['register'],
+                'wholesale_currency' => 'USD',
+                'auto_price' => true,
+                'is_active' => $activate,
+                'sort_order' => $entry['sort'] ?? 500,
+            ]);
+            $row->save(); // saving hook auto_price ile satis fiyatini hesaplar
+            $created++;
+        }
+
+        return compact('created', 'skipped');
+    }
+
+    /**
+     * Serbest metinden toplu TLD ekler. Her satir:
+     *   .com
+     *   .com,9.48
+     *   .com,9.48,USD
+     *   .com,9.48,USD,15
+     * Maliyet verilmezse katalogdan denenir; o da yoksa satisa kapali (pasif) eklenir.
+     *
+     * @return array{created: int, skipped: int, errors: list<string>}
+     */
+    public function bulkAddFromText(string $raw, bool $activate = true): array
+    {
+        $created = 0;
+        $skipped = 0;
+        $errors = [];
+
+        $catalog = [];
+        foreach (DomainTldCatalog::all() as $entry) {
+            $catalog[$this->normalizeTld($entry['tld'])] = $entry;
+        }
+
+        $lines = preg_split('/[\r\n]+/', trim($raw)) ?: [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = array_map('trim', explode(',', $line));
+            $tld = $this->normalizeTld($parts[0]);
+
+            if (! preg_match('/^\.[a-z0-9.-]{2,}$/', $tld)) {
+                $errors[] = "Gecersiz TLD: {$parts[0]}";
+
+                continue;
+            }
+
+            if (DomainTld::query()->where('tld', $tld)->exists()) {
+                $skipped++;
+
+                continue;
+            }
+
+            $cost = isset($parts[1]) && $parts[1] !== '' ? (float) str_replace(',', '.', $parts[1]) : null;
+            $currency = isset($parts[2]) && $parts[2] !== '' ? strtoupper($parts[2]) : 'USD';
+            $markup = isset($parts[3]) && $parts[3] !== '' ? (float) $parts[3] : null;
+
+            // Maliyet verilmediyse katalogdan dene
+            if ($cost === null && isset($catalog[$tld])) {
+                $cost = (float) $catalog[$tld]['register'];
+                $currency = 'USD';
+            }
+
+            $row = new DomainTld();
+            if ($cost !== null && $cost > 0) {
+                $row->fill([
+                    'tld' => $tld,
+                    'wholesale_register' => $cost,
+                    'wholesale_renew' => $catalog[$tld]['renew'] ?? $cost,
+                    'wholesale_currency' => $currency,
+                    'markup_percent' => $markup,
+                    'auto_price' => true,
+                    'is_active' => $activate,
+                    'sort_order' => $catalog[$tld]['sort'] ?? 500,
+                ]);
+            } else {
+                // Maliyet yok: satisa kapali ekle, yonetici fiyat girsin
+                $row->fill([
+                    'tld' => $tld,
+                    'auto_price' => false,
+                    'is_active' => false,
+                    'sort_order' => 500,
+                ]);
+            }
+            $row->save();
+            $created++;
+        }
+
+        return compact('created', 'skipped', 'errors');
     }
 
     private function normalizeTld(string $tld): string

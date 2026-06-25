@@ -1,5 +1,6 @@
 <div
-    class="relative me-1"
+    class="me-1"
+    style="position:relative;display:inline-flex;align-items:center"
     x-data="{ open: @entangle('open') }"
     @keydown.escape.window="open = false"
     wire:poll.60s
@@ -8,7 +9,8 @@
         type="button"
         @click="open = !open"
         title="Bildirimler"
-        class="fi-icon-btn relative flex items-center justify-center rounded-lg outline-none transition duration-75 focus-visible:ring-2 fi-color-gray fi-icon-btn-size-md"
+        class="fi-icon-btn rounded-lg outline-none transition duration-75 focus-visible:ring-2 fi-color-gray fi-icon-btn-size-md"
+        style="display:inline-flex;align-items:center;justify-content:center;position:relative"
         aria-label="Bildirimler"
         :aria-expanded="open"
     >
