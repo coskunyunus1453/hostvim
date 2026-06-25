@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import ImpersonationBanner from './ImpersonationBanner'
 import { useThemeStore } from '../../store/themeStore'
 import { useUiModeStore } from '../../store/uiModeStore'
 import { useAuthStore } from '../../store/authStore'
@@ -44,7 +45,10 @@ export default function Layout() {
   useEffect(() => {
     const d = meQ.data
     if (!d) return
-    updateUser(d.user)
+    updateUser({
+      ...d.user,
+      ...(d.impersonated_by != null ? { impersonated_by: d.impersonated_by } : {}),
+    })
     setWhiteLabelUi(d.white_label ?? null)
     if (Array.isArray(d.active_plugin_slugs)) {
       setActivePluginSlugs(d.active_plugin_slugs)
@@ -121,6 +125,7 @@ export default function Layout() {
         }`}
       >
         <Header />
+        <ImpersonationBanner />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {!onboardingSeen && (
             <div className="mb-4 rounded-xl border border-primary-200 dark:border-primary-900/40 bg-primary-50/80 dark:bg-primary-950/20 p-4">

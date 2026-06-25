@@ -25,19 +25,24 @@ class BackupGoogleDriveController extends Controller
             ->latest('id')
             ->first();
 
-        return response()->json([
+        $payload = [
             'configured' => $this->googleDrive->isConfigured(),
-            'credential_source' => $this->googleDriveConfig->credentialSource(),
-            'hub_expected' => $this->googleDriveConfig->hubFeatureExpected(),
-            'redirect_uri' => $this->googleDrive->redirectUri(),
-            'hub_integrations_url' => $this->hubIntegrationsAdminUrl(),
             'connected' => $dest !== null,
             'destination' => $dest ? [
                 'id' => $dest->id,
                 'name' => $dest->name,
                 'email' => (array) ($dest->config ?? [])['email'] ?? null,
             ] : null,
-        ]);
+        ];
+
+        if ($request->user()->isAdmin()) {
+            $payload['credential_source'] = $this->googleDriveConfig->credentialSource();
+            $payload['hub_expected'] = $this->googleDriveConfig->hubFeatureExpected();
+            $payload['redirect_uri'] = $this->googleDrive->redirectUri();
+            $payload['hub_integrations_url'] = $this->hubIntegrationsAdminUrl();
+        }
+
+        return response()->json($payload);
     }
 
     public function authUrl(Request $request): JsonResponse

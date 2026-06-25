@@ -16,6 +16,9 @@ import (
 const maxRawApacheVhostBytes = 512 << 10
 
 func apachePrevPath(main string) string {
+	if prev, ok := nginx.FindVhostPrevPath(main); ok {
+		return prev
+	}
 	return main + ".panelze-prev"
 }
 
@@ -201,8 +204,8 @@ func buildApacheServerAliasLine(primary string, aliases []string) string {
 	return strings.Join(parts, " ")
 }
 
-func confBaseName(domain string) string {
-	return "panelze-" + strings.ToLower(domain) + ".conf"
+func confBaseName(cfg *config.Config, domain string) string {
+	return nginx.ConfBaseName(nginx.VhostConfPrefix(cfg), domain)
 }
 
 func sitesAvailable(cfg *config.Config) string {
@@ -326,7 +329,7 @@ func applyVhostInner(cfg *config.Config, domain, docRoot, phpSocket, sslFullchai
 		return err
 	}
 
-	base := confBaseName(domain)
+	base := confBaseName(cfg, domain)
 	staging := stagingDir(cfg)
 	if err := os.MkdirAll(staging, 0o755); err != nil {
 		return fmt.Errorf("apache staging dir: %w", err)
@@ -359,7 +362,7 @@ func RemoveVhost(cfg *config.Config, domain string) error {
 	if domain == "" || strings.Contains(domain, "..") {
 		return fmt.Errorf("invalid domain")
 	}
-	base := confBaseName(domain)
+	base := confBaseName(cfg, domain)
 	_ = runApacheVhostHelper(cfg, "disable", base)
 	_ = os.Remove(filepath.Join(stagingDir(cfg), base))
 	return nil
@@ -370,7 +373,7 @@ func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 	if domain == "" || strings.Contains(domain, "..") {
 		return
 	}
-	base := confBaseName(domain)
+	base := confBaseName(cfg, domain)
 	_ = runApacheVhostHelper(cfg, "disable", base)
 	_ = os.Remove(filepath.Join(stagingDir(cfg), base))
 	leg := "panelsar-" + strings.ToLower(domain) + ".conf"
@@ -407,41 +410,23 @@ func reloadApacheErr() error {
 	return nil
 }
 
-// VhostFilePath sites-available altındaki panelze-<domain>.conf mutlak yolu.
+// VhostFilePath staging/apache-vhosts altındaki vhost dosyasının mutlak yolu (mevcut veya canonical).
 func VhostFilePath(cfg *config.Config, domain string) (string, error) {
-	domain = strings.ToLower(strings.TrimSpace(domain))
-	if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {
-		return "", fmt.Errorf("invalid domain")
-	}
-	staging := stagingDir(cfg)
-	availClean, err := filepath.Abs(filepath.Clean(staging))
-	if err != nil {
-		return "", fmt.Errorf("apache staging dir: %w", err)
-	}
-	base := confBaseName(domain)
-	p := filepath.Join(availClean, base)
-	p = filepath.Clean(p)
-	rel, err := filepath.Rel(availClean, p)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, "../") {
-		return "", fmt.Errorf("invalid vhost path")
-	}
-	return p, nil
+	p, _, err := nginx.ResolveVhostPath(cfg, stagingDir(cfg), domain)
+	return p, err
 }
 
 // VhostCanRevert son başarılı kayıttan önceki içerik dosyası var mı.
 func VhostCanRevert(cfg *config.Config, domain string) (bool, error) {
-	p, err := VhostFilePath(cfg, domain)
+	p, exists, err := nginx.ResolveVhostPath(cfg, stagingDir(cfg), domain)
 	if err != nil {
 		return false, err
 	}
-	fi, err := os.Stat(apachePrevPath(p))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
+	if !exists {
+		return false, nil
 	}
-	return fi.Size() > 0, nil
+	_, ok := nginx.FindVhostPrevPath(p)
+	return ok, nil
 }
 
 // ReadVhostFile mevcut Apache vhost dosyasını okur.
@@ -449,9 +434,12 @@ func ReadVhostFile(cfg *config.Config, domain string) ([]byte, error) {
 	if !cfg.Hosting.ApacheManageVhosts {
 		return nil, fmt.Errorf("apache vhost management is disabled")
 	}
-	p, err := VhostFilePath(cfg, domain)
+	p, exists, err := nginx.ResolveVhostPath(cfg, stagingDir(cfg), domain)
 	if err != nil {
 		return nil, err
+	}
+	if !exists {
+		return nil, os.ErrNotExist
 	}
 	return os.ReadFile(p)
 }

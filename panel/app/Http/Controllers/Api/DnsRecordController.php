@@ -8,6 +8,7 @@ use App\Models\DnsRecord;
 use App\Models\Domain;
 use App\Services\BindDnsService;
 use App\Services\BindZoneWriter;
+use App\Services\DnsHostingProvisioner;
 use App\Services\DnsRecordValidator;
 use App\Services\DomainDnsBootstrapService;
 use App\Services\EngineApiService;
@@ -27,6 +28,7 @@ class DnsRecordController extends Controller
         private DomainDnsBootstrapService $dnsBootstrap,
         private PanelDnsSettingsService $dnsSettings,
         private DnsRecordValidator $dnsValidator,
+        private DnsHostingProvisioner $dnsHosting,
     ) {}
 
     private const DNS_TYPES = 'A,AAAA,CNAME,MX,TXT,NS,CAA,SRV,PTR';
@@ -37,9 +39,14 @@ class DnsRecordController extends Controller
             abort(403);
         }
 
+        $enginePreview = [];
+        if ($request->user()->isAdmin()) {
+            $enginePreview = $this->engine->dnsList($domain->name);
+        }
+
         return response()->json([
             'records' => $domain->dnsRecords,
-            'engine_preview' => $this->engine->dnsList($domain->name),
+            'engine_preview' => $enginePreview,
             'bind' => [
                 'enabled' => $this->dnsSettings->bindEnabled(),
                 'ns' => $this->bindDns->nameServers(),
@@ -81,9 +88,9 @@ class DnsRecordController extends Controller
         $validated = $request->validate([
             'type' => 'required|string|in:'.self::DNS_TYPES,
             'name' => 'required|string|max:255',
-            'value' => 'required|string',
-            'ttl' => 'nullable|integer|min:60',
-            'priority' => 'nullable|integer',
+            'value' => 'required|string|max:4096',
+            'ttl' => 'nullable|integer|min:60|max:604800',
+            'priority' => 'nullable|integer|min:0|max:65535',
         ]);
         $validated = $this->dnsValidator->validateForStore($validated);
 
@@ -91,12 +98,14 @@ class DnsRecordController extends Controller
 
         $enginePayload = array_merge($validated, ['id' => (string) $record->id]);
         $bind = $this->triggerBindSync();
+        $hosting = $this->dnsHosting->ensureFromDnsRecord($domain, $record);
 
         return response()->json([
             'message' => __('dns.created'),
             'record' => $record,
             'engine' => $this->engine->dnsCreate($domain->name, $enginePayload),
             'bind' => $bind,
+            'hosting' => $hosting,
         ], 201);
     }
 

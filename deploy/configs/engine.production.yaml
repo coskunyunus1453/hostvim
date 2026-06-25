@@ -73,7 +73,23 @@ hosting:
   nginx_sites_enabled: "/etc/nginx/sites-enabled"
   php_fpm_socket: "__PHP_FPM_SOCKET__"
   nginx_reload_after_vhost: true
-  php_fpm_manage_pools: false
+  php_fpm_manage_pools: true
+  php_fpm_reload_after_pool: true
+  php_fpm_listen_dir: "/run/php"
+  php_fpm_pool_dir_template: "/etc/php/{{version}}/fpm/pool.d"
+  # PanelKafes — site başına Linux kullanıcı + PHP-FPM izolasyonu + kendi systemd
+  # servisi & kaynak slice'i (CPUQuota/MemoryMax kernel cgroup ile enforce).
+  # Açık: yeni site/alt site otomatik kafese alınır; mevcutlar için panelden
+  # (Web Sunucusu Ayarları) "Tüm sitelere uygula" ile uygulanır.
+  site_cage_enabled: true
+  site_cage_group: "panelze-hosting"
+  site_cage_user_prefix: "pk"
+  site_cage_engine_user: "www-data"
+  site_cage_helper: "/usr/local/sbin/panelze-site-cage"
+  site_cage_default_cpu_percent: 100
+  site_cage_default_memory_mb: 1024
+  site_cage_default_pm_max_children: 20
+  site_cage_default_memory_limit: "256M"
   # Nginx 80/443 edge; Apache/OLS backend — mevcut nginx siteleri aynı kalır
   nginx_edge_proxy: true
   apache_manage_vhosts: true

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\HostingPackage;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\SafeAuditLogger;
 use App\Services\UserHostingPackageSync;
+use App\Support\ResellerAssignablePermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -22,7 +24,7 @@ class UserController extends Controller
     public function index(Request $request): JsonResponse
     {
         $users = User::with(['roles', 'hostingPackage'])
-            ->when($request->user()->isReseller() && ! $request->user()->isAdmin(), function ($q) use ($request) {
+            ->when($this->shouldScopeToResellerParent($request), function ($q) use ($request) {
                 $q->where('parent_id', $request->user()->id);
             })
             ->when($request->search, function ($q, $s) {
@@ -34,7 +36,7 @@ class UserController extends Controller
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->role, fn ($q, $r) => $q->role($r))
             ->latest()
-            ->paginate(20);
+            ->paginate(min(max($request->integer('per_page', 20), 1), 100));
 
         return response()->json($users);
     }
@@ -45,7 +47,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'confirmed', Password::min(12)->letters()->mixedCase()->numbers()->symbols()],
             'role' => ['required', 'string', Rule::exists($rolesTable, 'name')->where('guard_name', 'web')],
             'hosting_package_id' => 'nullable|exists:hosting_packages,id',
             'locale' => 'nullable|string|in:en,tr,de,fr,es,pt,zh,ja,ar,ru',
@@ -53,8 +55,14 @@ class UserController extends Controller
 
         $roleModel = Role::query()->where('name', $validated['role'])->where('guard_name', 'web')->firstOrFail();
 
-        if ($request->user()->isReseller() && ! $request->user()->isAdmin()) {
+        if ($this->shouldScopeToResellerParent($request)) {
             abort_unless($this->resellerMayAssignRole($request->user(), $roleModel), 403, __('users.reseller_role_forbidden'));
+        } elseif ($this->isAdminApi($request)) {
+            $this->assertAdminMayAssignRole($roleModel);
+        }
+
+        if ($this->isResellerApi($request) && array_key_exists('hosting_package_id', $validated) && $validated['hosting_package_id'] !== null) {
+            abort_unless($this->resellerMayAssignPackage($request->user(), (int) $validated['hosting_package_id']), 422, __('users.package_not_available'));
         }
 
         $user = User::create([
@@ -65,7 +73,7 @@ class UserController extends Controller
             'status' => 'active',
             'hosting_package_id' => $validated['hosting_package_id'] ?? null,
             'hosting_package_manual_override' => array_key_exists('hosting_package_id', $validated),
-            'parent_id' => ($request->user()->isReseller() && ! $request->user()->isAdmin())
+            'parent_id' => $this->shouldScopeToResellerParent($request)
                 ? $request->user()->id
                 : null,
         ]);
@@ -93,7 +101,7 @@ class UserController extends Controller
             'email' => 'sometimes|email|unique:users,email,'.$user->id,
             'status' => 'sometimes|string|in:active,suspended,pending,disabled',
             'hosting_package_id' => 'nullable|exists:hosting_packages,id',
-            'locale' => 'nullable|string',
+            'locale' => 'nullable|string|in:en,tr,de,fr,es,pt,zh,ja,ar,ru',
             'sync_hosting_package_from_billing' => 'sometimes|boolean',
             'role' => ['sometimes', 'string', Rule::exists($rolesTable, 'name')->where('guard_name', 'web')],
         ]);
@@ -126,6 +134,12 @@ class UserController extends Controller
         }
 
         if ($roleModel !== null) {
+            if ($request->user()->isReseller() && ! $request->user()->isAdmin()) {
+                abort_unless($this->resellerMayAssignRole($request->user(), $roleModel), 403, __('users.reseller_role_forbidden'));
+            } elseif ($this->isAdminApi($request)) {
+                $this->assertAdminMayAssignRole($roleModel);
+                $this->assertNotLastActiveAdminDemotion($user, $roleModel);
+            }
             $user->syncRoles([$roleModel->name]);
         }
 
@@ -135,8 +149,15 @@ class UserController extends Controller
         ]);
     }
 
-    public function suspend(User $user): JsonResponse
+    public function suspend(Request $request, User $user): JsonResponse
     {
+        if ((int) $request->user()->id === (int) $user->id) {
+            return response()->json(['message' => __('users.cannot_suspend_self')], 422);
+        }
+        if ($user->isAdmin() && $this->activeAdminCount() <= 1) {
+            return response()->json(['message' => __('users.cannot_suspend_last_admin')], 422);
+        }
+
         $user->update(['status' => 'suspended']);
 
         return response()->json(['message' => __('users.suspended')]);
@@ -165,8 +186,73 @@ class UserController extends Controller
         ], $request);
 
         return response()->json([
-            'message' => 'Kullanıcı şifresi güvenli şekilde güncellendi.',
+            'message' => __('users.password_reset'),
         ]);
+    }
+
+    public function impersonate(Request $request, User $user, \App\Services\Auth\ImpersonationService $impersonation): JsonResponse
+    {
+        abort_unless($this->isAdminApi($request), 403);
+
+        return response()->json($impersonation->start($request->user(), $user, $request));
+    }
+
+    private function isAdminApi(Request $request): bool
+    {
+        return $request->is('api/admin/*');
+    }
+
+    private function activeAdminCount(): int
+    {
+        return User::query()->where('status', 'active')->role('admin')->count();
+    }
+
+    private function assertAdminMayAssignRole(Role $role): void
+    {
+        if ($role->assignable_by_reseller) {
+            $perms = $role->permissions()->pluck('name')->all();
+            ResellerAssignablePermissions::assertResellerAssignable($perms);
+        }
+    }
+
+    private function assertNotLastActiveAdminDemotion(User $user, Role $newRole): void
+    {
+        if (! $user->isAdmin() || $newRole->name === 'admin') {
+            return;
+        }
+        if ($user->status !== 'active') {
+            return;
+        }
+        if ($this->activeAdminCount() <= 1) {
+            abort(422, __('users.cannot_demote_last_admin'));
+        }
+    }
+
+    private function isResellerApi(Request $request): bool
+    {
+        return $request->is('api/reseller/*');
+    }
+
+    private function shouldScopeToResellerParent(Request $request): bool
+    {
+        if ($this->isResellerApi($request)) {
+            return true;
+        }
+
+        $actor = $request->user();
+
+        return $actor !== null && $actor->isReseller() && ! $actor->isAdmin();
+    }
+
+    private function resellerMayAssignPackage(User $reseller, int $packageId): bool
+    {
+        return HostingPackage::query()
+            ->where('id', $packageId)
+            ->where('is_active', true)
+            ->where(function ($q) use ($reseller) {
+                $q->whereNull('reseller_id')->orWhere('reseller_id', $reseller->id);
+            })
+            ->exists();
     }
 
     private function resellerMayAssignRole(User $reseller, Role $role): bool
@@ -187,6 +273,13 @@ class UserController extends Controller
             return false;
         }
 
-        return true;
+        $perms = $role->permissions()->pluck('name')->all();
+
+        return self::rolePermissionsResellerSafe($perms);
+    }
+
+    private static function rolePermissionsResellerSafe(array $perms): bool
+    {
+        return ResellerAssignablePermissions::isAllowedForResellerAssignable($perms);
     }
 }

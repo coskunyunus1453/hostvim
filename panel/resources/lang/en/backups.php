@@ -2,6 +2,9 @@
 
 return [
     'queued' => 'Backup queued',
+    'retry_already_completed' => 'This backup is already completed.',
+    'retry_already_running' => 'This backup is already running or queued.',
+    'domain_not_found' => 'Domain not found.',
     'deleted' => 'Backup deleted',
     'restore_started' => 'Restore started',
     'restore_no_engine_id' => 'No engine backup id; create a new backup and restore from it.',
@@ -16,6 +19,7 @@ return [
     'download_unavailable' => 'No downloadable backup file found.',
     'upload_required' => 'Backup archive (.tar.gz) is required.',
     'upload_failed' => 'File upload failed.',
+    'upload_invalid_archive' => 'Only .tar.gz, .tgz, or .gz archives are accepted.',
     'google_drive_not_configured' => 'Google Drive OAuth is not configured. Set it in Panelze.com → Panel integrations or server .env.',
     'google_drive_state_invalid' => 'OAuth session invalid or expired. Try again.',
     'google_drive_connected' => 'Google Drive connected.',

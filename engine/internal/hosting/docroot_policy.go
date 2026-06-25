@@ -1,6 +1,10 @@
 package hosting
 
-import "strings"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 // NormalizeAppProfile UI/istemci kaynaklı profil değerini normalize eder.
 func NormalizeAppProfile(v string) string {
@@ -27,4 +31,21 @@ func DocrootVariantForProfile(profile string) string {
 	default:
 		return "root"
 	}
+}
+
+// ResolveHTTPDocRoot nginx ve Let's Encrypt webroot için gerçek servis yolu.
+// Meta/document_root çoğu zaman public_html iken Laravel/Symfony public/ altında servis edilir.
+func ResolveHTTPDocRoot(documentRoot string) string {
+	documentRoot = filepath.Clean(strings.TrimSpace(documentRoot))
+	if documentRoot == "" {
+		return documentRoot
+	}
+	if filepath.Base(documentRoot) == "public" {
+		return documentRoot
+	}
+	pub := filepath.Join(documentRoot, "public")
+	if fi, err := os.Stat(filepath.Join(pub, "index.php")); err == nil && !fi.IsDir() {
+		return pub
+	}
+	return documentRoot
 }

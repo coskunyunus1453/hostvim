@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\AuthorizesUserDomain;
 use App\Http\Controllers\Controller;
+use App\Jobs\RunBackupJob;
 use App\Models\Backup;
 use App\Models\BackupDestination;
 use App\Models\BackupSchedule;
@@ -33,8 +34,17 @@ class BackupController extends Controller
         if ($request->filled('domain_id')) {
             $query->where('domain_id', (int) $request->integer('domain_id'));
         }
+        if ($request->filled('status')) {
+            $status = (string) $request->input('status');
+            if ($status === 'active') {
+                $query->whereIn('status', ['pending', 'queued', 'running', 'syncing']);
+            } elseif (in_array($status, ['pending', 'queued', 'running', 'syncing', 'completed', 'failed'], true)) {
+                $query->where('status', $status);
+            }
+        }
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 100);
 
-        return response()->json($query->paginate(20));
+        return response()->json($query->paginate($perPage));
     }
 
     public function store(Request $request): JsonResponse
@@ -65,55 +75,21 @@ class BackupController extends Controller
             'domain_id' => $domain->id,
             'destination_id' => $validated['destination_id'] ?? null,
             'type' => $validated['type'] ?? 'full',
-            'status' => 'pending',
+            'status' => 'queued',
         ]);
 
-        $engine = $this->engine->queueBackup($domain->name, $backup->type, $backup->id);
-        if (! empty($engine['error'])) {
-            $backup->update(['status' => 'failed']);
-            $this->audit($request, 'backup_queue', false, (string) $engine['error'], [
-                'domain_id' => $domain->id,
-                'backup_id' => $backup->id,
-            ]);
+        RunBackupJob::dispatch($backup->id);
 
-            return response()->json([
-                'message' => (string) $engine['error'],
-                'backup' => $backup->fresh(),
-            ], 502);
-        }
-
-        $engineId = isset($engine['id']) ? (string) $engine['id'] : null;
-        $engineStatus = is_string($engine['status'] ?? null) ? (string) $engine['status'] : '';
-        $panelStatus = $engineStatus === 'completed' || $engineStatus === 'failed' ? $engineStatus : 'running';
-        $update = [
-            'status' => $panelStatus,
-            'file_path' => $engine['path'] ?? null,
-            'engine_backup_id' => $engineId,
-        ];
-        if (! empty($engine['size_bytes'])) {
-            $update['size_mb'] = round(((float) $engine['size_bytes']) / 1048576, 4);
-        }
-        if ($panelStatus === 'completed') {
-            $update['completed_at'] = now();
-        }
-        $backup->update($update);
-        $backup = $backup->fresh();
-        if ($panelStatus === 'completed' && $backup->destination_id) {
-            $sync = $this->syncToDestination($backup);
-            if (empty($sync['ok'])) {
-                $this->audit($request, 'backup_queue_sync', false, (string) ($sync['error'] ?? 'sync failed'), [
-                    'domain_id' => $domain->id,
-                    'backup_id' => $backup->id,
-                ]);
-            }
-        }
         $this->audit($request, 'backup_queue', true, null, [
             'domain_id' => $domain->id,
             'backup_id' => $backup->id,
             'destination_id' => $backup->destination_id,
         ]);
 
-        return response()->json(['message' => __('backups.queued'), 'backup' => $backup->fresh(), 'engine' => $engine], 202);
+        return response()->json([
+            'message' => __('backups.queued'),
+            'backup' => $backup->fresh(['domain', 'destination']),
+        ], 202);
     }
 
     public function destinations(Request $request): JsonResponse
@@ -277,7 +253,10 @@ class BackupController extends Controller
         }
         $domain = $backupSchedule->domain()->first();
         if (! $domain) {
-            return response()->json(['message' => 'domain not found'], 422);
+            return response()->json(['message' => __('backups.domain_not_found')], 422);
+        }
+        if (! $this->userOwnsDomain($request, $domain)) {
+            abort(403);
         }
 
         $this->quota->ensureCanQueueBackup($request->user());
@@ -287,30 +266,37 @@ class BackupController extends Controller
             'domain_id' => $domain->id,
             'destination_id' => $backupSchedule->destination_id,
             'type' => $backupSchedule->type ?: 'full',
-            'status' => 'pending',
+            'status' => 'queued',
         ]);
-        $engine = $this->engine->queueBackup($domain->name, $backup->type, $backup->id);
-        if (! empty($engine['error'])) {
-            $backup->update(['status' => 'failed']);
-            $this->audit($request, 'backup_schedule_run', false, (string) $engine['error'], ['schedule_id' => $backupSchedule->id, 'backup_id' => $backup->id]);
-
-            return response()->json(['message' => (string) $engine['error']], 502);
-        }
+        RunBackupJob::dispatch($backup->id);
         $backupSchedule->update(['last_run_at' => now()]);
-        $backup->update([
-            'status' => 'running',
-            'file_path' => $engine['path'] ?? null,
-            'engine_backup_id' => isset($engine['id']) ? (string) $engine['id'] : null,
-        ]);
-        if ($backup->destination_id) {
-            $sync = $this->syncToDestination($backup);
-            if (! $sync['ok']) {
-                $this->audit($request, 'backup_schedule_sync', false, $sync['error'] ?? 'sync failed', ['backup_id' => $backup->id]);
-            }
-        }
         $this->audit($request, 'backup_schedule_run', true, null, ['schedule_id' => $backupSchedule->id, 'backup_id' => $backup->id]);
 
-        return response()->json(['message' => __('backups.queued'), 'backup' => $backup->fresh()]);
+        return response()->json([
+            'message' => __('backups.queued'),
+            'backup' => $backup->fresh(['domain', 'destination']),
+        ], 202);
+    }
+
+    public function retry(Request $request, Backup $backup): JsonResponse
+    {
+        if ($backup->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
+            abort(403);
+        }
+        if ($backup->status === 'completed') {
+            return response()->json(['message' => __('backups.retry_already_completed')], 422);
+        }
+        if (in_array($backup->status, ['pending', 'queued', 'running', 'syncing'], true)) {
+            return response()->json(['message' => __('backups.retry_already_running')], 422);
+        }
+        $backup->update(['status' => 'queued']);
+        RunBackupJob::dispatch($backup->id);
+        $this->audit($request, 'backup_retry', true, null, ['backup_id' => $backup->id]);
+
+        return response()->json([
+            'message' => __('backups.queued'),
+            'backup' => $backup->fresh(['domain', 'destination']),
+        ], 202);
     }
 
     public function destroy(Request $request, Backup $backup): JsonResponse
@@ -327,6 +313,10 @@ class BackupController extends Controller
     public function restore(Request $request, Backup $backup): JsonResponse
     {
         if ($backup->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
+            abort(403);
+        }
+        $domain = $backup->domain;
+        if (! $domain || ! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
         $validated = $request->validate([
@@ -387,7 +377,10 @@ class BackupController extends Controller
                     'backup_set' => $remoteKey,
                 ]);
 
-                return response()->json(['message' => __('backups.restore_started'), 'engine' => $result]);
+                return response()->json($this->publicBackupPayload($request, [
+                    'message' => __('backups.restore_started'),
+                    'engine' => $result,
+                ]));
             } finally {
                 if (is_string($tmpPath) && $tmpPath !== '' && is_file($tmpPath)) {
                     @unlink($tmpPath);
@@ -401,7 +394,10 @@ class BackupController extends Controller
         $result = $this->engine->restoreBackup($eid);
         $this->audit($request, 'backup_restore', true, null, ['backup_id' => $backup->id, 'engine_backup_id' => $eid]);
 
-        return response()->json(['message' => __('backups.restore_started'), 'engine' => $result]);
+        return response()->json($this->publicBackupPayload($request, [
+            'message' => __('backups.restore_started'),
+            'engine' => $result,
+        ]));
     }
 
     public function engineSnapshot(Request $request): JsonResponse
@@ -501,7 +497,7 @@ class BackupController extends Controller
 
         if ($backup->destination_id && ($backup->remote_path || $backup->remote_file_id)) {
             $dest = BackupDestination::query()->find($backup->destination_id);
-            if ($dest && $dest->is_active) {
+            if ($dest && $dest->is_active && $dest->user_id === $backup->user_id) {
                 $dl = $this->storage->fetchRemoteToTemp(
                     $dest,
                     (string) ($backup->remote_path ?? ''),
@@ -532,7 +528,20 @@ class BackupController extends Controller
     {
         $validated = $request->validate([
             'domain_id' => 'required|integer|exists:domains,id',
-            'archive' => 'required|file|max:'.((int) config('panelze.limits.max_upload_size_mb', 256) * 1024),
+            'archive' => [
+                'required',
+                'file',
+                'max:'.((int) config('panelze.limits.max_upload_size_mb', 256) * 1024),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $value instanceof \Illuminate\Http\UploadedFile) {
+                        return;
+                    }
+                    $name = strtolower($value->getClientOriginalName());
+                    if (! (str_ends_with($name, '.tar.gz') || str_ends_with($name, '.tgz') || str_ends_with($name, '.gz'))) {
+                        $fail((string) __('backups.upload_invalid_archive'));
+                    }
+                },
+            ],
         ]);
         $domain = Domain::findOrFail($validated['domain_id']);
         if (! $this->userOwnsDomain($request, $domain)) {
@@ -559,7 +568,10 @@ class BackupController extends Controller
 
         $this->audit($request, 'backup_upload_restore', true, null, ['domain_id' => $domain->id]);
 
-        return response()->json(['message' => __('backups.restore_started'), 'engine' => $result]);
+        return response()->json($this->publicBackupPayload($request, [
+            'message' => __('backups.restore_started'),
+            'engine' => $result,
+        ]));
     }
 
     public function restoreRemote(Request $request): JsonResponse
@@ -606,7 +618,10 @@ class BackupController extends Controller
                 return response()->json(['message' => (string) $result['error']], 502);
             }
 
-            return response()->json(['message' => __('backups.restore_started'), 'engine' => $result]);
+            return response()->json($this->publicBackupPayload($request, [
+                'message' => __('backups.restore_started'),
+                'engine' => $result,
+            ]));
         } finally {
             if (is_string($tmpPath) && $tmpPath !== '' && is_file($tmpPath)) {
                 @unlink($tmpPath);
@@ -635,5 +650,18 @@ class BackupController extends Controller
             'success' => $success,
             'error' => $error,
         ], $extra), $request);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function publicBackupPayload(Request $request, array $payload): array
+    {
+        if (! $request->user()->isAdmin()) {
+            unset($payload['engine']);
+        }
+
+        return $payload;
     }
 }

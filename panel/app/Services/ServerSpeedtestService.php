@@ -62,7 +62,7 @@ class ServerSpeedtestService
         }
 
         $timeout = max(60, (int) config('panelze.curious.ookla_timeout', 120));
-        $isOokla = str_contains(basename($binary), 'speedtest') && ! str_contains(basename($binary), 'speedtest-cli');
+        $isOokla = $this->isOoklaCli($binary);
 
         $cmd = $isOokla
             ? [$binary, '-f', 'json', '--accept-license', '--accept-gdpr']
@@ -107,6 +107,34 @@ class ServerSpeedtestService
         }
 
         return null;
+    }
+
+    private function isOoklaCli(string $binary): bool
+    {
+        $base = basename($binary);
+        if (str_contains($base, 'speedtest-cli') || str_contains($base, 'speedtest_cli')) {
+            return false;
+        }
+
+        $real = realpath($binary) ?: $binary;
+        if (is_readable($real)) {
+            $head = @file_get_contents($real, false, null, 0, 120);
+            if (is_string($head) && (str_contains($head, 'python') || str_contains($head, 'speedtest_cli'))) {
+                return false;
+            }
+        }
+
+        $probe = new Process([$binary, '--version'], null, null, null, 5);
+        $probe->run();
+        $versionOut = $probe->getOutput().$probe->getErrorOutput();
+        if (stripos($versionOut, 'speedtest-cli') !== false) {
+            return false;
+        }
+        if (stripos($versionOut, 'Ookla') !== false) {
+            return true;
+        }
+
+        return str_contains($base, 'speedtest');
     }
 
     /**
@@ -188,7 +216,7 @@ class ServerSpeedtestService
             'delta_upload_mbps' => $deltaUl,
             'server_label' => $serverOk ? ($server['label'] ?? null) : null,
             'server_from_cache' => (bool) ($server['cached'] ?? false),
-            'server_error' => $serverOk ? null : (string) ($server['error'] ?? __('curious.speed_ookla_failed')),
+            'server_error' => $serverOk ? null : Str::limit((string) ($server['error'] ?? __('curious.speed_ookla_failed')), 200),
         ]);
 
         $this->pruneHistory($userId, $clientIp);
@@ -206,15 +234,22 @@ class ServerSpeedtestService
             ->delete();
 
         $maxRows = max(50, (int) config('panelze.curious.ookla_history_max_rows', 200));
-        $ids = CuriousSpeedResult::query()
+        $keepIds = CuriousSpeedResult::query()
             ->where('user_id', $userId)
             ->where('client_ip', $clientIp)
             ->orderByDesc('id')
-            ->skip($maxRows)
+            ->limit($maxRows)
             ->pluck('id');
-        if ($ids->isNotEmpty()) {
-            CuriousSpeedResult::query()->whereIn('id', $ids)->delete();
+
+        if ($keepIds->isEmpty()) {
+            return;
         }
+
+        CuriousSpeedResult::query()
+            ->where('user_id', $userId)
+            ->where('client_ip', $clientIp)
+            ->whereNotIn('id', $keepIds)
+            ->delete();
     }
 
     /**

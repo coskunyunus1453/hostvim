@@ -23,6 +23,7 @@ import (
 	"panelze/engine/internal/nginx"
 	"panelze/engine/internal/nodeapp"
 	"panelze/engine/internal/phpfpm"
+	"panelze/engine/internal/sitecage"
 	"panelze/engine/internal/sites"
 	"panelze/engine/internal/ssl"
 	"panelze/engine/internal/terminal"
@@ -92,9 +93,11 @@ func NewRouter(cfg *config.Config, d *daemon.Daemon, log *logrus.Logger) *gin.En
 			site.GET("/:domain/logs", handleSiteLogs(cfg, d))
 			site.POST("/:domain/subdomains", handleAddSubdomain(cfg, d))
 			site.DELETE("/:domain/subdomains", handleRemoveSubdomain(cfg, d))
+			site.POST("/:domain/subdomains/:segment/sync-web", handleSyncSubdomainWeb(cfg))
 			site.POST("/:domain/aliases", handleAddSiteAlias(cfg, d))
 			site.DELETE("/:domain/aliases", handleRemoveSiteAlias(cfg, d))
 			registerNodeAppRoutes(cfg, site)
+			api.GET("/node-apps/watchdog-status", handleNodeAppsWatchdogStatus(cfg))
 			api.POST("/node-apps/reconcile", handleNodeAppsReconcile(cfg))
 			registerStackScanRoutes(cfg, site)
 			registerRedirectRoutes(cfg, site)
@@ -224,17 +227,36 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			return
 		}
 
+		cageCfg := sitecage.FromHosting(cfg)
+		if cageCfg.Enabled {
+			cageUser, cerr := sitecage.Ensure(cageCfg, cfg.Paths.WebRoot, req.Domain)
+			if cerr != nil {
+				_ = sites.Remove(cfg.Paths.WebRoot, req.Domain)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "panelkafes: " + cerr.Error()})
+				return
+			}
+			metaCage, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
+			if metaCage == nil {
+				metaCage = &sites.SiteMeta{PHPVersion: phpV, DocumentRoot: docRoot}
+			}
+			metaCage.CageEnabled = true
+			metaCage.CageUser = cageUser
+			_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, req.Domain, metaCage)
+		}
+
 		ps := phpfpmSettings(cfg)
 		phpSocket := nginx.EffectivePHPSocket(phpV, cfg.Hosting.PHPFPMsocket)
 		var poolPrev []byte
 		var poolHadPrev bool
 		var oldPoolBak []byte
 		var oldPoolBakHad bool
-		if cfg.Hosting.PHPFPMmanagePools {
+		metaForPool, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, req.Domain)
+		poolOpts := sitecage.PoolOptions(cfg, metaForPool, req.Domain, docRoot)
+		if sitecage.ManagePools(cfg) {
 			if oldMeta != nil && phpfpm.NormalizeVersion(oldMeta.PHPVersion) != phpfpm.NormalizeVersion(phpV) {
 				oldPoolBak, oldPoolBakHad = phpfpm.ReadPoolSnapshot(ps, req.Domain, oldMeta.PHPVersion)
 			}
-			sock, pprev, phad, perr := phpfpm.WritePool(ps, req.Domain, phpV, docRoot)
+			sock, pprev, phad, perr := phpfpm.WritePool(ps, req.Domain, phpV, docRoot, poolOpts)
 			poolPrev, poolHadPrev = pprev, phad
 			if perr != nil {
 				rollbackFailedSiteProvision(cfg, req.Domain, phpV, oldMeta, ps, poolPrev, poolHadPrev, oldPoolBak, oldPoolBakHad)
@@ -264,9 +286,19 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			return
 		}
 
+		// Yeni site PanelKafes açıkken otomatik kendi FPM servisi + kaynak slice'ine alınır.
+		if cageCfg.Enabled && sitecage.ManagePools(cfg) {
+			_ = sitecage.ApplyService(cageCfg, req.Domain, phpV)
+		}
+
 		st := "nginx"
 		if metaNow != nil && metaNow.ServerType != "" {
 			st = sites.NormalizeServerType(metaNow.ServerType)
+		}
+
+		cageUserOut := ""
+		if metaNow != nil {
+			cageUserOut = metaNow.CageUser
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -278,7 +310,9 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			"nginx_vhost":          cfg.Hosting.NginxManageVhosts,
 			"apache_vhost":         cfg.Hosting.ApacheManageVhosts,
 			"openlitespeed_vhost":  cfg.Hosting.OLSManageVhosts,
-			"php_fpm_manage_pools": cfg.Hosting.PHPFPMmanagePools,
+			"php_fpm_manage_pools": sitecage.ManagePools(cfg),
+			"site_cage_enabled":    cfg.Hosting.SiteCageEnabled,
+			"cage_user":            cageUserOut,
 			"php_fpm_socket":       phpSocket,
 		})
 	}
@@ -332,8 +366,9 @@ func handleReapplyWebServer(cfg *config.Config) gin.HandlerFunc {
 
 		ps := phpfpmSettings(cfg)
 		phpSocket := nginx.EffectivePHPSocket(phpV, cfg.Hosting.PHPFPMsocket)
-		if cfg.Hosting.PHPFPMmanagePools {
-			sock, _, _, perr := phpfpm.WritePool(ps, domain, phpV, docRoot)
+		if sitecage.ManagePools(cfg) {
+			poolOpts := sitecage.PoolOptions(cfg, oldMeta, domain, docRoot)
+			sock, _, _, perr := phpfpm.WritePool(ps, domain, phpV, docRoot, poolOpts)
 			if perr != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": perr.Error()})
 				return
@@ -373,12 +408,22 @@ func handleReapplyWebServer(cfg *config.Config) gin.HandlerFunc {
 }
 
 func phpfpmSettings(cfg *config.Config) phpfpm.HostingPoolSettings {
-	return phpfpm.HostingPoolSettings{
+	c := sitecage.FromHosting(cfg)
+	ps := phpfpm.HostingPoolSettings{
 		PoolDirTemplate: cfg.Hosting.PHPFPMpoolDirTemplate,
 		SocketListenDir: cfg.Hosting.PHPFPMlistenDir,
 		FPMUser:         cfg.Hosting.PHPFPMpoolUser,
 		FPMGroup:        cfg.Hosting.PHPFPMpoolGroup,
 	}
+	if c.Enabled {
+		if strings.TrimSpace(ps.FPMGroup) == "" || ps.FPMGroup == "www-data" {
+			ps.FPMGroup = c.Group
+		}
+		ps.ListenOwner = c.EngineUser
+		ps.ListenGroup = c.EngineUser
+		ps.Helper = c.Helper
+	}
+	return ps
 }
 
 func handleRenameSite(cfg *config.Config) gin.HandlerFunc {
@@ -526,8 +571,9 @@ func handleSetDocumentRoot(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc
 		var poolPrev []byte
 		var poolHadPrev bool
 		phpSocket := ""
-		if cfg.Hosting.PHPFPMmanagePools {
-			sock, prev, had, perr := phpfpm.WritePool(ps, domain, phpV, target)
+		if sitecage.ManagePools(cfg) {
+			poolOpts := sitecage.PoolOptions(cfg, meta, domain, target)
+			sock, prev, had, perr := phpfpm.WritePool(ps, domain, phpV, target, poolOpts)
 			poolPrev, poolHadPrev = prev, had
 			if perr != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": perr.Error()})
@@ -597,10 +643,13 @@ func handleDeleteSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 		meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
 		ps := phpfpmSettings(cfg)
 
-		nodeapp.RemoveSite(cfg, domain)
+		nodeapp.RemoveSite(cfg, domain, "")
 		_ = ssl.Delete(cfg, domain)
 		hosting.RemoveWebServerForSiteDeletion(cfg, domain)
-		if cfg.Hosting.PHPFPMmanagePools {
+		if sitecage.FromHosting(cfg).Enabled {
+			_ = sitecage.Remove(sitecage.FromHosting(cfg), domain)
+		}
+		if sitecage.ManagePools(cfg) {
 			if meta != nil {
 				_ = phpfpm.RemovePool(ps, domain, meta.PHPVersion)
 				if cfg.Hosting.PHPFPMreloadAfterPool {
@@ -833,7 +882,37 @@ func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 				certName = strings.ToLower(strings.TrimSpace(req.Domain))
 			}
 		}
-		if err := ssl.Issue(cfg, certName, meta.DocumentRoot, req.Email); err != nil {
+		httpDoc := hosting.ResolveHTTPDocRoot(meta.DocumentRoot)
+		if isSub {
+			_ = hosting.FinalizeSubdomainWebStack(cfg, parent, seg, certName)
+			if refreshed, rerr := sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, seg); rerr == nil && refreshed != nil {
+				meta = refreshed
+				httpDoc = hosting.ResolveHTTPDocRoot(meta.DocumentRoot)
+			}
+		}
+		acmeDir := filepath.Join(httpDoc, ".well-known", "acme-challenge")
+		if err := os.MkdirAll(acmeDir, 0o755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "acme challenge dir: " + err.Error()})
+			return
+		}
+		var vhostErr error
+		if isSub {
+			vhostErr = hosting.ApplySubdomainVhost(cfg, parent, certName, meta.DocumentRoot, meta)
+		} else {
+			ps := phpfpmSettings(cfg)
+			phpSocket := ""
+			if cfg.Hosting.PHPFPMmanagePools {
+				phpSocket = ps.SocketForDomain(certName)
+			} else {
+				phpSocket = nginx.EffectivePHPSocket(meta.PHPVersion, cfg.Hosting.PHPFPMsocket)
+			}
+			vhostErr = hosting.ApplyWebServer(cfg, certName, meta.DocumentRoot, meta, phpSocket)
+		}
+		if vhostErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": vhostErr.Error()})
+			return
+		}
+		if err := ssl.Issue(cfg, certName, httpDoc, req.Email); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -1013,6 +1092,7 @@ func handleAddSubdomain(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			return
 		}
 		subMeta := &sites.SiteMeta{
+			Hostname:     strings.ToLower(strings.TrimSpace(req.Hostname)),
 			PHPVersion:   phpV,
 			DocumentRoot: docRoot,
 			ServerType:   st,
@@ -1023,12 +1103,57 @@ func handleAddSubdomain(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusCreated, gin.H{
+		if finErr := hosting.FinalizeSubdomainWebStack(cfg, parent, req.PathSegment, req.Hostname); finErr != nil {
+			logrus.Warnf("subdomain web finalize (%s/%s): %v", parent, req.PathSegment, finErr)
+		}
+		finMeta, _ := sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, req.PathSegment)
+		resp := gin.H{
 			"message":       "subdomain created",
 			"document_root": docRoot,
 			"hostname":      req.Hostname,
 			"path_segment":  req.PathSegment,
-		})
+		}
+		if finMeta != nil && strings.TrimSpace(finMeta.PHPVersion) != "" {
+			resp["php_version"] = finMeta.PHPVersion
+		}
+		c.JSON(http.StatusCreated, resp)
+	}
+}
+
+func handleSyncSubdomainWeb(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		parent := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		seg := strings.TrimSpace(c.Param("segment"))
+		if parent == "" || seg == "" || strings.Contains(seg, "/") || strings.Contains(seg, "..") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid subdomain"})
+			return
+		}
+		subMeta, err := sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, seg)
+		if err != nil || subMeta == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "subdomain not found"})
+			return
+		}
+		host := strings.ToLower(strings.TrimSpace(subMeta.Hostname))
+		if host == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "subdomain hostname missing"})
+			return
+		}
+		if err := hosting.FinalizeSubdomainWebStack(cfg, parent, seg, host); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		updated, _ := sites.ReadSubdomainMeta(cfg.Paths.WebRoot, parent, seg)
+		resp := gin.H{
+			"message":      "subdomain web stack synced",
+			"hostname":     host,
+			"path_segment": seg,
+		}
+		if updated != nil {
+			resp["php_version"] = updated.PHPVersion
+			resp["document_root"] = updated.DocumentRoot
+			resp["app_profile"] = updated.AppProfile
+		}
+		c.JSON(http.StatusOK, resp)
 	}
 }
 

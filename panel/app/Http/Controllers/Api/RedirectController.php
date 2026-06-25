@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesUserDomain;
 use App\Http\Controllers\Controller;
 use App\Models\Domain;
 use App\Services\EngineApiService;
+use App\Services\RedirectRuleValidator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,6 +17,7 @@ class RedirectController extends Controller
 
     public function __construct(
         private EngineApiService $engine,
+        private RedirectRuleValidator $validator,
     ) {}
 
     public function index(Request $request, Domain $domain): JsonResponse
@@ -29,6 +31,10 @@ class RedirectController extends Controller
             return response()->json(['message' => (string) $res['error']], 503);
         }
 
+        if (empty($res['server_type'])) {
+            $res['server_type'] = $domain->server_type;
+        }
+
         return response()->json($res);
     }
 
@@ -38,8 +44,12 @@ class RedirectController extends Controller
             abort(403);
         }
 
+        if (strtolower((string) $domain->server_type) !== 'nginx') {
+            return response()->json(['message' => __('redirects.nginx_only')], 422);
+        }
+
         $validated = $request->validate([
-            'rules' => ['required', 'array', 'max:50'],
+            'rules' => ['required', 'array', 'max:'.RedirectRuleValidator::MAX_RULES],
             'rules.*.id' => ['nullable', 'string', 'max:64'],
             'rules.*.source' => ['required', 'string', 'max:512'],
             'rules.*.target' => ['required', 'string', 'max:2048'],
@@ -49,17 +59,7 @@ class RedirectController extends Controller
             'rules.*.match_type' => ['nullable', 'string', Rule::in(['exact', 'prefix', 'wildcard'])],
         ]);
 
-        $rules = collect($validated['rules'])->map(function (array $r) {
-            return [
-                'id' => $r['id'] ?? null,
-                'source' => $r['source'],
-                'target' => $r['target'],
-                'status' => (int) ($r['status'] ?? 301),
-                'enabled' => (bool) ($r['enabled'] ?? true),
-                'preserve_query' => array_key_exists('preserve_query', $r) ? (bool) $r['preserve_query'] : true,
-                'match_type' => $r['match_type'] ?? 'exact',
-            ];
-        })->values()->all();
+        $rules = $this->validator->validateAndNormalize($validated['rules']);
 
         $res = $this->engine->setSiteRedirects($domain->name, $rules);
         if (! empty($res['error'])) {
@@ -67,6 +67,7 @@ class RedirectController extends Controller
         }
 
         return response()->json([
+            'message' => __('redirects.saved'),
             'domain' => $domain->name,
             'rules' => $res['rules'] ?? $rules,
         ]);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticateStoreIntegration;
 use App\Http\Middleware\AuthenticateWhmcsIntegration;
 use App\Http\Middleware\EnforceVendorHost;
 use App\Http\Middleware\EnsureTokenAbility;
@@ -60,6 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'require_password_change' => RequirePasswordChange::class,
             'vendor_host' => EnforceVendorHost::class,
             'whmcs.integration' => AuthenticateWhmcsIntegration::class,
+            'store.integration' => AuthenticateStoreIntegration::class,
             'pro.feature' => RequireProFeature::class,
             'security.center' => \App\Http\Middleware\EnsureSecurityCenterAccess::class,
         ]);

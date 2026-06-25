@@ -14,10 +14,11 @@ use App\Http\Controllers\Admin\WebServerSettingsController;
 use App\Http\Controllers\Admin\WhmcsModuleController;
 use App\Http\Controllers\Admin\Billing\AdminBillingController;
 use App\Http\Controllers\Admin\Billing\BillingSettingsController;
-use App\Http\Controllers\Admin\SupportAdminController;
 use App\Http\Controllers\Api\Billing\InvoiceController;
 use App\Http\Controllers\Api\Billing\OrderController;
-use App\Http\Controllers\Api\SupportTicketController;
+use App\Http\Controllers\Api\Billing\DomainRegisterController;
+use App\Http\Controllers\Api\Billing\PaytrCallbackController;
+use App\Http\Controllers\Api\Billing\IyzicoCallbackController;
 use App\Http\Controllers\Api\AiAdvisorController;
 use App\Http\Controllers\Api\AiAssistantController;
 use App\Http\Controllers\Api\AuthController;
@@ -32,6 +33,7 @@ use App\Http\Controllers\Api\DeploymentController;
 use App\Http\Controllers\Api\DnsRecordController;
 use App\Http\Controllers\Api\DocumentRootController;
 use App\Http\Controllers\Api\DomainController;
+use App\Http\Controllers\Api\DomainPortfolioController;
 use App\Http\Controllers\Api\DomainApacheVhostController;
 use App\Http\Controllers\Api\DomainOlsVhostController;
 use App\Http\Controllers\Api\DomainNginxVhostController;
@@ -41,6 +43,9 @@ use App\Http\Controllers\Api\HostingTargetsController;
 use App\Http\Controllers\Api\Internal\PhpMyAdminSignonConsumeController;
 use App\Http\Controllers\Api\Internal\WebmailSignonConsumeController;
 use App\Http\Controllers\Api\FtpController;
+use App\Http\Controllers\Api\Integrations\StoreCustomerController;
+use App\Http\Controllers\Api\Integrations\StoreSettingsSyncController;
+use App\Http\Controllers\Api\Integrations\StoreIntegrationController;
 use App\Http\Controllers\Api\Integrations\WhmcsProvisioningController;
 use App\Http\Controllers\Api\Integrations\WhmcsResourcesController;
 use App\Http\Controllers\Api\InstallerController;
@@ -86,7 +91,8 @@ Route::get('branding/files/{filename}', [BrandingController::class, 'serveFile']
     ->where('filename', '[A-Za-z0-9._-]+');
 Route::get('branding/wl/{userId}/{filename}', [BrandingController::class, 'serveWlFile'])
     ->whereNumber('userId')
-    ->where('filename', '[A-Za-z0-9._-]+');
+    ->where('filename', '[A-Za-z0-9._-]+')
+    ->middleware('throttle:120,1');
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
@@ -101,7 +107,7 @@ Route::prefix('auth')->group(function () {
 
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
-        Route::post('refresh', [AuthController::class, 'refresh']);
+        Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:15,1');
     });
 });
 
@@ -320,7 +326,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
             Route::delete('sessions/{aiChatSession}', [AiAssistantController::class, 'destroySession']);
             Route::get('sessions/{aiChatSession}/messages', [AiAssistantController::class, 'messages']);
             Route::post('chat', [AiAssistantController::class, 'chat'])->middleware('throttle:30,1');
-            Route::post('execute-actions', [AiAssistantController::class, 'executeActions']);
+            Route::post('execute-actions', [AiAssistantController::class, 'executeActions'])
+                ->middleware(['ability:tools:run', 'throttle:10,1']);
         });
     });
     Route::middleware(['ability:files:write', 'pro.feature:ai_advisor'])->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);
@@ -430,22 +437,18 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('billing/orders/{order}', [OrderController::class, 'show']);
         Route::get('billing/invoices', [InvoiceController::class, 'index']);
         Route::get('billing/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::get('billing/domains/tlds', [DomainRegisterController::class, 'tlds']);
+        Route::get('domain-portfolio/registrars', [DomainPortfolioController::class, 'registrars']);
+        Route::get('domain-portfolio', [DomainPortfolioController::class, 'index']);
     });
     Route::middleware(['ability:billing:write', 'pro.feature:stripe_billing', 'throttle:10,1'])
         ->post('billing/checkout', [BillingController::class, 'checkout']);
     Route::middleware(['ability:billing:write', 'throttle:20,1'])->group(function () {
+        Route::post('domain-portfolio/transfers', [DomainPortfolioController::class, 'requestTransfer'])->middleware('throttle:10,1');
+        Route::patch('domain-portfolio/registrations/{registration}', [DomainPortfolioController::class, 'updateRegistration']);
+        Route::post('billing/domains/check', [DomainRegisterController::class, 'check']);
         Route::post('billing/orders', [OrderController::class, 'store']);
         Route::post('billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay']);
-    });
-
-    Route::middleware('ability:support:read')->group(function () {
-        Route::get('support/tickets', [SupportTicketController::class, 'index']);
-        Route::get('support/tickets/{supportTicket}', [SupportTicketController::class, 'show']);
-    });
-    Route::middleware(['ability:support:write', 'throttle:30,1'])->group(function () {
-        Route::post('support/tickets', [SupportTicketController::class, 'store']);
-        Route::post('support/tickets/{supportTicket}/reply', [SupportTicketController::class, 'reply']);
-        Route::post('support/tickets/{supportTicket}/close', [SupportTicketController::class, 'close']);
     });
 
     Route::middleware(['role:admin|vendor_admin|vendor_support|vendor_finance|vendor_devops', 'require_admin_2fa'])->post('terminal/session', [TerminalController::class, 'session']);
@@ -512,6 +515,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('users/{user}/suspend', [UserController::class, 'suspend'])->middleware('throttle:30,1');
         Route::post('users/{user}/activate', [UserController::class, 'activate'])->middleware('throttle:30,1');
         Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('throttle:10,1');
+        Route::post('users/{user}/impersonate', [UserController::class, 'impersonate'])->middleware('throttle:15,1');
         Route::apiResource('packages', PackageController::class)->except(['show']);
         Route::get('integrations/whmcs/module-zip', [WhmcsModuleController::class, 'downloadModuleZip']);
 
@@ -530,12 +534,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('billing/services/{subscription}/terminate', [AdminBillingController::class, 'terminateService']);
         Route::get('settings/billing', [BillingSettingsController::class, 'show']);
         Route::put('settings/billing', [BillingSettingsController::class, 'update']);
-
-        // Destek talebi yönetimi
-        Route::get('support/tickets', [SupportAdminController::class, 'index']);
-        Route::get('support/tickets/{supportTicket}', [SupportAdminController::class, 'show']);
-        Route::post('support/tickets/{supportTicket}/reply', [SupportAdminController::class, 'reply'])->middleware('throttle:60,1');
-        Route::patch('support/tickets/{supportTicket}', [SupportAdminController::class, 'update']);
+        Route::post('settings/billing/test-registrar', [BillingSettingsController::class, 'testRegistrar']);
     });
 
     Route::prefix('admin')->middleware(['role:admin', 'require_admin_2fa', 'ability:webserver:read'])->group(function () {
@@ -549,6 +548,8 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::put('settings/webserver', [WebServerSettingsController::class, 'update']);
         Route::post('settings/webserver/apache-modules/{module}', [WebServerSettingsController::class, 'setApacheModule']);
         Route::put('settings/webserver/nginx-config', [WebServerSettingsController::class, 'updateNginxConfig']);
+        Route::post('settings/webserver/panelkafes/apply-all', [WebServerSettingsController::class, 'applyPanelKafesAll']);
+        Route::post('settings/webserver/panelkafes/apply', [WebServerSettingsController::class, 'applyPanelKafesSite']);
     });
 
     Route::prefix('admin')->middleware(['role:admin', 'require_admin_2fa', 'ability:php:read'])->group(function () {
@@ -630,6 +631,10 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
 
 Route::post('billing/webhook', [BillingController::class, 'webhook'])
     ->middleware('throttle:webhooks');
+Route::post('billing/paytr/callback', PaytrCallbackController::class)
+    ->middleware('throttle:webhooks');
+Route::match(['get', 'post'], 'billing/iyzico/callback', IyzicoCallbackController::class)
+    ->middleware('throttle:webhooks');
 Route::post('deployment/webhook/{domain}', [DeploymentController::class, 'webhook'])
     ->middleware(['throttle:webhooks', 'throttle:deploy-run']);
 if ((bool) config('panelze.vendor_enabled', false)) {
@@ -642,6 +647,33 @@ if ((bool) config('panelze.vendor_enabled', false)) {
 Route::get('health', fn () => response()->json([
     'status' => 'ok',
 ]));
+
+Route::prefix('integrations/store')
+    ->middleware(['store.integration', 'throttle:store-integration'])
+    ->group(function () {
+        Route::get('test', [StoreIntegrationController::class, 'test']);
+        Route::get('packages', [StoreIntegrationController::class, 'packages']);
+        Route::get('domains/tlds', [StoreIntegrationController::class, 'domainTlds']);
+        Route::get('domains/check', [StoreIntegrationController::class, 'domainCheck']);
+        Route::get('fulfill/status', [StoreIntegrationController::class, 'fulfillStatus']);
+        Route::post('fulfill', [StoreIntegrationController::class, 'fulfill']);
+
+        Route::post('customer/link', [StoreCustomerController::class, 'linkByEmail']);
+        Route::get('customer/summary', [StoreCustomerController::class, 'summary']);
+        Route::get('customer/domains', [StoreCustomerController::class, 'domains']);
+        Route::get('customer/hosting', [StoreCustomerController::class, 'hosting']);
+        Route::get('customer/invoices', [StoreCustomerController::class, 'invoices']);
+        Route::get('customer/invoices/{invoiceId}', [StoreCustomerController::class, 'invoiceShow']);
+        Route::post('customer/invoices/{invoiceId}/pay', [StoreCustomerController::class, 'invoicePay']);
+        Route::get('customer/profile', [StoreCustomerController::class, 'profile']);
+        Route::patch('customer/profile', [StoreCustomerController::class, 'updateProfile']);
+        Route::post('customer/password', [StoreCustomerController::class, 'updatePassword']);
+        Route::post('customer/domains/transfers', [StoreCustomerController::class, 'requestTransfer']);
+        Route::patch('customer/domains/registrations/{registrationId}', [StoreCustomerController::class, 'updateRegistration']);
+        Route::post('customer/panel-sso', [StoreCustomerController::class, 'panelSso']);
+
+        Route::post('settings/sync', [StoreSettingsSyncController::class, 'sync']);
+    });
 
 Route::prefix('integrations/whmcs')
     ->middleware(['whmcs.integration', 'throttle:whmcs-integration'])

@@ -62,6 +62,16 @@ echo "==> Hedef sahiplik: $OWNER:$GROUP ($OS)"
 run_priv chown -R "$OWNER:$GROUP" "$PANEL_ROOT/storage" "$PANEL_ROOT/bootstrap/cache" "$PANEL_ROOT/public/admin"
 run_priv chmod -R ug+rwX "$PANEL_ROOT/storage" "$PANEL_ROOT/bootstrap/cache" "$PANEL_ROOT/public/admin"
 
+# Admin SPA: /admin/assets ve /admin/index.html (panel doğrula/onar)
+ADMIN_SPA_HELPER="/usr/local/sbin/panelze-fix-admin-spa"
+if [[ -x "$ADMIN_SPA_HELPER" ]]; then
+  echo "==> Admin SPA symlinkleri (panelze-fix-admin-spa)"
+  env RUN_USER="$OWNER" RUN_GROUP="$GROUP" "$ADMIN_SPA_HELPER" "$PANEL_ROOT"
+elif [[ -f "$PANEL_ROOT/../deploy/host/panelze-fix-admin-spa" ]]; then
+  echo "==> Admin SPA symlinkleri (repo helper)"
+  env RUN_USER="$OWNER" RUN_GROUP="$GROUP" bash "$PANEL_ROOT/../deploy/host/panelze-fix-admin-spa" "$PANEL_ROOT"
+fi
+
 # macOS XAMPP: Apache (daemon) ile terminalden `php artisan` aynı dizinlere yazsın.
 # Aksi halde compiled view (storage/framework/views) 500: Permission denied üretir.
 if [[ "$OS" == "Darwin" ]] && [[ -d "/Applications/XAMPP/xamppfiles" ]]; then

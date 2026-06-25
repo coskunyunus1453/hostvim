@@ -8,7 +8,9 @@ export default defineConfig(({ mode }) => {
   // `./assets/*` göreli yol `/admin/assets/*` olur ve JS 404 → "Uygulama yükleniyor" takılı kalır.
   // Alt klasör kurulum: build öncesi `VITE_BASE_URL=/panelze/panel/public/` (sonunda /) verin.
   // Canlı kök (örn. http://IP/): VITE_BASE_URL=/ veya boş. /admin/ yalnızca gerçekten site kökü /admin/ ise.
-  const base = env.VITE_BASE_URL ?? '/'
+  // Boş veya `./` → göreli asset yolları; /backups/google-callback gibi deep link'lerde JS 404 olur.
+  const rawBase = (env.VITE_BASE_URL ?? '/').trim()
+  const base = rawBase === '' || rawBase === '.' || rawBase === './' ? '/' : rawBase
 
   return {
     base,

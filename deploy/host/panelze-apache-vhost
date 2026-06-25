@@ -21,7 +21,7 @@ apache_test_reload() {
 case "$ACTION" in
   enable)
     CONF="$ARG"
-    if [[ "$CONF" =~ ^/var/www/[^/]+/data/apache-vhosts/(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]]; then
+    if [[ "$CONF" =~ ^/var/www/[^/]+/data/apache-vhosts/(panelze|panelsar|hostvim)-[a-zA-Z0-9.-]+\.conf$ ]]; then
       :
     else
       echo "panelze-apache-vhost: izin verilmeyen conf yolu: $CONF" >&2

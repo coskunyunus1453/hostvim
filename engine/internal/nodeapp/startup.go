@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"panelze/engine/internal/config"
 )
@@ -27,11 +26,9 @@ func EnsurePm2Daemon(cfg *config.Config) (resurrected bool, err error) {
 		return false, nil
 	}
 
-	if _, err := pm2Output(cfg, "resurrect"); err != nil {
-		return false, err
-	}
-	time.Sleep(2 * time.Second)
-	return true, nil
+	// Eski dump.pm2 kör resurrect, eksik build ile PM2'yi çökertebilir; reconcile startWithPrep kullanır.
+	_ = dump
+	return false, nil
 }
 
 func pm2DaemonAlive(cfg *config.Config) bool {

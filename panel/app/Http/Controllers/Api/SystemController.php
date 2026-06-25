@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Domain;
 use App\Models\User;
 use App\Services\EngineApiService;
+use App\Services\PanelAdminSpaService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class SystemController extends Controller
 {
     public function __construct(
         private EngineApiService $engineApi,
+        private PanelAdminSpaService $adminSpa,
     ) {}
 
     public function stats(Request $request): JsonResponse
@@ -58,9 +60,36 @@ class SystemController extends Controller
             'action' => 'required|string|in:start,stop,restart',
         ]);
 
+        if (! $this->isAllowedServiceName($name)) {
+            abort(422, 'Geçersiz servis adı.');
+        }
+
         $result = $this->engineApi->controlService($name, $validated['action']);
 
         return response()->json($result);
+    }
+
+    private function isAllowedServiceName(string $name): bool
+    {
+        $name = strtolower(trim($name));
+        if ($name === '' || ! preg_match('/^[a-z0-9@._+-]+$/', $name)) {
+            return false;
+        }
+
+        $allowed = Cache::remember('panelze:system:service-names', 60, function (): array {
+            return collect($this->engineApi->getServices())
+                ->map(fn ($service) => is_array($service) ? strtolower((string) ($service['name'] ?? '')) : '')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        });
+
+        if ($allowed !== []) {
+            return in_array($name, $allowed, true);
+        }
+
+        return (bool) preg_match('/^(nginx|apache2?|httpd|openlitespeed|ols|mysql|mariadb|postgresql|postgres|redis|memcached|bind9?|named|postfix|dovecot|exim|php[\d.]*-fpm|panelze-engine|fail2ban|clamav|spamassassin)(@[\w.-]+)?$/', $name);
     }
 
     public function reboot(Request $request): JsonResponse
@@ -298,13 +327,7 @@ class SystemController extends Controller
             $steps[] = ['id' => 'mkdir:'.$adminDir, 'ok' => false, 'message' => 'Directory create failed: '.$e->getMessage()];
         }
 
-        $assetTarget = $publicRoot.DIRECTORY_SEPARATOR.'assets';
-        $adminAssetLink = $adminDir.DIRECTORY_SEPARATOR.'assets';
-        $this->repairSymlink($adminAssetLink, $assetTarget, $steps, 'admin_assets_symlink');
-
-        $indexTarget = $publicRoot.DIRECTORY_SEPARATOR.'index.html';
-        $adminIndexLink = $adminDir.DIRECTORY_SEPARATOR.'index.html';
-        $this->repairSymlink($adminIndexLink, $indexTarget, $steps, 'admin_index_symlink');
+        $this->adminSpa->repair($steps);
 
         $steps[] = $this->runArtisanSafe('optimize:clear', 'artisan_optimize_clear');
 
@@ -348,7 +371,7 @@ class SystemController extends Controller
             $exists = File::isDirectory($dir);
             $writable = $exists && File::isWritable($dir);
             $checks[] = [
-                'id' => 'dir:'.$dir,
+                'id' => 'dir:'.basename($dir),
                 'ok' => $exists && $writable,
                 'message' => $exists
                     ? ($writable ? 'Directory writable' : 'Directory is not writable')
@@ -356,15 +379,7 @@ class SystemController extends Controller
             ];
         }
 
-        $publicRoot = public_path();
-        $adminDir = $publicRoot.DIRECTORY_SEPARATOR.'admin';
-        $assetTarget = $publicRoot.DIRECTORY_SEPARATOR.'assets';
-        $adminAssetLink = $adminDir.DIRECTORY_SEPARATOR.'assets';
-        $checks[] = $this->symlinkCheck('admin_assets_symlink', $adminAssetLink, $assetTarget);
-
-        $indexTarget = $publicRoot.DIRECTORY_SEPARATOR.'index.html';
-        $adminIndexLink = $adminDir.DIRECTORY_SEPARATOR.'index.html';
-        $checks[] = $this->symlinkCheck('admin_index_symlink', $adminIndexLink, $indexTarget);
+        $checks = array_merge($checks, $this->adminSpa->healthChecks());
 
         $engine = $this->engineApi->getSystemStats();
         $checks[] = [
@@ -390,79 +405,6 @@ class SystemController extends Controller
     }
 
     /**
-     * @param  array<int, array{id:string, ok:bool, message:string}>  $steps
-     */
-    private function repairSymlink(string $linkPath, string $targetPath, array &$steps, string $id): void
-    {
-        if (is_link($linkPath)) {
-            $current = @readlink($linkPath);
-            if ($current !== false) {
-                $resolved = $this->isAbsolutePath($current)
-                    ? $current
-                    : dirname($linkPath).DIRECTORY_SEPARATOR.$current;
-                if (realpath($resolved) === realpath($targetPath)) {
-                    $steps[] = ['id' => $id, 'ok' => true, 'message' => 'Symlink already valid'];
-
-                    return;
-                }
-            }
-            @unlink($linkPath);
-        } elseif (file_exists($linkPath)) {
-            $backup = $linkPath.'.bak.'.date('YmdHis');
-            try {
-                @rename($linkPath, $backup);
-                if (file_exists($linkPath)) {
-                    $steps[] = ['id' => $id, 'ok' => false, 'message' => 'Path exists and cannot be moved for symlink repair'];
-
-                    return;
-                }
-                $steps[] = ['id' => $id.'_backup', 'ok' => true, 'message' => 'Existing path moved to '.$backup];
-            } catch (\Throwable) {
-                $steps[] = ['id' => $id, 'ok' => false, 'message' => 'Path exists and backup move failed'];
-
-                return;
-            }
-        }
-
-        $relative = $this->relativePath(dirname($linkPath), $targetPath);
-        try {
-            @symlink($relative, $linkPath);
-            $ok = is_link($linkPath);
-            $steps[] = ['id' => $id, 'ok' => $ok, 'message' => $ok ? 'Symlink repaired' : 'Symlink could not be created'];
-        } catch (\Throwable) {
-            $steps[] = ['id' => $id, 'ok' => false, 'message' => 'Symlink repair failed'];
-        }
-    }
-
-    /**
-     * @return array{id:string, ok:bool, message:string}
-     */
-    private function symlinkCheck(string $id, string $linkPath, string $targetPath): array
-    {
-        if (! is_link($linkPath)) {
-            if (file_exists($linkPath)) {
-                return ['id' => $id, 'ok' => false, 'message' => 'Path exists but is not a symlink'];
-            }
-
-            return ['id' => $id, 'ok' => false, 'message' => 'Symlink missing'];
-        }
-
-        $current = @readlink($linkPath);
-        if ($current === false) {
-            return ['id' => $id, 'ok' => false, 'message' => 'Symlink target unreadable'];
-        }
-
-        $resolved = $this->isAbsolutePath($current)
-            ? $current
-            : dirname($linkPath).DIRECTORY_SEPARATOR.$current;
-        if (realpath($resolved) !== realpath($targetPath)) {
-            return ['id' => $id, 'ok' => false, 'message' => 'Symlink points to unexpected target'];
-        }
-
-        return ['id' => $id, 'ok' => true, 'message' => 'Symlink valid'];
-    }
-
-    /**
      * @return array{id:string, ok:bool, message:string}
      */
     private function runArtisanSafe(string $command, string $id): array
@@ -474,32 +416,6 @@ class SystemController extends Controller
         } catch (\Throwable $e) {
             return ['id' => $id, 'ok' => false, 'message' => $e->getMessage()];
         }
-    }
-
-    private function relativePath(string $fromDir, string $toPath): string
-    {
-        $from = explode(DIRECTORY_SEPARATOR, trim(realpath($fromDir) ?: $fromDir, DIRECTORY_SEPARATOR));
-        $to = explode(DIRECTORY_SEPARATOR, trim(realpath($toPath) ?: $toPath, DIRECTORY_SEPARATOR));
-
-        while (count($from) > 0 && count($to) > 0 && $from[0] === $to[0]) {
-            array_shift($from);
-            array_shift($to);
-        }
-
-        return str_repeat('..'.DIRECTORY_SEPARATOR, count($from)).implode(DIRECTORY_SEPARATOR, $to);
-    }
-
-    private function isAbsolutePath(string $path): bool
-    {
-        if ($path === '') {
-            return false;
-        }
-
-        if ($path[0] === '/' || $path[0] === '\\') {
-            return true;
-        }
-
-        return (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
     }
 
     /**

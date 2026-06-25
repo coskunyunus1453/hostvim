@@ -36,6 +36,10 @@ class MonitoringController extends Controller
 
     public function server(Request $request): JsonResponse
     {
+        if (! $this->canViewServerMetrics($request->user())) {
+            abort(403);
+        }
+
         return response()->json($this->cachedServerPayload());
     }
 
@@ -135,161 +139,164 @@ class MonitoringController extends Controller
      */
     private function buildHealthPayload(User $user, ?Domain $selectedDomain): array
     {
-        $server = $this->cachedServerPayload();
+        $canServer = $this->canViewServerMetrics($user);
+        $server = $canServer ? $this->cachedServerPayload() : ['stats' => [], 'services' => [], 'fetched_ms' => 0];
         $stats = $server['stats'];
         $services = $server['services'];
         $responseMs = (int) ($server['fetched_ms'] ?? 0);
         $siteResponseMs = $selectedDomain ? $this->probeDomainResponseMs((string) $selectedDomain->name) : null;
 
-            $cpu = (float) ($stats['cpu_usage'] ?? 0);
-            $ram = (float) ($stats['memory_percent'] ?? 0);
-            $disk = (float) ($stats['disk_percent'] ?? 0);
+        $cpu = $canServer ? (float) ($stats['cpu_usage'] ?? 0) : null;
+        $ram = $canServer ? (float) ($stats['memory_percent'] ?? 0) : null;
+        $disk = $canServer ? (float) ($stats['disk_percent'] ?? 0) : null;
 
-            $score = 100.0;
-            $reasons = [];
-            $knownMetrics = 0;
-            $totalMetrics = 6;
+        $score = 100.0;
+        $reasons = [];
+        $knownMetrics = 0;
+        $totalMetrics = $canServer ? 6 : 3;
 
-            // CPU (20)
-            $cpuPenalty = max(0.0, min(20.0, ($cpu - 60.0) * 0.5));
+        if ($canServer) {
+            $cpuPenalty = max(0.0, min(20.0, (($cpu ?? 0) - 60.0) * 0.5));
             $score -= $cpuPenalty;
             $reasons[] = [
                 'key' => 'cpu',
                 'ok' => $cpuPenalty < 4,
                 'unknown' => false,
-                'label' => $cpuPenalty < 4 ? 'CPU normal' : 'CPU yuksek',
-                'detail' => sprintf('CPU: %.1f%%', $cpu),
+                'label' => $cpuPenalty < 4 ? __('monitoring.health_cpu_ok') : __('monitoring.health_cpu_high'),
+                'detail' => __('monitoring.health_cpu_detail', ['value' => number_format($cpu ?? 0, 1)]),
             ];
             $knownMetrics++;
 
-            // RAM (20)
-            $ramPenalty = max(0.0, min(20.0, ($ram - 65.0) * 0.57));
+            $ramPenalty = max(0.0, min(20.0, (($ram ?? 0) - 65.0) * 0.57));
             $score -= $ramPenalty;
             $reasons[] = [
                 'key' => 'ram',
                 'ok' => $ramPenalty < 4,
                 'unknown' => false,
-                'label' => $ramPenalty < 4 ? 'RAM normal' : 'RAM yuksek',
-                'detail' => sprintf('RAM: %.1f%%', $ram),
+                'label' => $ramPenalty < 4 ? __('monitoring.health_ram_ok') : __('monitoring.health_ram_high'),
+                'detail' => __('monitoring.health_ram_detail', ['value' => number_format($ram ?? 0, 1)]),
             ];
             $knownMetrics++;
 
-            // Disk (15)
-            $diskPenalty = max(0.0, min(15.0, ($disk - 70.0) * 0.5));
+            $diskPenalty = max(0.0, min(15.0, (($disk ?? 0) - 70.0) * 0.5));
             $score -= $diskPenalty;
             $reasons[] = [
                 'key' => 'disk',
-                'ok' => $disk < 70.0,
+                'ok' => ($disk ?? 0) < 70.0,
                 'unknown' => false,
-                'label' => $diskPenalty < 3 ? 'Disk normal' : 'Disk doluluk yuksek',
-                'detail' => sprintf('Disk: %.1f%%', $disk),
+                'label' => $diskPenalty < 3 ? __('monitoring.health_disk_ok') : __('monitoring.health_disk_high'),
+                'detail' => __('monitoring.health_disk_detail', ['value' => number_format($disk ?? 0, 1)]),
             ];
             $knownMetrics++;
+        }
 
-            // Response time (15)
-            $rtBase = $siteResponseMs ?? $responseMs;
+        $rtBase = $siteResponseMs ?? ($canServer ? $responseMs : null);
+        if ($rtBase !== null) {
             $rtPenalty = max(0.0, min(15.0, ($rtBase - 250.0) / 35.0));
             $score -= $rtPenalty;
             $reasons[] = [
                 'key' => 'rt',
                 'ok' => $rtPenalty < 3,
                 'unknown' => false,
-                'label' => $rtPenalty < 3 ? 'Response iyi' : 'Response yavas',
+                'label' => $rtPenalty < 3 ? __('monitoring.health_rt_ok') : __('monitoring.health_rt_slow'),
                 'detail' => $selectedDomain
-                    ? ("Site: {$selectedDomain->name} ~ ".($siteResponseMs ?? 0).' ms')
-                    : ("Engine API: {$responseMs} ms"),
+                    ? __('monitoring.health_rt_site', ['name' => $selectedDomain->name, 'ms' => $siteResponseMs ?? 0])
+                    : __('monitoring.health_rt_engine', ['ms' => $responseMs]),
             ];
             $knownMetrics++;
+        }
 
-            // Error rate (20): son 20 run
-            if ($selectedDomain) {
-                $inst = InstallerRun::query()->where('domain_id', (int) $selectedDomain->id)->latest('id')->limit(20)->get(['status']);
-                $dep = DeploymentRun::query()->where('domain_id', (int) $selectedDomain->id)->latest('id')->limit(20)->get(['status']);
-                $bak = Backup::query()->where('domain_id', (int) $selectedDomain->id)->latest('id')->limit(20)->get(['status']);
-                $cron = collect();
-            } elseif ($user->isAdmin()) {
-                $inst = InstallerRun::query()->latest('id')->limit(20)->get(['status']);
-                $dep = DeploymentRun::query()->latest('id')->limit(20)->get(['status']);
-                $bak = Backup::query()->latest('id')->limit(20)->get(['status']);
-                $cron = CronJobRun::query()->latest('id')->limit(20)->get(['status']);
-            } else {
-                $uid = (int) $user->id;
-                $inst = InstallerRun::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
-                $dep = DeploymentRun::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
-                $bak = Backup::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
-                $cron = CronJobRun::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
-            }
-            $statuses = $inst->pluck('status')->concat($dep->pluck('status'))->concat($bak->pluck('status'))->concat($cron->pluck('status'));
-            $totalRuns = $statuses->count();
-            $failed = $statuses->filter(fn ($s) => in_array(strtolower((string) $s), ['failed', 'error'], true))->count();
-            if ($totalRuns > 0) {
-                $errRate = ($failed / $totalRuns) * 100.0;
-                $errPenalty = min(20.0, $errRate * 0.5);
-                $score -= $errPenalty;
-                $reasons[] = [
-                    'key' => 'errors',
-                    'ok' => $errPenalty < 4,
-                    'unknown' => false,
-                    'label' => $errPenalty < 4 ? 'Error rate normal' : 'Error rate yuksek',
-                    'detail' => sprintf('Fail: %d/%d (%.1f%%)', $failed, $totalRuns, $errRate),
-                ];
-                $knownMetrics++;
-            } else {
-                $errRate = 0.0;
-                $reasons[] = [
-                    'key' => 'errors',
-                    'ok' => false,
-                    'unknown' => true,
-                    'label' => 'Error rate bilinmiyor',
-                    'detail' => 'Son run verisi yok',
-                ];
-            }
+        if ($selectedDomain) {
+            $inst = InstallerRun::query()->where('domain_id', (int) $selectedDomain->id)->latest('id')->limit(20)->get(['status']);
+            $dep = DeploymentRun::query()->where('domain_id', (int) $selectedDomain->id)->latest('id')->limit(20)->get(['status']);
+            $bak = Backup::query()->where('domain_id', (int) $selectedDomain->id)->latest('id')->limit(20)->get(['status']);
+            $cron = collect();
+        } elseif ($user->isAdmin()) {
+            $inst = InstallerRun::query()->latest('id')->limit(20)->get(['status']);
+            $dep = DeploymentRun::query()->latest('id')->limit(20)->get(['status']);
+            $bak = Backup::query()->latest('id')->limit(20)->get(['status']);
+            $cron = CronJobRun::query()->latest('id')->limit(20)->get(['status']);
+        } else {
+            $uid = (int) $user->id;
+            $inst = InstallerRun::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
+            $dep = DeploymentRun::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
+            $bak = Backup::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
+            $cron = CronJobRun::query()->where('user_id', $uid)->latest('id')->limit(20)->get(['status']);
+        }
+        $statuses = $inst->pluck('status')->concat($dep->pluck('status'))->concat($bak->pluck('status'))->concat($cron->pluck('status'));
+        $totalRuns = $statuses->count();
+        $failed = $statuses->filter(fn ($s) => in_array(strtolower((string) $s), ['failed', 'error'], true))->count();
+        $errRate = 0.0;
+        if ($totalRuns > 0) {
+            $errRate = ($failed / $totalRuns) * 100.0;
+            $errPenalty = min(20.0, $errRate * 0.5);
+            $score -= $errPenalty;
+            $reasons[] = [
+                'key' => 'errors',
+                'ok' => $errPenalty < 4,
+                'unknown' => false,
+                'label' => $errPenalty < 4 ? __('monitoring.health_errors_ok') : __('monitoring.health_errors_high'),
+                'detail' => __('monitoring.health_errors_detail', [
+                    'failed' => $failed,
+                    'total' => $totalRuns,
+                    'rate' => number_format($errRate, 1),
+                ]),
+            ];
+            $knownMetrics++;
+        } else {
+            $reasons[] = [
+                'key' => 'errors',
+                'ok' => false,
+                'unknown' => true,
+                'label' => __('monitoring.health_errors_unknown'),
+                'detail' => __('monitoring.health_errors_no_runs'),
+            ];
+        }
 
-            // SSL (10)
-            if ($selectedDomain) {
-                $sslTotal = SslCertificate::query()->where('domain_id', (int) $selectedDomain->id)->count();
-                $sslBad = SslCertificate::query()->where('domain_id', (int) $selectedDomain->id)
-                    ->where(function ($q) {
-                        $q->where('status', '!=', 'active')
-                            ->orWhereNotNull('expires_at')->where('expires_at', '<', now()->addDays(7));
-                    })->count();
-            } elseif ($user->isAdmin()) {
-                $sslTotal = SslCertificate::query()->count();
-                $sslBad = SslCertificate::query()
-                    ->where(function ($q) {
-                        $q->where('status', '!=', 'active')
-                            ->orWhereNotNull('expires_at')->where('expires_at', '<', now()->addDays(7));
-                    })->count();
-            } else {
-                $sslTotal = SslCertificate::query()->whereHas('domain', fn ($q) => $q->where('user_id', (int) $user->id))->count();
-                $sslBad = SslCertificate::query()->whereHas('domain', fn ($q) => $q->where('user_id', (int) $user->id))
-                    ->where(function ($q) {
-                        $q->where('status', '!=', 'active')
-                            ->orWhereNotNull('expires_at')->where('expires_at', '<', now()->addDays(7));
-                    })->count();
-            }
-            if ($sslTotal > 0) {
-                $sslPenalty = min(10.0, ($sslBad / max(1, $sslTotal)) * 10.0);
-                $score -= $sslPenalty;
-                $reasons[] = [
-                    'key' => 'ssl',
-                    'ok' => $sslPenalty < 2,
-                    'unknown' => false,
-                    'label' => $sslPenalty < 2 ? 'SSL OK' : 'SSL riski var',
-                    'detail' => sprintf('Problemli SSL: %d/%d', $sslBad, $sslTotal),
-                ];
-                $knownMetrics++;
-            } else {
-                $reasons[] = [
-                    'key' => 'ssl',
-                    'ok' => false,
-                    'unknown' => true,
-                    'label' => 'SSL bilinmiyor',
-                    'detail' => 'SSL kaydi yok',
-                ];
-            }
+        if ($selectedDomain) {
+            $sslTotal = SslCertificate::query()->where('domain_id', (int) $selectedDomain->id)->count();
+            $sslBad = SslCertificate::query()->where('domain_id', (int) $selectedDomain->id)
+                ->where(function ($q) {
+                    $q->where('status', '!=', 'active')
+                        ->orWhereNotNull('expires_at')->where('expires_at', '<', now()->addDays(7));
+                })->count();
+        } elseif ($user->isAdmin()) {
+            $sslTotal = SslCertificate::query()->count();
+            $sslBad = SslCertificate::query()
+                ->where(function ($q) {
+                    $q->where('status', '!=', 'active')
+                        ->orWhereNotNull('expires_at')->where('expires_at', '<', now()->addDays(7));
+                })->count();
+        } else {
+            $sslTotal = SslCertificate::query()->whereHas('domain', fn ($q) => $q->where('user_id', (int) $user->id))->count();
+            $sslBad = SslCertificate::query()->whereHas('domain', fn ($q) => $q->where('user_id', (int) $user->id))
+                ->where(function ($q) {
+                    $q->where('status', '!=', 'active')
+                        ->orWhereNotNull('expires_at')->where('expires_at', '<', now()->addDays(7));
+                })->count();
+        }
+        if ($sslTotal > 0) {
+            $sslPenalty = min(10.0, ($sslBad / max(1, $sslTotal)) * 10.0);
+            $score -= $sslPenalty;
+            $reasons[] = [
+                'key' => 'ssl',
+                'ok' => $sslPenalty < 2,
+                'unknown' => false,
+                'label' => $sslPenalty < 2 ? __('monitoring.health_ssl_ok') : __('monitoring.health_ssl_risk'),
+                'detail' => __('monitoring.health_ssl_detail', ['bad' => $sslBad, 'total' => $sslTotal]),
+            ];
+            $knownMetrics++;
+        } else {
+            $reasons[] = [
+                'key' => 'ssl',
+                'ok' => false,
+                'unknown' => true,
+                'label' => __('monitoring.health_ssl_unknown'),
+                'detail' => __('monitoring.health_ssl_none'),
+            ];
+        }
 
-            // Service availability bonus/penalty
+        if ($canServer) {
             $serviceBy = collect($services)->keyBy(fn ($s) => strtolower((string) ($s['name'] ?? '')));
             foreach (['nginx', 'apache2'] as $svcName) {
                 if ($serviceBy->has($svcName) && strtolower((string) ($serviceBy[$svcName]['status'] ?? '')) !== 'running') {
@@ -297,37 +304,51 @@ class MonitoringController extends Controller
                     $reasons[] = [
                         'key' => 'svc_'.$svcName,
                         'ok' => false,
-                        'label' => strtoupper($svcName).' servis sorunu',
-                        'detail' => 'Servis running degil',
+                        'label' => __('monitoring.health_svc_down', ['service' => strtoupper($svcName)]),
+                        'detail' => __('monitoring.health_svc_not_running'),
                     ];
                 }
             }
+        }
 
-            $score = max(0, min(100, (int) round($score)));
-            $grade = $score >= 90 ? 'excellent' : ($score >= 75 ? 'good' : ($score >= 60 ? 'warning' : 'critical'));
-
-            return [
-                'score' => $score,
-                'grade' => $grade,
-                'response_ms' => $responseMs,
-                'site_response_ms' => $siteResponseMs,
-                'scope' => $selectedDomain ? 'domain' : 'global',
-                'domain' => $selectedDomain ? [
-                    'id' => (int) $selectedDomain->id,
-                    'name' => (string) $selectedDomain->name,
-                    'status' => (string) ($selectedDomain->status ?? 'unknown'),
-                ] : null,
-                'snapshot' => [
-                    'cpu' => round($cpu, 1),
-                    'ram' => round($ram, 1),
-                    'disk' => round($disk, 1),
-                    'error_rate' => round($errRate, 1),
-                ],
-                'metrics_total' => $totalMetrics,
-                'metrics_known' => $knownMetrics,
-                'coverage_percent' => (int) round(($knownMetrics / max(1, $totalMetrics)) * 100),
-                'reasons' => array_slice($reasons, 0, 8),
+        if ($selectedDomain && strtolower((string) $selectedDomain->status) !== 'active') {
+            $score -= 12.0;
+            $reasons[] = [
+                'key' => 'domain_status',
+                'ok' => false,
+                'unknown' => false,
+                'label' => __('monitoring.site_domain_inactive'),
+                'detail' => (string) $selectedDomain->name,
             ];
+            $knownMetrics++;
+        }
+
+        $score = max(0, min(100, (int) round($score)));
+        $grade = $score >= 90 ? 'excellent' : ($score >= 75 ? 'good' : ($score >= 60 ? 'warning' : 'critical'));
+
+        return [
+            'score' => $score,
+            'grade' => $grade,
+            'response_ms' => $responseMs,
+            'site_response_ms' => $siteResponseMs,
+            'scope' => $selectedDomain ? 'domain' : 'global',
+            'domain' => $selectedDomain ? [
+                'id' => (int) $selectedDomain->id,
+                'name' => (string) $selectedDomain->name,
+                'status' => (string) ($selectedDomain->status ?? 'unknown'),
+            ] : null,
+            'snapshot' => [
+                'cpu' => $cpu !== null ? round($cpu, 1) : null,
+                'ram' => $ram !== null ? round($ram, 1) : null,
+                'disk' => $disk !== null ? round($disk, 1) : null,
+                'error_rate' => round($errRate, 1),
+            ],
+            'metrics_total' => $totalMetrics,
+            'metrics_known' => $knownMetrics,
+            'coverage_percent' => (int) round(($knownMetrics / max(1, $totalMetrics)) * 100),
+            'reasons' => array_slice($reasons, 0, 8),
+            'server_metrics_visible' => $canServer,
+        ];
     }
 
     public function healthSites(Request $request): JsonResponse
@@ -377,19 +398,19 @@ class MonitoringController extends Controller
 
                 if (strtolower((string) $d->status) !== 'active') {
                     $score -= 30;
-                    $reasons[] = 'Domain aktif degil';
+                    $reasons[] = __('monitoring.site_domain_inactive');
                 }
 
                 $ssl = $sslByDomain[$did] ?? null;
                 if (! $ssl) {
                     $score -= 10;
-                    $reasons[] = 'SSL kaydi yok';
+                    $reasons[] = __('monitoring.site_ssl_missing');
                 } elseif ((string) $ssl->status !== 'active') {
                     $score -= 20;
-                    $reasons[] = 'SSL aktif degil';
+                    $reasons[] = __('monitoring.site_ssl_inactive');
                 } elseif ($ssl->expires_at !== null && $ssl->expires_at->lt(now()->addDays(7))) {
                     $score -= 15;
-                    $reasons[] = 'SSL yakinda bitiyor';
+                    $reasons[] = __('monitoring.site_ssl_expiring');
                 }
 
                 $runs = collect($installerByDomain[$did] ?? [])
@@ -403,7 +424,7 @@ class MonitoringController extends Controller
                     $pen = min(30.0, $errRate * 0.5);
                     $score -= $pen;
                     if ($pen >= 6) {
-                        $reasons[] = sprintf('Islem hatasi: %d/%d', $failed, $total);
+                        $reasons[] = __('monitoring.site_job_errors', ['failed' => $failed, 'total' => $total]);
                     }
                 }
 
@@ -439,6 +460,7 @@ class MonitoringController extends Controller
         $rows = $modelClass::query()
             ->whereIn('domain_id', $domainIds)
             ->orderByDesc('id')
+            ->limit(max(100, count($domainIds) * $perDomain * 3))
             ->get(['domain_id', 'status']);
 
         foreach ($rows as $row) {
@@ -473,5 +495,10 @@ class MonitoringController extends Controller
         }
 
         return null;
+    }
+
+    private function canViewServerMetrics(User $user): bool
+    {
+        return $user->isAdmin() || $user->can('monitoring:server');
     }
 }

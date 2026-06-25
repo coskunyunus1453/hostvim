@@ -10,17 +10,28 @@ import (
 	"panelze/engine/internal/nginx"
 	"panelze/engine/internal/openlitespeed"
 	"panelze/engine/internal/phpfpm"
+	"panelze/engine/internal/sitecage"
 	"panelze/engine/internal/sites"
 	"panelze/engine/internal/ssl"
 )
 
 func poolSettings(cfg *config.Config) phpfpm.HostingPoolSettings {
-	return phpfpm.HostingPoolSettings{
+	c := sitecage.FromHosting(cfg)
+	ps := phpfpm.HostingPoolSettings{
 		PoolDirTemplate: cfg.Hosting.PHPFPMpoolDirTemplate,
 		SocketListenDir: cfg.Hosting.PHPFPMlistenDir,
 		FPMUser:         cfg.Hosting.PHPFPMpoolUser,
 		FPMGroup:        cfg.Hosting.PHPFPMpoolGroup,
 	}
+	if c.Enabled {
+		if strings.TrimSpace(ps.FPMGroup) == "" || ps.FPMGroup == "www-data" {
+			ps.FPMGroup = c.Group
+		}
+		ps.ListenOwner = c.EngineUser
+		ps.ListenGroup = c.EngineUser
+		ps.Helper = c.Helper
+	}
+	return ps
 }
 
 func serverTypeOf(meta *sites.SiteMeta) string {
@@ -38,7 +49,7 @@ func resolvePHPSocket(cfg *config.Config, domain string, meta *sites.SiteMeta, e
 	if meta != nil && strings.TrimSpace(meta.PHPVersion) != "" {
 		v = meta.PHPVersion
 	}
-	if cfg.Hosting.PHPFPMmanagePools {
+	if sitecage.ManagePools(cfg) {
 		return poolSettings(cfg).SocketForDomain(domain)
 	}
 	return nginx.EffectivePHPSocket(v, cfg.Hosting.PHPFPMsocket)
@@ -74,6 +85,7 @@ func serverNameExtras(meta *sites.SiteMeta) []string {
 }
 
 func applyNginxSiteVhost(cfg *config.Config, domain, docRoot string, meta *sites.SiteMeta, phpSocket, chain, key string) error {
+	docRoot = ResolveHTTPDocRoot(docRoot)
 	extras := serverNameExtras(meta)
 	sn := nginx.BuildServerNamesLine(domain, extras)
 	perf := ""
@@ -91,6 +103,7 @@ func applyNginxSiteVhost(cfg *config.Config, domain, docRoot string, meta *sites
 }
 
 func applyNginxEdgeProxyVhost(cfg *config.Config, domain, docRoot string, meta *sites.SiteMeta, phpSocket, chain, key string, backendPort int) error {
+	docRoot = ResolveHTTPDocRoot(docRoot)
 	extras := serverNameExtras(meta)
 	sn := nginx.BuildServerNamesLine(domain, extras)
 	redirBlocks, fullRet, rerr := nginxRedirectArgs(meta)
@@ -117,6 +130,8 @@ func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.Site
 	if st != "openlitespeed" {
 		openlitespeed.RemoveVhostBestEffort(cfg, domain)
 	}
+
+	docRoot = ResolveHTTPDocRoot(docRoot)
 
 	switch st {
 	case "apache":
@@ -146,12 +161,12 @@ func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.Site
 
 // ApplySubdomainVhost ana site FPM havuzu ile alt FQDN için sanal host.
 func ApplySubdomainVhost(cfg *config.Config, parentPrimary, hostname, docRoot string, subMeta *sites.SiteMeta) error {
-	parentMeta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, parentPrimary)
-	sock := resolvePHPSocket(cfg, parentPrimary, parentMeta, "")
+	sock := resolvePHPSocket(cfg, parentPrimary, subMeta, "")
 	h := strings.ToLower(strings.TrimSpace(hostname))
 	chain, key := sslPathsIfEnabled(cfg, h, subMeta)
 	edge := NginxEdgeProxyEnabled(cfg)
 	st := serverTypeOf(subMeta)
+	docRoot = ResolveHTTPDocRoot(docRoot)
 
 	switch st {
 	case "apache":

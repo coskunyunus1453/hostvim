@@ -27,6 +27,8 @@ class User extends Authenticatable
         'two_factor_secret',
         'two_factor_enabled',
         'onboarding_completed_at',
+        'resellerclub_customer_id',
+        'resellerclub_contact_id',
     ];
 
     protected $hidden = [

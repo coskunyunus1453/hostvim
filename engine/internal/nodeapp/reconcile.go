@@ -2,6 +2,8 @@ package nodeapp
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,6 +30,43 @@ type ReconcileReport struct {
 	Items          []ReconcileItem `json:"items"`
 }
 
+type reconcileTarget struct {
+	scope SiteScope
+	meta  *sites.SiteMeta
+}
+
+func listNodeAppTargets(webRoot string) ([]reconcileTarget, error) {
+	var out []reconcileTarget
+	domains, err := sites.ListDomains(webRoot)
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range domains {
+		sc := scopeFrom(d, "")
+		meta, err := sc.readMeta(webRoot)
+		if err == nil && meta != nil && meta.NodeApp != nil && meta.NodeApp.Enabled {
+			out = append(out, reconcileTarget{scope: sc, meta: meta})
+		}
+		subDir := filepath.Join(webRoot, d, ".panelze", "subdomains")
+		entries, err := os.ReadDir(subDir)
+		if err != nil {
+			continue
+		}
+		for _, ent := range entries {
+			if ent.IsDir() || !strings.HasSuffix(ent.Name(), ".json") {
+				continue
+			}
+			seg := strings.TrimSuffix(ent.Name(), ".json")
+			subSc := scopeFrom(d, seg)
+			subMeta, err := subSc.readMeta(webRoot)
+			if err == nil && subMeta != nil && subMeta.NodeApp != nil && subMeta.NodeApp.Enabled {
+				out = append(out, reconcileTarget{scope: subSc, meta: subMeta})
+			}
+		}
+	}
+	return out, nil
+}
+
 // ReconcileAll etkin ve auto_start açık Node uygulamalarını kontrol eder; düşmüşse yeniden başlatır.
 func ReconcileAll(cfg *config.Config) (*ReconcileReport, error) {
 	if !cfg.Hosting.ManageNodeApps {
@@ -41,34 +80,39 @@ func ReconcileAll(cfg *config.Config) (*ReconcileReport, error) {
 		report.Pm2Resurrected = true
 	}
 
-	domains, err := sites.ListDomains(cfg.Paths.WebRoot)
+	targets, err := listNodeAppTargets(cfg.Paths.WebRoot)
 	if err != nil {
 		return report, err
 	}
 
-	for _, domain := range domains {
-		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
-		if err != nil || meta == nil || meta.NodeApp == nil {
+	for _, t := range targets {
+		if !t.meta.NodeApp.AutoStart {
 			continue
 		}
-		if !meta.NodeApp.Enabled {
-			continue
-		}
-
 		report.Checked++
-		item := ReconcileItem{Domain: domain}
+		item := ReconcileItem{Domain: t.scope.label()}
 
-		healthy, reason := isAppHealthy(cfg, domain, meta)
+		if _, _, err := syncNodeListenPort(cfg, t.scope, t.meta); err == nil {
+			if fresh, rerr := t.scope.readMeta(cfg.Paths.WebRoot); rerr == nil && fresh != nil {
+				t.meta = fresh
+				_ = t.scope.applyWebServer(cfg, t.meta)
+			}
+		}
+
+		healthy, reason := isAppHealthy(cfg, t.scope, t.meta)
 		if healthy {
 			item.Action = "already_healthy"
+			if reason != "" {
+				item.Message = reason
+			}
 			report.AlreadyHealthy++
 			report.Items = append(report.Items, item)
 			continue
 		}
 
 		if reason == "pm2_errored" {
-			if _, err := Restart(cfg, domain); err == nil {
-				if ok, _ := isAppHealthy(cfg, domain, meta); ok {
+			if _, err := Restart(cfg, t.scope.ParentDomain, t.scope.PathSegment); err == nil {
+				if ok, _ := isAppHealthy(cfg, t.scope, t.meta); ok {
 					item.Action = "restarted"
 					item.Message = reason
 					report.Restarted++
@@ -78,7 +122,7 @@ func ReconcileAll(cfg *config.Config) (*ReconcileReport, error) {
 			}
 		}
 
-		if _, err := Start(cfg, domain); err != nil {
+		if _, err := startWithPrep(cfg, t.scope.ParentDomain, t.scope.PathSegment); err != nil {
 			item.Action = "failed"
 			item.Error = err.Error()
 			report.Failed++
@@ -93,27 +137,45 @@ func ReconcileAll(cfg *config.Config) (*ReconcileReport, error) {
 	return report, nil
 }
 
-func isAppHealthy(cfg *config.Config, domain string, meta *sites.SiteMeta) (bool, string) {
-	st, _ := StatusOf(cfg, domain, meta)
-	if !st.Running {
-		if strings.EqualFold(st.Status, "errored") || strings.EqualFold(st.Status, "stopped") {
-			return false, "pm2_errored"
+func isAppHealthy(cfg *config.Config, sc SiteScope, meta *sites.SiteMeta) (bool, string) {
+	if meta == nil || meta.NodeApp == nil {
+		return true, ""
+	}
+	port := meta.NodeApp.ListenPort
+	if port <= 0 {
+		port = DefaultPortForProfile(meta.NodeApp.Profile)
+	}
+	if port > 0 && isPortListening(port) {
+		return true, ""
+	}
+	workDir := meta.NodeApp.WorkDir
+	if workDir == "" {
+		workDir = "."
+	}
+	if workAbs, _, err := sc.resolveWorkAbs(cfg.Paths.WebRoot, workDir); err == nil {
+		if buildInProgress(workAbs) {
+			return true, "build_in_progress"
 		}
-		return false, "pm2_not_running"
 	}
-	port := 0
-	if meta.NodeApp != nil {
-		port = meta.NodeApp.ListenPort
-		if port <= 0 {
-			port = DefaultPortForProfile(meta.NodeApp.Profile)
+	st, _ := StatusOf(cfg, sc, meta)
+	if st.Running {
+		if port > 0 {
+			if isPortListening(port) {
+				return true, ""
+			}
+			if waitForListen(port, 3*time.Second) == nil {
+				return true, ""
+			}
+			return false, "port_not_listening"
 		}
+		return true, ""
 	}
-	if port > 0 && !portListening(port, 2*time.Second) {
-		return false, "port_not_listening"
+	if strings.EqualFold(st.Status, "errored") || strings.EqualFold(st.Status, "stopped") {
+		return false, "pm2_errored"
 	}
-	return true, ""
+	return false, "pm2_not_running"
 }
 
 func portListening(port int, timeout time.Duration) bool {
-	return waitForListen(port, timeout) == nil
+	return isPortListening(port) || waitForListen(port, timeout) == nil
 }

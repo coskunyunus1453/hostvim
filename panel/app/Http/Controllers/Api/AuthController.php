@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TwoFactorBackupCode;
 use App\Models\User;
 use App\Models\UserPluginModule;
+use App\Services\Auth\ImpersonationService;
 use App\Services\TotpService;
 use App\Services\WhiteLabelBrandingService;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,7 @@ class AuthController extends Controller
 {
     public function __construct(
         private WhiteLabelBrandingService $whiteLabelBranding,
+        private ImpersonationService $impersonation,
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -74,61 +76,61 @@ class AuthController extends Controller
         $tokenName = 'panel-token';
 
         if ($requiresTwoFactor) {
-            // Secret yoksa 2FA doğrulama yapılamaz; kullanıcıyı kilitlememek için OTP istenmeden token veriyoruz.
-            // Admin/vendor uçlarında middleware token adı kontrol ettiği için (panel-token-2fa değilse) yetki yine de bloklanır.
             if (! $user->two_factor_secret) {
-                $tokenName = 'panel-token';
-            } else {
-                $otp = $request->input('otp');
-                $backupCode = $request->input('backup_code');
-
-                if (! $otp && ! $backupCode) {
-                    // 423 tarayıcıda “hata” gibi görünür; bu normal bir giriş adımı — 200 + code ile döneriz.
-                    return response()->json([
-                        'message' => '2FA kodu gerekli.',
-                        'code' => 'twofa_required',
-                        'two_factor_enabled' => true,
-                    ], 200);
-                }
-
-                $totp = app(TotpService::class);
-                $otpOk = false;
-                $backupOk = false;
-
-                if ($otp) {
-                    $otpOk = $totp->verifyCode((string) $user->two_factor_secret, (string) $otp, 1, 30, 6);
-                }
-
-                if ($backupCode && ! $otpOk) {
-                    $normalized = (string) $backupCode;
-                    if (! str_contains($normalized, '-')) {
-                        $normalized = substr($normalized, 0, 5).'-'.substr($normalized, 5, 5);
-                    }
-
-                    $rows = TwoFactorBackupCode::query()
-                        ->where('user_id', $user->id)
-                        ->whereNull('used_at')
-                        ->get();
-
-                    foreach ($rows as $row) {
-                        if (Hash::check($normalized, $row->code_hash)) {
-                            $row->used_at = now();
-                            $row->save();
-                            $backupOk = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (! $otpOk && ! $backupOk) {
-                    return response()->json([
-                        'message' => '2FA kodu gecersiz.',
-                        'code' => 'twofa_invalid_code',
-                    ], 422);
-                }
-
-                $tokenName = 'panel-token-2fa';
+                return response()->json([
+                    'message' => '2FA yapılandırması eksik. Yönetici ile iletişime geçin.',
+                    'code' => 'twofa_misconfigured',
+                ], 403);
             }
+
+            $otp = $request->input('otp');
+            $backupCode = $request->input('backup_code');
+
+            if (! $otp && ! $backupCode) {
+                return response()->json([
+                    'message' => '2FA kodu gerekli.',
+                    'code' => 'twofa_required',
+                    'two_factor_enabled' => true,
+                ], 200);
+            }
+
+            $totp = app(TotpService::class);
+            $otpOk = false;
+            $backupOk = false;
+
+            if ($otp) {
+                $otpOk = $totp->verifyCode((string) $user->two_factor_secret, (string) $otp, 1, 30, 6);
+            }
+
+            if ($backupCode && ! $otpOk) {
+                $normalized = (string) $backupCode;
+                if (! str_contains($normalized, '-')) {
+                    $normalized = substr($normalized, 0, 5).'-'.substr($normalized, 5, 5);
+                }
+
+                $rows = TwoFactorBackupCode::query()
+                    ->where('user_id', $user->id)
+                    ->whereNull('used_at')
+                    ->get();
+
+                foreach ($rows as $row) {
+                    if (Hash::check($normalized, $row->code_hash)) {
+                        $row->used_at = now();
+                        $row->save();
+                        $backupOk = true;
+                        break;
+                    }
+                }
+            }
+
+            if (! $otpOk && ! $backupOk) {
+                return response()->json([
+                    'message' => '2FA kodu gecersiz.',
+                    'code' => 'twofa_invalid_code',
+                ], 422);
+            }
+
+            $tokenName = 'panel-token-2fa';
         }
 
         $expiresAt = now()->addHours(24);
@@ -162,6 +164,8 @@ class AuthController extends Controller
         $userPayload = $user->load(['roles', 'hostingPackage'])->toArray();
         $userPayload['abilities'] = $user->sanctumAbilities();
         $activePlugins = $this->activePluginSlugs($user);
+        $token = $user->currentAccessToken();
+        $impersonatedBy = $this->impersonation->impersonatorMeta($token);
 
         return response()->json([
             'user' => $userPayload,
@@ -169,6 +173,7 @@ class AuthController extends Controller
             'enforce_admin_2fa' => (bool) config('panelze.enforce_admin_2fa', false),
             'force_password_change' => (bool) $user->force_password_change,
             'white_label' => $this->whiteLabelBranding->uiPayloadForUser($user),
+            'impersonated_by' => $impersonatedBy,
         ]);
     }
 
@@ -224,7 +229,7 @@ class AuthController extends Controller
             }
         }
 
-        if ($user->two_factor_enabled && $user->two_factor_secret) {
+        if ($user->two_factor_enabled) {
             return response()->json(['message' => '2FA etkin hesaplar için SSO kullanılamaz.'], 403);
         }
 

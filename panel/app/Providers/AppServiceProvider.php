@@ -103,6 +103,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(90)->by($request->ip());
         });
 
+        RateLimiter::for('store-integration', function (Request $request) {
+            return Limit::perMinute(90)->by($request->ip());
+        });
+
         RateLimiter::for('sso-consume', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\Integrations;
 
-use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Controller;
+use App\Jobs\RunBackupJob;
 use App\Models\Backup;
 use App\Models\BackupDestination;
 use App\Models\CronJob;
@@ -431,7 +431,7 @@ class WhmcsResourcesController extends Controller
         if ($user->isAdmin() || $user->isVendorOperator()) {
             return response()->json(['message' => 'Bu hesap türü için WHMCS SSO kullanılamaz.'], 422);
         }
-        if ($user->two_factor_enabled && $user->two_factor_secret) {
+        if ($user->two_factor_enabled) {
             return response()->json([
                 'message' => '2FA etkin hesaplar WHMCS SSO ile açılamaz; panelden giriş yapın.',
             ], 422);
@@ -943,50 +943,10 @@ class WhmcsResourcesController extends Controller
             'domain_id' => $domain->id,
             'destination_id' => $validated['destination_id'] ?? null,
             'type' => $validated['type'] ?? 'full',
-            'status' => 'pending',
+            'status' => 'queued',
         ]);
 
-        $engine = $this->engine->queueBackup($domain->name, $backup->type, $backup->id);
-        if (! empty($engine['error'])) {
-            $backup->update(['status' => 'failed']);
-            SafeAuditLogger::warning('panelze.whmcs.backup_queue', [
-                'user_id' => $user->id,
-                'backup_id' => $backup->id,
-                'error' => (string) $engine['error'],
-            ], $request);
-
-            return response()->json([
-                'message' => (string) $engine['error'],
-                'backup' => $backup->fresh(),
-            ], 502);
-        }
-
-        $engineId = isset($engine['id']) ? (string) $engine['id'] : null;
-        $engineStatus = is_string($engine['status'] ?? null) ? (string) $engine['status'] : '';
-        $panelStatus = $engineStatus === 'completed' || $engineStatus === 'failed' ? $engineStatus : 'running';
-        $update = [
-            'status' => $panelStatus,
-            'file_path' => $engine['path'] ?? null,
-            'engine_backup_id' => $engineId,
-        ];
-        if (! empty($engine['size_bytes'])) {
-            $update['size_mb'] = round(((float) $engine['size_bytes']) / 1048576, 4);
-        }
-        if ($panelStatus === 'completed') {
-            $update['completed_at'] = now();
-        }
-        $backup->update($update);
-        $backup = $backup->fresh();
-        if ($panelStatus === 'completed' && $backup->destination_id) {
-            $sync = app(BackupController::class)->syncToDestination($backup);
-            if (empty($sync['ok'])) {
-                SafeAuditLogger::warning('panelze.whmcs.backup_queue_sync', [
-                    'user_id' => $user->id,
-                    'backup_id' => $backup->id,
-                    'error' => (string) ($sync['error'] ?? 'sync failed'),
-                ], $request);
-            }
-        }
+        RunBackupJob::dispatch($backup->id);
 
         SafeAuditLogger::info('panelze.whmcs.backup_queue', [
             'user_id' => $user->id,
@@ -996,8 +956,7 @@ class WhmcsResourcesController extends Controller
 
         return response()->json([
             'message' => __('backups.queued'),
-            'backup' => $backup->fresh(),
-            'engine' => $engine,
+            'backup' => $backup->fresh(['domain', 'destination']),
         ], 202);
     }
 

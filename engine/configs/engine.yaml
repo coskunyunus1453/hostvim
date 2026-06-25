@@ -70,6 +70,16 @@ hosting:
   php_fpm_reload_after_pool: false
   php_fpm_pool_user: "www-data"
   php_fpm_pool_group: "www-data"
+  # PanelKafes (dev: kapalı; prod şablonu deploy/configs/engine.production.yaml)
+  site_cage_enabled: false
+  site_cage_group: "panelze-hosting"
+  site_cage_user_prefix: "pk"
+  site_cage_engine_user: "www-data"
+  site_cage_helper: "/usr/local/sbin/panelze-site-cage"
+  site_cage_default_cpu_percent: 100
+  site_cage_default_memory_mb: 1024
+  site_cage_default_pm_max_children: 20
+  site_cage_default_memory_limit: "256M"
   # Apache (server_type: apache); prod’da true + yazma yetkisi
   apache_manage_vhosts: false
   nginx_edge_proxy: false

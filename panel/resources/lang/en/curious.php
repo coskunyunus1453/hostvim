@@ -4,6 +4,7 @@ return [
     'speed_file_failed' => 'Could not create speed test file.',
     'speed_upload_too_large' => 'Upload test is limited to :max_mb MB.',
     'speed_prepared' => 'Download test is ready.',
+    'speed_prepare_failed' => 'Could not prepare speed test. Try again shortly.',
     'speed_token_invalid' => 'Test link is invalid or expired.',
     'speed_upload_missing' => 'Upload payload missing.',
     'speed_upload_done' => 'Upload test completed.',
@@ -17,7 +18,7 @@ return [
 
     'seo_invalid_url' => 'Enter a valid site URL (e.g. https://example.com).',
     'seo_blocked_host' => 'Local or private network addresses cannot be scanned.',
-    'seo_fetch_failed' => 'Could not fetch site: :detail',
+    'seo_fetch_failed' => 'Could not fetch the site. Check the URL and availability.',
     'seo_http_error' => 'HTTP status: :code',
     'seo_failed' => 'SEO analysis failed.',
     'seo_done' => 'SEO analysis completed.',

@@ -34,7 +34,16 @@ class CronJobController extends Controller
             ->latest()
             ->paginate(30);
 
-        return response()->json($jobs);
+        $payload = $jobs->toArray();
+        if (! $request->user()->isAdmin()) {
+            $payload['data'] = array_map(function (array $row): array {
+                unset($row['engine_job_id']);
+
+                return $row;
+            }, $payload['data'] ?? []);
+        }
+
+        return response()->json($payload);
     }
 
     public function summary(Request $request): JsonResponse
@@ -90,18 +99,18 @@ class CronJobController extends Controller
             $job->update(['engine_job_id' => (string) $engine['id']]);
         }
 
-        return response()->json([
+        return response()->json($this->publicCronPayload($request, [
             'message' => __('cron.created'),
             'job' => $job->fresh(),
             'engine' => $engine,
-        ], 201);
+        ]), 201);
     }
 
     public function update(Request $request, CronJob $cronJob): JsonResponse
     {
         $this->assertCanAccess($request, $cronJob);
         if ($cronJob->is_system) {
-            return response()->json(['message' => 'Sistem cron görevi düzenlenemez.'], 403);
+            return response()->json(['message' => __('cron.system_edit_forbidden')], 403);
         }
 
         $validated = $request->validate([
@@ -125,10 +134,10 @@ class CronJobController extends Controller
         ]);
 
         if (! empty($engine['error'])) {
-            return response()->json([
+            return response()->json($this->publicCronPayload($request, [
                 'message' => $engine['error'],
                 'engine' => $engine,
-            ], 502);
+            ]), 502);
         }
 
         $cronJob->update([
@@ -148,25 +157,26 @@ class CronJobController extends Controller
     {
         $this->assertCanAccess($request, $cronJob);
         if ($cronJob->is_system) {
-            return response()->json(['message' => 'Sistem cron görevi silinemez.'], 403);
+            return response()->json(['message' => __('cron.system_delete_forbidden')], 403);
         }
         $eid = $cronJob->engine_job_id;
         if ($eid === null || $eid === '') {
             $eid = (string) $cronJob->id;
         }
+        $engine = $this->engine->engineCronDelete($eid);
         $cronJob->delete();
 
-        return response()->json([
+        return response()->json($this->publicCronPayload($request, [
             'message' => __('cron.deleted'),
-            'engine' => $this->engine->engineCronDelete($eid),
-        ]);
+            'engine' => $engine,
+        ]));
     }
 
     public function runNow(Request $request, CronJob $cronJob): JsonResponse
     {
         $this->assertCanAccess($request, $cronJob);
         if ($cronJob->is_system && ! $request->user()->isAdmin()) {
-            return response()->json(['message' => 'Sistem cron görevi yalnızca yönetici tarafından çalıştırılabilir.'], 403);
+            return response()->json(['message' => __('cron.system_run_admin_only')], 403);
         }
 
         try {
@@ -249,5 +259,18 @@ class CronJobController extends Controller
         }
 
         abort(403);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function publicCronPayload(Request $request, array $payload): array
+    {
+        if (! $request->user()->isAdmin()) {
+            unset($payload['engine']);
+        }
+
+        return $payload;
     }
 }

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\TotpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -40,14 +41,30 @@ class TwoFactorController extends Controller
     {
         $user = $request->user();
 
-        $secret = $totp->generateSecret(20);
-        $user->two_factor_secret = $secret;
-        $user->two_factor_enabled = false;
-        $user->save();
+        if ((bool) $user->two_factor_enabled) {
+            $payload = $request->validate([
+                'password' => ['required', 'string'],
+            ]);
+            if (! Hash::check($payload['password'], $user->password)) {
+                throw ValidationException::withMessages([
+                    'password' => [__('auth.current_password_invalid')],
+                ]);
+            }
+        }
 
-        TwoFactorBackupCode::query()
-            ->where('user_id', $user->id)
-            ->delete();
+        $secret = $totp->generateSecret(20);
+
+        if ((bool) $user->two_factor_enabled) {
+            Cache::put($this->pendingSecretCacheKey($user->id), $secret, now()->addMinutes(20));
+        } else {
+            $user->two_factor_secret = $secret;
+            $user->two_factor_enabled = false;
+            $user->save();
+
+            TwoFactorBackupCode::query()
+                ->where('user_id', $user->id)
+                ->delete();
+        }
 
         $issuer = $this->getIssuer($user);
         $label = rawurlencode($issuer.':'.$user->email);
@@ -61,9 +78,8 @@ class TwoFactorController extends Controller
         );
 
         return response()->json([
-            'two_factor_enabled' => false,
+            'two_factor_enabled' => (bool) $user->two_factor_enabled,
             'otpauth_url' => $otpauth,
-            // Frontend, kullanıcının kopyalayabilmesi için secret’i gösterebilir.
             'secret' => $secret,
         ]);
     }
@@ -76,24 +92,31 @@ class TwoFactorController extends Controller
             'otp' => ['required', 'string', 'regex:/^\d{6}$/'],
         ]);
 
-        if (! $user->two_factor_secret) {
+        $pending = Cache::get($this->pendingSecretCacheKey($user->id));
+        $secretToVerify = is_string($pending) && $pending !== ''
+            ? $pending
+            : (string) $user->two_factor_secret;
+
+        if ($secretToVerify === '') {
             return response()->json([
-                'message' => 'TOTP secret bulunamadi. Lutfen yeniden kurun.',
+                'message' => __('auth.two_factor_secret_missing'),
                 'code' => 'two_factor_secret_missing',
             ], 409);
         }
 
         $otp = (string) $payload['otp'];
-        $ok = $totp->verifyCode((string) $user->two_factor_secret, $otp, 1, 30, 6);
+        $ok = $totp->verifyCode($secretToVerify, $otp, 1, 30, 6);
         if (! $ok) {
             return response()->json([
-                'message' => '2FA kodu gecersiz.',
+                'message' => __('auth.two_factor_invalid_code'),
                 'code' => 'two_factor_invalid_code',
             ], 422);
         }
 
+        $user->two_factor_secret = $secretToVerify;
         $user->two_factor_enabled = true;
         $user->save();
+        Cache::forget($this->pendingSecretCacheKey($user->id));
 
         TwoFactorBackupCode::query()
             ->where('user_id', $user->id)
@@ -127,9 +150,18 @@ class TwoFactorController extends Controller
 
         if (! (bool) $user->two_factor_enabled) {
             return response()->json([
-                'message' => '2FA aktif degil. Once kurulum yapin.',
+                'message' => __('auth.two_factor_not_enabled'),
                 'code' => 'two_factor_not_enabled',
             ], 409);
+        }
+
+        $payload = $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+        if (! Hash::check($payload['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => [__('auth.current_password_invalid')],
+            ]);
         }
 
         TwoFactorBackupCode::query()
@@ -170,8 +202,15 @@ class TwoFactorController extends Controller
 
         if (! Hash::check($payload['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'password' => ['Mevcut şifre doğrulanamadı.'],
+                'password' => [__('auth.current_password_invalid')],
             ]);
+        }
+
+        if ((bool) config('panelze.enforce_admin_2fa', false) && $user->isVendorOperator()) {
+            return response()->json([
+                'message' => __('auth.two_factor_disable_forbidden'),
+                'code' => 'two_factor_disable_forbidden',
+            ], 403);
         }
 
         $user->two_factor_secret = null;
@@ -182,8 +221,15 @@ class TwoFactorController extends Controller
             ->where('user_id', $user->id)
             ->delete();
 
+        Cache::forget($this->pendingSecretCacheKey($user->id));
+
         return response()->json([
             'two_factor_enabled' => false,
         ]);
+    }
+
+    private function pendingSecretCacheKey(int $userId): string
+    {
+        return 'twofa_pending_secret:'.$userId;
     }
 }

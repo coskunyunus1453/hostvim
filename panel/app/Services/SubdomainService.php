@@ -62,7 +62,7 @@ class SubdomainService
                 'hostname' => $hostname,
                 'path_segment' => $pathSegment,
                 'document_root' => $resp['document_root'] ?? null,
-                'php_version' => $payload['php_version'],
+                'php_version' => $resp['php_version'] ?? $payload['php_version'],
                 'server_type' => $site->server_type,
             ]);
         } catch (\Throwable $e) {

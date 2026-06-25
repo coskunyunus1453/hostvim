@@ -10,6 +10,7 @@ use App\Models\InvoiceItem;
 use App\Models\Order;
 use App\Models\Subscription;
 use App\Services\Provisioning\ProvisioningService;
+use App\Services\Domain\DomainRegistrarService;
 use App\Services\SafeAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class InvoiceService
     public function __construct(
         private BillingSettings $settings,
         private ProvisioningService $provisioning,
+        private DomainRegistrarService $domainRegistrar,
     ) {}
 
     /** Bir sipariş için ilk faturayı oluşturur (kurulum ücretleri dahil). */
@@ -31,8 +33,15 @@ class InvoiceService
             $lines = [];
             foreach ($order->items as $item) {
                 $name = $item->hostingPackage?->name ?? 'Hosting';
-                $cycle = $item->billing_cycle === 'yearly' ? 'Yıllık' : 'Aylık';
-                $label = $name.' ('.$cycle.')'.($item->domain ? ' — '.$item->domain : '');
+                if (($item->item_type ?? 'hosting') === 'domain_register') {
+                    $label = 'Alan adı kaydı: '.$item->domain.' ('.$item->domain_years.' yıl)';
+                } elseif (($item->item_type ?? '') === 'manual') {
+                    $cycle = $item->billing_cycle === 'yearly' ? 'Yıllık' : 'Aylık';
+                    $label = ($item->domain ?? 'Manuel hizmet').' ('.$cycle.')';
+                } else {
+                    $cycle = $item->billing_cycle === 'yearly' ? 'Yıllık' : 'Aylık';
+                    $label = $name.' ('.$cycle.')'.($item->domain ? ' — '.$item->domain : '');
+                }
                 $lines[] = ['description' => $label, 'quantity' => 1, 'unit_price' => (float) $item->unit_price];
                 $gross += (float) $item->unit_price;
                 if ((float) $item->setup_fee > 0) {
@@ -105,8 +114,15 @@ class InvoiceService
             if ($order && $order->status === Order::STATUS_PENDING) {
                 foreach ($order->items as $item) {
                     try {
-                        $sub = $this->provisioning->provisionFromOrderItem($order->user, $item);
-                        $provisioned[] = $sub;
+                        if (($item->item_type ?? 'hosting') === 'domain_register') {
+                            $this->domainRegistrar->registerFromOrderItem($order->user, $item);
+                        } elseif (($item->item_type ?? '') === 'manual') {
+                            $cycle = $item->billing_cycle === 'yearly' ? 'Yıllık' : 'Aylık';
+                            $this->notifyManualProvisioning($order, $item, $cycle);
+                        } else {
+                            $sub = $this->provisioning->provisionFromOrderItem($order->user, $item);
+                            $provisioned[] = $sub;
+                        }
                     } catch (Throwable $e) {
                         report($e);
                     }
@@ -240,6 +256,30 @@ class InvoiceService
         $prefix = (string) $this->settings->get($prefixKey, 'INV-');
 
         return $prefix.date('Y').'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT);
+    }
+
+    private function notifyManualProvisioning(Order $order, $item, string $cycle): void
+    {
+        $to = (string) $this->settings->get('support_email', '');
+        if ($to === '') {
+            return;
+        }
+
+        $subject = 'Manuel kurulum — '.($item->domain ?? 'Manuel hizmet').' ('.$order->number.')';
+        $body = implode("\n", [
+            'Panel sipariş no: '.$order->number,
+            'Müşteri: '.$order->user->name.' <'.$order->user->email.'>',
+            'Ürün: '.($item->domain ?? 'Manuel hizmet'),
+            'Dönem: '.$cycle,
+            'Fiyat: ₺'.number_format((float) $item->unit_price, 2, ',', '.'),
+            '',
+            'Ödeme alındı. VPS/VDS/dedicated kurulumu için manuel işlem gerekiyor.',
+            'Destek talepleri hostvim.com satış sitesi admin panelinden yönetilir.',
+        ]);
+
+        $this->dispatchMail(static fn () => Mail::raw($body, static function ($message) use ($to, $subject): void {
+            $message->to($to)->subject($subject);
+        }));
     }
 
     private function dispatchMail(callable $send): void

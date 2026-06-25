@@ -48,6 +48,8 @@ mkdir -p "$ZONES_DIR"
 chown bind:bind "$ZONES_DIR" 2>/dev/null || true
 chmod 775 "$ZONES_DIR" 2>/dev/null || true
 
+export PANELZE_BIND_CONF_PATH="${PANELZE_BIND_CONF_PATH:-/var/lib/bind/panelze/named.conf.panelze-zones}"
+
 if [[ -f "$SCRIPT_DIR/ensure-bind-config.sh" ]]; then
   bash "$SCRIPT_DIR/ensure-bind-config.sh"
 fi

@@ -9,9 +9,12 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id',
+        'item_type',
         'hosting_package_id',
         'billing_cycle',
         'domain',
+        'domain_years',
+        'registrar_api',
         'unit_price',
         'setup_fee',
     ];

@@ -23,7 +23,7 @@ class ProfileController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($request->user()->id),
             ],
-            'locale' => 'sometimes|nullable|string|max:32',
+            'locale' => 'sometimes|nullable|string|in:en,tr,de,fr,es,pt,zh,ja,ar,ru',
         ]);
 
         $request->user()->update($validated);
@@ -42,7 +42,7 @@ class ProfileController extends Controller
 
         if (! Hash::check($validated['current_password'], $request->user()->password)) {
             throw ValidationException::withMessages([
-                'current_password' => ['Mevcut şifre doğrulanamadı.'],
+                'current_password' => [__('auth.current_password_invalid')],
             ]);
         }
 
@@ -51,7 +51,7 @@ class ProfileController extends Controller
             'force_password_change' => false,
         ]);
 
-        return response()->json(['message' => 'Şifre güncellendi.']);
+        return response()->json(['message' => __('auth.password_updated')]);
     }
 
     public function completeOnboarding(Request $request): JsonResponse

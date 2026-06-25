@@ -52,7 +52,7 @@ export default function NodeAppPage() {
   const [domainId, setDomainId] = useState<number | ''>('')
   const [subdomainId, setSubdomainId] = useState<number | undefined>(undefined)
   const [lastOut, setLastOut] = useState('')
-  const autoHealedRef = useRef<Set<string>>(new Set())
+  const actionTargetRef = useRef('')
 
   const targets = targetsQ.data ?? []
 
@@ -99,10 +99,20 @@ export default function NodeAppPage() {
   })
   const [workDirCandidates, setWorkDirCandidates] = useState<WorkDirCandidate[]>([])
   const [npmScripts, setNpmScripts] = useState<string[]>(['start'])
+  const detectTargetRef = useRef('')
+
+  useEffect(() => {
+    if (selectedTargetKey === '') return
+    setWorkDirCandidates([])
+    setNpmScripts(['start'])
+    setLastOut('')
+    detectTargetRef.current = selectedTargetKey
+    actionTargetRef.current = selectedTargetKey
+  }, [selectedTargetKey])
 
   useEffect(() => {
     const c = configQ.data
-    if (!c) return
+    if (!c || selectedTargetKey === '') return
     setForm({
       enabled: Boolean(c.enabled),
       profile: c.profile || c.app_profile || 'node',
@@ -112,10 +122,10 @@ export default function NodeAppPage() {
       auto_start: c.auto_start ?? true,
       env_file: c.env_file || '.env',
     })
-  }, [configQ.data])
+  }, [configQ.data, selectedTargetKey])
 
   const applyDetect = useCallback(
-    (det?: NodeDetect) => {
+    (det?: NodeDetect, opts?: { mergeSaved?: boolean }) => {
       if (!det) return
       if (det.work_dir_candidates?.length) {
         setWorkDirCandidates(det.work_dir_candidates)
@@ -127,28 +137,40 @@ export default function NodeAppPage() {
       if (det.scripts?.length) {
         setNpmScripts(det.scripts)
       }
+      const saved = configQ.data
+      const mergeSaved = opts?.mergeSaved ?? false
       setForm((f) => ({
         ...f,
-        work_dir: det.work_dir || f.work_dir,
-        profile: det.profile || f.profile,
-        start_script: det.start_script || f.start_script,
-        listen_port: det.suggested_port || f.listen_port,
+        work_dir: mergeSaved && saved?.work_dir ? saved.work_dir : (det.work_dir || f.work_dir),
+        profile: mergeSaved && (saved?.profile || saved?.app_profile)
+          ? (saved.profile || saved.app_profile || f.profile)
+          : (det.profile || f.profile),
+        start_script: mergeSaved && saved?.start_script ? saved.start_script : (det.start_script || f.start_script),
+        listen_port:
+          mergeSaved && saved?.listen_port
+            ? saved.listen_port
+            : (det.suggested_port || f.listen_port),
       }))
-      toast.success(t('node_apps.detected', { name: det.package_name || 'package.json' }))
+      if (!mergeSaved) {
+        toast.success(t('node_apps.detected', { name: det.package_name || 'package.json' }))
+      }
     },
-    [t],
+    [configQ.data, t],
   )
 
   const detectM = useMutation({
-    mutationFn: async (workDir?: string) => {
+    mutationFn: async ({ workDir, targetKey }: { workDir?: string; targetKey: string }) => {
       const { data } = await api.post<{ detect?: NodeDetect }>(
         `/domains/${domainId}/node-app/detect`,
         { work_dir: workDir ?? form.work_dir },
         nodeReqConfig,
       )
-      return data.detect
+      return { detect: data.detect, targetKey }
     },
-    onSuccess: (det) => applyDetect(det),
+    onSuccess: ({ detect, targetKey }) => {
+      if (targetKey !== detectTargetRef.current) return
+      applyDetect(detect, { mergeSaved: Boolean(configQ.data?.enabled || configQ.data?.listen_port) })
+    },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
@@ -156,15 +178,16 @@ export default function NodeAppPage() {
   })
 
   const saveM = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ targetKey }: { targetKey: string }) => {
       const { data } = await api.put(
         `/domains/${domainId}/node-app`,
         { ...form, app_profile: form.profile },
         nodeReqConfig,
       )
-      return data
+      return { data, targetKey }
     },
-    onSuccess: () => {
+    onSuccess: ({ targetKey }) => {
+      if (targetKey !== actionTargetRef.current) return
       toast.success(t('node_apps.saved'))
       qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
     },
@@ -175,15 +198,16 @@ export default function NodeAppPage() {
   })
 
   const autoM = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ targetKey }: { targetKey: string }) => {
       const { data } = await api.post(
         `/domains/${domainId}/node-app/auto-configure`,
         { app_profile: form.profile },
         nodeReqConfig,
       )
-      return data
+      return { data, targetKey }
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, targetKey }) => {
+      if (targetKey !== actionTargetRef.current) return
       toast.success(t('node_apps.auto_configured'))
       qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
       const cfg = data as NodeConfig
@@ -208,7 +232,7 @@ export default function NodeAppPage() {
   })
 
   const healM = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ targetKey }: { targetKey: string }) => {
       const { data } = await api.post<{
         steps?: string[]
         healthy?: boolean
@@ -216,9 +240,10 @@ export default function NodeAppPage() {
         config?: NodeConfig
         output?: string
       }>(`/domains/${domainId}/node-app/heal`, {}, nodeReqConfig)
-      return data
+      return { data, targetKey }
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, targetKey }) => {
+      if (targetKey !== actionTargetRef.current) return
       if (data.steps?.length) setLastOut(data.steps.join('\n'))
       if (data.config) {
         const cfg = data.config
@@ -244,7 +269,13 @@ export default function NodeAppPage() {
   })
 
   const actionM = useMutation({
-    mutationFn: async (action: 'start' | 'stop' | 'restart' | 'install' | 'build') => {
+    mutationFn: async ({
+      action,
+      targetKey,
+    }: {
+      action: 'start' | 'stop' | 'restart' | 'install' | 'build'
+      targetKey: string
+    }) => {
       const path =
         action === 'install'
           ? `/domains/${domainId}/node-app/install`
@@ -253,9 +284,10 @@ export default function NodeAppPage() {
             : `/domains/${domainId}/node-app/${action}`
       const body = action === 'install' ? { use_ci: true } : {}
       const { data } = await api.post(path, body, nodeReqConfig)
-      return data as { output?: string; message?: string }
+      return { data: data as { output?: string; message?: string }, targetKey }
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, targetKey }) => {
+      if (targetKey !== actionTargetRef.current) return
       setLastOut(data.output ?? data.message ?? '')
       toast.success(t('node_apps.action_ok'))
       qc.invalidateQueries({ queryKey: ['node-app', domainId, subdomainId] })
@@ -268,21 +300,14 @@ export default function NodeAppPage() {
   })
 
   useEffect(() => {
-    if (domainId === '') {
+    if (domainId === '' || selectedTargetKey === '') {
       setWorkDirCandidates([])
       return
     }
-    detectM.mutate('.')
+    detectTargetRef.current = selectedTargetKey
+    detectM.mutate({ workDir: '.', targetKey: selectedTargetKey })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hedef değişince otomatik algıla
-  }, [domainId, subdomainId])
-
-  useEffect(() => {
-    if (selectedTargetKey === '' || configQ.isLoading || !configQ.data?.enabled) return
-    if (autoHealedRef.current.has(selectedTargetKey)) return
-    autoHealedRef.current.add(selectedTargetKey)
-    healM.mutate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- etkin Node hedefi açılınca otomatik onar
-  }, [selectedTargetKey, configQ.data?.enabled, configQ.isLoading])
+  }, [domainId, subdomainId, selectedTargetKey])
 
   const running = configQ.data?.status?.running
 
@@ -330,6 +355,8 @@ export default function NodeAppPage() {
           </div>
           {currentTarget && (
             <div className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-medium text-gray-700 dark:text-gray-300">{currentTarget.hostname}</span>
+              {' · '}
               {running ? (
                 <span className="text-emerald-600 dark:text-emerald-400">{t('node_apps.status_running')}</span>
               ) : (
@@ -373,7 +400,7 @@ export default function NodeAppPage() {
                   onChange={(e) => {
                     const rel = e.target.value
                     setForm((f) => ({ ...f, work_dir: rel }))
-                    detectM.mutate(rel)
+                    detectM.mutate({ workDir: rel, targetKey: selectedTargetKey })
                   }}
                 >
                   {workDirOptions.map((c) => (
@@ -431,20 +458,20 @@ export default function NodeAppPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-secondary" onClick={() => detectM.mutate(form.work_dir)} disabled={detectM.isPending}>
+              <button type="button" className="btn-secondary" onClick={() => detectM.mutate({ workDir: form.work_dir, targetKey: selectedTargetKey })} disabled={detectM.isPending}>
                 <Wand2 className="h-4 w-4 inline mr-1" />
                 {t('node_apps.detect')}
               </button>
-              <button type="button" className="btn-primary" onClick={() => saveM.mutate()} disabled={saveM.isPending}>
+              <button type="button" className="btn-primary" onClick={() => saveM.mutate({ targetKey: selectedTargetKey })} disabled={saveM.isPending}>
                 {t('common.save')}
               </button>
-              <button type="button" className="btn-secondary" onClick={() => autoM.mutate()} disabled={autoM.isPending}>
+              <button type="button" className="btn-secondary" onClick={() => autoM.mutate({ targetKey: selectedTargetKey })} disabled={autoM.isPending}>
                 {t('node_apps.auto_configure')}
               </button>
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => healM.mutate()}
+                onClick={() => healM.mutate({ targetKey: selectedTargetKey })}
                 disabled={healM.isPending || !form.enabled}
               >
                 <ShieldCheck className="h-4 w-4 inline mr-1" />
@@ -453,7 +480,7 @@ export default function NodeAppPage() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => actionM.mutate('install')}
+                onClick={() => actionM.mutate({ action: 'install', targetKey: selectedTargetKey })}
                 disabled={actionM.isPending}
               >
                 <Package className="h-4 w-4 inline mr-1" />
@@ -462,7 +489,7 @@ export default function NodeAppPage() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => actionM.mutate('build')}
+                onClick={() => actionM.mutate({ action: 'build', targetKey: selectedTargetKey })}
                 disabled={actionM.isPending}
               >
                 <Hammer className="h-4 w-4 inline mr-1" />
@@ -471,8 +498,8 @@ export default function NodeAppPage() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => actionM.mutate('start')}
-                disabled={actionM.isPending}
+                onClick={() => actionM.mutate({ action: 'start', targetKey: selectedTargetKey })}
+                disabled={actionM.isPending || !form.enabled}
               >
                 <Play className="h-4 w-4 inline mr-1" />
                 {t('node_apps.start')}
@@ -480,8 +507,8 @@ export default function NodeAppPage() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => actionM.mutate('restart')}
-                disabled={actionM.isPending}
+                onClick={() => actionM.mutate({ action: 'restart', targetKey: selectedTargetKey })}
+                disabled={actionM.isPending || !form.enabled}
               >
                 <RotateCcw className="h-4 w-4 inline mr-1" />
                 {t('node_apps.restart')}
@@ -489,8 +516,8 @@ export default function NodeAppPage() {
               <button
                 type="button"
                 className="btn-danger"
-                onClick={() => actionM.mutate('stop')}
-                disabled={actionM.isPending}
+                onClick={() => actionM.mutate({ action: 'stop', targetKey: selectedTargetKey })}
+                disabled={actionM.isPending || !form.enabled}
               >
                 <Square className="h-4 w-4 inline mr-1" />
                 {t('node_apps.stop')}

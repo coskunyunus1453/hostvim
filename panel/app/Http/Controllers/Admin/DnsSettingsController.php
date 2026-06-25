@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncBindDnsJob;
 use App\Services\BindDnsService;
 use App\Services\DomainDnsBootstrapService;
 use App\Services\PanelDnsSettingsService;
@@ -44,14 +45,33 @@ class DnsSettingsController extends Controller
 
         $bind = ['ok' => true, 'skipped' => true];
         if ($this->dnsSettings->bindEnabled()) {
-            $bind = $this->bindDns->syncViaSudo();
+            $bind = $this->bindDns->syncReliable();
+            if (! ($bind['ok'] ?? false)) {
+                SyncBindDnsJob::dispatch()->delay(now()->addSeconds(3));
+            }
+        }
+
+        $message = __('dns.settings_saved');
+        if ($this->dnsSettings->bindEnabled() && ($bind['ok'] ?? false) && ! ($bind['skipped'] ?? false)) {
+            $zones = (int) ($bind['zones'] ?? 0);
+            if ($zones > 0) {
+                $message = __('dns.settings_saved_bind', ['zones' => $zones]);
+            } elseif (preg_match('/\b(\d+)\s+zone/i', (string) ($bind['message'] ?? ''), $m)) {
+                $message = __('dns.settings_saved_bind', ['zones' => (int) $m[1]]);
+            }
+        }
+
+        $status = 200;
+        if ($this->dnsSettings->bindEnabled() && ! ($bind['ok'] ?? false) && ! ($bind['skipped'] ?? false)) {
+            $message = __('dns.bind_sync_failed');
+            $status = 503;
         }
 
         return response()->json([
-            'message' => __('dns.settings_saved'),
+            'message' => $message,
             'settings' => $this->dnsSettings->forApi(),
             'repair' => $repair,
             'bind' => $bind,
-        ]);
+        ], $status);
     }
 }

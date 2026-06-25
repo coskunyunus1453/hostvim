@@ -109,6 +109,7 @@ export default function CuriousPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [historyIp, setHistoryIp] = useState('')
   const [speedHistory, setSpeedHistory] = useState<SpeedHistoryRow[]>([])
+  const [historyLoadError, setHistoryLoadError] = useState(false)
   const [speedRunning, setSpeedRunning] = useState(false)
 
   const [seoUrl, setSeoUrl] = useState('')
@@ -118,6 +119,7 @@ export default function CuriousPage() {
   const [seoReport, setSeoReport] = useState<SeoReport | null>(null)
 
   const cleanupRef = useRef(false)
+  const seoTickRef = useRef<number | null>(null)
 
   const runCleanup = useCallback(async () => {
     try {
@@ -130,10 +132,11 @@ export default function CuriousPage() {
   const loadSpeedHistory = useCallback(async () => {
     try {
       const { data } = await api.get('/curious/speed/history')
+      setHistoryLoadError(false)
       setHistoryIp(String(data?.client_ip ?? ''))
       setSpeedHistory((data?.history ?? []) as SpeedHistoryRow[])
     } catch {
-      /* ignore */
+      setHistoryLoadError(true)
     }
   }, [])
 
@@ -145,6 +148,9 @@ export default function CuriousPage() {
 
   useEffect(() => {
     return () => {
+      if (seoTickRef.current !== null) {
+        window.clearInterval(seoTickRef.current)
+      }
       if (!cleanupRef.current) {
         void runCleanup()
       }
@@ -259,9 +265,7 @@ export default function CuriousPage() {
       const status = ax.response?.status ?? 0
       const msg = ax.response?.data?.message ?? String(err)
       toast.error(
-        status === 429
-          ? t('curious.speed.rate_limited', { defaultValue: 'Çok sık deneme. Bir dakika bekleyip tekrar deneyin.' })
-          : msg,
+        status === 429 ? t('curious.speed.rate_limited') : msg,
       )
       setSpeedPhase('idle')
       await runCleanup()
@@ -287,7 +291,7 @@ export default function CuriousPage() {
       t('curious.seo.phase_score'),
     ]
     let phaseIdx = 0
-    const tick = window.setInterval(() => {
+    seoTickRef.current = window.setInterval(() => {
       setSeoPhaseLabel(phases[Math.min(phaseIdx, phases.length - 1)] ?? '')
       phaseIdx += 1
       setSeoProgress((p) => Math.min(92, p + 8))
@@ -305,7 +309,10 @@ export default function CuriousPage() {
       setSeoProgress(0)
       setSeoPhaseLabel('')
     } finally {
-      window.clearInterval(tick)
+      if (seoTickRef.current !== null) {
+        window.clearInterval(seoTickRef.current)
+        seoTickRef.current = null
+      }
       setSeoRunning(false)
     }
   }
@@ -496,7 +503,15 @@ export default function CuriousPage() {
                 {t('curious.speed.history_title', { ip: historyIp || '—' })}
               </h3>
             </div>
-            {speedHistory.length === 0 ? (
+            {historyLoadError && (
+              <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+                <p>{t('curious.speed.history_load_error')}</p>
+                <button type="button" className="btn-secondary mt-2 text-xs" onClick={() => void loadSpeedHistory()}>
+                  {t('domains.refresh')}
+                </button>
+              </div>
+            )}
+            {speedHistory.length === 0 && !historyLoadError ? (
               <p className="px-4 py-6 text-sm text-gray-500">{t('curious.speed.history_empty')}</p>
             ) : (
               <div className="overflow-x-auto">
@@ -572,8 +587,14 @@ export default function CuriousPage() {
                   className="input w-full font-mono text-sm"
                   value={seoUrl}
                   onChange={(e) => setSeoUrl(e.target.value)}
-                  placeholder="https://ornek.com"
+                  placeholder={t('curious.seo.url_placeholder')}
                   disabled={seoRunning}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !seoRunning) {
+                      e.preventDefault()
+                      void runSeoAnalysis()
+                    }
+                  }}
                 />
               </div>
               <div className="flex items-end">
@@ -632,7 +653,7 @@ export default function CuriousPage() {
                       <dd className="text-gray-800 dark:text-gray-200">{seoReport.meta.description || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-gray-500">H1</dt>
+                      <dt className="text-gray-500">{t('curious.seo.h1_label')}</dt>
                       <dd>{(seoReport.meta.h1 ?? []).join(' · ') || '—'}</dd>
                     </div>
                     <div>

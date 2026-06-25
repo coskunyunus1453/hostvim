@@ -7,6 +7,7 @@ use App\Models\ResellerWhiteLabel;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Support\HtmlSanitizer;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 

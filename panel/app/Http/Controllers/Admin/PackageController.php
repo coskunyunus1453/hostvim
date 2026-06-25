@@ -16,6 +16,20 @@ class PackageController extends Controller
         return response()->json(['packages' => $packages]);
     }
 
+    public function resellerIndex(Request $request): JsonResponse
+    {
+        $uid = (int) $request->user()->id;
+        $packages = HostingPackage::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($uid) {
+                $q->whereNull('reseller_id')->orWhere('reseller_id', $uid);
+            })
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'slug', 'description', 'price_monthly', 'price_yearly', 'currency', 'is_active']);
+
+        return response()->json(['packages' => $packages]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([

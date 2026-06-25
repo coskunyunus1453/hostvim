@@ -22,6 +22,8 @@ class StackController extends Controller
             'bundle_id' => 'required|string|max:120',
         ]);
 
+        $this->assertAllowedBundleId($engine, $validated['bundle_id']);
+
         return $this->queueBundleInstall($request, $engine, $validated['bundle_id']);
     }
 
@@ -34,7 +36,10 @@ class StackController extends Controller
             return response()->json(['message' => 'Yalnızca başarısız veya iptal edilmiş kurulumlar yeniden denenebilir.'], 422);
         }
 
-        return $this->queueBundleInstall($request, $engine, (string) $stackInstallRun->bundle_id, true);
+        $bundleId = (string) $stackInstallRun->bundle_id;
+        $this->assertAllowedBundleId($engine, $bundleId);
+
+        return $this->queueBundleInstall($request, $engine, $bundleId, true);
     }
 
     private function queueBundleInstall(Request $request, EngineApiService $engine, string $bundleId, bool $isRetry = false): JsonResponse
@@ -148,5 +153,18 @@ class StackController extends Controller
                 'message' => 'Kurulum zaman aşımına uğradı (worker kesildi). «Yeniden kur» ile tekrar deneyin.',
                 'finished_at' => now(),
             ]);
+    }
+
+    private function assertAllowedBundleId(EngineApiService $engine, string $bundleId): void
+    {
+        $modules = $engine->getStackModules();
+        $allowed = collect(is_array($modules) ? $modules : [])
+            ->map(fn ($m) => is_array($m) ? (string) ($m['id'] ?? $m['bundle_id'] ?? '') : '')
+            ->filter(fn ($id) => $id !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        abort_unless(in_array($bundleId, $allowed, true), 422, __('stack.bundle_not_allowed'));
     }
 }

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Admin SPA symlinkleri: public/admin/assets -> ../assets, public/admin/index.html -> ../index.html
+# www-data panel onarımı için sudo NOPASSWD (ensure-engine-sudoers.sh).
+set -euo pipefail
+
+PANEL_ROOT="${1:-}"
+if [[ -z "$PANEL_ROOT" ]] || [[ ! -f "$PANEL_ROOT/artisan" ]]; then
+  echo "Kullanım: panelze-fix-admin-spa /path/to/panel" >&2
+  exit 1
+fi
+
+PANEL_ROOT="$(cd "$PANEL_ROOT" && pwd)"
+PUB="$PANEL_ROOT/public"
+ADMIN="$PUB/admin"
+OWNER="${RUN_USER:-www-data}"
+GROUP="${RUN_GROUP:-$OWNER}"
+
+mkdir -p "$ADMIN"
+chown "$OWNER:$GROUP" "$ADMIN"
+chmod ug+rwX "$ADMIN"
+
+ensure_link() {
+  local link="$1"
+  local rel="$2"
+  local target="$PUB/${rel#../}"
+  if [[ ! -e "$target" ]]; then
+    echo "SKIP $link (target missing: $target)" >&2
+    return 0
+  fi
+  if [[ -L "$link" ]]; then
+    local cur
+    cur="$(readlink "$link")"
+    if [[ "$cur" == "$rel" ]]; then
+      echo "OK $link"
+      return 0
+    fi
+    rm -f "$link"
+  elif [[ -e "$link" ]]; then
+    mv "$link" "${link}.bak.$(date +%Y%m%d%H%M%S)"
+  fi
+  ln -sfn "$rel" "$link"
+  chown -h "$OWNER:$GROUP" "$link" 2>/dev/null || true
+  echo "OK $link -> $rel"
+}
+
+ensure_link "$ADMIN/assets" ../assets
+ensure_link "$ADMIN/index.html" ../index.html
+echo "Admin SPA symlinks ready"

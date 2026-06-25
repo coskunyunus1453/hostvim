@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Internal;
 
 use App\Http\Controllers\Controller;
 use App\Services\WebmailSignonService;
+use App\Support\Http\TrustsLoopbackOnly;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,9 +13,11 @@ use Illuminate\Http\Request;
  */
 class WebmailSignonConsumeController extends Controller
 {
+    use TrustsLoopbackOnly;
+
     public function consume(Request $request, WebmailSignonService $signon): JsonResponse
     {
-        if (! $this->isLocalRequest($request)) {
+        if (! $this->isLoopbackRequest($request)) {
             abort(403);
         }
 
@@ -33,12 +36,5 @@ class WebmailSignonConsumeController extends Controller
             'email' => $payload['email'],
             'password' => $payload['password'],
         ]);
-    }
-
-    private function isLocalRequest(Request $request): bool
-    {
-        $ip = (string) $request->ip();
-
-        return in_array($ip, ['127.0.0.1', '::1'], true);
     }
 }

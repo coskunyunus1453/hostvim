@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
@@ -8,6 +8,7 @@ import {
   ExternalLink,
   HardDrive,
   HelpCircle,
+  Loader2,
   Plus,
   RotateCcw,
   Shield,
@@ -20,6 +21,7 @@ import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 
 type BackupRow = {
   id: number
@@ -59,13 +61,22 @@ function formatBytes(mb?: number | null): string {
   return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`
 }
 
+const ACTIVE_BACKUP_STATUSES = new Set(['pending', 'queued', 'running', 'syncing'])
+
+function isActiveBackupStatus(status: string): boolean {
+  return ACTIVE_BACKUP_STATUSES.has(status)
+}
+
 function statusClass(status: string): string {
   switch (status) {
     case 'completed':
       return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
     case 'running':
     case 'pending':
+    case 'queued':
       return 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'
+    case 'syncing':
+      return 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
     case 'failed':
       return 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
     default:
@@ -73,12 +84,40 @@ function statusClass(status: string): string {
   }
 }
 
+type BackupsListResponse = {
+  data: BackupRow[]
+  total?: number
+}
+
+type OperationUi = {
+  type: 'download' | 'restore'
+  title: string
+  subtitle: string
+  phase: 'running' | 'success' | 'error'
+  progress: number
+  detail: string
+  error?: string
+}
+
+function restoreDetailForProgress(progress: number, t: (key: string) => string): string {
+  if (progress < 25) return t('backups.restore_progress_preparing')
+  if (progress < 55) return t('backups.restore_progress_download')
+  return t('backups.restore_progress_extract')
+}
+
+function isProFeatureBlocked(err: unknown): boolean {
+  const ax = err as { response?: { status?: number; data?: { code?: string } } }
+  return ax.response?.status === 403 && ax.response?.data?.code === 'pro_license_required'
+}
+
 export default function BackupsPage() {
   const { t } = useTranslation()
   const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'backups:write')
   const qc = useQueryClient()
   const { domainId: domainFilter, setDomainId: setDomainFilter, domainsQ } = useAutoDomainId({
-    param: false,
+    param: 'domain',
   })
   const { domainId: uploadDomainId, setDomainId: setUploadDomainId } = useAutoDomainId({ param: false })
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -102,13 +141,54 @@ export default function BackupsPage() {
   })
   const [restoreTarget, setRestoreTarget] = useState<BackupRow | null>(null)
   const [showGdriveGuide, setShowGdriveGuide] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all')
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const [retryingId, setRetryingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [runningScheduleId, setRunningScheduleId] = useState<number | null>(null)
+  const [operationUi, setOperationUi] = useState<OperationUi | null>(null)
+
+  useEffect(() => {
+    if (!operationUi || operationUi.phase !== 'running') return
+    const timer = window.setInterval(() => {
+      setOperationUi((prev) => {
+        if (!prev || prev.phase !== 'running') return prev
+        if (prev.progress >= 92) return prev
+        const step = prev.progress < 35 ? 2.5 : prev.progress < 65 ? 1.2 : 0.5
+        const next = Math.min(92, prev.progress + step)
+        const detail =
+          prev.type === 'restore'
+            ? restoreDetailForProgress(next, t)
+            : prev.detail
+        return { ...prev, progress: next, detail }
+      })
+    }, 650)
+    return () => clearInterval(timer)
+  }, [operationUi?.phase, operationUi?.type, t])
+
+  const statusLabel = useCallback(
+    (status: string) => {
+      const key = `backups.status_${status}` as const
+      const translated = t(key)
+      return translated === key ? status : translated
+    },
+    [t],
+  )
 
   const q = useQuery({
-    queryKey: ['backups', domainFilter],
+    queryKey: ['backups', domainFilter, statusFilter],
     queryFn: async () =>
       (await api.get('/backups', {
-        params: domainFilter !== '' ? { domain_id: domainFilter } : undefined,
-      })).data,
+        params: {
+          per_page: 50,
+          ...(domainFilter !== '' ? { domain_id: domainFilter } : {}),
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+        },
+      })).data as BackupsListResponse,
+    refetchInterval: (query) => {
+      const list = (query.state.data as BackupsListResponse | undefined)?.data ?? []
+      return list.some((b) => isActiveBackupStatus(b.status)) ? 4000 : false
+    },
   })
 
   const gdriveQ = useQuery({
@@ -122,7 +202,10 @@ export default function BackupsPage() {
       connected: boolean
       destination?: { id: number; name: string; email?: string }
     },
+    retry: false,
   })
+
+  const gdriveProBlocked = gdriveQ.isError && isProFeatureBlocked(gdriveQ.error)
 
   const destQ = useQuery({
     queryKey: ['backup-destinations'],
@@ -217,25 +300,94 @@ export default function BackupsPage() {
 
   const runScheduleM = useMutation({
     mutationFn: async (id: number) => api.post(`/backups/schedules/${id}/run`),
+    onMutate: (id) => setRunningScheduleId(id),
     onSuccess: () => {
+      setRunningScheduleId(null)
       toast.success(t('backups.schedule_run_started'))
       qc.invalidateQueries({ queryKey: ['backups'] })
     },
     onError: (err: unknown) => {
+      setRunningScheduleId(null)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
   })
 
   const createM = useMutation({
-    mutationFn: async (payload: { domain_id: number; type: string; destination_id?: number }) =>
-      api.post('/backups', payload),
+    mutationFn: async (payload: { domain_id: number; type: string; destination_id?: number }) => {
+      const { data } = await api.post('/backups', payload)
+      return data as { backup?: BackupRow; message?: string }
+    },
+    onMutate: async (payload) => {
+      toast.loading(t('backups.starting'), { id: 'backup-create' })
+      setShowAdd(false)
+      if (domainFilter !== '' && domainFilter !== payload.domain_id) {
+        setDomainFilter(payload.domain_id)
+      }
+      await qc.cancelQueries({ queryKey: ['backups'] })
+      const domain = (domainsQ.data ?? []).find((d) => d.id === payload.domain_id)
+      const destList = (qc.getQueryData(['backup-destinations']) as { destinations?: DestinationRow[] } | undefined)
+        ?.destinations ?? []
+      const dest = payload.destination_id
+        ? destList.find((d) => d.id === payload.destination_id)
+        : undefined
+      const optimistic: BackupRow = {
+        id: -Date.now(),
+        domain_id: payload.domain_id,
+        destination_id: payload.destination_id ?? null,
+        type: payload.type,
+        status: 'queued',
+        created_at: new Date().toISOString(),
+        domain: domain ? { name: domain.name } : undefined,
+        destination: dest ? { id: dest.id, name: dest.name, driver: dest.driver } : undefined,
+      }
+      qc.setQueriesData<BackupsListResponse>({ queryKey: ['backups'] }, (old) => {
+        if (!old?.data) return old
+        return { ...old, data: [optimistic, ...old.data] }
+      })
+      return { optimisticId: optimistic.id }
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message ?? t('backups.queued'), { id: 'backup-create' })
+      if (data?.backup) {
+        qc.setQueriesData<BackupsListResponse>({ queryKey: ['backups'] }, (old) => {
+          if (!old?.data) return old
+          const withoutOptimistic = old.data.filter((b) => b.id > 0)
+          const exists = withoutOptimistic.some((b) => b.id === data.backup!.id)
+          return {
+            ...old,
+            data: exists
+              ? withoutOptimistic.map((b) => (b.id === data.backup!.id ? { ...b, ...data.backup } : b))
+              : [data.backup!, ...withoutOptimistic],
+          }
+        })
+      }
+      qc.invalidateQueries({ queryKey: ['backups'] })
+      qc.invalidateQueries({ queryKey: ['gdrive-files'] })
+    },
+    onError: (err: unknown, _payload, ctx) => {
+      toast.dismiss('backup-create')
+      if (ctx?.optimisticId) {
+        qc.setQueriesData<BackupsListResponse>({ queryKey: ['backups'] }, (old) => {
+          if (!old?.data) return old
+          return { ...old, data: old.data.filter((b) => b.id !== ctx.optimisticId) }
+        })
+      }
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const retryM = useMutation({
+    mutationFn: async (id: number) => api.post(`/backups/${id}/retry`),
+    onMutate: (id) => setRetryingId(id),
     onSuccess: () => {
+      setRetryingId(null)
       toast.success(t('backups.queued'))
       qc.invalidateQueries({ queryKey: ['backups'] })
-      setShowAdd(false)
     },
     onError: (err: unknown) => {
+      setRetryingId(null)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
@@ -243,61 +395,122 @@ export default function BackupsPage() {
 
   const deleteM = useMutation({
     mutationFn: async (id: number) => api.delete(`/backups/${id}`),
+    onMutate: (id) => setDeletingId(id),
     onSuccess: () => {
+      setDeletingId(null)
       toast.success(t('backups.deleted'))
       qc.invalidateQueries({ queryKey: ['backups'] })
     },
+    onError: (err: unknown) => {
+      setDeletingId(null)
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
   })
 
-  const restoreM = useMutation({
-    mutationFn: async (payload: { id: number; source?: 'engine' | 'remote' }) =>
-      api.post(`/backups/${payload.id}/restore`, { source: payload.source ?? 'engine' }),
-    onSuccess: () => {
-      toast.success(t('backups.restore_started'))
+  const finishOperation = useCallback((success: boolean, detail: string, error?: string) => {
+    setOperationUi((prev) =>
+      prev
+        ? {
+            ...prev,
+            phase: success ? 'success' : 'error',
+            progress: success ? 100 : prev.progress,
+            detail,
+            error,
+          }
+        : prev,
+    )
+    window.setTimeout(() => setOperationUi(null), success ? 3500 : 6000)
+  }, [])
+
+  const runRestoreOperation = useCallback(
+    async (subtitle: string, request: () => Promise<unknown>) => {
       setRestoreTarget(null)
+      setOperationUi({
+        type: 'restore',
+        title: t('backups.restore_progress_title'),
+        subtitle,
+        phase: 'running',
+        progress: 4,
+        detail: t('backups.restore_progress_preparing'),
+      })
+      try {
+        await request()
+        finishOperation(true, t('backups.restore_success'))
+      } catch (err: unknown) {
+        const ax = err as { response?: { data?: { message?: string } } }
+        const msg = ax.response?.data?.message ?? String(err)
+        finishOperation(false, t('backups.restore_failed'), msg)
+      }
     },
-    onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
-    },
-  })
+    [finishOperation, t],
+  )
 
-  const restoreRemoteM = useMutation({
-    mutationFn: async (payload: { domain_id: number; destination_id: number; remote_file_id: string }) =>
-      api.post('/backups/restore-remote', payload),
-    onSuccess: () => toast.success(t('backups.restore_started')),
-    onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+  const restoreFromBackup = useCallback(
+    (payload: { id: number; source?: 'engine' | 'remote'; subtitle: string }) => {
+      void runRestoreOperation(payload.subtitle, () =>
+        api.post(`/backups/${payload.id}/restore`, { source: payload.source ?? 'engine' }),
+      )
     },
-  })
+    [runRestoreOperation],
+  )
 
-  const uploadRestoreM = useMutation({
-    mutationFn: async (payload: { domain_id: number; file: File }) => {
+  const restoreFromRemote = useCallback(
+    (payload: { domain_id: number; destination_id: number; remote_file_id: string; subtitle: string }) => {
+      void runRestoreOperation(payload.subtitle, () =>
+        api.post('/backups/restore-remote', {
+          domain_id: payload.domain_id,
+          destination_id: payload.destination_id,
+          remote_file_id: payload.remote_file_id,
+        }),
+      )
+    },
+    [runRestoreOperation],
+  )
+
+  const restoreUploadBusy = useRef(false)
+
+  const restoreFromUpload = useCallback(
+    async (payload: { domain_id: number; file: File; subtitle: string }) => {
+      if (restoreUploadBusy.current) return
+      restoreUploadBusy.current = true
+      setOperationUi({
+        type: 'restore',
+        title: t('backups.restore_progress_title'),
+        subtitle: payload.subtitle,
+        phase: 'running',
+        progress: 2,
+        detail: t('backups.restore_progress_upload'),
+      })
       const fd = new FormData()
       fd.append('domain_id', String(payload.domain_id))
       fd.append('archive', payload.file)
-      return api.post('/backups/restore-upload', fd)
+      try {
+        await api.post('/backups/restore-upload', fd, {
+          onUploadProgress: (ev) => {
+            if (!ev.total) return
+            const uploadPct = Math.round((ev.loaded / ev.total) * 45)
+            setOperationUi((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    progress: Math.max(prev.progress, uploadPct),
+                    detail: t('backups.restore_progress_upload'),
+                  }
+                : prev,
+            )
+          },
+        })
+        finishOperation(true, t('backups.restore_success'))
+      } catch (err: unknown) {
+        const ax = err as { response?: { data?: { message?: string } } }
+        finishOperation(false, t('backups.restore_failed'), ax.response?.data?.message ?? String(err))
+      } finally {
+        restoreUploadBusy.current = false
+      }
     },
-    onSuccess: () => toast.success(t('backups.restore_started')),
-    onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
-    },
-  })
-
-  const syncM = useMutation({
-    mutationFn: async (id: number) => api.post(`/backups/${id}/sync`),
-    onSuccess: () => {
-      toast.success(t('backups.synced'))
-      qc.invalidateQueries({ queryKey: ['backups'] })
-      qc.invalidateQueries({ queryKey: ['gdrive-files'] })
-    },
-    onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
-    },
-  })
+    [finishOperation, t],
+  )
 
   const connectGdriveM = useMutation({
     mutationFn: async () => {
@@ -324,18 +537,60 @@ export default function BackupsPage() {
     },
   })
 
-  const downloadBackup = async (id: number, filename: string) => {
+  const downloadBackup = async (id: number, filename: string, sizeMb?: number | null) => {
+    const safeName = filename.endsWith('.tar.gz') ? filename : `${filename}.tar.gz`
+    setDownloadingId(id)
+    setOperationUi({
+      type: 'download',
+      title: t('backups.download_progress_title'),
+      subtitle: safeName,
+      phase: 'running',
+      progress: 2,
+      detail: t('backups.download_preparing'),
+    })
     try {
-      const res = await api.get(`/backups/${id}/download`, { responseType: 'blob' })
+      const res = await api.get(`/backups/${id}/download`, {
+        responseType: 'blob',
+        timeout: 0,
+        onDownloadProgress: (ev) => {
+          if (ev.total && ev.total > 0) {
+            const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100))
+            setOperationUi((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    progress: pct,
+                    detail: t('backups.download_progress_percent', { pct }),
+                  }
+                : prev,
+            )
+          } else if (ev.loaded > 0) {
+            const mb = (ev.loaded / 1048576).toFixed(1)
+            const guess = sizeMb && sizeMb > 0 ? Math.min(95, Math.round((ev.loaded / (sizeMb * 1048576)) * 100)) : undefined
+            setOperationUi((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    progress: guess ?? Math.min(90, prev.progress + 0.5),
+                    detail: t('backups.download_progress_bytes', { mb }),
+                  }
+                : prev,
+            )
+          }
+        },
+      })
       const url = window.URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = filename.endsWith('.tar.gz') ? filename : `${filename}.tar.gz`
+      a.download = safeName
       a.click()
       window.URL.revokeObjectURL(url)
+      finishOperation(true, t('backups.download_success'))
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? t('backups.download_failed'))
+      finishOperation(false, t('backups.download_failed'), ax.response?.data?.message ?? String(err))
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -343,11 +598,107 @@ export default function BackupsPage() {
   const destinations = destQ.data?.destinations ?? []
   const schedules = (scheduleQ.data?.schedules ?? []) as Array<Record<string, unknown>>
   const gdriveFiles = gdriveFilesQ.data?.files ?? []
+  const activeRows = useMemo(() => rows.filter((b) => isActiveBackupStatus(b.status)), [rows])
+  const hasActiveBackups = activeRows.length > 0
 
   const defaultDest = useMemo(
     () => destinations.find((d) => d.is_default) ?? destinations.find((d) => d.driver === 'google_drive'),
     [destinations],
   )
+
+  const renderBackupRow = (b: BackupRow) => {
+    const active = isActiveBackupStatus(b.status)
+    return (
+      <div
+        key={b.id}
+        className={clsx(
+          'p-4 flex flex-wrap items-center justify-between gap-3 hover:bg-gray-50/80 dark:hover:bg-gray-800/30',
+          active && 'bg-amber-50/40 dark:bg-amber-950/20',
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {active && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600 shrink-0" />}
+            <span className="font-medium text-gray-900 dark:text-white">{b.domain?.name ?? b.domain_id}</span>
+            <span className={clsx('rounded-full px-2 py-0.5 text-xs font-medium', statusClass(b.status))}>
+              {statusLabel(b.status)}
+            </span>
+            <span className="text-xs font-mono text-gray-500 uppercase">{b.type}</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {new Date(b.created_at).toLocaleString()}
+            {b.size_mb != null ? ` · ${formatBytes(b.size_mb)}` : ''}
+            {b.destination ? ` · ${b.destination.name}` : ''}
+            {b.remote_file_id ? ` · Drive ✓` : b.remote_path ? ` · ☁` : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          {canWrite && b.status === 'failed' && (
+            <button
+              type="button"
+              className="btn-secondary text-xs py-1.5 px-2 inline-flex items-center gap-1"
+              disabled={retryingId === b.id}
+              onClick={() => retryM.mutate(b.id)}
+            >
+              {retryingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              {t('backups.retry')}
+            </button>
+          )}
+          {canWrite && (b.status === 'running' || b.status === 'pending') && !b.engine_backup_id && (
+            <button
+              type="button"
+              className="btn-secondary text-xs py-1.5 px-2 inline-flex items-center gap-1"
+              disabled={retryingId === b.id}
+              onClick={() => retryM.mutate(b.id)}
+            >
+              {retryingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              {t('backups.retry')}
+            </button>
+          )}
+          <button
+            type="button"
+            className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 disabled:opacity-40"
+            title={t('backups.download')}
+            disabled={active || downloadingId === b.id || operationUi?.phase === 'running'}
+            onClick={() => downloadBackup(b.id, `${b.domain?.name ?? 'backup'}_${b.id}.tar.gz`, b.size_mb)}
+          >
+            {downloadingId === b.id ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+          </button>
+          {canWrite && (
+            <button
+              type="button"
+              className="p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600 disabled:opacity-40"
+              title={t('backups.restore')}
+              disabled={(!b.engine_backup_id?.trim() && !b.remote_file_id) || active || operationUi?.phase === 'running'}
+              onClick={() => setRestoreTarget(b)}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
+          {canWrite && (
+            <button
+              type="button"
+              className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 disabled:opacity-40"
+              disabled={(active && b.id > 0) || deletingId === b.id}
+              onClick={() => {
+                if (window.confirm(t('common.confirm_delete'))) deleteM.mutate(b.id)
+              }}
+            >
+              {deletingId === b.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -359,11 +710,17 @@ export default function BackupsPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('backups.subtitle')}</p>
           </div>
         </div>
-        <button type="button" className="btn-primary flex items-center gap-2" onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4" />
-          {t('backups.new_backup')}
-        </button>
+        {canWrite && (
+          <button type="button" className="btn-primary flex items-center gap-2" onClick={() => setShowAdd(true)}>
+            <Plus className="h-4 w-4" />
+            {t('backups.new_backup')}
+          </button>
+        )}
       </div>
+
+      {!canWrite && (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t('backups.read_only_hint')}</p>
+      )}
 
       {/* Domain filter + quick actions */}
       <div className="card p-4 flex flex-wrap gap-3 items-end">
@@ -380,56 +737,88 @@ export default function BackupsPage() {
             ))}
           </select>
         </div>
+        <div className="min-w-[180px]">
+          <label className="label">{t('backups.filter_status')}</label>
+          <select
+            className="input w-full"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+          >
+            <option value="all">{t('backups.filter_status_all')}</option>
+            <option value="active">{t('backups.filter_status_active')}</option>
+            <option value="completed">{t('backups.filter_status_completed')}</option>
+            <option value="failed">{t('backups.filter_status_failed')}</option>
+          </select>
+        </div>
         <button type="button" className="btn-secondary" onClick={() => setShowDest(true)}>
           <Server className="h-4 w-4 inline mr-1" />
           {t('backups.destinations')}
         </button>
-        <button type="button" className="btn-secondary" onClick={() => openScheduleEditor()}>
-          <Play className="h-4 w-4 inline mr-1" />
-          {t('backups.schedules')}
-        </button>
+        {canWrite && (
+          <button type="button" className="btn-secondary" onClick={() => openScheduleEditor()}>
+            <Play className="h-4 w-4 inline mr-1" />
+            {t('backups.schedules')}
+          </button>
+        )}
       </div>
 
       {/* Google Drive card */}
+      {!gdriveProBlocked && (
       <div className="card p-5 border-l-4 border-l-blue-500">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <Cloud className="h-7 w-7 text-blue-500 shrink-0 mt-0.5" />
             <div>
               <h2 className="font-semibold text-gray-900 dark:text-white">{t('backups.google_drive_title')}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('backups.google_drive_hint')}</p>
-              {gdriveQ.data?.connected && gdriveQ.data.destination && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
-                  {t('backups.google_connected_as', { email: gdriveQ.data.destination.email ?? gdriveQ.data.destination.name })}
+              {isAdmin ? (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('backups.google_drive_hint')}</p>
+                  {gdriveQ.data?.connected && gdriveQ.data.destination && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                      {t('backups.google_connected_as', {
+                        email: gdriveQ.data.destination.email ?? gdriveQ.data.destination.name,
+                      })}
+                    </p>
+                  )}
+                  {!gdriveQ.data?.configured && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                      {gdriveQ.data?.hub_expected
+                        ? t('backups.google_not_configured_hub')
+                        : t('backups.google_not_configured_admin')}
+                    </p>
+                  )}
+                  {gdriveQ.data?.configured && gdriveQ.data.credential_source === 'hub' && (
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-2">{t('backups.google_configured_hub')}</p>
+                  )}
+                  {gdriveQ.data?.configured && !gdriveQ.data?.connected && (
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">{t('backups.google_connect_hint')}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {gdriveQ.data?.connected && gdriveQ.data.destination
+                    ? t('backups.google_connected_account', {
+                        account: gdriveQ.data.destination.email ?? gdriveQ.data.destination.name,
+                      })
+                    : !gdriveQ.data?.configured
+                      ? t('backups.google_not_configured_customer')
+                      : t('backups.google_drive_hint_customer')}
                 </p>
-              )}
-              {!gdriveQ.data?.configured && (
-                <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                  {gdriveQ.data?.hub_expected
-                    ? t('backups.google_not_configured_hub')
-                    : isAdmin
-                      ? t('backups.google_not_configured_admin')
-                      : t('backups.google_not_configured_customer')}
-                </p>
-              )}
-              {gdriveQ.data?.configured && gdriveQ.data.credential_source === 'hub' && (
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-2">{t('backups.google_configured_hub')}</p>
-              )}
-              {gdriveQ.data?.configured && !gdriveQ.data?.connected && (
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">{t('backups.google_connect_hint')}</p>
               )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="btn-secondary text-sm inline-flex items-center gap-1.5"
-              onClick={() => setShowGdriveGuide(true)}
-            >
-              <HelpCircle className="h-4 w-4" />
-              {gdriveQ.data?.configured ? t('backups.google_connect_guide_btn') : t('backups.google_setup_guide_btn')}
-            </button>
-            {gdriveQ.data?.connected ? (
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn-secondary text-sm inline-flex items-center gap-1.5"
+                onClick={() => setShowGdriveGuide(true)}
+              >
+                <HelpCircle className="h-4 w-4" />
+                {gdriveQ.data?.configured ? t('backups.google_connect_guide_btn') : t('backups.google_setup_guide_btn')}
+              </button>
+            )}
+            {canWrite && (gdriveQ.data?.connected ? (
               <button type="button" className="btn-secondary text-sm" onClick={() => disconnectGdriveM.mutate()} disabled={disconnectGdriveM.isPending}>
                 {t('backups.google_disconnect')}
               </button>
@@ -442,17 +831,14 @@ export default function BackupsPage() {
               >
                 {t('backups.google_connect')}
               </button>
-            )}
+            ))}
           </div>
         </div>
 
-        {gdriveQ.data?.connected && (
+        {gdriveQ.data?.connected && gdriveFiles.length > 0 && (
           <div className="mt-4">
             <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">{t('backups.google_files')}</h3>
             {gdriveFilesQ.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
-            {!gdriveFilesQ.isLoading && gdriveFiles.length === 0 && (
-              <p className="text-sm text-gray-500">{t('backups.google_files_empty')}</p>
-            )}
             <div className="space-y-2">
               {gdriveFiles.map((f) => (
                 <div key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
@@ -466,7 +852,7 @@ export default function BackupsPage() {
                   <button
                     type="button"
                     className="btn-secondary text-xs py-1.5"
-                    disabled={restoreRemoteM.isPending || domainFilter === ''}
+                    disabled={operationUi?.phase === 'running' || domainFilter === '' || !canWrite}
                     title={domainFilter === '' ? t('backups.select_domain_restore') : undefined}
                     onClick={() => {
                       if (domainFilter === '') {
@@ -474,10 +860,12 @@ export default function BackupsPage() {
                         return
                       }
                       if (!window.confirm(t('backups.restore_confirm', { name: f.name }))) return
-                      restoreRemoteM.mutate({
+                      const domainName = (domainsQ.data ?? []).find((d) => d.id === domainFilter)?.name ?? String(domainFilter)
+                      restoreFromRemote({
                         domain_id: domainFilter as number,
                         destination_id: gdriveQ.data!.destination!.id,
                         remote_file_id: f.id,
+                        subtitle: `${domainName} · ${f.name}`,
                       })
                     }}
                   >
@@ -490,8 +878,16 @@ export default function BackupsPage() {
           </div>
         )}
       </div>
+      )}
+
+      {gdriveProBlocked && (
+        <div className="card p-4 text-sm text-gray-600 dark:text-gray-400 border-l-4 border-l-gray-300">
+          <p>{t('backups.pro_feature_required')}</p>
+        </div>
+      )}
 
       {/* Upload restore */}
+      {canWrite && (
       <div className="card p-5">
         <div className="flex items-start gap-3 mb-4">
           <Upload className="h-6 w-6 text-violet-500" />
@@ -526,14 +922,15 @@ export default function BackupsPage() {
                 e.target.value = ''
                 return
               }
-              uploadRestoreM.mutate({ domain_id: uploadDomainId as number, file })
+              const domainName = (domainsQ.data ?? []).find((d) => d.id === uploadDomainId)?.name ?? String(uploadDomainId)
+              void restoreFromUpload({ domain_id: uploadDomainId as number, file, subtitle: `${domainName} · ${file.name}` })
               e.target.value = ''
             }}
           />
           <button
             type="button"
             className="btn-primary"
-            disabled={uploadDomainId === '' || uploadRestoreM.isPending}
+            disabled={uploadDomainId === '' || operationUi?.phase === 'running'}
             onClick={() => uploadRef.current?.click()}
           >
             <HardDrive className="h-4 w-4 inline mr-1" />
@@ -541,72 +938,58 @@ export default function BackupsPage() {
           </button>
         </div>
       </div>
+      )}
+
+      {hasActiveBackups && statusFilter !== 'active' && (
+        <div className="card overflow-hidden border-l-4 border-l-amber-400">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-amber-50/50 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+              <h2 className="font-semibold text-gray-900 dark:text-white">{t('backups.active_title')}</h2>
+              <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                {activeRows.length}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{t('backups.active_hint')}</p>
+          </div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {activeRows.map((b) => renderBackupRow(b))}
+          </div>
+        </div>
+      )}
 
       {/* Backup list */}
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold text-gray-900 dark:text-white">{t('backups.list_title')}</h2>
+          {q.data?.total != null && (
+            <span className="text-xs text-gray-500">{t('backups.total_count', { count: q.data.total })}</span>
+          )}
         </div>
-        {q.isLoading && <p className="p-6 text-center text-gray-500">{t('common.loading')}</p>}
-        {!q.isLoading && rows.length === 0 && (
-          <p className="p-6 text-center text-gray-500">{t('backups.empty')}</p>
+        {domainFilter !== '' && (
+          <p className="px-4 py-2 text-xs text-amber-700 bg-amber-50/60 dark:bg-amber-950/20 dark:text-amber-300 border-b border-amber-100 dark:border-amber-900/40">
+            {t('backups.domain_filter_hint')}
+          </p>
         )}
+        {q.isError ? (
+          <div className="px-4 py-8 text-center">
+            <p className="text-sm text-red-700 dark:text-red-300">{t('backups.load_error')}</p>
+            <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void q.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : q.isLoading ? (
+          <p className="p-6 text-center text-gray-500">{t('common.loading')}</p>
+        ) : rows.length === 0 ? (
+          <p className="p-6 text-center text-gray-500">{t('backups.empty')}</p>
+        ) : null}
+        {!q.isLoading && !q.isError && (
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {rows.map((b) => (
-            <div key={b.id} className="p-4 flex flex-wrap items-center justify-between gap-3 hover:bg-gray-50/80 dark:hover:bg-gray-800/30">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-gray-900 dark:text-white">{b.domain?.name ?? b.domain_id}</span>
-                  <span className={clsx('rounded-full px-2 py-0.5 text-xs font-medium', statusClass(b.status))}>{b.status}</span>
-                  <span className="text-xs font-mono text-gray-500 uppercase">{b.type}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {new Date(b.created_at).toLocaleString()}
-                  {b.size_mb != null ? ` · ${formatBytes(b.size_mb)}` : ''}
-                  {b.destination ? ` · ${b.destination.name}` : ''}
-                  {b.remote_file_id ? ` · Drive ✓` : b.remote_path ? ` · ☁` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600"
-                  title={t('backups.download')}
-                  onClick={() => downloadBackup(b.id, `${b.domain?.name ?? 'backup'}_${b.id}.tar.gz`)}
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600"
-                  title={t('backups.sync_cloud')}
-                  disabled={syncM.isPending}
-                  onClick={() => syncM.mutate(b.id)}
-                >
-                  <Cloud className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600"
-                  title={t('backups.restore')}
-                  disabled={!b.engine_backup_id?.trim() && !b.remote_file_id}
-                  onClick={() => setRestoreTarget(b)}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"
-                  onClick={() => {
-                    if (window.confirm(t('common.confirm_delete'))) deleteM.mutate(b.id)
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+          {rows
+            .filter((b) => !hasActiveBackups || statusFilter === 'active' || !isActiveBackupStatus(b.status))
+            .map((b) => renderBackupRow(b))}
         </div>
+        )}
       </div>
 
       {/* Google Drive setup / connect guide */}
@@ -706,8 +1089,71 @@ export default function BackupsPage() {
         </div>
       )}
 
+      {/* Download / restore progress */}
+      {operationUi && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4">
+          <div
+            className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-start gap-3">
+              {operationUi.phase === 'running' && (
+                <Loader2 className="h-6 w-6 shrink-0 animate-spin text-blue-500 mt-0.5" />
+              )}
+              {operationUi.phase === 'success' && (
+                <div className="h-6 w-6 shrink-0 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-bold">
+                  ✓
+                </div>
+              )}
+              {operationUi.phase === 'error' && (
+                <div className="h-6 w-6 shrink-0 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">
+                  !
+                </div>
+              )}
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{operationUi.title}</h2>
+                <p className="text-sm text-gray-500 truncate">{operationUi.subtitle}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>{operationUi.detail}</span>
+                <span>{Math.round(operationUi.progress)}%</span>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div
+                  className={clsx(
+                    'h-full rounded-full transition-[width] duration-300 ease-out',
+                    operationUi.phase === 'error'
+                      ? 'bg-rose-500'
+                      : operationUi.phase === 'success'
+                        ? 'bg-emerald-500'
+                        : 'bg-blue-500',
+                  )}
+                  style={{ width: `${Math.max(operationUi.phase === 'success' ? 100 : 4, operationUi.progress)}%` }}
+                />
+              </div>
+              {operationUi.phase === 'running' && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {operationUi.type === 'download' ? t('backups.download_wait_hint') : t('backups.restore_wait_hint')}
+                </p>
+              )}
+              {operationUi.phase === 'error' && operationUi.error && (
+                <p className="text-sm text-rose-600 dark:text-rose-400">{operationUi.error}</p>
+              )}
+            </div>
+            {operationUi.phase !== 'running' && (
+              <button type="button" className="btn-secondary w-full" onClick={() => setOperationUi(null)}>
+                {t('common.close')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Restore modal */}
-      {restoreTarget && (
+      {restoreTarget && !operationUi && canWrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900">
             <h2 className="text-lg font-semibold">{t('backups.restore_title')}</h2>
@@ -717,10 +1163,13 @@ export default function BackupsPage() {
                 <button
                   type="button"
                   className="btn-primary w-full"
-                  disabled={restoreM.isPending}
                   onClick={() => {
                     if (!window.confirm(t('backups.restore_confirm', { name: restoreTarget.domain?.name ?? '' }))) return
-                    restoreM.mutate({ id: restoreTarget.id, source: 'engine' })
+                    restoreFromBackup({
+                      id: restoreTarget.id,
+                      source: 'engine',
+                      subtitle: `${restoreTarget.domain?.name ?? ''} · ${restoreTarget.type}`,
+                    })
                   }}
                 >
                   {t('backups.restore_from_server')}
@@ -730,15 +1179,14 @@ export default function BackupsPage() {
                 <button
                   type="button"
                   className="btn-secondary w-full"
-                  disabled={restoreRemoteM.isPending}
                   onClick={() => {
                     if (!window.confirm(t('backups.restore_confirm', { name: 'Google Drive' }))) return
-                    restoreRemoteM.mutate({
+                    restoreFromRemote({
                       domain_id: restoreTarget.domain_id,
                       destination_id: restoreTarget.destination_id!,
                       remote_file_id: restoreTarget.remote_file_id!,
+                      subtitle: `${restoreTarget.domain?.name ?? ''} · Google Drive`,
                     })
-                    setRestoreTarget(null)
                   }}
                 >
                   {t('backups.restore_from_drive')}
@@ -753,7 +1201,7 @@ export default function BackupsPage() {
       )}
 
       {/* Create backup modal */}
-      {showAdd && (
+      {showAdd && canWrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900">
             <h2 className="text-lg font-semibold">{t('backups.new_backup')}</h2>
@@ -797,7 +1245,10 @@ export default function BackupsPage() {
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn-primary" disabled={createM.isPending}>{t('backups.create_btn')}</button>
+                <button type="submit" className="btn-primary inline-flex items-center gap-2" disabled={createM.isPending}>
+                  {createM.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {createM.isPending ? t('backups.starting') : t('backups.create_btn')}
+                </button>
               </div>
             </form>
           </div>
@@ -833,7 +1284,7 @@ export default function BackupsPage() {
         </div>
       )}
 
-      {showSchedule && (
+      {showSchedule && canWrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card max-w-2xl w-full p-6 bg-white dark:bg-gray-900 max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-start justify-between gap-3">
@@ -879,10 +1330,13 @@ export default function BackupsPage() {
                       </span>
                       <button
                         type="button"
-                        className="btn-secondary text-xs py-1"
-                        disabled={runScheduleM.isPending}
+                        className="btn-secondary text-xs py-1 inline-flex items-center gap-1"
+                        disabled={runningScheduleId === Number(s.id)}
                         onClick={() => runScheduleM.mutate(Number(s.id))}
                       >
+                        {runningScheduleId === Number(s.id) && (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        )}
                         {t('backups.schedule_run_now')}
                       </button>
                       <button type="button" className="btn-secondary text-xs py-1" onClick={() => openScheduleEditor(s)}>

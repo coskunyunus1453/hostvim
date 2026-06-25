@@ -1,7 +1,6 @@
 package nodeapp
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"panelze/engine/internal/config"
-	"panelze/engine/internal/hosting"
 	"panelze/engine/internal/sites"
 )
 
@@ -20,6 +18,19 @@ type HealResult struct {
 	Steps   []string `json:"steps"`
 	Healthy bool     `json:"healthy"`
 	Message string   `json:"message,omitempty"`
+}
+
+func isPortListening(port int) bool {
+	if port <= 0 {
+		return false
+	}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 func waitForListen(port int, timeout time.Duration) error {
@@ -44,36 +55,7 @@ func needsInstall(workAbs string) bool {
 	return err != nil || !st.IsDir()
 }
 
-func needsBuild(workAbs, profile string) bool {
-	pkgPath := filepath.Join(workAbs, "package.json")
-	b, err := os.ReadFile(pkgPath)
-	if err != nil {
-		return false
-	}
-	var pkg pkgJSON
-	if jsonErr := json.Unmarshal(b, &pkg); jsonErr != nil {
-		return false
-	}
-	if _, ok := pkg.Scripts["build"]; !ok {
-		return false
-	}
-	profile = strings.ToLower(strings.TrimSpace(profile))
-	switch profile {
-	case "nextjs":
-		return !pathIsDir(filepath.Join(workAbs, ".next"))
-	default:
-		return !pathIsDir(filepath.Join(workAbs, "dist")) &&
-			!pathIsDir(filepath.Join(workAbs, "build")) &&
-			!pathIsDir(filepath.Join(workAbs, ".output"))
-	}
-}
-
-func pathIsDir(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && st.IsDir()
-}
-
-func ensureProductionStartScript(cfg *config.Config, domain string, meta *sites.SiteMeta, workAbs string) (bool, error) {
+func ensureProductionStartScript(cfg *config.Config, sc SiteScope, meta *sites.SiteMeta, workAbs string) (bool, error) {
 	if meta == nil || meta.NodeApp == nil {
 		return false, nil
 	}
@@ -84,7 +66,7 @@ func ensureProductionStartScript(cfg *config.Config, domain string, meta *sites.
 	for _, pref := range []string{"start", "start:prod", "prod", "serve"} {
 		if err := validateScriptExists(workAbs, pref); err == nil {
 			meta.NodeApp.StartScript = pref
-			if err := sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, meta); err != nil {
+			if err := sc.writeMeta(cfg.Paths.WebRoot, meta); err != nil {
 				return true, err
 			}
 			return true, nil
@@ -93,17 +75,13 @@ func ensureProductionStartScript(cfg *config.Config, domain string, meta *sites.
 	return false, nil
 }
 
-func reapplyWebServer(cfg *config.Config, domain string, meta *sites.SiteMeta) error {
-	sock := ""
-	return hosting.ApplyWebServer(cfg, domain, meta.DocumentRoot, meta, sock)
-}
-
 // Heal nginx proxy, bağımlılıklar, build ve PM2 sürecini otomatik düzeltir.
-func Heal(cfg *config.Config, domain string) (*HealResult, error) {
+func Heal(cfg *config.Config, domain, pathSegment string) (*HealResult, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return nil, fmt.Errorf("manage_node_apps devre dışı")
 	}
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -114,25 +92,32 @@ func Heal(cfg *config.Config, domain string) (*HealResult, error) {
 	res := &HealResult{Steps: []string{}}
 	add := func(s string) { res.Steps = append(res.Steps, s) }
 
-	workAbs, _, werr := resolveWorkAbs(cfg.Paths.WebRoot, domain, meta.NodeApp.WorkDir)
+	workAbs, _, werr := sc.resolveWorkAbs(cfg.Paths.WebRoot, meta.NodeApp.WorkDir)
 	if werr != nil {
 		return nil, werr
 	}
 
-	if changed, err := ensureProductionStartScript(cfg, domain, meta, workAbs); err != nil {
+	if changed, err := ensureProductionStartScript(cfg, sc, meta, workAbs); err != nil {
 		return nil, err
 	} else if changed {
 		add("start_script: dev → production")
-		meta, _ = sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+		meta, _ = sc.readMeta(cfg.Paths.WebRoot)
 	}
 
-	if err := reapplyWebServer(cfg, domain, meta); err != nil {
+	port := AllocateListenPort(cfg, sc, meta.NodeApp.Profile, 0, sc.siteBase(cfg.Paths.WebRoot), meta.NodeApp.WorkDir)
+	if meta.NodeApp.ListenPort != port {
+		meta.NodeApp.ListenPort = port
+		_ = sc.writeMeta(cfg.Paths.WebRoot, meta)
+		add("listen_port: " + strconv.Itoa(port))
+	}
+
+	if err := sc.applyWebServer(cfg, meta); err != nil {
 		return nil, fmt.Errorf("nginx vhost: %w", err)
 	}
 	add("nginx vhost yenilendi (Node reverse proxy + OAuth başlıkları)")
 
 	if needsInstall(workAbs) {
-		if _, err := NpmInstall(cfg, domain, false); err != nil {
+		if _, err := NpmInstall(cfg, domain, pathSegment, false); err != nil {
 			return res, fmt.Errorf("npm install: %w", err)
 		}
 		add("npm install")
@@ -143,28 +128,20 @@ func Heal(cfg *config.Config, domain string) (*HealResult, error) {
 		profile = meta.AppProfile
 	}
 	if needsBuild(workAbs, profile) {
-		if _, err := NpmBuild(cfg, domain); err != nil {
+		if _, err := NpmBuild(cfg, domain, pathSegment); err != nil {
 			return res, fmt.Errorf("npm build: %w", err)
 		}
 		add("npm run build")
 	}
 
-	port := meta.NodeApp.ListenPort
-	if port <= 0 {
-		port = DefaultPortForProfile(meta.NodeApp.Profile)
-	}
-
-	st, _ := StatusOf(cfg, domain, meta)
-	if !st.Running {
-		if _, err := Start(cfg, domain); err != nil {
+	st, _ := StatusOf(cfg, sc, meta)
+	if isPortListening(port) || (st.Running && waitForListen(port, 45*time.Second) == nil) {
+		add("pm2 zaten dinliyor: " + strconv.Itoa(port))
+	} else {
+		if _, err := startWithPrep(cfg, domain, pathSegment); err != nil {
 			return res, fmt.Errorf("start: %w", err)
 		}
 		add("pm2 start")
-	} else {
-		if _, err := Restart(cfg, domain); err != nil {
-			return res, fmt.Errorf("restart: %w", err)
-		}
-		add("pm2 restart (OAuth ortam değişkenleri)")
 	}
 
 	if err := waitForListen(port, 90*time.Second); err != nil {
@@ -178,14 +155,34 @@ func Heal(cfg *config.Config, domain string) (*HealResult, error) {
 }
 
 // ensureListening Start/Restart sonrası port hazır olana kadar bekler.
-func ensureListening(cfg *config.Config, domain string) error {
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+func ensureListening(cfg *config.Config, sc SiteScope) error {
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil || meta.NodeApp == nil {
 		return fmt.Errorf("site meta")
 	}
 	port := meta.NodeApp.ListenPort
 	if port <= 0 {
-		port = DefaultPortForProfile(meta.NodeApp.Profile)
+		if p, _, serr := syncNodeListenPort(cfg, sc, meta); serr == nil {
+			port = p
+		}
 	}
-	return waitForListen(port, 90*time.Second)
+	if port <= 0 {
+		port = AllocateListenPort(cfg, sc, meta.NodeApp.Profile, 0, sc.siteBase(cfg.Paths.WebRoot), meta.NodeApp.WorkDir)
+	}
+	if err := waitForListen(port, 90*time.Second); err == nil {
+		return nil
+	}
+	// Uygulama package.json'daki -p ile farklı portta dinliyorsa meta/nginx'i düzelt.
+	inferred := inferPortFromWorkDir(sc.siteBase(cfg.Paths.WebRoot), meta.NodeApp.WorkDir, meta.NodeApp.Profile)
+	if inferred > 0 && inferred != port && isPortListening(inferred) {
+		meta.NodeApp.ListenPort = inferred
+		if werr := sc.writeMeta(cfg.Paths.WebRoot, meta); werr != nil {
+			return err
+		}
+		if fresh, rerr := sc.readMeta(cfg.Paths.WebRoot); rerr == nil && fresh != nil {
+			_ = sc.applyWebServer(cfg, fresh)
+		}
+		return nil
+	}
+	return err
 }

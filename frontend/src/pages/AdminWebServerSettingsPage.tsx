@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
-import { ServerCog, Save, AlertTriangle, RefreshCw } from 'lucide-react'
+import { ServerCog, Save, AlertTriangle, RefreshCw, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tokenHasAbility } from '../lib/abilities'
 
@@ -24,6 +24,14 @@ type WebServerSettings = {
   php_fpm_pool_dir_template: string
   php_fpm_pool_user: string
   php_fpm_pool_group: string
+  site_cage_enabled?: boolean
+  site_cage_group?: string
+  site_cage_user_prefix?: string
+  site_cage_default_cpu_percent?: number
+  site_cage_default_memory_mb?: number
+  site_cage_default_pm_max_children?: number
+  site_cage_default_memory_limit?: string
+  panelkafes_effective_pools?: boolean
 }
 
 type ApacheModuleRow = {
@@ -88,6 +96,11 @@ export default function AdminWebServerSettingsPage() {
         php_fpm_pool_dir_template: form.php_fpm_pool_dir_template,
         php_fpm_pool_user: form.php_fpm_pool_user,
         php_fpm_pool_group: form.php_fpm_pool_group,
+        site_cage_enabled: form.site_cage_enabled ?? false,
+        site_cage_default_cpu_percent: form.site_cage_default_cpu_percent,
+        site_cage_default_memory_mb: form.site_cage_default_memory_mb,
+        site_cage_default_pm_max_children: form.site_cage_default_pm_max_children,
+        site_cage_default_memory_limit: form.site_cage_default_memory_limit,
         reload: true,
       }
       return api.put('/admin/settings/webserver', payload)
@@ -152,6 +165,18 @@ export default function AdminWebServerSettingsPage() {
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const applyPanelKafesAllM = useMutation({
+    mutationFn: async () => api.post('/admin/settings/webserver/panelkafes/apply-all'),
+    onSuccess: () => {
+      toast.success(t('webserver.panelkafes_apply_all_done'))
+      void settingsQ.refetch()
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string; error?: string } } }
+      toast.error(ax.response?.data?.message ?? ax.response?.data?.error ?? String(err))
     },
   })
 
@@ -418,6 +443,123 @@ export default function AdminWebServerSettingsPage() {
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {t('webserver.save_hint')}
           </p>
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-primary-200/60 dark:border-primary-900/40 bg-primary-50/40 dark:bg-primary-950/20 p-4">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+              {t('webserver.panelkafes_title')}
+            </h2>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400">{t('webserver.panelkafes_hint')}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300"
+                checked={form?.site_cage_enabled ?? false}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  setForm((s) =>
+                    s
+                      ? {
+                          ...s,
+                          site_cage_enabled: enabled,
+                          php_fpm_manage_pools: enabled ? true : s.php_fpm_manage_pools,
+                          php_fpm_reload_after_pool: enabled ? true : s.php_fpm_reload_after_pool,
+                        }
+                      : s,
+                  )
+                }}
+              />
+              {t('webserver.panelkafes_enabled')}
+            </label>
+            {form?.panelkafes_effective_pools && (
+              <span className="text-xs text-emerald-700 dark:text-emerald-400 self-center">
+                {t('webserver.panelkafes_pools_active')}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+            <div>
+              <label className="label">{t('webserver.panelkafes_cpu_percent')}</label>
+              <input
+                type="number"
+                min={10}
+                max={400}
+                className="input w-full"
+                disabled={!form?.site_cage_enabled}
+                value={form?.site_cage_default_cpu_percent ?? 100}
+                onChange={(e) =>
+                  setForm((s) => (s ? { ...s, site_cage_default_cpu_percent: Number(e.target.value) } : s))
+                }
+              />
+            </div>
+            <div>
+              <label className="label">{t('webserver.panelkafes_memory_mb')}</label>
+              <input
+                type="number"
+                min={128}
+                max={65536}
+                className="input w-full"
+                disabled={!form?.site_cage_enabled}
+                value={form?.site_cage_default_memory_mb ?? 1024}
+                onChange={(e) =>
+                  setForm((s) => (s ? { ...s, site_cage_default_memory_mb: Number(e.target.value) } : s))
+                }
+              />
+            </div>
+            <div>
+              <label className="label">{t('webserver.panelkafes_max_children')}</label>
+              <input
+                type="number"
+                min={1}
+                max={200}
+                className="input w-full"
+                disabled={!form?.site_cage_enabled}
+                value={form?.site_cage_default_pm_max_children ?? 20}
+                onChange={(e) =>
+                  setForm((s) => (s ? { ...s, site_cage_default_pm_max_children: Number(e.target.value) } : s))
+                }
+              />
+            </div>
+            <div>
+              <label className="label">{t('webserver.panelkafes_memory_limit')}</label>
+              <input
+                className="input w-full"
+                placeholder="256M"
+                disabled={!form?.site_cage_enabled}
+                value={form?.site_cage_default_memory_limit ?? '256M'}
+                onChange={(e) =>
+                  setForm((s) => (s ? { ...s, site_cage_default_memory_limit: e.target.value } : s))
+                }
+              />
+            </div>
+          </div>
+          {form?.site_cage_user_prefix && (
+            <p className="text-xs text-gray-500">
+              {t('webserver.panelkafes_user_prefix')}: <code>{form.site_cage_user_prefix}</code>
+              {form.site_cage_group ? (
+                <>
+                  {' '}
+                  · {t('webserver.panelkafes_group')}: <code>{form.site_cage_group}</code>
+                </>
+              ) : null}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              type="button"
+              className="btn-secondary inline-flex items-center gap-2"
+              disabled={!canWrite || !form?.site_cage_enabled || applyPanelKafesAllM.isPending}
+              onClick={() => applyPanelKafesAllM.mutate()}
+            >
+              <RefreshCw className={`h-4 w-4 ${applyPanelKafesAllM.isPending ? 'animate-spin' : ''}`} />
+              {t('webserver.panelkafes_apply_all')}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('webserver.panelkafes_apply_hint')}</p>
         </section>
           </>
         )}

@@ -548,6 +548,9 @@ install_host_tool node-pm2
 if [[ -f "$REPO_ROOT/deploy/host/panelze-panel-update" ]]; then
   install -m 755 "$REPO_ROOT/deploy/host/panelze-panel-update" /usr/local/sbin/panelze-panel-update
 fi
+if [[ -f "$REPO_ROOT/deploy/host/panelze-fix-admin-spa" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-fix-admin-spa" /usr/local/sbin/panelze-fix-admin-spa
+fi
 install_host_tool system-settings
 if [[ -f "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/panelze-post-install.sh" /usr/local/sbin/panelze-post-install
@@ -560,6 +563,9 @@ fi
 if [[ -f "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/panelze-fix-hosting-perms
   ln -sfn /usr/local/sbin/panelze-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
+fi
+if [[ -f "$REPO_ROOT/deploy/host/panelze-site-cage" ]]; then
+  install -m 755 "$REPO_ROOT/deploy/host/panelze-site-cage" /usr/local/sbin/panelze-site-cage
 fi
 # PM2 global (Node uygulamaları)
 if command -v npm >/dev/null 2>&1 && ! command -v pm2 >/dev/null 2>&1; then
@@ -596,6 +602,10 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-hosting-perms
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-fix-hosting-perms
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
 visudo -cf /etc/sudoers.d/panelze-engine
@@ -1010,6 +1020,13 @@ if [[ "$SERVER_NAME" == "_" ]]; then
 fi
 
 ln -sf "$NGX_DST" /etc/nginx/sites-enabled/panelze.conf
+
+# IP ile erişimde HTTPS istekleri yanlış vhost'a (api.kodsar.com /docs) düşmesin
+if [[ "$SERVER_NAME" == "_" ]] && [[ -f "$REPO_ROOT/deploy/scripts/fix-panel-https-default.sh" ]]; then
+  PANEL_NGINX_CONF="$NGX_DST" PANEL_PUBLIC="$PANEL_ROOT/public" PHP_FPM_SOCK="$PHP_FPM_SOCK" \
+    bash "$REPO_ROOT/deploy/scripts/fix-panel-https-default.sh" || true
+fi
+
 nginx -t
 systemctl reload nginx
 systemctl enable nginx

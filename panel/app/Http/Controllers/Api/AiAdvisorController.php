@@ -134,6 +134,14 @@ class AiAdvisorController extends Controller
 
     public function monitoring(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $this->canViewServerMetrics($user)) {
+            return response()->json([
+                'alerts' => ['Sunucu kaynak metrikleri yalnizca yonetici veya monitoring:server yetkisine sahip kullanicilar icin kullanilabilir.'],
+                'server_metrics_available' => false,
+            ]);
+        }
+
         $stats = \App\Services\SystemStatsNormalizer::normalize($this->engine->getSystemStats());
         $security = $this->engine->securityOverview();
         $alerts = [];
@@ -161,11 +169,7 @@ class AiAdvisorController extends Controller
 
         return response()->json([
             'alerts' => $alerts,
-            'cpu_usage' => $cpu,
-            'memory_usage' => $mem,
-            'disk_usage' => $disk,
-            'load' => $stats['load'] ?? null,
-            'server_available' => $stats['available'] ?? false,
+            'server_metrics_available' => true,
         ]);
     }
 
@@ -252,25 +256,13 @@ class AiAdvisorController extends Controller
         $suggestions[] = 'Daha detayli bakis icin Izleme ekraninda (Health + kaynaklar) domain secip skor nedenlerini kontrol edin.';
 
         return response()->json([
-            'domain' => [
-                'id' => (int) $domain->id,
-                'name' => (string) $domain->name,
-                'status' => (string) ($domain->status ?? ''),
-                'ssl_enabled' => (bool) $domain->ssl_enabled,
-            ],
-            'tcp_ms' => [
-                '80' => $tcpMs80,
-                '443' => $tcpMs443,
-                'best' => $bestTcp,
-            ],
-            'deploy' => [
-                'last' => $last,
-                'failed_last_12' => $failed,
-                'running' => $running,
-                'last_success_at' => $lastSuccess?->finished_at,
-            ],
             'suggestions' => array_values(array_unique(array_filter($suggestions))),
         ]);
+    }
+
+    private function canViewServerMetrics(User $user): bool
+    {
+        return $user->isAdmin() || $user->can('monitoring:server');
     }
 
     private function probeTcpMs(string $host, int $port): ?int

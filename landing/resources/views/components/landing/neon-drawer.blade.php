@@ -10,7 +10,7 @@
          x-show="open"
          x-transition.duration.220.origin-right>
         <div class="flex h-14 items-center justify-between border-b px-4">
-            <span class="font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('brand.name') }}</span>
+            <x-landing.header-brand variant="neon" context="drawer" />
             <button type="button" @click="open = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-slate-700 dark:text-slate-200">
                 <span class="sr-only">{{ landing_p('nav.close') }}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">

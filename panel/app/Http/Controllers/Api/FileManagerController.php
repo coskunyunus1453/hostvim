@@ -172,7 +172,7 @@ class FileManagerController extends Controller
         $sort = (string) $request->query('sort', 'name');
         $order = (string) $request->query('order', 'asc');
 
-        $limit = max(1, min(5000, $limit));
+        $limit = max(1, min(500, $limit));
         $offset = max(0, $offset);
         $sort = in_array($sort, ['name', 'size', 'mtime'], true) ? $sort : 'name';
         $order = strtolower($order) === 'desc' ? 'desc' : 'asc';
@@ -249,8 +249,9 @@ class FileManagerController extends Controller
         }
         $hostingTarget = $this->resolveHostingTarget($request, $domain);
         $validated = $request->validate(['path' => 'required|string']);
+        $panelPath = $this->normalizeSafePanelPath($validated['path']);
 
-        $enginePath = $this->panelRelToEngineRel($hostingTarget, $validated['path']);
+        $enginePath = $this->panelRelToEngineRel($hostingTarget, $panelPath);
         $templateMode = $this->inferSiblingMode($hostingTarget, $enginePath, true);
         $result = $this->engine->mkdirFile($hostingTarget->engineSiteName, $enginePath);
         if (! empty($result['error'])) {
@@ -559,6 +560,8 @@ class FileManagerController extends Controller
         }
     }
 
+    private const MAX_READ_BYTES = 5 * 1024 * 1024;
+
     public function read(Request $request, Domain $domain): JsonResponse
     {
         if (! $this->userOwnsDomain($request, $domain)) {
@@ -570,6 +573,13 @@ class FileManagerController extends Controller
             return response()->json(['message' => 'The path field is required.'], 422);
         }
         $enginePath = $this->panelRelToEngineRel($hostingTarget, $path);
+
+        $size = $this->quota->engineFileSizeBytes($hostingTarget->engineSiteName, $enginePath);
+        if ($size > self::MAX_READ_BYTES) {
+            return response()->json([
+                'message' => __('files.read_too_large', ['mb' => (int) (self::MAX_READ_BYTES / 1024 / 1024)]),
+            ], 422);
+        }
 
         return response()->json([
             'content' => $this->engine->readFile($hostingTarget->engineSiteName, $enginePath),
@@ -651,7 +661,7 @@ class FileManagerController extends Controller
             'if_exists' => 'nullable|string|in:fail,overwrite,skip',
         ]);
         $ifExists = (string) ($validated['if_exists'] ?? 'overwrite');
-        $relPath = (string) ($validated['path'] ?? '');
+        $relPath = $this->normalizeSafePanelPath((string) ($validated['path'] ?? ''));
         $engineRelPath = $this->panelRelToEngineRel($hostingTarget, $relPath);
         // Klasör sürükle-bırakta derin/yeni dizinler gelebilir; upload öncesi dizini server tarafında garanti et.
         if (trim($engineRelPath) !== '') {
@@ -960,9 +970,9 @@ class FileManagerController extends Controller
         $hostingTarget = $this->resolveHostingTarget($request, $domain);
 
         $validated = $request->validate([
-            'sources' => 'required|array|min:1',
-            'sources.*' => 'required|string',
-            'target' => 'required|string',
+            'sources' => 'required|array|min:1|max:100',
+            'sources.*' => 'required|string|max:2048',
+            'target' => 'required|string|max:2048',
         ]);
 
         $sources = $validated['sources'];
@@ -1126,7 +1136,28 @@ class FileManagerController extends Controller
             }
         }
 
-        return is_string($rawPath) ? trim($rawPath) : '';
+        return is_string($rawPath) ? $this->normalizeSafePanelPath(trim($rawPath)) : '';
+    }
+
+    private function normalizeSafePanelPath(string $path): string
+    {
+        $path = trim(str_replace('\\', '/', $path), '/');
+        if ($path === '') {
+            return '';
+        }
+
+        $segments = [];
+        foreach (explode('/', $path) as $seg) {
+            if ($seg === '' || $seg === '.') {
+                continue;
+            }
+            if ($seg === '..' || strlen($seg) > 255) {
+                abort(422, __('files.invalid_path'));
+            }
+            $segments[] = $seg;
+        }
+
+        return implode('/', $segments);
     }
 
     private function logFileAction(

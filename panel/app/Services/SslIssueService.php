@@ -62,7 +62,7 @@ class SslIssueService
      */
     public function issueForTarget(User $user, HostingSiteTarget $target, ?string $emailFromRequest, ?string $configFallbackEmail): array
     {
-        $diagnostics = $this->preflightDiagnostics($target->hostname, $target->documentRoot);
+        $diagnostics = $this->preflightDiagnostics($target->hostname, $this->resolveAcmeWebroot($target->documentRoot));
 
         $email = $emailFromRequest;
         if ($email === null || $email === '') {
@@ -129,7 +129,7 @@ class SslIssueService
             return [
                 'ok' => false,
                 'http_status' => 503,
-                'message' => (string) $engine['error'],
+                'message' => SslErrorTranslator::translate((string) $engine['error'], $target->hostname),
                 'certificate' => $cert->fresh(),
                 'engine' => $engine,
                 'diagnostics' => $diagnostics,
@@ -200,7 +200,9 @@ class SslIssueService
         $rows[] = [
             'key' => 'dns',
             'ok' => (bool) $dnsOk,
-            'message' => $dnsOk ? ('DNS OK: '.$ip) : 'DNS resolve basarisiz (A/AAAA kaydi yok veya domain hatali)',
+            'message' => $dnsOk
+                ? (string) __('ssl.diag_dns_ok', ['ip' => $ip])
+                : (string) __('ssl.diag_dns_fail'),
         ];
 
         // TCP reachability
@@ -218,7 +220,9 @@ class SslIssueService
             $rows[] = [
                 'key' => 'tcp_'.$port,
                 'ok' => $ok,
-                'message' => $ok ? ("Port {$port} ulasilabilir") : ("Port {$port} ulasilamiyor (firewall/DNS/proxy)"),
+                'message' => $ok
+                    ? (string) __('ssl.diag_port_ok', ['port' => $port])
+                    : (string) __('ssl.diag_port_fail', ['port' => $port]),
             ];
         }
 
@@ -227,7 +231,9 @@ class SslIssueService
         $rows[] = [
             'key' => 'docroot',
             'ok' => $docOk,
-            'message' => $docOk ? 'Document root yazilabilir' : 'Document root yazilabilir degil (izin/yol)',
+            'message' => $docOk
+                ? (string) __('ssl.diag_docroot_ok')
+                : (string) __('ssl.diag_docroot_fail'),
         ];
 
         if ($docroot !== '' && is_dir($docroot)) {
@@ -244,16 +250,77 @@ class SslIssueService
             $rows[] = [
                 'key' => 'acme_path',
                 'ok' => $ok,
-                'message' => $ok ? 'ACME challenge yolu hazir' : 'ACME challenge yolu yazilamiyor (izin/owner)',
+                'message' => $ok
+                    ? (string) __('ssl.diag_acme_ok')
+                    : (string) __('ssl.diag_acme_fail'),
             ];
+            if ($ok && $host !== '') {
+                $rows[] = $this->preflightAcmeHttpProbe($host, $docroot);
+            }
         } else {
             $rows[] = [
                 'key' => 'acme_path',
                 'ok' => false,
-                'message' => 'ACME challenge yolu kontrol edilemedi (docroot yok)',
+                'message' => (string) __('ssl.diag_acme_skip'),
             ];
         }
 
         return $rows;
+    }
+
+    private function resolveAcmeWebroot(string $documentRoot): string
+    {
+        $documentRoot = rtrim(trim($documentRoot), '/\\');
+        if ($documentRoot === '') {
+            return $documentRoot;
+        }
+        if (basename($documentRoot) === 'public') {
+            return $documentRoot;
+        }
+        $pub = $documentRoot.DIRECTORY_SEPARATOR.'public';
+        if (is_file($pub.DIRECTORY_SEPARATOR.'index.php')) {
+            return $pub;
+        }
+
+        return $documentRoot;
+    }
+
+    /**
+     * @return array{key: string, ok: bool, message: string}
+     */
+    private function preflightAcmeHttpProbe(string $hostname, string $documentRoot): array
+    {
+        $token = 'panelze_probe_'.Str::random(10);
+        $acmeDir = rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.well-known'.DIRECTORY_SEPARATOR.'acme-challenge';
+        $probeFile = $acmeDir.DIRECTORY_SEPARATOR.$token;
+        if (@file_put_contents($probeFile, 'ok') === false) {
+            return [
+                'key' => 'acme_http',
+                'ok' => false,
+                'message' => (string) __('ssl.diag_acme_http_fail'),
+            ];
+        }
+
+        $url = 'http://'.$hostname.'/.well-known/acme-challenge/'.$token;
+        $ctx = stream_context_create(['http' => ['timeout' => 5, 'ignore_errors' => true]]);
+        $body = @file_get_contents($url, false, $ctx);
+        @unlink($probeFile);
+
+        $ok = is_string($body) && trim($body) === 'ok';
+        if (! $ok && is_file(dirname($documentRoot).DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'index.php')) {
+            return [
+                'key' => 'acme_http',
+                'ok' => false,
+                'message' => (string) __('ssl.diag_acme_http_laravel', ['host' => $hostname]),
+            ];
+        }
+
+        return [
+            'key' => 'acme_http',
+            'ok' => $ok,
+            'message' => $ok
+                ? (string) __('ssl.diag_acme_http_ok')
+                : (string) __('ssl.diag_acme_http_fail'),
+        ];
     }
 }

@@ -2,6 +2,15 @@
 # Panelze engine (www-data) tarafından sudo ile çağrılır — nginx sites-enabled symlink + reload.
 set -euo pipefail
 
+# Kırık symlink'ler nginx -t'i engeller (rsync/deploy sonrası vhost dosyası silinmiş olabilir).
+prune_broken_symlinks() {
+  local f
+  for f in /etc/nginx/sites-enabled/*; do
+    [[ -e "$f" ]] || [[ ! -L "$f" ]] && continue
+    rm -f "$f"
+  done
+}
+
 ACTION="${1:?}"
 ARG="${2:?}"
 
@@ -10,8 +19,8 @@ case "$ACTION" in
     CONF="$ARG"
     [[ -f "$CONF" ]] || { echo "panelze-nginx-vhost: conf yok: $CONF" >&2; exit 1; }
     # Prod: /var/www/.../data/vhosts/ — geliştirme: /etc/nginx/sites-available/
-    if [[ "$CONF" =~ ^/var/www/[^/]+/data/vhosts/(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]] ||
-      [[ "$CONF" =~ ^/etc/nginx/sites-available/(panelze|panelsar)-[a-zA-Z0-9.-]+\.conf$ ]]; then
+    if [[ "$CONF" =~ ^/var/www/[^/]+/data/vhosts/(panelze|panelsar|hostvim)-[a-zA-Z0-9.-]+\.conf$ ]] ||
+      [[ "$CONF" =~ ^/etc/nginx/sites-available/(panelze|panelsar|hostvim)-[a-zA-Z0-9.-]+\.conf$ ]]; then
       :
     else
       echo "panelze-nginx-vhost: izin verilmeyen conf yolu" >&2
@@ -29,6 +38,7 @@ case "$ACTION" in
     [[ -L "$LEGACY" || -f "$LEGACY" ]] && rm -f "$LEGACY"
     LEGACY2="/etc/nginx/sites-enabled/panelsar-${BASE#panelze-}"
     [[ -L "$LEGACY2" || -f "$LEGACY2" ]] && rm -f "$LEGACY2"
+    prune_broken_symlinks
     if ! nginx -t 2>/tmp/panelze-nginx-test.log; then
       rm -f "$TARGET"
       if [[ -n "$OLD_ABS" && -f "$OLD_ABS" ]]; then
@@ -47,6 +57,7 @@ case "$ACTION" in
       exit 1
     }
     rm -f "/etc/nginx/sites-enabled/${BASE}"
+    prune_broken_symlinks
     nginx -t
     nginx -s reload
     ;;

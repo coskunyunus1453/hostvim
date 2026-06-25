@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\HostingPackage;
 use App\Models\SiteSubdomain;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -175,15 +176,22 @@ class HostingQuotaService
         if ($user->isAdmin()) {
             return 0;
         }
-        $total = 0;
-        foreach ($user->domains()->cursor() as $domain) {
-            $row = $this->engine->getSiteDiskUsage((string) $domain->name);
-            if (empty($row['error'])) {
-                $total += (int) ($row['bytes'] ?? 0);
-            }
-        }
 
-        return $total;
+        return (int) Cache::remember(
+            'panelze:disk:sum:'.$user->id,
+            60,
+            function () use ($user): int {
+                $total = 0;
+                foreach ($user->domains()->cursor() as $domain) {
+                    $row = $this->engine->getSiteDiskUsage((string) $domain->name);
+                    if (empty($row['error'])) {
+                        $total += (int) ($row['bytes'] ?? 0);
+                    }
+                }
+
+                return $total;
+            }
+        );
     }
 
     /**

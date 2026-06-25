@@ -140,7 +140,13 @@ type HealthPayload = {
   site_response_ms?: number | null
   scope?: 'global' | 'domain'
   domain?: { id: number; name: string; status: string } | null
-  snapshot: { cpu: number; ram: number; disk: number; error_rate: number }
+  snapshot: {
+    cpu: number | null
+    ram: number | null
+    disk: number | null
+    error_rate: number
+  }
+  server_metrics_visible?: boolean
   reasons: Array<{ key: string; ok: boolean; unknown?: boolean; label: string; detail: string }>
 }
 
@@ -156,11 +162,11 @@ function estimateHealthScore(stats?: ServerStats): number | null {
   return Math.max(0, Math.min(100, Math.round(score)))
 }
 
-function healthGradeLabel(score: number): string {
-  if (score >= 90) return 'Mükemmel'
-  if (score >= 75) return 'İyi'
-  if (score >= 60) return 'Dikkat'
-  return 'Kritik'
+function healthGradeFromScore(score: number): HealthPayload['grade'] {
+  if (score >= 90) return 'excellent'
+  if (score >= 75) return 'good'
+  if (score >= 60) return 'warning'
+  return 'critical'
 }
 
 function formatUptime(seconds?: number | null): string {
@@ -354,14 +360,17 @@ export default function MonitoringPage() {
     },
   ]
   const health = healthQ.data
-  const estimatedHealthScore = estimateHealthScore(stats)
+  const showServerMetrics = canServer || health?.server_metrics_visible === true
+  const estimatedHealthScore = showServerMetrics ? estimateHealthScore(stats) : null
   const healthScoreResolved =
-    health?.score ?? (healthQ.isPending ? estimatedHealthScore : null)
+    health?.score ?? (healthQ.isPending && !healthQ.isError ? estimatedHealthScore : null)
   const healthScore =
     healthScoreResolved != null ? Math.max(0, Math.min(100, healthScoreResolved)) : null
-  const healthScoreLoading = healthScore == null
-  const healthScoreEstimating = health?.score == null && estimatedHealthScore != null && healthQ.isFetching
+  const healthScoreLoading = healthScore == null && !healthQ.isError
+  const healthScoreEstimating =
+    showServerMetrics && health?.score == null && estimatedHealthScore != null && healthQ.isFetching
   const coverage = health?.coverage_percent ?? (healthScoreLoading ? null : 100)
+  const healthGrade = health?.grade ?? (healthScore != null ? healthGradeFromScore(healthScore) : 'warning')
   const healthColor =
     (healthScore ?? 0) >= 90
       ? 'from-emerald-500 to-emerald-400'
@@ -473,6 +482,18 @@ export default function MonitoringPage() {
       </div>
 
       {/* Özet kartlar */}
+      {summaryQ.isError ? (
+        <div className="card p-6 text-center">
+          <p className="text-sm text-red-700 dark:text-red-300">{t('monitoring.load_error')}</p>
+          <button
+            type="button"
+            className="btn-secondary mt-3 text-sm"
+            onClick={() => void summaryQ.refetch()}
+          >
+            {t('domains.refresh')}
+          </button>
+        </div>
+      ) : (
       <div className="grid grid-cols-2 gap-2 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((c) => (
           <div
@@ -506,12 +527,17 @@ export default function MonitoringPage() {
           </div>
         ))}
       </div>
+      )}
 
       <div className="card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Health Score</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Sunucu genel sağlık puanı (0-100)</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {t('monitoring.health_title')}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {showServerMetrics ? t('monitoring.health_subtitle_server') : t('monitoring.health_subtitle')}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -519,7 +545,7 @@ export default function MonitoringPage() {
               value={healthDomainId}
               onChange={(e) => setHealthDomainId(e.target.value ? Number(e.target.value) : '')}
             >
-              <option value="">Global</option>
+              <option value="">{t('monitoring.health_scope_global')}</option>
               {(domainsQ.data ?? []).map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -527,10 +553,23 @@ export default function MonitoringPage() {
               ))}
             </select>
             <div className="text-xs text-gray-500">
-              {(health?.scope === 'domain' ? 'Site' : 'API')} {health?.scope === 'domain' ? (health?.site_response_ms ?? '—') : (health?.response_ms ?? '—')} ms
+              {health?.scope === 'domain' ? t('monitoring.health_scope_site') : t('monitoring.health_scope_api')}{' '}
+              {health?.scope === 'domain' ? (health?.site_response_ms ?? '—') : (health?.response_ms ?? '—')} ms
             </div>
           </div>
         </div>
+        {healthQ.isError ? (
+          <div className="mt-6 text-center py-8">
+            <p className="text-sm text-red-700 dark:text-red-300">{t('monitoring.health_load_error')}</p>
+            <button
+              type="button"
+              className="btn-secondary mt-3 text-sm"
+              onClick={() => void healthQ.refetch()}
+            >
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : (
         <div className="mt-4 grid gap-6 lg:grid-cols-3">
           <div className="flex items-center gap-5">
             <div
@@ -564,24 +603,39 @@ export default function MonitoringPage() {
               <div className="text-gray-900 dark:text-white font-semibold">
                 {healthScoreLoading
                   ? t('common.loading')
-                  : healthGradeLabel(healthScore ?? 0)}
+                  : t(`monitoring.health_grade_${healthGrade}`)}
               </div>
               {healthScoreEstimating && (
                 <div className="text-xs text-gray-400">{t('monitoring.health_score_estimating')}</div>
               )}
               <div className="text-gray-500">
-                Kapsam {health?.metrics_known ?? '—'}/{health?.metrics_total ?? '—'}
-                {coverage != null ? ` (${coverage}%)` : ''}
+                {t('monitoring.health_coverage', {
+                  known: health?.metrics_known ?? '—',
+                  total: health?.metrics_total ?? '—',
+                  pct: coverage != null ? ` (${coverage}%)` : '',
+                })}
               </div>
-              <div className="text-gray-500">
-                CPU {health?.snapshot?.cpu ?? (stats?.cpu_usage != null ? Math.round(stats.cpu_usage) : '—')}%
-              </div>
-              <div className="text-gray-500">
-                RAM {health?.snapshot?.ram ?? (stats?.memory_percent != null ? Math.round(stats.memory_percent) : '—')}%
-              </div>
-              <div className="text-gray-500">
-                Disk {health?.snapshot?.disk ?? (stats?.disk_percent != null ? Math.round(stats.disk_percent) : '—')}%
-              </div>
+              {showServerMetrics && (
+                <>
+                  <div className="text-gray-500">
+                    {t('monitoring.cpu')}{' '}
+                    {health?.snapshot?.cpu ?? (stats?.cpu_usage != null ? Math.round(stats.cpu_usage) : '—')}%
+                  </div>
+                  <div className="text-gray-500">
+                    {t('monitoring.memory')}{' '}
+                    {health?.snapshot?.ram ?? (stats?.memory_percent != null ? Math.round(stats.memory_percent) : '—')}%
+                  </div>
+                  <div className="text-gray-500">
+                    {t('monitoring.disk')}{' '}
+                    {health?.snapshot?.disk ?? (stats?.disk_percent != null ? Math.round(stats.disk_percent) : '—')}%
+                  </div>
+                </>
+              )}
+              {!showServerMetrics && health?.snapshot?.error_rate != null && (
+                <div className="text-gray-500">
+                  {t('monitoring.error_rate')} {health.snapshot.error_rate}%
+                </div>
+              )}
             </div>
           </div>
           <div className="lg:col-span-2 space-y-2">
@@ -602,13 +656,28 @@ export default function MonitoringPage() {
             ))}
           </div>
         </div>
+        )}
       </div>
 
       <div className="card p-6">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Site Health Listesi</h3>
-          <span className="text-xs text-gray-500">ilk 20 site</span>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {t('monitoring.health_sites_title')}
+          </h3>
+          <span className="text-xs text-gray-500">{t('monitoring.health_sites_limit', { limit: 20 })}</span>
         </div>
+        {healthSitesQ.isError ? (
+          <div className="mt-4 text-center py-8">
+            <p className="text-sm text-red-700 dark:text-red-300">{t('monitoring.health_sites_load_error')}</p>
+            <button
+              type="button"
+              className="btn-secondary mt-3 text-sm"
+              onClick={() => void healthSitesQ.refetch()}
+            >
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : (
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {(healthSitesQ.data?.items ?? []).map((it) => {
             const badge =
@@ -633,13 +702,14 @@ export default function MonitoringPage() {
                 {it.reasons?.length > 0 ? (
                   <p className="mt-1 text-xs text-gray-500 truncate">{it.reasons.join(' • ')}</p>
                 ) : (
-                  <p className="mt-1 text-xs text-gray-500">Durum iyi</p>
+                  <p className="mt-1 text-xs text-gray-500">{t('monitoring.health_status_ok')}</p>
                 )}
               </button>
             )
           })}
           {healthSitesQ.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
         </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -747,7 +817,14 @@ export default function MonitoringPage() {
 
           {serverQ.isError && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-              {t('monitoring.engine_unavailable')}
+              <p>{t('monitoring.server_load_error')}</p>
+              <button
+                type="button"
+                className="btn-secondary mt-3 text-sm"
+                onClick={() => void serverQ.refetch()}
+              >
+                {t('domains.refresh')}
+              </button>
             </div>
           )}
 

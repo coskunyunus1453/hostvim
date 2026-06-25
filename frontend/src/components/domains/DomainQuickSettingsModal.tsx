@@ -166,26 +166,37 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
     },
   })
 
-  const nginxForSite = (domain?.server_type ?? '').toLowerCase() === 'nginx'
-  const apacheForSite = (domain?.server_type ?? '').toLowerCase() === 'apache'
-  const vhostEditorActive = nginxForSite || apacheForSite
+  const vhostServerKind = useMemo(() => {
+    const k = (domain?.server_type ?? '').toLowerCase()
+    if (k === 'apache') return 'apache' as const
+    if (k === 'openlitespeed') return 'openlitespeed' as const
+    return 'nginx' as const
+  }, [domain?.server_type])
+
+  const vhostEditorActive = ['nginx', 'apache', 'openlitespeed'].includes(vhostServerKind)
+
+  const vhostApiSegment =
+    vhostServerKind === 'apache'
+      ? 'apache-vhost'
+      : vhostServerKind === 'openlitespeed'
+        ? 'ols-vhost'
+        : 'nginx-vhost'
 
   const vhostQ = useQuery({
-    queryKey: ['domain-vhost-editor', domain?.id ?? 0, domain?.server_type ?? ''],
+    queryKey: ['domain-vhost-editor', domain?.id ?? 0, vhostServerKind],
     enabled: open && !!domain?.id && vhostEditorActive,
     queryFn: async () => {
       if (!domain) {
         throw new Error('no domain')
       }
-      const k = (domain.server_type ?? '').toLowerCase()
-      const endpoint = k === 'apache' ? 'apache-vhost' : 'nginx-vhost'
       try {
         const { data } = await api.get<{
           path?: string
           content?: string
           can_revert?: boolean
-        }>(`/domains/${domain.id}/${endpoint}`)
-        return { ...data, _missing: false as const, stack: k as 'nginx' | 'apache' }
+          message?: string
+        }>(`/domains/${domain.id}/${vhostApiSegment}`)
+        return { ...data, _missing: false as const, stack: vhostServerKind }
       } catch (err: unknown) {
         const ax = err as {
           response?: {
@@ -198,9 +209,10 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             path: ax.response.data?.path,
             content: '',
             hint: ax.response.data?.hint,
+            message: ax.response.data?.message,
             can_revert: Boolean(ax.response.data?.can_revert),
             _missing: true as const,
-            stack: k as 'nginx' | 'apache',
+            stack: vhostServerKind,
           }
         }
         throw err
@@ -224,7 +236,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
     }
     setVhostEditorReady(false)
     setVhostEditorText('')
-  }, [domain?.id, domain?.server_type, open])
+  }, [domain?.id, vhostServerKind, open])
 
   useEffect(() => {
     if (!vhostEditorActive || !vhostQ.isSuccess || vhostEditorReady) {
@@ -235,22 +247,42 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
     setVhostEditorReady(true)
   }, [vhostEditorActive, vhostQ.isSuccess, vhostQ.data, vhostEditorReady])
 
-  const vhostInvalidateKey = ['domain-vhost-editor', domain?.id ?? 0, domain?.server_type ?? ''] as const
+  const vhostInvalidateKey = ['domain-vhost-editor', domain?.id ?? 0, vhostServerKind] as const
+
+  const vhostRegenerateM = useMutation({
+    mutationFn: async () => {
+      if (!domain) return
+      await api.post(`/domains/${domain.id}/reprovision`, {})
+    },
+    onSuccess: () => {
+      toast.success(t('domains.vhost_regenerated'))
+      setVhostEditorReady(false)
+      void qc.invalidateQueries({ queryKey: vhostInvalidateKey })
+      invalidate()
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
 
   const vhostSaveM = useMutation({
     mutationFn: async () => {
       if (!domain) {
         throw new Error('no domain')
       }
-      const k = (domain.server_type ?? '').toLowerCase()
-      const endpoint = k === 'apache' ? 'apache-vhost' : 'nginx-vhost'
-      return (await api.put(`/domains/${domain.id}/${endpoint}`, { content: vhostEditorText })).data as {
+      return (await api.put(`/domains/${domain.id}/${vhostApiSegment}`, { content: vhostEditorText })).data as {
         can_revert?: boolean
       }
     },
     onSuccess: () => {
-      const k = (domain?.server_type ?? '').toLowerCase()
-      toast.success(k === 'apache' ? t('domains.apache_vhost_saved') : t('domains.nginx_vhost_saved'))
+      toast.success(
+        vhostServerKind === 'apache'
+          ? t('domains.apache_vhost_saved')
+          : vhostServerKind === 'openlitespeed'
+            ? t('domains.ols_vhost_saved')
+            : t('domains.nginx_vhost_saved'),
+      )
       setVhostEditorReady(false)
       void qc.invalidateQueries({ queryKey: vhostInvalidateKey })
     },
@@ -265,9 +297,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
       if (!domain) {
         throw new Error('no domain')
       }
-      const k = (domain.server_type ?? '').toLowerCase()
-      const endpoint = k === 'apache' ? 'apache-vhost/revert' : 'nginx-vhost/revert'
-      return (await api.post(`/domains/${domain.id}/${endpoint}`, {})).data as { can_revert?: boolean }
+      return (await api.post(`/domains/${domain.id}/${vhostApiSegment}/revert`, {})).data as { can_revert?: boolean }
     },
     onSuccess: () => {
       toast.success(t('domains.vhost_reverted_toast'))
@@ -410,19 +440,34 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
     sslIssueM.mutate()
   }
 
+  const handleClose = () => {
+    setSslPhase('idle')
+    setSslStep(0)
+    setSslDiagnostics(null)
+    if (sslTimer.current) {
+      clearInterval(sslTimer.current)
+      sslTimer.current = null
+    }
+    onClose()
+  }
+
   if (!open || !domain) return null
+
+  const isSubdomainQuick = Boolean(domain.subdomain_id)
 
   return (
     <>
+      {!isSubdomainQuick && (
       <DomainDeleteConfirmModal
         open={showDelete}
-        domain={domain}
+        domain={{ id: domain.id, name: domain.name }}
         onClose={() => setShowDelete(false)}
         onDeleted={() => {
           setShowDelete(false)
-          onClose()
+          handleClose()
         }}
       />
+      )}
 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
@@ -436,12 +481,15 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
               {t('domains.quick_settings')}
             </h2>
             <p className="font-mono text-sm text-primary-600 dark:text-primary-400">{domain.name}</p>
+            {isSubdomainQuick ? (
+              <p className="mt-1 text-xs text-indigo-700 dark:text-indigo-300">{t('domains.quick_subdomain_hint')}</p>
+            ) : null}
           </div>
           <button
             type="button"
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label={t('common.cancel')}
-            onClick={onClose}
+            onClick={handleClose}
           >
             <X className="h-5 w-5" />
           </button>
@@ -452,7 +500,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             type="button"
             className="btn-secondary inline-flex items-center justify-center gap-2"
             onClick={() => {
-              onClose()
+              handleClose()
               navigate(
                 domain.subdomain_id
                   ? `/files?domain=${domain.id}&subdomain_id=${domain.subdomain_id}`
@@ -467,7 +515,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             type="button"
             className="btn-secondary inline-flex items-center justify-center gap-2"
             onClick={() => {
-              onClose()
+              handleClose()
               navigate(`/deploy?domain=${domain.id}`)
             }}
           >
@@ -478,7 +526,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             type="button"
             className="btn-secondary inline-flex items-center justify-center gap-2"
             onClick={() => {
-              onClose()
+              handleClose()
               navigate(`/monitoring?domain=${domain.id}`)
             }}
           >
@@ -536,6 +584,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
           )}
         </div>
 
+        {!isSubdomainQuick && (
         <div className="mb-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -577,7 +626,9 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             </button>
           </div>
         </div>
+        )}
 
+        {!isSubdomainQuick && (
         <div className="mb-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
           {domain ? <SiteStackAdvisorPanel domain={domain} open={open} /> : null}
 
@@ -604,7 +655,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             <button
               type="button"
               className={clsx('btn-secondary text-xs', perfMode === 'standard' && 'ring-2 ring-emerald-500')}
-              disabled={perfSaveM.isPending || perfQ.isLoading || (domain.server_type ?? '').toLowerCase() !== 'nginx'}
+              disabled={perfSaveM.isPending || perfQ.isLoading || vhostServerKind !== 'nginx'}
               onClick={() => {
                 if (!window.confirm(t('domains.perf_confirm_standard'))) return
                 perfSaveM.mutate('standard')
@@ -612,24 +663,36 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             >
               {t('domains.perf_standard')}
             </button>
-            {(domain.server_type ?? '').toLowerCase() !== 'nginx' && (
+            {vhostServerKind !== 'nginx' && (
               <p className="self-center text-xs text-amber-700 dark:text-amber-300">{t('domains.perf_nginx_only')}</p>
             )}
           </div>
         </div>
+        )}
 
-        {vhostEditorActive && (
+        {vhostEditorActive && !isSubdomainQuick && (
           <div className="mb-5 rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {apacheForSite ? t('domains.apache_vhost_title') : t('domains.nginx_vhost_title')}
+                  {vhostServerKind === 'apache'
+                    ? t('domains.apache_vhost_title')
+                    : vhostServerKind === 'openlitespeed'
+                      ? t('domains.ols_vhost_title')
+                      : t('domains.nginx_vhost_title')}
                 </p>
                 <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
-                  {apacheForSite ? t('domains.apache_vhost_hint') : t('domains.nginx_vhost_hint')}
+                  {vhostServerKind === 'apache'
+                    ? t('domains.apache_vhost_hint')
+                    : vhostServerKind === 'openlitespeed'
+                      ? t('domains.ols_vhost_hint')
+                      : t('domains.nginx_vhost_hint')}
                 </p>
                 <p className="mt-2 text-xs text-amber-900/90 dark:text-amber-200/90">{t('domains.vhost_safety_notice')}</p>
               </div>
+              <span className="rounded-md bg-white/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:bg-gray-900/60 dark:text-gray-300">
+                {vhostServerKind}
+              </span>
             </div>
             {vhostQ.data?.path ? (
               <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
@@ -638,10 +701,27 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
               </p>
             ) : null}
             {vhostQ.isError && (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-400">{t('domains.nginx_vhost_load_error')}</p>
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                {(vhostQ.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                  t('domains.nginx_vhost_load_error')}
+              </p>
             )}
             {vhostQ.data?._missing ? (
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">{t('domains.nginx_vhost_empty_hint')}</p>
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-amber-800 dark:text-amber-200">{t('domains.nginx_vhost_empty_hint')}</p>
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  disabled={vhostRegenerateM.isPending}
+                  onClick={() => {
+                    if (!window.confirm(t('domains.vhost_regenerate_confirm'))) return
+                    vhostRegenerateM.mutate()
+                  }}
+                >
+                  {vhostRegenerateM.isPending ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : null}{' '}
+                  {t('domains.vhost_regenerate')}
+                </button>
+              </div>
             ) : null}
             <textarea
               className="input mt-3 min-h-[280px] w-full resize-y font-mono text-xs leading-relaxed"
@@ -663,7 +743,11 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
                 }}
               >
                 {vhostSaveM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {apacheForSite ? t('domains.apache_vhost_reload') : t('domains.nginx_vhost_reload')}
+                {vhostServerKind === 'apache'
+                  ? t('domains.apache_vhost_reload')
+                  : vhostServerKind === 'openlitespeed'
+                    ? t('domains.ols_vhost_reload')
+                    : t('domains.nginx_vhost_reload')}
               </button>
               <button
                 type="button"
@@ -757,6 +841,8 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
         )}
 
         <div className="space-y-5">
+          {!isSubdomainQuick && (
+          <>
           <div>
             <label className="label">{t('domains.php_version')}</label>
             <div className="flex flex-wrap gap-2">
@@ -849,6 +935,8 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
               </button>
             </div>
           </div>
+          </>
+          )}
 
           <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
             <label className="label">{t('domains.ssl_status')}</label>
@@ -879,6 +967,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             </div>
           </div>
 
+          {!isSubdomainQuick && (
           <div className="border-t border-red-200 pt-4 dark:border-red-900/40">
             <button
               type="button"
@@ -889,6 +978,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
               {t('domains.delete_site')}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>

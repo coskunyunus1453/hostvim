@@ -194,7 +194,7 @@ return [
         'bind_enabled' => filter_var(env('PANELZE_DNS_BIND', 'true'), FILTER_VALIDATE_BOOLEAN),
         'bind_sync_script' => env('PANELZE_BIND_SYNC_SCRIPT', '/usr/local/sbin/panelze-bind-sync'),
         'zones_dir' => env('PANELZE_BIND_ZONES_DIR', '/var/lib/bind/panelze/zones'),
-        'conf_path' => env('PANELZE_BIND_CONF_PATH', '/etc/bind/named.conf.panelze-zones'),
+        'conf_path' => env('PANELZE_BIND_CONF_PATH', '/var/lib/bind/panelze/named.conf.panelze-zones'),
         'ns1' => trim((string) env('PANELZE_DNS_NS1', '')),
         'ns2' => trim((string) env('PANELZE_DNS_NS2', '')),
         /** Boşsa APP_URL kök domaininden ns1/ns2 önerilir (ör. gebekado.com) */
@@ -283,5 +283,14 @@ return [
         'secret' => trim((string) env('PANELZE_WHMCS_SECRET', '')),
         /** WHMCS SSO sonrası tarayıcı yönlendirmesi (örn. https://panel.example.com/admin) */
         'sso_redirect_base' => rtrim(trim((string) env('PANELZE_SSO_PANEL_URL', '')), '/'),
+    ],
+
+    /**
+     * Panelze satış sitesi (store) → panel REST (Bearer paylaşımlı gizli anahtar).
+     */
+    'store_integration' => [
+        'secret' => trim((string) env('PANELZE_STORE_SECRET', '')),
+        /** Yeni müşteriye gönderilecek panel giriş adresi */
+        'panel_login_url' => rtrim(trim((string) env('PANELZE_STORE_PANEL_URL', env('PANELZE_PANEL_URL', ''))), '/'),
     ],
 ];

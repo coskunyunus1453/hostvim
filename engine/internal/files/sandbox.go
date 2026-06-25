@@ -230,7 +230,7 @@ func Mkdir(root, rel string) error {
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(base, 0o755)
+	return os.MkdirAll(base, 0o775)
 }
 
 func Rename(root, fromRel, toRel string) error {
@@ -888,7 +888,7 @@ func WriteFile(root, rel string, data []byte, perm fs.FileMode) error {
 	if IsExecutionRiskFile(rel) {
 		return fmt.Errorf("editing this file type is blocked")
 	}
-	if err := os.MkdirAll(filepath.Dir(base), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(base), 0o775); err != nil {
 		return err
 	}
 	return os.WriteFile(base, data, perm)
@@ -903,7 +903,7 @@ func CreateFile(root, rel string, data []byte, perm fs.FileMode) error {
 	if IsExecutionRiskFile(rel) {
 		return fmt.Errorf("editing this file type is blocked")
 	}
-	if err := os.MkdirAll(filepath.Dir(base), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(base), 0o775); err != nil {
 		return err
 	}
 	f, err := os.OpenFile(base, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)

@@ -53,6 +53,10 @@ export default function AdminPackagesPage() {
       qc.invalidateQueries({ queryKey: ['admin-packages'] })
       toast.success(t('packages.updated'))
     },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
   })
 
   const deleteM = useMutation({

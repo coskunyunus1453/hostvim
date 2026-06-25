@@ -542,3 +542,153 @@ func removeVhostFiles(cfg *config.Config, domain string) {
 func RemoveVhostBestEffort(cfg *config.Config, domain string) {
 	removeVhostFiles(cfg, domain)
 }
+
+const maxRawOLSVhostBytes = 512 << 10
+
+func olsPrevPath(main string) string {
+	if prev, ok := nginx.FindVhostPrevPath(main); ok {
+		return prev
+	}
+	return main + ".panelze-prev"
+}
+
+func resolveVHConfPath(cfg *config.Config, domain string) (path string, exists bool, err error) {
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	if !nginx.DomainSafe(domain) {
+		return "", false, fmt.Errorf("invalid domain")
+	}
+	for _, prefix := range []string{"panelze", "hostvim", "panelsar"} {
+		p := filepath.Join(confRoot(cfg), "conf", "vhosts", prefix+"-"+domain, "vhconf.conf")
+		if fi, statErr := os.Stat(p); statErr == nil && !fi.IsDir() {
+			return p, true, nil
+		}
+	}
+	staging := filepath.Join(olsStagingDir(cfg, domain), "vhconf.conf")
+	if fi, statErr := os.Stat(staging); statErr == nil && !fi.IsDir() {
+		return staging, true, nil
+	}
+	return vhConfPath(cfg, domain), false, nil
+}
+
+// VhostFilePath düzenlenebilir OLS vhconf.conf yolu.
+func VhostFilePath(cfg *config.Config, domain string) (string, error) {
+	p, _, err := resolveVHConfPath(cfg, domain)
+	return p, err
+}
+
+// VhostCanRevert önceki vhconf yedeği var mı.
+func VhostCanRevert(cfg *config.Config, domain string) (bool, error) {
+	p, exists, err := resolveVHConfPath(cfg, domain)
+	if err != nil || !exists {
+		return false, err
+	}
+	_, ok := nginx.FindVhostPrevPath(p)
+	return ok, nil
+}
+
+// ReadVhostFile mevcut OpenLiteSpeed vhconf içeriğini okur.
+func ReadVhostFile(cfg *config.Config, domain string) ([]byte, error) {
+	if !cfg.Hosting.OLSManageVhosts {
+		return nil, fmt.Errorf("openlitespeed vhost management is disabled")
+	}
+	p, exists, err := resolveVHConfPath(cfg, domain)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, os.ErrNotExist
+	}
+	return os.ReadFile(p)
+}
+
+// WriteVhostRaw vhconf içeriğini yazar ve istenirse OLS reload uygular.
+func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
+	if !cfg.Hosting.OLSManageVhosts {
+		return fmt.Errorf("openlitespeed vhost management is disabled")
+	}
+	if len(content) > maxRawOLSVhostBytes {
+		return fmt.Errorf("vhost content too large (max %d bytes)", maxRawOLSVhostBytes)
+	}
+	if bytes.IndexByte(content, 0) >= 0 {
+		return fmt.Errorf("invalid vhost content")
+	}
+	p, exists, err := resolveVHConfPath(cfg, domain)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return os.ErrNotExist
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return fmt.Errorf("ols vhconf dir: %w", err)
+	}
+	var old []byte
+	hadOld := false
+	if b, rerr := os.ReadFile(p); rerr == nil {
+		old = b
+		hadOld = true
+	}
+	if err := os.WriteFile(p, content, 0o644); err != nil {
+		return fmt.Errorf("write ols vhconf: %w", err)
+	}
+	if cfg.Hosting.OLSReloadAfterVhost {
+		if err := olsReload(cfg); err != nil {
+			if hadOld {
+				_ = os.WriteFile(p, old, 0o644)
+			}
+			return err
+		}
+	}
+	prev := olsPrevPath(p)
+	if hadOld && len(old) > 0 {
+		_ = os.WriteFile(prev, old, 0o600)
+	} else {
+		_ = os.Remove(prev)
+	}
+	return nil
+}
+
+// RevertVhostRaw önceki vhconf sürümünü geri yükler.
+func RevertVhostRaw(cfg *config.Config, domain string) error {
+	if !cfg.Hosting.OLSManageVhosts {
+		return fmt.Errorf("openlitespeed vhost management is disabled")
+	}
+	p, exists, err := resolveVHConfPath(cfg, domain)
+	if err != nil || !exists {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("openlitespeed vhost file not found")
+	}
+	prevPath, ok := nginx.FindVhostPrevPath(p)
+	if !ok {
+		return fmt.Errorf("no saved previous version to restore")
+	}
+	prevBody, err := os.ReadFile(prevPath)
+	if err != nil || len(bytes.TrimSpace(prevBody)) == 0 {
+		return fmt.Errorf("no saved previous version to restore")
+	}
+	var cur []byte
+	hadCur := false
+	if b, rerr := os.ReadFile(p); rerr == nil {
+		cur = b
+		hadCur = true
+	}
+	if err := os.WriteFile(p, prevBody, 0o644); err != nil {
+		return fmt.Errorf("write ols vhconf: %w", err)
+	}
+	if cfg.Hosting.OLSReloadAfterVhost {
+		if err := olsReload(cfg); err != nil {
+			if hadCur {
+				_ = os.WriteFile(p, cur, 0o644)
+			}
+			return err
+		}
+	}
+	if hadCur && len(cur) > 0 {
+		_ = os.WriteFile(prevPath, cur, 0o600)
+	} else {
+		_ = os.Remove(prevPath)
+	}
+	return nil
+}

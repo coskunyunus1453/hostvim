@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Admin\Billing;
 
 use App\Http\Controllers\Controller;
 use App\Services\Billing\BillingSettings;
+use App\Services\Domain\Registrar\ResellerClubClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class BillingSettingsController extends Controller
 {
-    public function __construct(private BillingSettings $settings) {}
+    public function __construct(
+        private BillingSettings $settings,
+        private ResellerClubClient $resellerClub,
+    ) {}
 
     public function show(): JsonResponse
     {
@@ -43,6 +47,27 @@ class BillingSettingsController extends Controller
             'company_tax_id' => ['nullable', 'string', 'max:60'],
             'support_email' => ['nullable', 'email', 'max:150'],
             'payment_instructions' => ['nullable', 'string', 'max:2000'],
+            'payment_provider' => ['nullable', 'string', 'in:auto,paytr,iyzico,stripe,manual'],
+            'paytr_enabled' => ['nullable', 'boolean'],
+            'iyzico_enabled' => ['nullable', 'boolean'],
+            'stripe_enabled' => ['nullable', 'boolean'],
+            'paytr_merchant_id' => ['nullable', 'string', 'max:120'],
+            'paytr_merchant_key' => ['nullable', 'string', 'max:255'],
+            'paytr_merchant_salt' => ['nullable', 'string', 'max:255'],
+            'paytr_test_mode' => ['nullable', 'boolean'],
+            'paytr_debug_on' => ['nullable', 'boolean'],
+            'paytr_timeout_minutes' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'iyzico_api_key' => ['nullable', 'string', 'max:255'],
+            'iyzico_secret_key' => ['nullable', 'string', 'max:255'],
+            'iyzico_test_mode' => ['nullable', 'boolean'],
+            'domain_register_enabled' => ['nullable', 'boolean'],
+            'domain_registrar' => ['nullable', 'string', 'in:manual,resellerclub'],
+            'resellerclub_auth_userid' => ['nullable', 'string', 'max:120'],
+            'resellerclub_api_key' => ['nullable', 'string', 'max:255'],
+            'resellerclub_test_mode' => ['nullable', 'boolean'],
+            'resellerclub_customer_id' => ['nullable', 'integer', 'min:0'],
+            'resellerclub_ns1' => ['nullable', 'string', 'max:253'],
+            'resellerclub_ns2' => ['nullable', 'string', 'max:253'],
         ]);
 
         if (isset($validated['currency'])) {
@@ -50,5 +75,14 @@ class BillingSettingsController extends Controller
         }
 
         return response()->json(['settings' => $this->settings->update($validated)]);
+    }
+
+    public function testRegistrar(): JsonResponse
+    {
+        if (! $this->resellerClub->isConfigured()) {
+            return response()->json(['ok' => false, 'message' => 'ResellerClub Auth User ID ve API Key girin.'], 422);
+        }
+
+        return response()->json($this->resellerClub->ping());
     }
 }

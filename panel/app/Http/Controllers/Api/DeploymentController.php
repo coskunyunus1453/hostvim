@@ -45,7 +45,7 @@ class DeploymentController extends Controller
             'repo_url' => ['nullable', 'string', 'max:255', 'regex:/^(https:\/\/|git@)[A-Za-z0-9._:\/-]+(\.git)?$/'],
             'branch' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9._\/-]+$/'],
             'branch_whitelist' => 'nullable|array|max:30',
-            'branch_whitelist.*' => ['string', 'max:100', 'regex:/^[A-Za-z0-9._\/-]+$/'],
+            'branch_whitelist.*' => ['string', 'max:100', 'regex:/^[A-Za-z0-9._\/*-]+$/'],
             'runtime' => 'nullable|string|in:laravel,node,php',
             'auto_deploy' => 'sometimes|boolean',
             'rotate_webhook_token' => 'sometimes|boolean',
@@ -90,6 +90,12 @@ class DeploymentController extends Controller
         $cfg = $domain->deploymentConfig;
         if (! $cfg) {
             return response()->json(['message' => 'deployment config not found'], 422);
+        }
+        if (trim((string) $cfg->repo_url) === '') {
+            return response()->json(['message' => 'repository url not configured'], 422);
+        }
+        if (trim((string) $cfg->branch) === '') {
+            return response()->json(['message' => 'branch not configured'], 422);
         }
         $run = DeploymentRun::create([
             'domain_id' => $domain->id,
@@ -162,6 +168,12 @@ class DeploymentController extends Controller
         $cfg = $domain->deploymentConfig;
         if (! $cfg) {
             return response()->json(['message' => 'deployment config not found'], 422);
+        }
+        if (trim((string) $cfg->repo_url) === '') {
+            return response()->json(['message' => 'repository url not configured'], 422);
+        }
+        if (trim((string) $cfg->branch) === '') {
+            return response()->json(['message' => 'branch not configured'], 422);
         }
         $target = DeploymentRun::query()
             ->where('domain_id', $domain->id)
@@ -371,7 +383,13 @@ class DeploymentController extends Controller
             return true;
         }
 
-        return in_array($branch, $allowed, true);
+        foreach ($allowed as $pattern) {
+            if ($pattern === $branch || fnmatch($pattern, $branch)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function verifyWebhookSignature(Request $request, string $secret): bool

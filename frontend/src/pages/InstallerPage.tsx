@@ -7,6 +7,8 @@ import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { notify } from '../lib/notify'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { Link } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 
 type AppCategory = 'kobi' | 'agency' | 'modern' | 'other'
 type AppRow = {
@@ -60,6 +62,8 @@ function categoryLabel(t: (k: string) => string, c: AppCategory): string {
 export default function InstallerPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'installer:write')
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [wpDatabaseId, setWpDatabaseId] = useState<number | ''>('')
   const [tablePrefix, setTablePrefix] = useState('wp_')
@@ -272,6 +276,9 @@ export default function InstallerPage() {
       <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
         {t('installer.page_stability_note')}
       </div>
+      {!canWrite && (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t('installer.read_only_hint')}</p>
+      )}
 
       {hasRunningInstall && (
         <div className="card p-4 border border-indigo-200 dark:border-indigo-700">
@@ -289,6 +296,14 @@ export default function InstallerPage() {
         </div>
       )}
 
+      {q.isError ? (
+        <div className="card p-5 text-center">
+          <p className="text-sm text-red-700 dark:text-red-300">{t('installer.load_error')}</p>
+          <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void q.refetch()}>
+            {t('domains.refresh')}
+          </button>
+        </div>
+      ) : (
       <div className="card p-4 flex flex-wrap gap-4 items-end">
         <div>
           <label className="label">{t('domains.name')}</label>
@@ -341,12 +356,13 @@ export default function InstallerPage() {
         <button
           type="button"
           className="btn-secondary text-sm"
-          disabled={diagnosticsM.isPending}
+          disabled={!canWrite || diagnosticsM.isPending}
           onClick={() => diagnosticsM.mutate()}
         >
           {diagnosticsM.isPending ? t('common.loading') : t('installer.run_diagnostics')}
         </button>
       </div>
+      )}
       {installWoo && (
         <p className="text-xs text-gray-500 dark:text-gray-400 -mt-4 ml-1">{t('installer.woocommerce_note')}</p>
       )}
@@ -381,6 +397,7 @@ export default function InstallerPage() {
                 const needsDb = auto && (wp || oc)
                 const disabled =
                   !domainId ||
+                  !canWrite ||
                   installM.isPending ||
                   hasRunningInstall ||
                   (needsDb && !wpDatabaseId)
@@ -448,6 +465,11 @@ export default function InstallerPage() {
 
       <div className="card p-4">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">{t('installer.recent_runs')}</h3>
+        {runsQ.isError && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            {t('installer.runs_load_error')}
+          </div>
+        )}
         <div className="space-y-2">
           {(runsQ.data?.runs ?? []).map((r) => (
             <div key={r.id} className="rounded-md border border-gray-200 dark:border-gray-700 p-2 text-xs">
@@ -477,14 +499,18 @@ export default function InstallerPage() {
           <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Installer Run #{detailRunId}
+                {t('installer.run_details_title', { id: detailRunId })}
               </h3>
               <button type="button" className="btn-secondary py-1 px-2 text-xs" onClick={() => setDetailRunId(null)}>
                 {t('common.close')}
               </button>
             </div>
             <div className="text-xs text-gray-500 space-y-1 mb-3">
-              <p>{runDetailQ.data?.run.status}</p>
+              {runDetailQ.isError ? (
+                <p className="text-red-600 dark:text-red-300">{t('installer.run_detail_load_error')}</p>
+              ) : (
+                <p>{runDetailQ.data?.run.status}</p>
+              )}
               {runDetailQ.data?.run.message && <p>{runDetailQ.data.run.message}</p>}
             </div>
             <pre className="max-h-[360px] overflow-auto rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-[11px] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">

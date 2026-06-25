@@ -7,10 +7,12 @@ use App\Models\ResellerWhiteLabel;
 use App\Services\WhiteLabelBrandingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\HtmlSanitizer;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use App\Support\HtmlSanitizer;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class ResellerWhiteLabelController extends Controller
 {

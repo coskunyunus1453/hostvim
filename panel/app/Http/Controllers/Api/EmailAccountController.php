@@ -38,14 +38,9 @@ class EmailAccountController extends Controller
             abort(403);
         }
 
-        if ($this->mailStack->isWebmailStackInstalled()) {
-            $this->mailStack->syncProvision();
-        }
+        $wm = $this->webmail->statusForDomain($domain, false);
 
-        $wm = $this->webmail->statusForDomain($domain, true);
-
-        return response()->json([
-            'mail' => $this->engine->mailOverview($domain->name),
+        $payload = [
             'mail_stack_ready' => $wm['mail_stack_ready'],
             'accounts' => $request->user()->emailAccounts()->where('domain_id', $domain->id)->get(),
             'forwarders' => EmailForwarder::query()
@@ -68,7 +63,32 @@ class EmailAccountController extends Controller
                 'scheme' => $wm['scheme'],
                 'hint' => $wm['hint'],
             ],
-        ]);
+        ];
+
+        if ($request->user()->isAdmin()) {
+            $payload['mail'] = $this->sanitizeMailOverview($this->engine->mailOverview($domain->name));
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $mail
+     * @return array<string, mixed>
+     */
+    private function sanitizeMailOverview(array $mail): array
+    {
+        if (isset($mail['mailboxes']) && is_array($mail['mailboxes'])) {
+            $mail['mailboxes'] = array_map(function ($box) {
+                if (is_array($box)) {
+                    unset($box['password']);
+                }
+
+                return $box;
+            }, $mail['mailboxes']);
+        }
+
+        return $mail;
     }
 
     public function store(Request $request, Domain $domain): JsonResponse
@@ -77,7 +97,7 @@ class EmailAccountController extends Controller
             abort(403);
         }
         $validated = $request->validate([
-            'local_part' => 'required|string|max:64',
+            'local_part' => ['required', 'string', 'max:64', 'regex:/^[a-zA-Z0-9]([a-zA-Z0-9._+-]*[a-zA-Z0-9])?$/'],
             'quota_mb' => 'nullable|integer|min:1',
         ]);
 

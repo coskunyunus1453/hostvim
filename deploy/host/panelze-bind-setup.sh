@@ -11,7 +11,7 @@ fi
 PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"
 PANEL_ROOT="${PANEL_ROOT:-${PANELZE_HOME}/panel}"
 ZONES_DIR="/var/lib/bind/panelze/zones"
-CONF_SNIPPET="/etc/bind/named.conf.panelze-zones"
+CONF_SNIPPET="/var/lib/bind/panelze/named.conf.panelze-zones"
 OPTIONS_FILE="/etc/bind/named.conf.options"
 
 echo "==> BIND9 kurulumu..."
@@ -35,15 +35,19 @@ if [[ -f "${OPTIONS_FILE}" ]]; then
 fi
 
 if grep -q 'named.conf.hostvim-zones' /etc/bind/named.conf.local 2>/dev/null; then
-  sed -i 's|include "/etc/bind/named.conf.hostvim-zones";|// eski hostvim zones\ninclude "/etc/bind/named.conf.panelze-zones";|' \
+  sed -i 's|include "/etc/bind/named.conf.hostvim-zones";|// eski hostvim zones\ninclude "'"${CONF_SNIPPET}"'";|' \
     /etc/bind/named.conf.local
 fi
-if ! grep -q 'named.conf.panelze-zones' /etc/bind/named.conf.local 2>/dev/null; then
+if ! grep -qF "${CONF_SNIPPET}" /etc/bind/named.conf.local 2>/dev/null; then
+  if grep -q 'named.conf.panelze-zones' /etc/bind/named.conf.local 2>/dev/null; then
+    sed -i 's|include "/etc/bind/named.conf.panelze-zones";|include "'"${CONF_SNIPPET}"'";|' /etc/bind/named.conf.local
+  else
   cat >>/etc/bind/named.conf.local <<EOF
 
 // Panelze panel DNS
 include "${CONF_SNIPPET}";
 EOF
+  fi
 fi
 
 install -d -m 755 /usr/local/sbin
@@ -58,8 +62,10 @@ if [[ -f "${PANELZE_HOME}/deploy/scripts/ensure-engine-sudoers.sh" ]]; then
 fi
 
 # named-checkconf include dosyası mevcut olmalı (zone'lar sync ile dolar)
+mkdir -p "$(dirname "${CONF_SNIPPET}")"
 touch "${CONF_SNIPPET}"
 chmod 644 "${CONF_SNIPPET}"
+chown bind:bind "${CONF_SNIPPET}" 2>/dev/null || true
 printf '%s\n' '// Panelze: panelze:sync-bind-dns ile doldurulur' >"${CONF_SNIPPET}"
 
 named-checkconf

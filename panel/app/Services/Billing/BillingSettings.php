@@ -39,6 +39,28 @@ class BillingSettings
         'company_tax_id' => '',
         'support_email' => '',
         'payment_instructions' => '',
+        // auto | paytr | iyzico | stripe | manual
+        'payment_provider' => 'auto',
+        'paytr_enabled' => true,
+        'iyzico_enabled' => true,
+        'stripe_enabled' => true,
+        'paytr_merchant_id' => '',
+        'paytr_merchant_key' => '',
+        'paytr_merchant_salt' => '',
+        'paytr_test_mode' => false,
+        'paytr_debug_on' => false,
+        'paytr_timeout_minutes' => 30,
+        'iyzico_api_key' => '',
+        'iyzico_secret_key' => '',
+        'iyzico_test_mode' => false,
+        'domain_register_enabled' => true,
+        'domain_registrar' => 'manual',
+        'resellerclub_auth_userid' => '',
+        'resellerclub_api_key' => '',
+        'resellerclub_test_mode' => false,
+        'resellerclub_customer_id' => 0,
+        'resellerclub_ns1' => '',
+        'resellerclub_ns2' => '',
     ];
 
     /** @return array<string, mixed> */

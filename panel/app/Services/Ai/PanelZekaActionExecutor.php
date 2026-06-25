@@ -34,6 +34,10 @@ class PanelZekaActionExecutor
         $type = strtolower(trim((string) ($action['type'] ?? '')));
         $params = is_array($action['params'] ?? null) ? $action['params'] : [];
 
+        if (! $this->userMayRunAction($user, $type)) {
+            return ['ok' => false, 'message' => 'Bu işlem için yetkiniz yok: '.$type];
+        }
+
         return match ($type) {
             'file_write' => $this->fileWrite($user, $params),
             'read_file' => $this->readFile($user, $params),
@@ -320,5 +324,25 @@ class PanelZekaActionExecutor
         }
 
         return $domain;
+    }
+
+    private function userMayRunAction(User $user, string $type): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        $ability = match ($type) {
+            'file_write' => 'files:write',
+            'read_file' => 'files:read',
+            'create_domain' => 'domains:write',
+            'create_database' => 'databases:write',
+            'security_toggle' => 'security:write',
+            'run_command' => 'tools:run',
+            'run_cron_now' => 'cron:write',
+            default => null,
+        };
+
+        return $ability !== null && $user->can($ability);
     }
 }

@@ -27,7 +27,7 @@ class AppearanceController extends Controller
         }
 
         return view('admin.appearance.index', [
-            'activeTab' => request('tab', 'site'),
+            'activeTab' => $this->resolveAppearanceTab(request('tab', 'site')),
             // site settings data
             'siteName' => trim((string) (LandingSiteSetting::getValue('landing.site_name', '') ?? '')),
             'siteTagline' => trim((string) (LandingSiteSetting::getValue('landing.site_tagline', '') ?? '')),
@@ -45,6 +45,7 @@ class AppearanceController extends Controller
             'logoMaxWidthPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_max_width_px', '') ?? ''),
             'logoFooterMaxHeightPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_footer_max_height_px', '') ?? ''),
             'logoFooterMaxWidthPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_footer_max_width_px', '') ?? ''),
+            'headerBrandMode' => LandingAppearance::headerBrandMode(),
             // theme settings data
             'activeTheme' => LandingAppearance::activeTheme(),
             'graphicMotif' => LandingAppearance::graphicMotif(),
@@ -69,5 +70,10 @@ class AppearanceController extends Controller
             'embedded' => true,
             'installSettings' => InstallGuide::settings(),
         ]);
+    }
+
+    private function resolveAppearanceTab(string $tab): string
+    {
+        return in_array($tab, ['site', 'theme', 'home', 'install'], true) ? $tab : 'site';
     }
 }

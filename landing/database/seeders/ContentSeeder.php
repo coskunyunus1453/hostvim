@@ -7,6 +7,7 @@ use App\Models\BlogPost;
 use App\Models\DocPage;
 use App\Models\Plan;
 use App\Models\SitePage;
+use App\Support\PanelFeatureCatalog;
 use Illuminate\Database\Seeder;
 
 class ContentSeeder extends Seeder
@@ -447,50 +448,7 @@ MD
                 'meta_description' => 'Site, domain, SSL, veritabanı, yedek, e-posta, cron, izleme ve lisans — panel özellikleri özeti.',
                 'is_published' => true,
                 'sort_order' => 20,
-                'content' => <<<'MD'
-## Genel bakış
-
-Panelze **müşteri paneli**, alan adı ve site yaşam döngüsünü tek yerden yönetmek için tasarlanmıştır. Arayüz, arka planda **Engine** ile konuşan bir Laravel uygulamasıdır; Engine gerçek sunucu değişikliklerini (Nginx, PHP-FPM, sertifikalar vb.) uygular.
-
-Yetenekler, **rol ve izin modeline** göre kısıtlanır (ör. site oluşturma, veritabanı yazma, yedek alma). Aşağıdaki liste ürün yönünü özetler; tam API yüzeyi sürüme göre genişleyebilir.
-
----
-
-## Çekirdek hosting
-
-- **Siteler ve alan adları:** Çoklu site; ek subdomain ve alias yönetimi; durum ve sunucu eşleştirme.
-- **Web yığını:** PHP sürüm seçimi, document root, Nginx/Apache sanal host içerikleri (gelişmiş modlarda düzenleme ve geri alma).
-- **SSL / TLS:** Let’s Encrypt ile sertifika çıkarma, yenileme, iptal; gerektiğinde manuel sertifika yolları.
-
-## Veri ve dosyalar
-
-- **Veritabanları:** MySQL/MariaDB ve PostgreSQL için kullanıcı oluşturma, yetki, içe/dışa aktarma ve parola rotasyonu (sunucu tarafı `MYSQL_*` / `POSTGRES_*` provizyon bayraklarına bağlı).
-- **Dosya yöneticisi:** Gezinme, düzenleme, yükleme, sıkıştırma ve çöp kutusu ile geri yükleme (domain bazlı kota politikalarına tabi).
-- **Yedekleme:** Anlık ve zamanlanmış yedekler; hedefler ve politikalar; gerektiğinde geri yükleme akışları.
-
-## İletişim ve güvenlik
-
-- **E-posta ve yönlendirme:** Alan adına bağlı posta kutuları ve forwarder’lar.
-- **FTP:** İsteğe bağlı klasik FTP hesapları (domain kapsamında).
-- **DNS kayıtları:** Basit bölge düzenleme (yetki verildiğinde).
-- **Cron:** Kullanıcı düzeyinde zamanlanmış görevler ve çalıştırma geçmişi.
-- **İzleme:** Özet sağlık bilgisi, site bazlı durum ve sunucu düzeyinde metrikler (okuma yetkisine bağlı).
-- **Kimlik doğrulama:** Oturum açma, parola sıfırlama, isteğe bağlı **2FA** (yönetici politikalarında `ENFORCE_ADMIN_2FA` gibi bayraklarla sıkılaştırılabilir).
-
-## Operasyon ve entegrasyon
-
-- **Dağıtım / webhooks:** Siteler için CI/CD tarzı tetikleyiciler (yetkiye bağlı).
-- **Lisanslama:** Merkezi lisans sunucusu URL’si ve anahtar; Stripe faturalandırma ile entegre edilebilir dağıtımlar için hazırlıklar.
-- **WHMCS / bayi:** İsteğe bağlı modül ve çok kiracılı senaryolar (kurulumunuza göre açılır).
-
----
-
-## Freemium ve Pro’dan ne beklenir?
-
-Özet seviyede **Freemium** tek sunucu ve temel limitlerle başlamanıza izin verir; **Pro** daha geniş site/izleme/destek ihtiyaçları içindir. Kesin sayısal limitler paneldeki **lisans / plan** ekranında güncellenir — bu dokümandaki metinler pazarlama özetidir.
-
-Daha teknik ayrıntı için [Mimari](/docs/architecture) sayfasına bakın.
-MD
+                'content' => PanelFeatureCatalog::platformFeaturesMarkdown('tr'),
             ]
         );
 
@@ -502,50 +460,7 @@ MD
                 'meta_description' => 'Sites, SSL, databases, backups, email, cron, monitoring, licensing—what Panelze exposes end-to-end.',
                 'is_published' => true,
                 'sort_order' => 20,
-                'content' => <<<'MD'
-## Overview
-
-The Panelze **customer panel** is a Laravel application that orchestrates day-to-day hosting operations. Persistent changes land on the host through the **Engine**, which applies Nginx/PHP-FPM/Let’s Encrypt mutations and enforces quotas.
-
-Authorisation is **ability-based**—features below map to coarse capability groups (sites, databases, backups, etc.). The public API surface evolves per release; treat this page as the product map, not an endpoint manifest.
-
----
-
-## Core hosting
-
-- **Sites & domains:** Multi-site accounts, subdomains, aliases, suspend/resume flows, and server placement where multi-node setups exist.
-- **Web stack controls:** PHP version selection, document roots, and editable vhost text for Nginx/Apache with guardrails and revert paths.
-- **TLS lifecycle:** Issue, renew, revoke, or attach manual certificates—typically backed by Let’s Encrypt with admin-provided contact email defaults.
-
-## Data plane & files
-
-- **Databases:** MySQL/MariaDB and PostgreSQL flows for create/drop users, granular privileges, imports/exports, and credential rotation (subject to `MYSQL_*` / `POSTGRES_*` provisioning toggles on the Engine).
-- **File manager:** Browse, edit, upload, archive/unarchive, trash/restore with throttles to protect IO.
-- **Backups:** On-demand snapshots, scheduled policies, remote destinations, and selective restores.
-
-## Messaging & edge security
-
-- **Mailbox + forwarding:** Per-domain mail users and forwarders where the mail stack is enabled.
-- **FTP accounts:** Classic FTP where policy allows it (scoped to a domain path).
-- **DNS records:** Lightweight record editing for zones delegated to the integration.
-- **Cron:** User-defined jobs with safety rails and execution history.
-- **Observability:** Per-user summaries, per-site health, and deeper server metrics for operators with monitoring permissions.
-- **Identity security:** Password policies, Sanctum tokens for API access, optional **TOTP 2FA**, and stricter admin enforcement via settings such as `ENFORCE_ADMIN_2FA`.
-
-## Day-2 automation & GTM
-
-- **Deploy hooks:** Webhook-driven pipelines for modern application releases when enabled for a site.
-- **Licensing & billing:** Configurable license hub URL, Stripe keys for checkout, and email flows that deliver keys post-payment.
-- **WHMCS / reseller:** Optional provisioning modules and multi-tenant knobs for larger hosters.
-
----
-
-## Freemium vs licensed tiers
-
-**Freemium** is meant for single-box pilots with conservative limits. **Pro** unlocks higher ceilings for agencies and busy workloads. Authoritative numbers always live in the in-panel **plan / license** module—marketing blurbs on the landing site are summaries only.
-
-For trust-boundary detail, continue with [Architecture](/docs/architecture).
-MD
+                'content' => PanelFeatureCatalog::platformFeaturesMarkdown('en'),
             ]
         );
 
@@ -836,19 +751,14 @@ MD
         Plan::query()->updateOrCreate(
             ['slug' => 'freemium'],
             [
-                'name' => 'Freemium',
-                'subtitle' => 'Tek sunucu için sınırlı ama yeterli özellikler',
+                'name' => 'Community (Freemium)',
+                'subtitle' => 'Panelze v'.PanelFeatureCatalog::PANEL_VERSION.' — tek sunucuda çekirdek hosting',
                 'price_label' => '₺0',
                 'price_note' => '/ay',
                 'sort_order' => 10,
                 'is_featured' => false,
                 'is_active' => true,
-                'features' => [
-                    '1 sunucu',
-                    'Temel site ve domain yönetimi',
-                    'Otomatik SSL (Let\'s Encrypt)',
-                    'Sınırlı log ve terminal erişimi',
-                ],
+                'features' => PanelFeatureCatalog::communityPlanFeatures('tr'),
             ]
         );
 
@@ -856,18 +766,13 @@ MD
             ['slug' => 'pro-lisans'],
             [
                 'name' => 'Pro Lisans',
-                'subtitle' => 'Ajanslar ve yoğun trafik için',
+                'subtitle' => 'Tüm Pro modüller — panelde lisans anahtarı ile açılır',
                 'price_label' => '₺?',
                 'price_note' => '/ay · sunucu başına',
                 'sort_order' => 20,
                 'is_featured' => true,
                 'is_active' => true,
-                'features' => [
-                    'Sınırsız site ve domain',
-                    'Gelişmiş güvenlik profilleri',
-                    'Detaylı metrikler ve health checks',
-                    'Öncelikli destek',
-                ],
+                'features' => PanelFeatureCatalog::proPlanFeatures('tr'),
             ]
         );
 

@@ -247,5 +247,9 @@ class DatabaseSeeder extends Seeder
             );
             $user->syncRoles(['user']);
         }
+
+        if (filter_var((string) env('HOSTVIM_SEED_E2E', false), FILTER_VALIDATE_BOOLEAN)) {
+            $this->call(E2EDemoCustomerSeeder::class);
+        }
     }
 }

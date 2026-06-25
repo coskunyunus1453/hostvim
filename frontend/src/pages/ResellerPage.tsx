@@ -11,6 +11,31 @@ import type { Role } from '../types'
 
 type AbilityRow = { name: string; group: string }
 
+function LoadError({
+  message,
+  onRetry,
+  retryLabel,
+}: {
+  message: string
+  onRetry: () => void
+  retryLabel: string
+}) {
+  return (
+    <div className="p-4 text-sm text-red-700 dark:text-red-300">
+      <p>{message}</p>
+      <button type="button" className="btn-secondary mt-2 text-xs" onClick={onRetry}>
+        {retryLabel}
+      </button>
+    </div>
+  )
+}
+
+function statusLabel(t: (key: string) => string, status: string): string {
+  const key = `common.${status}`
+  const translated = t(key)
+  return translated === key ? status : translated
+}
+
 export default function ResellerPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -29,7 +54,7 @@ export default function ResellerPage() {
 
   const usersQ = useQuery({
     queryKey: ['reseller-users'],
-    queryFn: async () => (await api.get('/reseller/users')).data,
+    queryFn: async () => (await api.get('/reseller/users', { params: { per_page: 100 } })).data,
     enabled: !!showReseller && canUsers,
   })
 
@@ -50,7 +75,7 @@ export default function ResellerPage() {
     queryKey: ['reseller-abilities-registry'],
     queryFn: async () =>
       (await api.get<{ abilities: AbilityRow[] }>('/reseller/abilities/registry')).data,
-    enabled: !!showReseller && canRoles,
+    enabled: !!showReseller && canRoles && showRoleForm,
   })
 
   const grouped = useMemo(() => {
@@ -142,7 +167,12 @@ export default function ResellerPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {canUsers && (
-            <button type="button" className="btn-primary flex items-center gap-2" onClick={() => setShowAdd(true)}>
+            <button
+              type="button"
+              className="btn-primary flex items-center gap-2"
+              onClick={() => setShowAdd(true)}
+              disabled={rolesListQ.isLoading || rolesListQ.isError}
+            >
               <Plus className="h-4 w-4" />
               {t('reseller.new_subuser')}
             </button>
@@ -179,8 +209,8 @@ export default function ResellerPage() {
                 <input name="email" type="email" className="input w-full" required autoComplete="off" />
               </div>
               <div>
-                <label className="label">Ad</label>
-                <input name="name" type="text" className="input w-full" required />
+                <label className="label">{t('reseller.col_name')}</label>
+                <input name="name" type="text" className="input w-full" required autoComplete="off" />
               </div>
               <div>
                 <label className="label">{t('reseller.role_for_new_user')}</label>
@@ -194,11 +224,18 @@ export default function ResellerPage() {
               </div>
               <div>
                 <label className="label">{t('auth.password')}</label>
-                <input name="password" type="password" className="input w-full" required minLength={8} />
+                <input name="password" type="password" className="input w-full" required minLength={8} autoComplete="new-password" />
               </div>
               <div>
                 <label className="label">{t('reseller.password_again')}</label>
-                <input name="password_confirmation" type="password" className="input w-full" required minLength={8} />
+                <input
+                  name="password_confirmation"
+                  type="password"
+                  className="input w-full"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>
@@ -223,6 +260,10 @@ export default function ResellerPage() {
                 ev.preventDefault()
                 const fd = new FormData(ev.currentTarget)
                 const perms = fd.getAll('permissions') as string[]
+                if (perms.length === 0) {
+                  toast.error(t('reseller.role_permissions_required'))
+                  return
+                }
                 saveRoleM.mutate({
                   display_name: String(fd.get('display_name') || '').trim(),
                   permissions: perms,
@@ -231,28 +272,44 @@ export default function ResellerPage() {
             >
               <div>
                 <label className="label">{t('roles.display_name')}</label>
-                <input name="display_name" className="input w-full" required />
+                <input name="display_name" className="input w-full" required maxLength={120} />
               </div>
               <div className="space-y-3 max-h-[40vh] overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-lg p-3">
-                {Array.from(grouped.entries()).map(([group, items]) => (
-                  <div key={group}>
-                    <p className="text-xs uppercase text-gray-500 mb-1">{group}</p>
-                    <div className="grid sm:grid-cols-2 gap-1">
-                      {items.map((a) => (
-                        <label key={a.name} className="flex items-center gap-2 text-xs">
-                          <input type="checkbox" name="permissions" value={a.name} />
-                          <span className="font-mono">{a.name}</span>
-                        </label>
-                      ))}
+                {registryQ.isLoading ? (
+                  <p className="text-sm text-gray-500">{t('common.loading')}</p>
+                ) : registryQ.isError ? (
+                  <LoadError
+                    message={t('reseller.abilities_load_error')}
+                    retryLabel={t('common.refresh')}
+                    onRetry={() => void registryQ.refetch()}
+                  />
+                ) : grouped.size === 0 ? (
+                  <p className="text-sm text-gray-500">{t('common.no_data')}</p>
+                ) : (
+                  Array.from(grouped.entries()).map(([group, items]) => (
+                    <div key={group}>
+                      <p className="text-xs uppercase text-gray-500 mb-1">{group}</p>
+                      <div className="grid sm:grid-cols-2 gap-1">
+                        {items.map((a) => (
+                          <label key={a.name} className="flex items-center gap-2 text-xs">
+                            <input type="checkbox" name="permissions" value={a.name} />
+                            <span className="font-mono">{a.name}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" className="btn-secondary" onClick={() => setShowRoleForm(false)}>
                   {t('common.cancel')}
                 </button>
-                <button type="submit" className="btn-primary" disabled={saveRoleM.isPending}>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={saveRoleM.isPending || registryQ.isLoading || registryQ.isError}
+                >
                   {t('common.save')}
                 </button>
               </div>
@@ -267,27 +324,37 @@ export default function ResellerPage() {
             <h2 className="text-lg font-semibold px-4 py-3 border-b border-gray-100 dark:border-gray-800">
               {t('reseller.subusers')}
             </h2>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-800/80">
-                <tr>
-                  <th className="text-left px-4 py-2">Ad</th>
-                  <th className="text-left px-4 py-2">E-posta</th>
-                  <th className="text-left px-4 py-2">{t('common.status')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userRows.map((u) => (
-                  <tr key={u.id} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-2">{u.name}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{u.email}</td>
-                    <td className="px-4 py-2">{u.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {usersQ.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
-            {!usersQ.isLoading && userRows.length === 0 && (
-              <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+            {usersQ.isError ? (
+              <LoadError
+                message={t('reseller.users_load_error')}
+                retryLabel={t('common.refresh')}
+                onRetry={() => void usersQ.refetch()}
+              />
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800/80">
+                    <tr>
+                      <th className="text-left px-4 py-2">{t('reseller.col_name')}</th>
+                      <th className="text-left px-4 py-2">{t('reseller.col_email')}</th>
+                      <th className="text-left px-4 py-2">{t('common.status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userRows.map((u) => (
+                      <tr key={u.id} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="px-4 py-2">{u.name}</td>
+                        <td className="px-4 py-2 font-mono text-xs">{u.email}</td>
+                        <td className="px-4 py-2">{statusLabel(t, u.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {usersQ.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
+                {!usersQ.isLoading && userRows.length === 0 && (
+                  <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -297,25 +364,35 @@ export default function ResellerPage() {
             <h2 className="text-lg font-semibold px-4 py-3 border-b border-gray-100 dark:border-gray-800">
               {t('reseller.catalog')}
             </h2>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-800/80">
-                <tr>
-                  <th className="text-left px-4 py-2">Ad</th>
-                  <th className="text-left px-4 py-2">Slug</th>
-                </tr>
-              </thead>
-              <tbody>
-                {packages.map((p) => (
-                  <tr key={p.id} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-2">{p.name}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{p.slug}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {pkgsQ.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
-            {!pkgsQ.isLoading && packages.length === 0 && (
-              <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+            {pkgsQ.isError ? (
+              <LoadError
+                message={t('reseller.packages_load_error')}
+                retryLabel={t('common.refresh')}
+                onRetry={() => void pkgsQ.refetch()}
+              />
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800/80">
+                    <tr>
+                      <th className="text-left px-4 py-2">{t('reseller.col_name')}</th>
+                      <th className="text-left px-4 py-2">{t('reseller.col_slug')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packages.map((p) => (
+                      <tr key={p.id} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="px-4 py-2">{p.name}</td>
+                        <td className="px-4 py-2 font-mono text-xs">{p.slug}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pkgsQ.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
+                {!pkgsQ.isLoading && packages.length === 0 && (
+                  <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -325,36 +402,52 @@ export default function ResellerPage() {
             <h2 className="text-lg font-semibold px-4 py-3 border-b border-gray-100 dark:border-gray-800">
               {t('reseller.custom_roles')}
             </h2>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-800/80">
-                <tr>
-                  <th className="text-left px-4 py-2">{t('roles.col_display')}</th>
-                  <th className="text-left px-4 py-2">{t('roles.col_name')}</th>
-                  <th className="text-right px-4 py-2">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roleOptions.map((r) => (
-                  <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-2">{r.display_name ?? r.name}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{r.name}</td>
-                    <td className="px-4 py-2 text-right">
-                      {canDeleteRole(r) && (
-                        <button
-                          type="button"
-                          className="btn-secondary text-xs py-1 text-red-600 inline-flex items-center gap-1"
-                          onClick={() => delRoleM.mutate(r.id)}
-                          disabled={delRoleM.isPending}
-                        >
-                          <Trash2 className="h-3 w-3" /> {t('common.delete')}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {rolesListQ.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
+            {rolesListQ.isError ? (
+              <LoadError
+                message={t('reseller.roles_load_error')}
+                retryLabel={t('common.refresh')}
+                onRetry={() => void rolesListQ.refetch()}
+              />
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800/80">
+                    <tr>
+                      <th className="text-left px-4 py-2">{t('roles.col_display')}</th>
+                      <th className="text-left px-4 py-2">{t('roles.col_name')}</th>
+                      <th className="text-right px-4 py-2">{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roleOptions.map((r) => (
+                      <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="px-4 py-2">{r.display_name ?? r.name}</td>
+                        <td className="px-4 py-2 font-mono text-xs">{r.name}</td>
+                        <td className="px-4 py-2 text-right">
+                          {canDeleteRole(r) && (
+                            <button
+                              type="button"
+                              className="btn-secondary text-xs py-1 text-red-600 inline-flex items-center gap-1"
+                              onClick={() => {
+                                if (!window.confirm(t('reseller.role_delete_confirm'))) return
+                                delRoleM.mutate(r.id)
+                              }}
+                              disabled={delRoleM.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" /> {t('common.delete')}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {rolesListQ.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
+                {!rolesListQ.isLoading && roleOptions.length === 0 && (
+                  <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

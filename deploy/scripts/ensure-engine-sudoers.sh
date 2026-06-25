@@ -33,6 +33,10 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-panel-update
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-hosting-perms
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-fix-hosting-perms
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
 SUDOERS
 
 chmod 440 "$SUDOERS"

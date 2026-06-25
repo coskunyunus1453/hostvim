@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\LandingSiteSetting;
+use App\Services\LandingAppearance;
 use Illuminate\Database\Seeder;
 
 class LandingSettingsSeeder extends Seeder
@@ -28,6 +29,8 @@ class LandingSettingsSeeder extends Seeder
         LandingSiteSetting::put('landing.analytics_head_code', '');
         LandingSiteSetting::put('landing.analytics_body_code', '');
         LandingSiteSetting::put('landing.footer_extra_note', '');
+
+        LandingSiteSetting::put('landing.header_brand_mode', LandingAppearance::HEADER_BRAND_MODE_BOTH);
 
         LandingSiteSetting::put('landing.active_theme', 'orange');
         LandingSiteSetting::put('landing.graphic_motif', 'grid');

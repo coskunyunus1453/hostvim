@@ -172,6 +172,18 @@ class DomainService
             $serverType = $this->engineApi->normalizeServerType((string) ($domain->server_type ?? 'nginx'));
             $this->engineApi->assertServerTypeVhostManaged($serverType);
 
+            $php = (string) ($domain->php_version ?? '8.2');
+            $resp = $this->engineApi->reapplyWebServer($domain->name, $php, $serverType);
+            if (empty($resp['error']) && empty($resp['needs_reprovision'])) {
+                $documentRoot = (string) ($resp['document_root'] ?? $domain->document_root ?? '');
+                if ($documentRoot !== '') {
+                    $domain->update(['document_root' => $documentRoot, 'server_type' => $serverType]);
+                }
+                $this->setPanelStatus($domain, 'active');
+
+                return $domain->fresh();
+            }
+
             $resp = $this->engineApi->createSite(
                 $domain->name,
                 (int) $domain->user_id,

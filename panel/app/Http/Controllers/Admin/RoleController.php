@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Role;
+use App\Support\ResellerAssignablePermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,11 +38,16 @@ class RoleController extends Controller
             'permissions.*' => ['string', Rule::exists($permTable, 'name')->where('guard_name', 'web')],
         ]);
 
+        $assignableByReseller = (bool) ($validated['assignable_by_reseller'] ?? false);
+        if ($assignableByReseller) {
+            ResellerAssignablePermissions::assertResellerAssignable($validated['permissions']);
+        }
+
         $role = Role::create([
             'name' => $validated['name'],
             'guard_name' => 'web',
             'display_name' => $validated['display_name'] ?? $validated['name'],
-            'assignable_by_reseller' => $validated['assignable_by_reseller'] ?? false,
+            'assignable_by_reseller' => $assignableByReseller,
             'is_system' => false,
             'owner_user_id' => null,
         ]);
@@ -72,7 +78,11 @@ class RoleController extends Controller
         $role->save();
 
         if (isset($validated['permissions'])) {
-            $role->syncPermissions($validated['permissions']);
+            $perms = $validated['permissions'];
+            if ($role->assignable_by_reseller) {
+                ResellerAssignablePermissions::assertResellerAssignable($perms);
+            }
+            $role->syncPermissions($perms);
         }
 
         return response()->json($role->fresh()->load('permissions'));
@@ -82,8 +92,13 @@ class RoleController extends Controller
     {
         abort_unless($role->guard_name === 'web', 404);
         abort_if($role->is_system, 403);
+
+        if ($role->users()->exists()) {
+            return response()->json(['message' => __('roles.has_users')], 422);
+        }
+
         $role->delete();
 
-        return response()->json(['message' => 'OK']);
+        return response()->json(['message' => __('roles.deleted')]);
     }
 }

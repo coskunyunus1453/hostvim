@@ -36,6 +36,18 @@ if [[ "${PANELZE_SKIP_GIT_PULL:-0}" != "1" ]] && command -v git >/dev/null 2>&1;
 fi
 
 # Engine'nin sudo ile çağırdığı yardımcı; panel deploy'da da repo sürümüne sabitlenir.
+if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
+  echo "==> /usr/local/sbin/panelze-nginx-vhost (repo ile güncelle)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-nginx-vhost" /usr/local/sbin/panelze-nginx-vhost
+  sudo ln -sfn /usr/local/sbin/panelze-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
+fi
+
+if [[ "$(id -u)" -eq 0 ]] && [[ -f "$DEPLOY_SCRIPTS/lib/hostvim-common.sh" ]]; then
+  # shellcheck source=lib/hostvim-common.sh
+  source "$DEPLOY_SCRIPTS/lib/hostvim-common.sh"
+  hostvim_ensure_nginx_vhosts || true
+fi
+
 if [[ -f "$REPO_ROOT/deploy/host/panelze-security" ]]; then
   echo "==> /usr/local/sbin/panelze-security (repo ile güncelle)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-security" /usr/local/sbin/panelze-security
@@ -44,14 +56,17 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-security" ]]; then
     PANEL_ROOT="$PANEL_ROOT" bash "$DEPLOY_SCRIPTS/ensure-security-defaults.sh" || true
   fi
 fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
-  echo "==> /usr/local/sbin/panelze-nginx-vhost (repo ile güncelle)"
-  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-nginx-vhost" /usr/local/sbin/panelze-nginx-vhost
-  sudo ln -sfn /usr/local/sbin/panelze-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
-fi
 if [[ -f "$REPO_ROOT/deploy/host/panelze-panel-update" ]]; then
   echo "==> /usr/local/sbin/panelze-panel-update (repo ile güncelle)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-panel-update" /usr/local/sbin/panelze-panel-update
+fi
+if [[ -f "$REPO_ROOT/deploy/host/panelze-fix-admin-spa" ]]; then
+  echo "==> /usr/local/sbin/panelze-fix-admin-spa (repo ile güncelle)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-fix-admin-spa" /usr/local/sbin/panelze-fix-admin-spa
+fi
+if [[ -f "$REPO_ROOT/deploy/host/panelze-site-cage" ]]; then
+  echo "==> /usr/local/sbin/panelze-site-cage (PanelKafes)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-site-cage" /usr/local/sbin/panelze-site-cage
 fi
 for helper in panelze-post-install.sh repair-mysql-users.sh fix-hosting-permissions.sh; do
   if [[ -f "$DEPLOY_SCRIPTS/$helper" ]]; then
@@ -101,15 +116,20 @@ if [[ -d "$FRONTEND_ROOT" ]] && [[ -f "$FRONTEND_ROOT/package.json" ]]; then
   fi
   echo "==> frontend build ($FRONTEND_ROOT)"
   if [[ -f "$FRONTEND_ROOT/package-lock.json" ]]; then
-    (cd "$FRONTEND_ROOT" && npm ci && VITE_BASE_URL="${VITE_BASE_URL:-}" npm run build)
+    (cd "$FRONTEND_ROOT" && npm ci && VITE_BASE_URL="${VITE_BASE_URL:-/}" npm run build)
   else
-    (cd "$FRONTEND_ROOT" && npm install && VITE_BASE_URL="${VITE_BASE_URL:-}" npm run build)
+    (cd "$FRONTEND_ROOT" && npm install && VITE_BASE_URL="${VITE_BASE_URL:-/}" npm run build)
   fi
   echo "==> rsync frontend dist -> panel/public (index.php korunur)"
   rsync -a --delete \
     --exclude index.php \
     --exclude .htaccess \
     "$FRONTEND_ROOT/dist/" "$PANEL_ROOT/public/"
+  if [[ ! -f "$PANEL_ROOT/public/index.php" ]] && [[ -f "$REPO_ROOT/panel/public/index.php" ]]; then
+    echo "==> panel/public/index.php eksik — repodan geri yükleniyor"
+    cp "$REPO_ROOT/panel/public/index.php" "$PANEL_ROOT/public/index.php"
+    [[ -f "$REPO_ROOT/panel/public/.htaccess" ]] && cp "$REPO_ROOT/panel/public/.htaccess" "$PANEL_ROOT/public/.htaccess"
+  fi
 fi
 
 FIX_SCRIPT="$DEPLOY_SCRIPTS/fix-panel-permissions.sh"
@@ -121,6 +141,24 @@ if [[ -f "$FIX_SCRIPT" ]] && [[ -f "$PANEL_ROOT/artisan" ]]; then
     env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
   else
     sudo env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" bash "$FIX_SCRIPT" "$PANEL_ROOT"
+  fi
+fi
+
+if [[ -x /usr/local/sbin/panelze-fix-admin-spa ]]; then
+  echo "==> Admin SPA symlinkleri"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" /usr/local/sbin/panelze-fix-admin-spa "$PANEL_ROOT"
+  else
+    sudo env RUN_USER="$RUN_USER" RUN_GROUP="${RUN_GROUP:-$RUN_USER}" /usr/local/sbin/panelze-fix-admin-spa "$PANEL_ROOT"
+  fi
+fi
+
+if [[ -f "$DEPLOY_SCRIPTS/ensure-engine-sudoers.sh" ]]; then
+  echo "==> engine sudoers (panelze-fix-admin-spa dahil)"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    bash "$DEPLOY_SCRIPTS/ensure-engine-sudoers.sh"
+  else
+    sudo bash "$DEPLOY_SCRIPTS/ensure-engine-sudoers.sh"
   fi
 fi
 

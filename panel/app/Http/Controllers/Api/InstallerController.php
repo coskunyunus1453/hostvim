@@ -118,7 +118,7 @@ class InstallerController extends Controller
             // Yeni installer_runs tablosu canlıda henüz migrate edilmemiş olabilir.
             // Bu durumda kurulum akışını düşürmeyip doğrudan senkron kurulum yap.
             if (! Schema::hasTable('installer_runs')) {
-                return $this->runInstallerDirect($domain, $engineApp, $payload);
+                return $this->runInstallerDirect($request, $domain, $engineApp, $payload);
             }
 
             $run = InstallerRun::query()->create([
@@ -213,8 +213,8 @@ class InstallerController extends Controller
             'key' => 'engine',
             'ok' => $engineOk,
             'message' => $engineOk
-                ? 'Engine bağlantısı başarılı.'
-                : 'Engine erişimi sağlanamadı. panelze-engine servis durumunu kontrol edin.',
+                ? __('installer.diag_engine_ok')
+                : __('installer.diag_engine_fail'),
         ];
 
         $runsTableOk = Schema::hasTable('installer_runs');
@@ -222,8 +222,8 @@ class InstallerController extends Controller
             'key' => 'installer_runs_table',
             'ok' => $runsTableOk,
             'message' => $runsTableOk
-                ? 'installer_runs tablosu mevcut (arka plan durum takibi aktif).'
-                : 'installer_runs tablosu eksik. php artisan migrate --force çalıştırın.',
+                ? __('installer.diag_runs_table_ok')
+                : __('installer.diag_runs_table_fail'),
         ];
 
         if (! empty($validated['domain_id'])) {
@@ -236,16 +236,16 @@ class InstallerController extends Controller
                 'key' => 'domain_access',
                 'ok' => $domainOk,
                 'message' => $domainOk
-                    ? 'Alan adı erişimi doğrulandı.'
-                    : 'Seçilen alan adına erişim yetkisi yok.',
+                    ? __('installer.diag_domain_access_ok')
+                    : __('installer.diag_domain_access_fail'),
             ];
 
             if ($domainOk) {
                 $docroot = (string) $domain->document_root;
                 $docrootOk = is_dir($docroot) && is_writable($docroot);
                 $message = $docrootOk
-                    ? "Belge kökü yazılabilir: {$docroot}"
-                    : "Belge kökü erişilemiyor/yazılamıyor: {$docroot}";
+                    ? __('installer.diag_docroot_write_ok', ['path' => $docroot])
+                    : __('installer.diag_docroot_write_fail', ['path' => $docroot]);
 
                 if ($docrootOk) {
                     $tmp = rtrim($docroot, '/').'/.__panelze_installer_diag';
@@ -254,7 +254,7 @@ class InstallerController extends Controller
                         @unlink($tmp);
                     } catch (Throwable) {
                         $docrootOk = false;
-                        $message = "Belge köküne test dosyası yazılamadı: {$docroot}";
+                        $message = __('installer.diag_docroot_probe_fail', ['path' => $docroot]);
                     }
                 }
 
@@ -277,8 +277,8 @@ class InstallerController extends Controller
                 'key' => 'database_access',
                 'ok' => $dbRecordOk,
                 'message' => $dbRecordOk
-                    ? 'Veritabanı kaydı erişimi doğrulandı.'
-                    : 'Seçilen MySQL veritabanına erişim yetkisi yok.',
+                    ? __('installer.diag_db_access_ok')
+                    : __('installer.diag_db_access_fail'),
             ];
 
             if ($dbRecordOk) {
@@ -325,7 +325,7 @@ class InstallerController extends Controller
      *
      * @param  array<string, mixed>  $payload
      */
-    private function runInstallerDirect(Domain $domain, string $engineApp, array $payload): JsonResponse
+    private function runInstallerDirect(Request $request, Domain $domain, string $engineApp, array $payload): JsonResponse
     {
         $engine = $this->engine->installerRun($engineApp, $domain->name, $payload);
         if (! empty($engine['error'])) {
@@ -339,20 +339,28 @@ class InstallerController extends Controller
                 ], 503);
             }
 
-            return response()->json([
+            $response = [
                 'message' => (string) $engine['error'],
-                'hint' => 'Kurulum run tablosu yoksa önce: php artisan migrate --force',
+                'hint' => __('installer.diag_runs_table_fail'),
                 'background' => false,
-                'engine' => $engine,
-            ], 502);
+            ];
+            if ($this->canExposeEnginePayload($request)) {
+                $response['engine'] = $engine;
+            }
+
+            return response()->json($response, 502);
         }
 
-        return response()->json([
+        $response = [
             'message' => __('installer.completed_sync'),
             'status' => 'success',
             'background' => false,
-            'engine' => $engine,
-        ], 200);
+        ];
+        if ($this->canExposeEnginePayload($request)) {
+            $response['engine'] = $engine;
+        }
+
+        return response()->json($response, 200);
     }
 
     /**
@@ -365,7 +373,7 @@ class InstallerController extends Controller
         } catch (Throwable) {
             return [
                 'ok' => false,
-                'message' => 'Veritabanı şifresi çözülemedi.',
+                'message' => __('installer.diag_db_password_decrypt_fail'),
             ];
         }
 
@@ -381,7 +389,7 @@ class InstallerController extends Controller
         try {
             $pdo = DB::connection('mysql')->getPdo();
             if (! $pdo instanceof \PDO) {
-                return ['ok' => false, 'message' => 'PDO bağlantısı başlatılamadı.'];
+                return ['ok' => false, 'message' => __('installer.diag_db_pdo_fail')];
             }
 
             $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, (string) $db->name);
@@ -391,9 +399,14 @@ class InstallerController extends Controller
             ]);
             $probe->query('SELECT 1');
 
-            return ['ok' => true, 'message' => 'MySQL bağlantı testi başarılı.'];
+            return ['ok' => true, 'message' => __('installer.diag_db_connection_ok')];
         } catch (Throwable $e) {
-            return ['ok' => false, 'message' => 'MySQL bağlantı testi başarısız: '.$e->getMessage()];
+            return ['ok' => false, 'message' => __('installer.diag_db_connection_fail', ['error' => $e->getMessage()])];
         }
+    }
+
+    private function canExposeEnginePayload(Request $request): bool
+    {
+        return (bool) optional($request->user())->isAdmin();
     }
 }

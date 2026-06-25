@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import type { DashboardData, ServiceInfo } from '../types'
 import { isHostingSuperAdmin, isServerAdminUI } from '../lib/authRoles'
-import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, RotateCw, Server } from 'lucide-react'
+import { tokenHasAbility } from '../lib/abilities'
+import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, RotateCw, Server, Receipt } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ResourceChartsSection from '../components/dashboard/ResourceChartsSection'
 import DashboardSkeleton from '../components/dashboard/DashboardSkeleton'
@@ -23,6 +25,7 @@ export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
   const isSuper = isHostingSuperAdmin(user)
   const serverUI = isServerAdminUI(user)
+  const canBilling = tokenHasAbility(user?.abilities, 'billing:read')
 
   const dashQ = useQuery({
     queryKey: ['dashboard'],
@@ -44,6 +47,21 @@ export default function DashboardPage() {
     refetchInterval: isSuper ? () => pollWhenVisible(30_000) : false,
     staleTime: 20_000,
   })
+
+  const invoicesQ = useQuery({
+    queryKey: ['my-invoices-summary'],
+    queryFn: async () =>
+      (await api.get('/billing/invoices')).data as { data: Array<{ status: string; total: string; currency: string }> },
+    enabled: canBilling,
+    staleTime: 60_000,
+  })
+
+  const unpaidSummary = useMemo(() => {
+    const list = (invoicesQ.data?.data ?? []).filter((i) => i.status === 'unpaid' || i.status === 'overdue')
+    const total = list.reduce((s, i) => s + parseFloat(i.total), 0)
+    const currency = list[0]?.currency || 'TRY'
+    return { count: list.length, total, currency }
+  }, [invoicesQ.data])
 
   const parseApiErrorMessage = (err: unknown, fallback: string): string => {
     const ax = err as { response?: { data?: { message?: string; error?: string; details?: string } } }
@@ -236,6 +254,29 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {canBilling && unpaidSummary.count > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Receipt className="h-6 w-6 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">{t('dashboard.billing_unpaid_title')}</p>
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  {t('dashboard.billing_unpaid_count', { count: unpaidSummary.count })}
+                  {' · '}
+                  {t('dashboard.billing_outstanding', {
+                    amount: unpaidSummary.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + unpaidSummary.currency,
+                  })}
+                </p>
+              </div>
+            </div>
+            <Link to="/invoices" className="btn-primary text-xs">
+              {t('dashboard.billing_pay_cta')}
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-5 sm:col-span-2 lg:col-span-2">
           <div className="flex items-start justify-between gap-4">
@@ -388,10 +429,10 @@ export default function DashboardPage() {
               </div>
               {nearLimit && (
                 <Link
-                  to="/billing"
+                  to="/invoices"
                   className="mt-3 inline-flex rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100"
                 >
-                  {t('dashboard.upgrade_cta')}
+                  {nearLimit ? t('dashboard.upgrade_cta') : t('dashboard.buy_hosting_cta')}
                 </Link>
               )}
             </div>

@@ -32,6 +32,7 @@ class SiteSettingsController extends Controller
             'logoMaxWidthPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_max_width_px', '') ?? ''),
             'logoFooterMaxHeightPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_footer_max_height_px', '') ?? ''),
             'logoFooterMaxWidthPx' => (string) (LandingSiteSetting::getValue('landing.site_logo_footer_max_width_px', '') ?? ''),
+            'headerBrandMode' => LandingAppearance::headerBrandMode(),
         ]);
     }
 
@@ -67,6 +68,7 @@ class SiteSettingsController extends Controller
             'site_logo_max_width_px' => ['nullable', 'integer', 'min:0', 'max:600'],
             'site_logo_footer_max_height_px' => ['nullable', 'integer', 'min:16', 'max:120'],
             'site_logo_footer_max_width_px' => ['nullable', 'integer', 'min:0', 'max:600'],
+            'header_brand_mode' => ['required', 'string', 'in:'.implode(',', LandingAppearance::HEADER_BRAND_MODES)],
         ]);
 
         $ga = trim((string) ($validated['analytics_ga4_id'] ?? ''));
@@ -95,6 +97,7 @@ class SiteSettingsController extends Controller
         LandingSiteSetting::put('landing.analytics_head_code', trim((string) ($validated['analytics_head_code'] ?? '')));
         LandingSiteSetting::put('landing.analytics_body_code', trim((string) ($validated['analytics_body_code'] ?? '')));
         LandingSiteSetting::put('landing.footer_extra_note', trim((string) ($validated['footer_extra_note'] ?? '')));
+        LandingSiteSetting::put('landing.header_brand_mode', $validated['header_brand_mode']);
 
         $logoH = $validated['site_logo_max_height_px'] ?? null;
         LandingSiteSetting::put('landing.site_logo_max_height_px', $logoH !== null ? (string) $logoH : '');

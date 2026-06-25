@@ -25,14 +25,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Server,
-  CreditCard,
   Network,
   Gauge,
   KeyRound,
   X,
   TerminalSquare,
   Layers,
-  Send,
   Tags,
   ServerCog,
   FileCode,
@@ -42,13 +40,8 @@ import {
   Sparkles,
   Store,
   Palette,
-  Link2,
   Cpu,
   ArrowRightLeft,
-  Receipt,
-  LifeBuoy,
-  Wallet,
-  Headphones,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useProFeatures } from '../../hooks/useProFeatures'
@@ -144,15 +137,12 @@ export default function Sidebar() {
         { path: '/plugins', icon: Store, label: 'nav.plugins_store', ability: 'dashboard:read' },
         { path: '/ai-advisor', icon: Sparkles, label: 'nav.ai_advisor', ability: 'dashboard:read', proModule: 'ai_advisor' },
         { path: '/curious', icon: Gauge, label: 'nav.curious', ability: 'curious:read', proModule: 'curious_tools' },
-        { path: '/billing', icon: CreditCard, label: 'nav.billing', ability: 'billing:read', proModule: 'stripe_billing' },
       ],
     },
     {
       id: 'account',
       title: 'nav.group_account',
       items: [
-        { path: '/invoices', icon: Receipt, label: 'nav.invoices', ability: 'billing:read' },
-        { path: '/support', icon: LifeBuoy, label: 'nav.support', ability: 'support:read' },
         { path: '/reseller', icon: Users, label: 'nav.reseller', ability: '__reseller__' },
         { path: '/reseller/branding', icon: Palette, label: 'nav.reseller_branding', ability: 'reseller:white_label' },
         { path: '/settings', icon: Settings, label: 'nav.settings', ability: null },
@@ -173,7 +163,6 @@ export default function Sidebar() {
         { path: '/admin/logs', icon: FileText, label: 'nav.logs', allow: isAdmin },
         { path: '/admin/stack', icon: Layers, label: 'nav.stack', allow: isAdmin },
         { path: '/admin/terminal', icon: TerminalSquare, label: 'nav.terminal', allow: isAdmin },
-        { path: '/admin/mail-settings', icon: Send, label: 'nav.outbound_mail', allow: isAdmin },
         { path: '/admin/dns-settings', icon: Globe, label: 'nav.dns_settings', allow: isAdmin },
       ],
     },
@@ -185,9 +174,6 @@ export default function Sidebar() {
         { path: '/admin/users', icon: Users, label: 'nav.users', allow: isAdmin },
         { path: '/admin/roles', icon: Tags, label: 'nav.roles', allow: isAdmin },
         { path: '/admin/packages', icon: Package, label: 'nav.packages', allow: isAdmin },
-        { path: '/admin/billing', icon: Wallet, label: 'nav.admin_billing', allow: isAdmin },
-        { path: '/admin/support', icon: Headphones, label: 'nav.admin_support', allow: isAdmin },
-        { path: '/admin/whmcs', icon: Link2, label: 'nav.whmcs_integration', allow: isAdmin },
         { path: '/admin/license', icon: KeyRound, label: 'nav.license', allow: isAdmin },
       ],
     },
@@ -196,9 +182,12 @@ export default function Sidebar() {
   /** Kolay modda bile yönetici için görünür kalsın (nameserver / sunucu IP). */
   const easyAdminKeepPaths = new Set(['/admin/dns-settings', '/admin/server-settings'])
 
+  /** Kolay modda «Erişim ve yönetim» altındaki öğeler (destek, faturalama, kullanıcılar) gizlenmez. */
+  const easyAdminAccessKeepAll = true
+
   const [openAdminMenus, setOpenAdminMenus] = useState<Record<string, boolean>>({
     'admin-server': true,
-    'admin-access': false,
+    'admin-access': true,
   })
 
   const easyHiddenPaths = new Set([
@@ -214,6 +203,8 @@ export default function Sidebar() {
     '/ai-advisor',
     '/curious',
     '/billing',
+    '/invoices',
+    '/domain-portfolio',
     '/reseller',
     '/reseller/branding',
   ])
@@ -236,7 +227,7 @@ export default function Sidebar() {
         .map((m) => ({
           ...m,
           items:
-            mode === 'easy'
+            mode === 'easy' && ! (easyAdminAccessKeepAll && m.id === 'admin-access')
               ? m.items.filter((i) => easyAdminKeepPaths.has(i.path))
               : m.items,
         }))

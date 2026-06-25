@@ -47,7 +47,7 @@ class Domain extends Model
 
     public function sslCertificate()
     {
-        return $this->hasOne(SslCertificate::class);
+        return $this->hasOne(SslCertificate::class)->whereNull('site_subdomain_id');
     }
 
     public function databases()

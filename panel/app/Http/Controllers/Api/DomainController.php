@@ -28,20 +28,31 @@ class DomainController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min(100, $perPage));
+
         $domains = $request->user()->domains()
             ->with(['sslCertificate', 'databases', 'siteSubdomains', 'siteDomainAliases'])
             ->latest()
-            ->paginate(20);
+            ->paginate($perPage);
 
         return response()->json($domains);
     }
 
     public function options(Request $request): JsonResponse
     {
-        $rows = $request->user()->domains()
-            ->select(['id', 'name'])
-            ->orderByDesc('id')
-            ->get();
+        if ($request->user()->isAdmin()) {
+            $rows = Domain::query()
+                ->select(['id', 'name'])
+                ->orderByDesc('id')
+                ->limit(500)
+                ->get();
+        } else {
+            $rows = $request->user()->domains()
+                ->select(['id', 'name'])
+                ->orderByDesc('id')
+                ->get();
+        }
 
         return response()->json(['data' => $rows]);
     }

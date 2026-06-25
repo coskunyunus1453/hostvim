@@ -33,7 +33,10 @@ class DatabaseController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $databases = $request->user()->databases()->latest()->paginate(20);
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min(100, $perPage));
+
+        $databases = $request->user()->databases()->latest()->paginate($perPage);
         $this->databaseService->hydrateDatabaseSizesOnPaginator($databases);
 
         return response()->json($databases);

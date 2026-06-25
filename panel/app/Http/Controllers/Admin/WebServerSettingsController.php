@@ -41,6 +41,12 @@ class WebServerSettingsController extends Controller
             'php_fpm_pool_user' => 'sometimes|nullable|string|max:64',
             'php_fpm_pool_group' => 'sometimes|nullable|string|max:64',
 
+            'site_cage_enabled' => 'sometimes|boolean',
+            'site_cage_default_cpu_percent' => 'sometimes|integer|min:10|max:400',
+            'site_cage_default_memory_mb' => 'sometimes|integer|min:128|max:65536',
+            'site_cage_default_pm_max_children' => 'sometimes|integer|min:1|max:200',
+            'site_cage_default_memory_limit' => 'sometimes|nullable|string|max:16',
+
             'reload' => 'sometimes|boolean',
         ]);
 
@@ -113,6 +119,31 @@ class WebServerSettingsController extends Controller
         return response()->json([
             'message' => $result['message'] ?? 'ok',
             'scope' => $result['scope'] ?? $validated['scope'],
+        ]);
+    }
+
+    public function applyPanelKafesAll(): JsonResponse
+    {
+        $result = $this->engine->applyPanelKafesAll();
+
+        return response()->json([
+            'message' => $result['message'] ?? 'ok',
+            'results' => $result['results'] ?? [],
+        ]);
+    }
+
+    public function applyPanelKafesSite(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'domain' => 'required|string|max:253',
+        ]);
+        $domain = strtolower(trim((string) $validated['domain']));
+        $result = $this->engine->applyPanelKafesSite($domain);
+
+        return response()->json([
+            'message' => $result['message'] ?? 'ok',
+            'cage_user' => $result['cage_user'] ?? null,
+            'status' => $result['status'] ?? null,
         ]);
     }
 }

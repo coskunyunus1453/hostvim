@@ -19,6 +19,8 @@ import {
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import api from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import {
   Bar,
@@ -87,6 +89,21 @@ function fixToPanelAction(fix: FixAction, idx: number): PanelAction {
   }
 }
 
+function canExecuteActionType(type: string, abilities: string[] | undefined): boolean {
+  if (tokenHasAbility(abilities, '*')) return true
+  const map: Record<string, string> = {
+    file_write: 'files:write',
+    read_file: 'files:read',
+    create_domain: 'domains:write',
+    create_database: 'databases:write',
+    security_toggle: 'security:write',
+    run_command: 'tools:run',
+    run_cron_now: 'cron:write',
+  }
+  const required = map[type]
+  return required ? tokenHasAbility(abilities, required) : false
+}
+
 type SessionRow = {
   id: number
   title: string
@@ -143,6 +160,8 @@ function MarkdownLite({ text }: { text: string }) {
 export default function AiAdvisorPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canViewServerMetrics = tokenHasAbility(abilities, 'monitoring:server') || tokenHasAbility(abilities, '*')
   const [tab, setTab] = useState<TabId>('chat')
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [input, setInput] = useState('')
@@ -275,6 +294,14 @@ export default function AiAdvisorPage() {
       setTab('settings')
       return
     }
+    if ((contextMode === 'site' || contextMode === 'file') && domainId === '') {
+      toast.error(t('ai.domain_required'))
+      return
+    }
+    if (contextMode === 'file' && !filePath.trim()) {
+      toast.error(t('ai.file_path_required'))
+      return
+    }
     setInput('')
     setPendingUserText(message)
     chatM.mutate(message, {
@@ -332,6 +359,10 @@ export default function AiAdvisorPage() {
       if (sessionId === id) setSessionId(null)
       qc.invalidateQueries({ queryKey: ['ai-assistant-sessions'] })
       toast.success(t('ai.session_deleted'))
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
     },
   })
 
@@ -417,6 +448,14 @@ export default function AiAdvisorPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sessionsQ.isError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+                  <p>{t('ai.sessions_load_error')}</p>
+                  <button type="button" className="btn-secondary mt-2 w-full py-1 text-xs" onClick={() => void sessionsQ.refetch()}>
+                    {t('domains.refresh')}
+                  </button>
+                </div>
+              )}
               {(sessionsQ.data?.sessions ?? []).map((s) => (
                 <div
                   key={s.id}
@@ -432,7 +471,7 @@ export default function AiAdvisorPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{s.title}</p>
                     <p className="truncate text-[11px] text-gray-500">
-                      {s.domain?.name ?? t('ai.context_server')} · {s.messages_count ?? 0} msg
+                      {s.domain?.name ?? t('ai.context_server')} · {t('ai.messages_count', { count: s.messages_count ?? 0 })}
                     </p>
                   </div>
                   <button
@@ -487,7 +526,7 @@ export default function AiAdvisorPage() {
               {contextMode === 'file' && (
                 <input
                   className="input min-w-[180px] flex-1 font-mono text-sm"
-                  placeholder="public_html/index.php"
+                  placeholder={t('ai.file_path_placeholder')}
                   value={filePath}
                   onChange={(e) => setFilePath(e.target.value)}
                 />
@@ -495,6 +534,14 @@ export default function AiAdvisorPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {sessionId !== null && messagesQ.isError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+                  <p>{t('ai.messages_load_error')}</p>
+                  <button type="button" className="btn-secondary mt-2 text-xs" onClick={() => void messagesQ.refetch()}>
+                    {t('domains.refresh')}
+                  </button>
+                </div>
+              )}
               {!sessionId && (messagesQ.data?.messages ?? []).length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center text-center px-4">
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-fuchsia-100 dark:bg-fuchsia-950/40">
@@ -532,6 +579,7 @@ export default function AiAdvisorPage() {
                   ...fixes.map((f, i) => fixToPanelAction(f, i)),
                   ...panelActions,
                 ]
+                const runnableActions = allActions.filter((a) => canExecuteActionType(a.type, abilities))
                 const isUser = m.role === 'user'
                 return (
                   <div key={m.id} className={clsx('flex', isUser ? 'justify-end' : 'justify-start')}>
@@ -559,21 +607,26 @@ export default function AiAdvisorPage() {
                             <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                               {t('ai.pending_actions')}
                             </p>
-                            {allActions.length > 1 && (
+                            {runnableActions.length > 1 && (
                               <button
                                 type="button"
                                 className="text-[11px] font-medium text-emerald-700 hover:underline dark:text-emerald-300"
                                 disabled={executeActionsM.isPending}
                                 onClick={() => {
                                   if (!window.confirm(t('ai.apply_all_actions'))) return
-                                  executeActionsM.mutate(allActions)
+                                  executeActionsM.mutate(runnableActions)
                                 }}
                               >
                                 {t('ai.apply_all_actions')}
                               </button>
                             )}
                           </div>
-                          {allActions.map((action, idx) => (
+                          {runnableActions.length === 0 && (
+                            <p className="text-xs text-amber-700 dark:text-amber-300">{t('ai.actions_read_only_hint')}</p>
+                          )}
+                          {allActions.map((action, idx) => {
+                            const canRun = canExecuteActionType(action.type, abilities)
+                            return (
                             <div
                               key={action.id ?? idx}
                               className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20"
@@ -596,8 +649,9 @@ export default function AiAdvisorPage() {
                               <button
                                 type="button"
                                 className="mt-2 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                                disabled={executeActionsM.isPending || applyFixM.isPending}
+                                disabled={!canRun || executeActionsM.isPending || applyFixM.isPending}
                                 onClick={() => {
+                                  if (!canRun) return
                                   const title =
                                     action.title ??
                                     (typeof action.params.path === 'string' ? String(action.params.path) : action.type)
@@ -617,7 +671,7 @@ export default function AiAdvisorPage() {
                                 {t('ai.apply_action')}
                               </button>
                             </div>
-                          ))}
+                          )})}
                         </div>
                       )}
                     </div>
@@ -670,6 +724,15 @@ export default function AiAdvisorPage() {
 
       {tab === 'settings' && (
         <div className="overflow-y-auto space-y-4 pb-4">
+          {settingsQ.isError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+              <p>{t('ai.settings_load_error')}</p>
+              <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void settingsQ.refetch()}>
+                {t('domains.refresh')}
+              </button>
+            </div>
+          ) : (
+          <>
           <p className="text-sm text-gray-600 dark:text-gray-400">{t('ai.settings_intro')}</p>
           <div className="grid gap-4 lg:grid-cols-3">
             {(settingsQ.data?.providers ?? []).map((p) => {
@@ -790,11 +853,22 @@ export default function AiAdvisorPage() {
               {saveSettingsM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('ai.save_settings')}
             </button>
           </div>
+          </>
+          )}
         </div>
       )}
 
       {tab === 'usage' && (
         <div className="overflow-y-auto space-y-6 pb-4">
+          {usageQ.isError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+              <p>{t('ai.usage_load_error')}</p>
+              <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void usageQ.refetch()}>
+                {t('domains.refresh')}
+              </button>
+            </div>
+          ) : (
+          <>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900/60">
               <p className="text-xs text-gray-500">{t('ai.usage_requests')}</p>
@@ -851,13 +925,20 @@ export default function AiAdvisorPage() {
               </div>
             </div>
           )}
+          </>
+          )}
         </div>
       )}
 
       {tab === 'insights' && (
         <div className="overflow-y-auto pb-4">
           <p className="mb-4 text-sm text-gray-500">{t('ai.insights_hint')}</p>
-          <LegacyInsights domainId={domainId} setDomainId={setDomainId} domains={domainsQ.data ?? []} />
+          <LegacyInsights
+            domainId={domainId}
+            setDomainId={setDomainId}
+            domains={domainsQ.data ?? []}
+            canViewServerMetrics={canViewServerMetrics}
+          />
         </div>
       )}
     </div>
@@ -868,10 +949,12 @@ function LegacyInsights({
   domainId,
   setDomainId,
   domains,
+  canViewServerMetrics,
 }: {
   domainId: number | ''
   setDomainId: (v: number | '') => void
   domains: Array<{ id: number; name: string }>
+  canViewServerMetrics: boolean
 }) {
   const { t } = useTranslation()
   const cronBackupQ = useQuery({
@@ -880,6 +963,7 @@ function LegacyInsights({
   })
   const monitoringQ = useQuery({
     queryKey: ['ai', 'monitoring'],
+    enabled: canViewServerMetrics,
     queryFn: async () => (await api.get('/ai/monitoring')).data as { alerts: string[] },
   })
   const slowSiteQ = useQuery({
@@ -909,15 +993,33 @@ function LegacyInsights({
       <div className="grid gap-4 md:grid-cols-2">
         <div className="card p-5">
           <h3 className="mb-2 text-sm font-semibold">{t('ai.cron_backup')}</h3>
-          {list(cronBackupQ.data?.suggestions)}
+          {cronBackupQ.isError ? (
+            <p className="text-sm text-red-600">{t('ai.insights_load_error')}</p>
+          ) : (
+            list(cronBackupQ.data?.suggestions)
+          )}
         </div>
         <div className="card p-5">
           <h3 className="mb-2 text-sm font-semibold">{t('ai.monitoring')}</h3>
-          {list(monitoringQ.data?.alerts)}
+          {!canViewServerMetrics ? (
+            <p className="text-sm text-gray-500">{t('ai.monitoring_restricted')}</p>
+          ) : monitoringQ.isError ? (
+            <p className="text-sm text-red-600">{t('ai.insights_load_error')}</p>
+          ) : (
+            list(monitoringQ.data?.alerts)
+          )}
         </div>
         <div className="card p-5 md:col-span-2">
           <h3 className="mb-2 text-sm font-semibold">{t('ai.slow_site')}</h3>
-          {domainId !== '' ? list(slowSiteQ.data?.suggestions) : <p className="text-sm text-gray-500">{t('ai.select_domain_for_deploy')}</p>}
+          {domainId !== '' ? (
+            slowSiteQ.isError ? (
+              <p className="text-sm text-red-600">{t('ai.insights_load_error')}</p>
+            ) : (
+              list(slowSiteQ.data?.suggestions)
+            )
+          ) : (
+            <p className="text-sm text-gray-500">{t('ai.select_domain_for_deploy')}</p>
+          )}
         </div>
       </div>
     </div>

@@ -3,11 +3,15 @@
 namespace App\Services;
 
 use App\Models\PanelSetting;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
 
 class OutboundMailConfigurator
 {
+    public const CACHE_KEY = 'panelze:outbound_mail:settings';
+
+    public const CACHE_TTL_SECONDS = 300;
     /**
      * Panel veritabanındaki outbound_mail.* değerlerini çalışma anında Laravel mail
      * yapılandırmasına uygular (Laravel 11+ Symfony Mailer: smtp/smtps scheme).
@@ -22,9 +26,11 @@ class OutboundMailConfigurator
                 return;
             }
 
-            $settings = PanelSetting::query()
-                ->where('key', 'like', 'outbound_mail.%')
-                ->pluck('value', 'key');
+            $settings = Cache::remember(self::CACHE_KEY, self::CACHE_TTL_SECONDS, function () {
+                return PanelSetting::query()
+                    ->where('key', 'like', 'outbound_mail.%')
+                    ->pluck('value', 'key');
+            });
 
             if ($settings->isEmpty()) {
                 return;
@@ -77,6 +83,10 @@ class OutboundMailConfigurator
                     }
                 }
                 Config::set('mail.mailers.smtp.password', $plain);
+
+                $verifyPeer = $settings->get('outbound_mail.smtp_verify_peer');
+                $skipVerify = in_array($verifyPeer, ['0', 'false', 'no'], true);
+                Config::set('mail.mailers.smtp.verify_peer', $skipVerify ? false : true);
             }
 
             $addr = $settings->get('outbound_mail.from_address');
@@ -92,6 +102,11 @@ class OutboundMailConfigurator
         } finally {
             self::forgetResolvedMailers();
         }
+    }
+
+    public static function forgetCache(): void
+    {
+        Cache::forget(self::CACHE_KEY);
     }
 
     private static function forgetResolvedMailers(): void

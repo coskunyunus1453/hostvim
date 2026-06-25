@@ -1,10 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fromEvent } from 'file-selector'
 import { useDropzone, type DropEvent } from 'react-dropzone'
 import api from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 import {
   useHostingTargets,
   targetSelectValue,
@@ -184,21 +187,90 @@ function isSafeNewFileName(name: string): boolean {
 }
 
 /** Klasör/dosya göreli yolu — segment başına sadece . .. \ ve kontrolsüz uzunluk engellenir (UTF-8 dosya adları OK). */
+function collapseRelativePath(path: string): string {
+  return path
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter((seg) => seg !== '' && seg !== '.' && seg !== '..')
+    .join('/')
+}
+
 function isSafeRelativePath(path: string): boolean {
-  const t = path.trim().replace(/^\/+/g, '')
-  if (!t) return true
-  if (t.includes('\\')) return false
-  const segs = t.split('/').filter(Boolean)
-  if (segs.length === 0) return true
-  if (segs.some((s) => s === '.' || s === '..')) return false
+  const collapsed = collapseRelativePath(path)
+  if (!collapsed) return true
+  const segs = collapsed.split('/')
   if (segs.some((s) => s.length > 255)) return false
   return true
 }
 
 function joinRel(dir: string, name: string): string {
-  const d = dir.replace(/^\/+|\/+$/g, '')
-  if (!d) return name
-  return `${d}/${name}`
+  const d = collapseRelativePath(dir)
+  const n = collapseRelativePath(name)
+  if (!d) return n
+  if (!n) return d
+  return `${d}/${n}`
+}
+
+function uploadFileBaseName(file: File): string | null {
+  const fromName = (file.name.split(/[/\\]/).pop() ?? '').trim()
+  if (fromName && fromName !== '.' && fromName !== '..') return fromName
+
+  const rel = String((file as FileWithRelPath & { relativePath?: string }).relativePath ?? '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/^\.\/+/, '')
+  const fromRel = rel.split('/').filter(Boolean).pop() ?? ''
+  if (fromRel && fromRel !== '.' && fromRel !== '..') return fromRel
+
+  return null
+}
+
+/** Klasör sürükleme: çok segmentli yol; tek dosya: boş (hedef = mevcut dizin). */
+function folderUploadRelativePath(file: File): string {
+  const wrp = String((file as FileWithRelPath).webkitRelativePath ?? '').trim()
+  const rp = String((file as FileWithRelPath & { relativePath?: string }).relativePath ?? '').trim()
+  const raw = (wrp || rp).replace(/\\/g, '/').replace(/^\/+/, '').replace(/^\.\/+/, '')
+  if (!raw.includes('/')) return ''
+  return collapseRelativePath(raw)
+}
+
+/** Tek dosya: yalnızca ad; klasör sürükleme: webkitRelativePath / relativePath. */
+function normalizeUploadItem(file: File, currentDir: string): NormalizedUploadItem | null {
+  const dir = collapseRelativePath(currentDir)
+  const folderRel = folderUploadRelativePath(file)
+
+  if (folderRel !== '') {
+    const segs = folderRel.split('/').filter(Boolean)
+    if (segs.length === 0) return null
+    const baseName = segs[segs.length - 1]
+    const parentSub = segs.length > 1 ? segs.slice(0, -1).join('/') : ''
+    const parentRel = parentSub ? joinRel(dir, parentSub) : dir
+    return { file, relFromBase: folderRel, parentRel, baseName }
+  }
+
+  const baseName = uploadFileBaseName(file)
+  if (!baseName || !isSafeRelativePath(baseName)) return null
+
+  return {
+    file,
+    relFromBase: baseName,
+    parentRel: dir,
+    baseName,
+  }
+}
+
+async function filesFromDropEvent(event: DropEvent): Promise<File[]> {
+  if (event && typeof event === 'object' && 'type' in event && event.type === 'change') {
+    const input = (event as Event).target
+    if (input instanceof HTMLInputElement && input.files) {
+      return Array.from(input.files)
+    }
+  }
+  const picked = await fromEvent(event)
+  return picked.filter((f): f is File => f instanceof File)
 }
 
 function parentPath(p: string): string {
@@ -306,6 +378,8 @@ const FILEMGR_HELP_KEY = 'panelze_filemgr_help_seen'
 export default function FileManagerPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'files:write')
   const { isDark } = useThemeStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const domainParam = searchParams.get('domain')
@@ -409,6 +483,7 @@ export default function FileManagerPage() {
   const [clipboardPath, setClipboardPath] = useState<string | null>(null)
   const [clipboardMode, setClipboardMode] = useState<'copy' | 'cut'>('copy')
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; rel: string; isDir: boolean } | null>(null)
+  const [trashingPath, setTrashingPath] = useState<string | null>(null)
   const [archiveUi, setArchiveUi] = useState<{ kind: 'zip' | 'unzip'; complete: boolean } | null>(null)
   const [zipBulkPick, setZipBulkPick] = useState<{ sources: string[]; zipName: string } | null>(null)
   const [pasteConflictDialog, setPasteConflictDialog] = useState<{
@@ -844,7 +919,8 @@ export default function FileManagerPage() {
     ) => {
       const fd = new FormData()
       fd.append('file', item.file, item.baseName)
-      fd.append('path', item.parentRel)
+      const uploadDir = collapseRelativePath(item.parentRel)
+      fd.append('path', uploadDir)
       fd.append('if_exists', item.ifExists ?? ifExists)
       const sizeHint = item.file.size > 0 ? item.file.size : 0
       const res = await api.post<{
@@ -956,17 +1032,19 @@ export default function FileManagerPage() {
                 lastLoaded = ld
               }
               const overallLoaded = Math.min(overallTotal, completedSum + ld)
-              setUploadProgressView((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      currentLoaded: ld,
-                      currentTotal: tsize,
-                      overallLoaded,
-                      speedBps: emaSpeed,
-                    }
-                  : null,
-              )
+              flushSync(() => {
+                setUploadProgressView((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        currentLoaded: ld,
+                        currentTotal: tsize,
+                        overallLoaded,
+                        speedBps: emaSpeed,
+                      }
+                    : null,
+                )
+              })
             }, defaultIfExists)
             if (uploaded?.skipped) {
               completedSum += w
@@ -978,6 +1056,19 @@ export default function FileManagerPage() {
               completedSum += w
               ok++
             }
+            flushSync(() => {
+              setUploadProgressView((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      currentLoaded: w,
+                      currentTotal: w,
+                      overallLoaded: completedSum,
+                      speedBps: emaSpeed,
+                    }
+                  : null,
+              )
+            })
           } catch (err: unknown) {
             failed++
             const ax = err as {
@@ -1043,30 +1134,28 @@ export default function FileManagerPage() {
   const processIncomingFiles = useCallback(
     async (rawFiles: File[]) => {
       if (!domainId || rawFiles.length === 0) return
+      if (!canWrite) {
+        toast.error(t('files.read_only_hint'))
+        return
+      }
       if (uploadBatchLock.current) return
       uploadBatchLock.current = true
       setUploadBusy(true)
-      const basePath = path
+      const basePath = collapseRelativePath(path)
       try {
         const items: NormalizedUploadItem[] = []
         for (const file of rawFiles) {
-          const hinted = (file as FileWithRelPath & { path?: string }).path
-            || (file as FileWithRelPath).webkitRelativePath
-          const wrp = hinted && String(hinted).trim() !== '' ? String(hinted) : ''
-          const relFromBase =
-            wrp !== '' ? wrp.replace(/\\/g, '/') : file.name
-          if (!isSafeRelativePath(relFromBase)) {
+          const normalized = normalizeUploadItem(file, basePath)
+          if (normalized === null) {
             toast.error(t('files.invalid_path'))
             continue
           }
-          const segs = relFromBase.split('/').filter(Boolean)
-          if (segs.length === 0) continue
-          const baseName = segs[segs.length - 1]
-          const parentSub = segs.length > 1 ? segs.slice(0, -1).join('/') : ''
-          const parentRel = parentSub ? joinRel(basePath, parentSub) : basePath
-          items.push({ file, relFromBase, parentRel, baseName })
+          items.push(normalized)
         }
-        if (items.length === 0) return
+        if (items.length === 0) {
+          toast.error(t('files.upload_err'))
+          return
+        }
 
         const rootListing = await fetchAllFileEntries(domainId, basePath, subdomainId)
         const allowed: NormalizedUploadItem[] = []
@@ -1121,20 +1210,23 @@ export default function FileManagerPage() {
         setUploadBusy(false)
       }
     },
-    [domainId, subdomainId, path, runUploadItems, t],
+    [domainId, path, runUploadItems, t, canWrite],
   )
 
   const trashMoveM = useMutation({
     mutationFn: async (rel: string) => {
+      setTrashingPath(rel)
       await api.post(`/domains/${domainId}/files/trash/move`, { path: rel }, fileReqConfig())
     },
     onSuccess: () => {
+      setTrashingPath(null)
       toast.success(t('files.moved_to_trash'))
       setSelected(null)
       setOffset(0)
       qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
     onError: (err: unknown) => {
+      setTrashingPath(null)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
@@ -1144,7 +1236,7 @@ export default function FileManagerPage() {
     mutationFn: async (vars: { from: string; to: string }) =>
       api.post(`/domains/${domainId}/files/rename`, vars, fileReqConfig()),
     onSuccess: () => {
-      toast.success('Ad değiştirildi')
+      toast.success(t('files.renamed_ok'))
       qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setSelected(null)
       setOffset(0)
@@ -1160,7 +1252,7 @@ export default function FileManagerPage() {
     mutationFn: async (vars: { from: string; to: string }) =>
       api.post(`/domains/${domainId}/files/move`, vars, fileReqConfig()),
     onSuccess: () => {
-      toast.success('Taşındı')
+      toast.success(t('files.moved_ok'))
       qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
       setSelected(null)
       setOffset(0)
@@ -1496,7 +1588,7 @@ export default function FileManagerPage() {
   const saveOne = useCallback(
     async (idx: number) => {
       const tab = tabs[idx]
-      if (!tab || tab.loading || !domainId) return
+      if (!tab || tab.loading || !domainId || !canWrite) return
       await api.post(
         `/domains/${domainId}/files/write`,
         {
@@ -1513,11 +1605,12 @@ export default function FileManagerPage() {
       toast.success(t('files.saved_file', { path: tab.path }))
       qc.invalidateQueries({ queryKey: ['files', domainId, subdomainId, path] })
     },
-    [tabs, domainId, subdomainId, path, qc, t, fileReqConfig],
+    [tabs, domainId, subdomainId, path, qc, t, fileReqConfig, canWrite],
   )
 
   const saveAllM = useMutation({
     mutationFn: async () => {
+      if (!canWrite) return 0
       const dirty = tabs
         .map((tab, i) => ({ tab, i }))
         .filter(({ tab }) => !tab.loading && tab.content !== tab.original)
@@ -1547,8 +1640,7 @@ export default function FileManagerPage() {
     async (accepted: File[], _rejections: unknown, event: DropEvent) => {
       let batch: File[] = []
       try {
-        const picked = await fromEvent(event)
-        batch = picked.filter((f): f is File => f instanceof File)
+        batch = await filesFromDropEvent(event)
       } catch {
         batch = accepted
       }
@@ -1563,10 +1655,10 @@ export default function FileManagerPage() {
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
-    disabled: domainId === '' || uploadBusy,
+    disabled: domainId === '' || uploadBusy || !canWrite,
     noClick: true,
     multiple: true,
-    getFilesFromEvent: fromEvent,
+    getFilesFromEvent: filesFromDropEvent,
   })
 
   const entries = filesQ.data?.entries ?? []
@@ -1731,6 +1823,7 @@ export default function FileManagerPage() {
 
   const dirtyCount = tabs.filter((x) => !x.loading && x.content !== x.original).length
   const activeReadOnly = !!(currentTab && isExecutionRiskFilePath(currentTab.path))
+  const editorReadOnly = activeReadOnly || !canWrite
   const hasDirtyReadOnly = tabs.some(
     (tab) => !tab.loading && tab.content !== tab.original && isExecutionRiskFilePath(tab.path),
   )
@@ -1741,8 +1834,9 @@ export default function FileManagerPage() {
       {...getRootProps({
         className: clsx(
           'space-y-2 min-h-[min(85vh,56rem)] rounded-xl p-0.5 -m-0.5 outline-none transition-colors sm:space-y-3',
-          domainId !== '' && 'border-2 border-dashed border-transparent',
-          isDragActive &&
+          domainId !== '' && canWrite && 'border-2 border-dashed border-transparent',
+          canWrite &&
+            isDragActive &&
             'border-primary-400 bg-primary-50/25 ring-2 ring-primary-500/35 dark:border-primary-500/60 dark:bg-primary-950/20',
         ),
       })}
@@ -1785,6 +1879,11 @@ export default function FileManagerPage() {
             </div>
           ) : (
             <>
+            {!canWrite && (
+              <p className="border-b border-amber-200 bg-amber-50/90 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                {t('files.read_only_hint')}
+              </p>
+            )}
             <div className="border-b border-gray-100 bg-gray-50/40 dark:border-gray-800 dark:bg-gray-950/30">
               <div className="flex flex-wrap items-center gap-2 px-2 py-2 text-sm sm:px-3">
                 <button
@@ -1854,6 +1953,8 @@ export default function FileManagerPage() {
                       role="menu"
                       className="absolute right-0 top-full z-40 mt-1 w-72 max-h-[min(70vh,28rem)] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-gray-700 dark:bg-gray-900"
                     >
+                      {canWrite && (
+                        <>
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-40 dark:hover:bg-gray-800"
@@ -1900,17 +2001,6 @@ export default function FileManagerPage() {
                       >
                         <FilePlus className="h-4 w-4" />
                         {t('files.op_new_file')}
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                        onClick={() => {
-                          setFileOpsOpen(false)
-                          void filesQ.refetch()
-                        }}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        {t('files.op_refresh')}
                       </button>
                       <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
                       <button
@@ -2029,6 +2119,19 @@ export default function FileManagerPage() {
                       >
                         {t('files.op_unzip')}
                       </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                        onClick={() => {
+                          setFileOpsOpen(false)
+                          void filesQ.refetch()
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        {t('files.op_refresh')}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -2052,7 +2155,7 @@ export default function FileManagerPage() {
                         await navigator.clipboard.writeText(fullPathDisplay)
                         toast.success(t('files.copied'))
                       } catch {
-                        window.prompt('Copy path:', fullPathDisplay)
+                        window.prompt(t('files.copy_path_prompt'), fullPathDisplay)
                       }
                     }}
                   >
@@ -2061,7 +2164,7 @@ export default function FileManagerPage() {
                   </button>
                 </div>
               </div>
-              {selectedIds.size > 0 && (
+              {selectedIds.size > 0 && canWrite && (
                 <div className="flex flex-wrap items-center gap-2 border-t border-amber-200/70 bg-amber-50/95 px-2 py-1.5 dark:border-amber-900/50 dark:bg-amber-950/35 sm:px-3">
                   <span className="text-xs font-semibold tabular-nums text-amber-900 dark:text-amber-200">
                     {t('files.selection_count', { count: selectedIds.size })}
@@ -2134,13 +2237,22 @@ export default function FileManagerPage() {
                   : 'bg-gray-50/80 text-gray-600 dark:bg-gray-800/50 dark:text-gray-300',
               )}
             >
-              {isDragActive ? t('files.drop_here') : t('files.drop_zone_hint')}
+              {isDragActive && canWrite ? t('files.drop_here') : canWrite ? t('files.drop_zone_hint') : t('files.read_only_hint')}
             </p>
             {filesQ.isError && (
-              <p className="border-b border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
-                {t('files.list_error')}
-                {listErrDetail ? ` — ${listErrDetail}` : ''}
-              </p>
+              <div className="border-b border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+                <p>
+                  {t('files.list_error')}
+                  {listErrDetail ? ` — ${listErrDetail}` : ''}
+                </p>
+                <button
+                  type="button"
+                  className="btn-secondary mt-2 text-xs"
+                  onClick={() => void filesQ.refetch()}
+                >
+                  {t('domains.refresh')}
+                </button>
+              </div>
             )}
 
             <div
@@ -2164,6 +2276,7 @@ export default function FileManagerPage() {
                   <thead className="bg-gray-50 text-gray-700 dark:bg-gray-800/80 dark:text-gray-300">
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="w-10 px-2 py-2 text-left">
+                        {canWrite ? (
                         <input
                           type="checkbox"
                           checked={
@@ -2179,8 +2292,9 @@ export default function FileManagerPage() {
                               setSelectedIds(new Set(entries.map((e) => rowKey(e))))
                             }
                           }}
-                          aria-label="select all"
+                          aria-label={t('files.select_all_label')}
                         />
+                        ) : null}
                       </th>
                       <th className="px-3 py-2 text-left">
                         <button
@@ -2279,10 +2393,12 @@ export default function FileManagerPage() {
                           )}
                         >
                           <td className="px-2 py-2 align-top">
+                            {canWrite ? (
                             <input
                               type="checkbox"
                               checked={selectedIds.has(rk)}
                               disabled={zipBulkPick !== null}
+                              aria-label={t('files.select_for_bulk', { name: e.name })}
                               onChange={() => {
                                 setSelectedIds((prev) => {
                                   const next = new Set(prev)
@@ -2292,6 +2408,7 @@ export default function FileManagerPage() {
                                 })
                               }}
                             />
+                            ) : null}
                           </td>
                           <td className="px-3 py-2 align-top">
                             {e.is_dir ? (
@@ -2375,15 +2492,17 @@ export default function FileManagerPage() {
                                 className="mr-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
                                 onClick={() => void downloadAsFile(rel)}
                               >
-                                İndir
+                                {t('files.ctx_download')}
                               </button>
                             )}
+                            {canWrite && (
+                              <>
                             <button
                               type="button"
                               className="mr-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
                               onClick={() => setRenameDialog({ from: rel, newName: e.name })}
                             >
-                              Ad
+                              {t('files.ctx_rename')}
                             </button>
                             <button
                               type="button"
@@ -2392,20 +2511,27 @@ export default function FileManagerPage() {
                                 setMoveDialog({ from: rel, targetDir: path, baseName: e.name })
                               }
                             >
-                              Taşı
+                              {t('files.move_short')}
                             </button>
                             <button
                               type="button"
                               className="inline-flex items-center gap-1 rounded-md p-1 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                               title={t('common.delete')}
+                              disabled={trashingPath === rel}
                               onClick={() => {
                                 if (window.confirm(t('common.confirm_delete'))) {
                                   trashMoveM.mutate(rel)
                                 }
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {trashingPath === rel ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
                             </button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       )
@@ -2470,7 +2596,10 @@ export default function FileManagerPage() {
                         }}
                       >
                         <label
-                          className="absolute left-2 top-2 z-10 flex cursor-pointer items-center rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10"
+                          className={clsx(
+                            'absolute left-2 top-2 z-10 flex cursor-pointer items-center rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10',
+                            !canWrite && 'hidden',
+                          )}
                           onClick={(ev) => ev.stopPropagation()}
                           onKeyDown={(ev) => ev.stopPropagation()}
                         >
@@ -2899,7 +3028,7 @@ export default function FileManagerPage() {
               </div>
 
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Hedef klasörü seçmek için bir klasöre tıkla (içine gir). Sonra “Bu klasöre kaydet” ile ZIP’i başlat.
+                {t('files.zip_bulk_folder_hint')}
               </p>
             </div>
 
@@ -2925,7 +3054,7 @@ export default function FileManagerPage() {
         </div>
       )}
 
-      {renameDialog && (
+      {renameDialog && canWrite && (
         <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/60 p-2 sm:p-4">
           <div className="mx-auto w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl dark:bg-gray-900">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
@@ -2983,16 +3112,16 @@ export default function FileManagerPage() {
         </div>
       )}
 
-      {moveDialog && (
+      {moveDialog && canWrite && (
         <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/60 p-2 sm:p-4">
           <div className="mx-auto w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl dark:bg-gray-900">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Taşı</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('files.move_title')}</h2>
               <button
                 type="button"
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                 onClick={() => setMoveDialog(null)}
-                aria-label="Kapat"
+                aria-label={t('common.close')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -3007,9 +3136,7 @@ export default function FileManagerPage() {
                   placeholder={path ? 'uploads/2026' : 'uploads/2026'}
                 />
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Hedef klasör yolu göreli olmalı: örn. <code>uploads/2026</code>. Boş bırakılırsa root.
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('files.move_hint')}</p>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800">
               <button type="button" className="btn-secondary" onClick={() => setMoveDialog(null)}>
@@ -3039,7 +3166,7 @@ export default function FileManagerPage() {
         </div>
       )}
 
-      {chmodDialog && (
+      {chmodDialog && canWrite && (
         <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/60 p-2 sm:p-4">
           <div className="mx-auto w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl dark:bg-gray-900">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
@@ -3152,7 +3279,7 @@ export default function FileManagerPage() {
                 <button
                   type="button"
                   className="btn-secondary py-1.5 text-xs"
-                  disabled={trashEmptyM.isPending}
+                  disabled={!canWrite || trashEmptyM.isPending}
                   onClick={() => {
                     if (window.confirm(t('files.trash_confirm_empty'))) trashEmptyM.mutate()
                   }}
@@ -3187,6 +3314,8 @@ export default function FileManagerPage() {
                             {it.original_path}
                           </td>
                           <td className="px-3 py-2 text-right">
+                            {canWrite ? (
+                              <>
                             <button
                               type="button"
                               className="mr-2 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
@@ -3207,6 +3336,10 @@ export default function FileManagerPage() {
                             >
                               {t('files.trash_delete')}
                             </button>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -3225,6 +3358,8 @@ export default function FileManagerPage() {
           style={{ left: contextMenuPos?.left ?? contextMenu.x, top: contextMenuPos?.top ?? contextMenu.y }}
           role="menu"
         >
+          {canWrite && (
+            <>
           <button
             type="button"
             className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -3275,6 +3410,8 @@ export default function FileManagerPage() {
           >
             {t('files.ctx_new_file')}
           </button>
+            </>
+          )}
           {!contextMenu.isDir && (
             <button
               type="button"
@@ -3299,6 +3436,8 @@ export default function FileManagerPage() {
               {t('files.ctx_download')}
             </button>
           )}
+          {canWrite && (
+          <>
           <button
             type="button"
             className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -3396,6 +3535,8 @@ export default function FileManagerPage() {
           >
             {t('files.ctx_delete_to_trash')}
           </button>
+          </>
+          )}
         </div>
       )}
 
@@ -3688,6 +3829,7 @@ export default function FileManagerPage() {
                   type="button"
                   className="btn-secondary flex items-center gap-1 text-sm py-1.5"
                   disabled={
+                    !canWrite ||
                     !currentTab ||
                     currentTab.loading ||
                     dirtyCount === 0 ||
@@ -3703,10 +3845,11 @@ export default function FileManagerPage() {
                   type="button"
                   className="btn-primary flex items-center gap-1 text-sm py-1.5"
                   disabled={
+                    !canWrite ||
                     !currentTab ||
                     currentTab.loading ||
                     currentTab.content === currentTab.original ||
-                    activeReadOnly
+                    editorReadOnly
                   }
                   onClick={() => void saveOne(activeTab)}
                 >
@@ -3745,6 +3888,11 @@ export default function FileManagerPage() {
                       {t('files.risky_readonly')}
                     </div>
                   )}
+                  {!canWrite && (
+                    <div className="px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
+                      {t('files.read_only_hint')}
+                    </div>
+                  )}
                   <Suspense
                     fallback={
                       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8">
@@ -3761,7 +3909,7 @@ export default function FileManagerPage() {
                       theme={isDark ? 'vs-dark' : 'light'}
                       value={currentTab.content}
                       onChange={(v) => {
-                        if (activeReadOnly) return
+                        if (editorReadOnly) return
                         const next = v ?? ''
                         setTabs((prev) => {
                           const n = [...prev]
@@ -3770,7 +3918,7 @@ export default function FileManagerPage() {
                         })
                       }}
                       options={{
-                        readOnly: activeReadOnly,
+                        readOnly: editorReadOnly,
                         minimap: { enabled: false },
                         fontSize: 13,
                         scrollBeyondLastLine: false,

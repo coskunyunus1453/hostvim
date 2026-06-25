@@ -61,7 +61,6 @@ class EngineApiService
         if ($this->internalKey !== '') {
             return $req->withHeaders([
                 'X-Panelze-Engine-Key' => $this->internalKey,
-                'X-Panelze-Engine-Key' => $this->internalKey,
                 'X-Panelsar-Engine-Key' => $this->internalKey,
             ]);
         }
@@ -247,6 +246,19 @@ class EngineApiService
         return $this->deleteJsonChecked('/api/v1/sites/'.rawurlencode($parentDomain).'/subdomains', [
             'path_segment' => $pathSegment,
         ]);
+    }
+
+    /**
+     * Alt alan vhost/PHP/Laravel public kök senkronu.
+     *
+     * @return array<string, mixed>
+     */
+    public function syncSubdomainWeb(string $parentDomain, string $pathSegment): array
+    {
+        return $this->postChecked(
+            '/api/v1/sites/'.rawurlencode($parentDomain).'/subdomains/'.rawurlencode($pathSegment).'/sync-web',
+            [],
+        );
     }
 
     /**
@@ -574,6 +586,106 @@ class EngineApiService
         }
     }
 
+    /**
+     * @return array{domain?: string, path?: string, content?: string, error?: string, hint?: string, can_revert?: bool}
+     */
+    public function getSiteOlsVhost(string $domain): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return $this->missingEngineCredentialsPayload();
+        }
+
+        try {
+            $path = '/api/v1/sites/'.rawurlencode($domain).'/ols-vhost';
+            $response = $this->client()->get($this->baseUrl.$path);
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                $payload = ['error' => $this->formatEngineHttpError($response, $json)];
+                if (isset($json['path'])) {
+                    $payload['path'] = $json['path'];
+                }
+                if (isset($json['hint'])) {
+                    $payload['hint'] = $json['hint'];
+                }
+                if (array_key_exists('can_revert', $json)) {
+                    $payload['can_revert'] = (bool) $json['can_revert'];
+                }
+
+                return $payload;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::error('Engine API GET ols-vhost failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{domain?: string, path?: string, message?: string, ok?: bool, can_revert?: bool, error?: string}
+     */
+    public function updateSiteOlsVhost(string $domain, string $content): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return $this->missingEngineCredentialsPayload();
+        }
+
+        try {
+            $path = '/api/v1/sites/'.rawurlencode($domain).'/ols-vhost';
+            $response = $this->client()
+                ->withBody(json_encode(['content' => $content], JSON_THROW_ON_ERROR), 'application/json')
+                ->put($this->baseUrl.$path);
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                $payload = ['error' => $this->formatEngineHttpError($response, $json)];
+                if (isset($json['path'])) {
+                    $payload['path'] = $json['path'];
+                }
+
+                return $payload;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::error('Engine API PUT ols-vhost failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{domain?: string, path?: string, message?: string, ok?: bool, can_revert?: bool, error?: string}
+     */
+    public function revertSiteOlsVhost(string $domain): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return $this->missingEngineCredentialsPayload();
+        }
+
+        try {
+            $path = '/api/v1/sites/'.rawurlencode($domain).'/ols-vhost/revert';
+            $response = $this->client()
+                ->withBody('{}', 'application/json')
+                ->post($this->baseUrl.$path);
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                $payload = ['error' => $this->formatEngineHttpError($response, $json)];
+                if (isset($json['path'])) {
+                    $payload['path'] = $json['path'];
+                }
+
+                return $payload;
+            }
+
+            return $json;
+        } catch (\Throwable $e) {
+            Log::error('Engine API POST ols-vhost/revert failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
     public function setSiteDocumentRoot(string $domain, ?string $variant = null, ?string $profile = null, ?string $customPath = null): array
     {
         $payload = [];
@@ -644,7 +756,15 @@ class EngineApiService
      *  php_fpm_listen_dir: string,
      *  php_fpm_pool_dir_template: string,
      *  php_fpm_pool_user: string,
-     *  php_fpm_pool_group: string
+     *  php_fpm_pool_group: string,
+     *  site_cage_enabled?: bool,
+     *  site_cage_group?: string,
+     *  site_cage_user_prefix?: string,
+     *  site_cage_default_cpu_percent?: int,
+     *  site_cage_default_memory_mb?: int,
+     *  site_cage_default_pm_max_children?: int,
+     *  site_cage_default_memory_limit?: string,
+     *  panelkafes_effective_pools?: bool
      * }
      */
     public function getWebServerSettings(): array
@@ -667,6 +787,22 @@ class EngineApiService
     public function updateWebServerSettings(array $payload): array
     {
         return $this->patchJson('/api/v1/webserver/settings', $payload);
+    }
+
+    /**
+     * @return array{message?: string, results?: list<array<string, mixed>>}
+     */
+    public function applyPanelKafesAll(): array
+    {
+        return $this->postChecked('/api/v1/hosting/panelkafes/apply-all', []);
+    }
+
+    /**
+     * @return array{message?: string, cage_user?: string, status?: array<string, mixed>}
+     */
+    public function applyPanelKafesSite(string $domain): array
+    {
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/panelkafes/apply', []);
     }
 
     /**
@@ -1074,12 +1210,7 @@ class EngineApiService
     {
         $ifExists = in_array($ifExists, ['fail', 'overwrite', 'skip'], true) ? $ifExists : 'overwrite';
         try {
-            $req = Http::timeout(120)->acceptJson();
-            if ($this->internalKey !== '') {
-                $req = $req->withHeaders(['X-Panelze-Engine-Key' => $this->internalKey]);
-            } elseif ($this->jwtSecret !== '') {
-                $req = $req->withToken($this->generateLegacyToken());
-            }
+            $req = $this->withEngineAuth(Http::timeout(120)->acceptJson());
             $response = $req->attach(
                 'file',
                 file_get_contents($file->getRealPath()) ?: '',
@@ -1117,9 +1248,24 @@ class EngineApiService
         return $this->post('/api/v1/backups', $payload);
     }
 
+    /**
+     * Tam site yedekleri uzun sürebilir; kısa HTTP timeout ile çağrılmamalı.
+     *
+     * @return array<string, mixed>
+     */
+    public function queueBackupLong(string $domain, string $type = 'full', ?int $panelBackupId = null, int $timeout = 3700): array
+    {
+        $payload = ['domain' => $domain, 'type' => $type];
+        if ($panelBackupId !== null) {
+            $payload['panel_backup_id'] = $panelBackupId;
+        }
+
+        return $this->postLongChecked('/api/v1/backups', $payload, $timeout);
+    }
+
     public function restoreBackup(string $id): array
     {
-        return $this->post('/api/v1/backups/'.rawurlencode($id).'/restore');
+        return $this->postLongChecked('/api/v1/backups/'.rawurlencode($id).'/restore', [], 3700);
     }
 
     /**
@@ -1520,17 +1666,19 @@ class EngineApiService
         ], $dbPayload));
     }
 
-    public function getNodeApp(string $domain): array
+    public function getNodeApp(string $domain, ?string $pathSegment = null): array
     {
-        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app');
+        $qs = $this->nodeAppQueryString($pathSegment);
+
+        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app'.$qs);
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function detectNodeApp(string $domain, ?string $workDir = null): array
+    public function detectNodeApp(string $domain, ?string $workDir = null, ?string $pathSegment = null): array
     {
-        $payload = [];
+        $payload = $this->withPathSegment([], $pathSegment);
         if (is_string($workDir) && trim($workDir) !== '') {
             $payload['work_dir'] = trim($workDir);
         }
@@ -1542,14 +1690,17 @@ class EngineApiService
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    public function updateNodeApp(string $domain, array $payload): array
+    public function updateNodeApp(string $domain, array $payload, ?string $pathSegment = null): array
     {
-        return $this->putChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app', $payload);
+        return $this->putChecked(
+            '/api/v1/sites/'.rawurlencode($domain).'/node-app',
+            $this->withPathSegment($payload, $pathSegment),
+        );
     }
 
-    public function autoConfigureNodeApp(string $domain, ?string $appProfile = null): array
+    public function autoConfigureNodeApp(string $domain, ?string $appProfile = null, ?string $pathSegment = null): array
     {
-        $payload = [];
+        $payload = $this->withPathSegment([], $pathSegment);
         if (is_string($appProfile) && trim($appProfile) !== '') {
             $payload['app_profile'] = trim($appProfile);
         }
@@ -1557,31 +1708,46 @@ class EngineApiService
         return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/auto-configure', $payload, 300);
     }
 
-    public function startNodeApp(string $domain): array
+    public function startNodeApp(string $domain, ?string $pathSegment = null): array
     {
-        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/start', [], 120);
+        return $this->postLongChecked(
+            '/api/v1/sites/'.rawurlencode($domain).'/node-app/start'.$this->nodeAppQueryString($pathSegment),
+            $this->withPathSegment([], $pathSegment),
+            120,
+        );
     }
 
-    public function stopNodeApp(string $domain): array
+    public function stopNodeApp(string $domain, ?string $pathSegment = null): array
     {
-        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/stop', []);
+        return $this->postChecked(
+            '/api/v1/sites/'.rawurlencode($domain).'/node-app/stop'.$this->nodeAppQueryString($pathSegment),
+            $this->withPathSegment([], $pathSegment),
+        );
     }
 
-    public function restartNodeApp(string $domain): array
+    public function restartNodeApp(string $domain, ?string $pathSegment = null): array
     {
-        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/restart', [], 120);
+        return $this->postLongChecked(
+            '/api/v1/sites/'.rawurlencode($domain).'/node-app/restart'.$this->nodeAppQueryString($pathSegment),
+            $this->withPathSegment([], $pathSegment),
+            120,
+        );
     }
 
-    public function installNodeApp(string $domain, bool $useCi = false): array
+    public function installNodeApp(string $domain, bool $useCi = false, ?string $pathSegment = null): array
     {
-        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/install', [
+        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/install', $this->withPathSegment([
             'use_ci' => $useCi,
-        ], 900);
+        ], $pathSegment), 900);
     }
 
-    public function buildNodeApp(string $domain): array
+    public function buildNodeApp(string $domain, ?string $pathSegment = null): array
     {
-        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/build', [], 900);
+        return $this->postLongChecked(
+            '/api/v1/sites/'.rawurlencode($domain).'/node-app/build',
+            $this->withPathSegment([], $pathSegment),
+            900,
+        );
     }
 
     /**
@@ -1589,12 +1755,48 @@ class EngineApiService
      */
     public function reconcileNodeApps(): array
     {
-        return $this->postChecked('/api/v1/node-apps/reconcile', []);
+        return $this->postLongChecked('/api/v1/node-apps/reconcile', [], 180);
     }
 
-    public function healNodeApp(string $domain): array
+    /**
+     * Engine iç watchdog'un son reconcile özeti (HTTP reconcile tetiklemez).
+     *
+     * @return array<string, mixed>
+     */
+    public function getNodeAppsWatchdogStatus(): array
     {
-        return $this->postLongChecked('/api/v1/sites/'.rawurlencode($domain).'/node-app/heal', [], 900);
+        return $this->getChecked('/api/v1/node-apps/watchdog-status');
+    }
+
+    public function healNodeApp(string $domain, ?string $pathSegment = null): array
+    {
+        return $this->postLongChecked(
+            '/api/v1/sites/'.rawurlencode($domain).'/node-app/heal',
+            $this->withPathSegment([], $pathSegment),
+            900,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withPathSegment(array $payload, ?string $pathSegment): array
+    {
+        if (is_string($pathSegment) && trim($pathSegment) !== '') {
+            $payload['path_segment'] = trim($pathSegment);
+        }
+
+        return $payload;
+    }
+
+    private function nodeAppQueryString(?string $pathSegment): string
+    {
+        if (! is_string($pathSegment) || trim($pathSegment) === '') {
+            return '';
+        }
+
+        return '?path_segment='.rawurlencode(trim($pathSegment));
     }
 
     public function validateLicense(string $key): array
