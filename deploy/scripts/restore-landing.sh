@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
 # panelze.com landing dosyalarını GitHub'dan geri yükler (rsync --delete hasarı sonrası).
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/scripts/restore-landing.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/restore-landing.sh" | bash
 #
 set -euo pipefail
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Root gerekli." >&2; exit 1; }
 
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
 PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # landing/ → panelze.com (Git pull + kopyala). Root SSH:
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/scripts/sync-landing-git.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/sync-landing-git.sh" | bash
 set -euo pipefail
 [[ "$(id -u)" -eq 0 ]] || { echo "root gerekli"; exit 1; }
 
@@ -13,10 +13,10 @@ B=${PANELZE_BRANCH:-main}
 apt-get install -y -qq git rsync composer php-cli php-mbstring php-xml php-curl php-zip php-mysql unzip 2>/dev/null || true
 
 if [[ ! -d $H/.git ]]; then
-  git clone --branch "$B" https://github.com/coskunyunus1453/panelze.git "$H"
+  git clone --branch "$B" https://github.com/coskunyunus1453/hostvim.git "$H"
 fi
 cd "$H"
-git remote set-url origin https://github.com/coskunyunus1453/panelze.git 2>/dev/null || true
+git remote set-url origin https://github.com/coskunyunus1453/hostvim.git 2>/dev/null || true
 git fetch origin "$B"
 git checkout "$B" 2>/dev/null || git checkout -b "$B" "origin/$B"
 git reset --hard "origin/$B"

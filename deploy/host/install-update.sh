@@ -2,7 +2,7 @@
 #
 # Panelze — güvenli güncelleme (mevcut kurulumda veri silmez).
 #
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install-update.sh" | sudo bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-update.sh" | sudo bash
 #
 # Yapar: git pull, panel/frontend/engine güncelleme, yalnızca migrate --force (fresh değil).
 # Korur: panel .env, data/www siteleri, müşteri MySQL veritabanları, yedekler.
@@ -19,7 +19,7 @@ export CLEAN_HOSTING_STATE_ON_RESET=0
 export PANELZE_PRESERVE_ADMIN_PASSWORD="${PANELZE_PRESERVE_ADMIN_PASSWORD:-1}"
 export PANELZE_AUTO_SYNC_GIT=1
 
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 PANELZE_HOME="${PANELZE_HOME:-/var/www/panelze}"
 
@@ -37,7 +37,7 @@ if [[ -f "$PANELZE_HOME/deploy/bootstrap/install-production.sh" ]]; then
   exec bash deploy/bootstrap/install-production.sh
 fi
 
-PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install.sh}"
+PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install.sh}"
 PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL}?ts=$(date +%s)"
 export PANELSAR_INSTALL_SCRIPT_URL="$PANELZE_INSTALL_SCRIPT_URL"
 _TMP_INSTALL="$(mktemp)"

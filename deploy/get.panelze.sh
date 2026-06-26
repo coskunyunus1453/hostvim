@@ -10,7 +10,7 @@
 #
 set -euo pipefail
 
-INSTALL_SCRIPT="${PANELZE_INSTALL_COMMUNITY_SCRIPT:-${PANELZE_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install-community.sh}}"
+INSTALL_SCRIPT="${PANELZE_INSTALL_COMMUNITY_SCRIPT:-${PANELZE_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-community.sh}}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "Panelze kurulumu yalnızca Linux (Debian/Ubuntu) sunucu içindir." >&2

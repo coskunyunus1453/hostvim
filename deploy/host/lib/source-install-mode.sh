@@ -33,7 +33,7 @@ panelze_source_install_mode_lib() {
 
   if [[ -z "$f" ]]; then
     local branch="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
-    local raw="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/panelze/${branch}}"
+    local raw="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${branch}}"
     tmp="$(mktemp)"
     if ! curl -fsSL "${raw}/deploy/host/lib/install-mode.sh" -o "$tmp" 2>/dev/null; then
       rm -f "$tmp"

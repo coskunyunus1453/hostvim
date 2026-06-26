@@ -3,7 +3,7 @@
 # Panelze landing (panelze.com) — SADECE landing/ günceller.
 # Panel kurmaz, engine derlemez, tüm repoyu reset --hard yapmaz.
 #
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/scripts/update-landing.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/update-landing.sh" | bash
 #
 set -euo pipefail
 

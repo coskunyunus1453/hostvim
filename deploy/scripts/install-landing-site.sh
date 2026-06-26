@@ -2,13 +2,13 @@
 #
 # panelze.com — SIFIRDAN tam landing kurulumu (yalnızca landing/, panel/engine YOK).
 #
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/scripts/install-landing-site.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/scripts/install-landing-site.sh" | bash
 #
 set -euo pipefail
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Root: curl -fsSL ... | sudo bash" >&2; exit 1; }
 
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
 LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
 PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"

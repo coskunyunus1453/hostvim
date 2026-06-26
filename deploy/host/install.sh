@@ -10,7 +10,7 @@
 # ve komut "go panelze-admin-login.txt …" gibi patlar. Güvenli: cd /tmp && curl … | bash
 #
 # Müşteri kurulumu (önerilen — tek komut, freemium + Pro aynı paket):
-#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install-panelze.sh" | bash
+#   curl -fsSL "https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install-panelze.sh" | bash
 # İsteğe bağlı lisans: PANELZE_LICENSE_KEY="hv_..." curl … | bash
 # Geriye dönük: install-community.sh / install-pro.sh → install-panelze.sh yönlendirir.
 # Bu dosya (install.sh) ortak motor; doğrudan çağrılırsa APP_PROFILE varsayılanı customer’dır.
@@ -52,8 +52,8 @@ set -euo pipefail
 
 # ─── Dağıtımcı: repo URL + bu betiğin ham (raw) HTTPS adresi aynı depoyu göstermeli (sudo yeniden çalıştırma için) ───
 # Varsayılan repo adı panelze; GitHub’da hâlâ panelsar ise PANELZE_REPO_URL ile ezin.
-PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL:-${PANELSAR_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/panelze/main/deploy/host/install.sh}}"
-PANELZE_REPO_URL="${PANELZE_REPO_URL:-${PANELSAR_REPO_URL:-https://github.com/coskunyunus1453/panelze.git}}"
+PANELZE_INSTALL_SCRIPT_URL="${PANELZE_INSTALL_SCRIPT_URL:-${PANELSAR_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/main/deploy/host/install.sh}}"
+PANELZE_REPO_URL="${PANELZE_REPO_URL:-${PANELSAR_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-${PANELSAR_BRANCH:-main}}"
 PANELZE_HOME="${PANELZE_HOME:-${PANELSAR_HOME:-/var/www/panelze}}"
 PANELZE_SEED_DEMO_USERS="${PANELZE_SEED_DEMO_USERS:-${PANELSAR_SEED_DEMO_USERS:-0}}"
@@ -78,7 +78,7 @@ if ! declare -F panelze_source_install_mode_lib &>/dev/null; then
   done
 fi
 if ! declare -F panelze_source_install_mode_lib &>/dev/null; then
-  _raw_boot="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/panelze/${PANELZE_BRANCH:-main}}"
+  _raw_boot="${PANELZE_RAW_BASE:-https://raw.githubusercontent.com/coskunyunus1453/hostvim/${PANELZE_BRANCH:-main}}"
   _tmp_boot="$(mktemp)"
   curl -fsSL "${_raw_boot}/deploy/host/lib/source-install-mode.sh" -o "$_tmp_boot"
   # shellcheck source=/dev/null
