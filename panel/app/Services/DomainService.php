@@ -24,6 +24,7 @@ class DomainService
 
         return DB::transaction(function () use ($user, $name, $phpVersion, $serverType) {
             $name = strtolower(trim($name));
+            [$cageCpu, $cageMem] = $this->packageCageLimits($user);
             $existing = Domain::query()->where('name', $name)->first();
             if ($existing) {
                 if ($existing->user_id !== $user->id) {
@@ -33,7 +34,7 @@ class DomainService
                 // Aynı kullanıcı aynı alan adını tekrar isterse "self-heal / reprovision" yaklaşımı:
                 // - active ise "zaten aktif" demek yerine idempotent createSite ile doğrula.
                 // - suspended/pending/failed/deleting gibi durumlarda tekrar aktif hale getir.
-                $resp = $this->engineApi->createSite($name, $user->id, $phpVersion, $serverType);
+                $resp = $this->engineApi->createSite($name, $user->id, $phpVersion, $serverType, $cageCpu, $cageMem);
                 if (! empty($resp['error'])) {
                     abort(503, (string) $resp['error']);
                 }
@@ -71,7 +72,7 @@ class DomainService
                 'is_primary' => ! $user->domains()->exists(),
             ]);
 
-            $resp = $this->engineApi->createSite($name, $user->id, $phpVersion, $serverType);
+            $resp = $this->engineApi->createSite($name, $user->id, $phpVersion, $serverType, $cageCpu, $cageMem);
             if (! empty($resp['error'])) {
                 abort(503, (string) $resp['error']);
             }
@@ -88,6 +89,27 @@ class DomainService
 
             return $domain->fresh();
         });
+    }
+
+    /**
+     * Kullanıcının hosting paketindeki PanelKafes kaynak limitleri.
+     *
+     * @return array{0:int,1:int} [cpuPercent, memoryMB] — 0 = limit yok (engine global varsayılanı)
+     */
+    private function packageCageLimits(?User $user): array
+    {
+        if (! $user) {
+            return [0, 0];
+        }
+        $pkg = $user->hostingPackage()->first();
+        if (! $pkg) {
+            return [0, 0];
+        }
+
+        return [
+            max(0, (int) ($pkg->cpu_limit ?? 0)),
+            max(0, (int) ($pkg->memory_limit_mb ?? 0)),
+        ];
     }
 
     private function maybeBootstrapDns(Domain $domain): void
@@ -184,11 +206,15 @@ class DomainService
                 return $domain->fresh();
             }
 
+            $owner = $domain->user()->first();
+            [$cageCpu, $cageMem] = $this->packageCageLimits($owner);
             $resp = $this->engineApi->createSite(
                 $domain->name,
                 (int) $domain->user_id,
                 (string) ($domain->php_version ?? '8.2'),
                 $serverType,
+                $cageCpu,
+                $cageMem,
             );
             if (! empty($resp['error'])) {
                 abort(503, (string) $resp['error']);

@@ -36,6 +36,10 @@ type SiteMeta struct {
 	// PanelKafes — site başına Linux kullanıcı izolasyonu.
 	CageEnabled bool   `json:"cage_enabled,omitempty"`
 	CageUser    string `json:"cage_user,omitempty"`
+	// Paket bazlı kaynak limiti (PanelKafes cgroup: CPUQuota / MemoryMax).
+	// 0 = engine global varsayılanı kullan (geriye dönük uyumluluk).
+	CPUPercent int `json:"cpu_percent,omitempty"`
+	MemoryMB   int `json:"memory_mb,omitempty"`
 }
 
 // ForceHTTPSRedirect SSL etkin sitelerde HTTP→HTTPS yönlendirmesi isteniyor mu (varsayılan: true).

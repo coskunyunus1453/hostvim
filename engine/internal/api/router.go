@@ -210,6 +210,9 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			UserID     uint   `json:"user_id" binding:"required"`
 			PHP        string `json:"php_version"`
 			ServerType string `json:"server_type"`
+			// Paket bazlı PanelKafes kaynak limiti (0 = global varsayılan).
+			CPULimit      int `json:"cpu_limit"`
+			MemoryLimitMB int `json:"memory_limit_mb"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -229,7 +232,7 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 
 		cageCfg := sitecage.FromHosting(cfg)
 		if cageCfg.Enabled {
-			cageUser, cerr := sitecage.Ensure(cageCfg, cfg.Paths.WebRoot, req.Domain)
+			cageUser, cerr := sitecage.Ensure(cageCfg, cfg.Paths.WebRoot, req.Domain, req.CPULimit, req.MemoryLimitMB)
 			if cerr != nil {
 				_ = sites.Remove(cfg.Paths.WebRoot, req.Domain)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "panelkafes: " + cerr.Error()})
@@ -241,6 +244,8 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			}
 			metaCage.CageEnabled = true
 			metaCage.CageUser = cageUser
+			metaCage.CPUPercent = req.CPULimit
+			metaCage.MemoryMB = req.MemoryLimitMB
 			_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, req.Domain, metaCage)
 		}
 
@@ -288,7 +293,7 @@ func handleCreateSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 
 		// Yeni site PanelKafes açıkken otomatik kendi FPM servisi + kaynak slice'ine alınır.
 		if cageCfg.Enabled && sitecage.ManagePools(cfg) {
-			_ = sitecage.ApplyService(cageCfg, req.Domain, phpV)
+			_ = sitecage.ApplyService(cageCfg, req.Domain, phpV, req.CPULimit, req.MemoryLimitMB)
 		}
 
 		st := "nginx"
