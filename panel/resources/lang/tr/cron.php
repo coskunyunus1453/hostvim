@@ -44,4 +44,7 @@ return [
     'discover_from_routes' => 'routes/console veya Kernel içinde tanımlı',
     'discover_spark_manual' => 'Komut adını tamamlayın (ör. scrape:prices)',
     'discover_deep_label' => 'Derin tarama (tüm artisan komutları, ~1–2 dk)',
+    'system_edit_forbidden' => 'Sistem cron görevi düzenlenemez.',
+    'system_delete_forbidden' => 'Sistem cron görevi silinemez.',
+    'system_run_admin_only' => 'Sistem cron görevi yalnızca yönetici tarafından çalıştırılabilir.',
 ];

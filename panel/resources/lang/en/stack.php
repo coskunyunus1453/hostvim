@@ -9,4 +9,5 @@ return [
     'mail_test_requires_saved_settings' => 'Save mail settings in the panel first. Without saved settings, tests may use .env/log drivers that do not deliver real email.',
     'mail_test_requires_real_transport' => 'The “log” or “:driver” driver does not send real email. Choose sendmail or SMTP and save.',
     'mail_test_smtp_host_required' => 'SMTP host is required when using the SMTP driver.',
+    'bundle_not_allowed' => 'This stack bundle is not available.',
 ];

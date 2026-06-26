@@ -6,6 +6,8 @@ import toast from 'react-hot-toast'
 import api from '../services/api'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { useAutoDomainId } from '../hooks/useAutoDomainId'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 
 type DeployConfig = {
   id: number
@@ -30,6 +32,8 @@ type DeployRun = {
 export default function DeployPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'tools:run')
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: 'domain' })
   const [repoUrl, setRepoUrl] = useState('')
   const [branch, setBranch] = useState('main')
@@ -149,6 +153,9 @@ export default function DeployPage() {
       </div>
 
       <div className="card p-5 space-y-4">
+        {!canWrite && (
+          <p className="text-sm text-amber-700 dark:text-amber-300">{t('deploy.read_only_hint')}</p>
+        )}
         <div>
           <label className="label">{t('domains.name')}</label>
           <select
@@ -169,20 +176,27 @@ export default function DeployPage() {
           </select>
         </div>
 
-        {domainId !== '' && (
+        {domainId !== '' && cfgQ.isError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900/40 dark:bg-red-950/20">
+            <p className="text-sm text-red-700 dark:text-red-300">{t('deploy.load_error')}</p>
+            <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void cfgQ.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : domainId !== '' && (
           <>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className="label">{t('deploy.repo_url')}</label>
-                <input className="input w-full" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/org/repo.git" />
+                <input className="input w-full" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/org/repo.git" disabled={!canWrite} />
               </div>
               <div>
                 <label className="label">{t('deploy.branch')}</label>
-                <input className="input w-full" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" />
+                <input className="input w-full" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" disabled={!canWrite} />
               </div>
               <div>
                 <label className="label">{t('deploy.runtime')}</label>
-                <select className="input w-full" value={runtime} onChange={(e) => { setRuntime(e.target.value as 'laravel' | 'node' | 'php'); setWizardRuntimeTouched(true) }}>
+                <select className="input w-full" value={runtime} onChange={(e) => { setRuntime(e.target.value as 'laravel' | 'node' | 'php'); setWizardRuntimeTouched(true) }} disabled={!canWrite}>
                   <option value="laravel">Laravel/PHP</option>
                   <option value="node">Node</option>
                   <option value="php">PHP</option>
@@ -190,22 +204,22 @@ export default function DeployPage() {
               </div>
               <div>
                 <label className="label">{t('deploy.branch_whitelist')}</label>
-                <input className="input w-full" value={branchWhitelist} onChange={(e) => setBranchWhitelist(e.target.value)} placeholder="main,release/*" />
+                <input className="input w-full" value={branchWhitelist} onChange={(e) => setBranchWhitelist(e.target.value)} placeholder="main,release/*" disabled={!canWrite} />
               </div>
               <label className="mt-7 inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input type="checkbox" checked={autoDeploy} onChange={(e) => setAutoDeploy(e.target.checked)} />
+                <input type="checkbox" checked={autoDeploy} onChange={(e) => setAutoDeploy(e.target.checked)} disabled={!canWrite} />
                 {t('deploy.auto_deploy')}
               </label>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-primary" onClick={() => saveM.mutate()} disabled={saveM.isPending || cfgQ.isLoading}>
+              <button type="button" className="btn-primary" onClick={() => saveM.mutate()} disabled={!canWrite || saveM.isPending || cfgQ.isLoading}>
                 {t('common.save')}
               </button>
-              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={() => runM.mutate()} disabled={runM.isPending || !canRunDeploy}>
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={() => runM.mutate()} disabled={!canWrite || runM.isPending || !canRunDeploy}>
                 <Play className="h-4 w-4" />
                 {t('deploy.deploy_now')}
               </button>
-              <button type="button" className="btn-secondary" onClick={() => rollbackM.mutate()} disabled={rollbackM.isPending}>
+              <button type="button" className="btn-secondary" onClick={() => rollbackM.mutate()} disabled={!canWrite || rollbackM.isPending}>
                 {t('deploy.rollback')}
               </button>
             </div>
@@ -232,7 +246,7 @@ export default function DeployPage() {
         <div className="card p-5 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('deploy.webhook')}</h3>
-            <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => rotateM.mutate()}>
+            <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => rotateM.mutate()} disabled={!canWrite || rotateM.isPending}>
               {t('deploy.rotate_token')}
             </button>
           </div>
@@ -261,7 +275,14 @@ export default function DeployPage() {
       {domainId !== '' && (
         <div className="card p-5">
           <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{t('deploy.runs')}</h3>
-          {runsQ.isLoading ? (
+          {runsQ.isError ? (
+            <div className="text-center">
+              <p className="text-sm text-red-700 dark:text-red-300">{t('deploy.runs_load_error')}</p>
+              <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void runsQ.refetch()}>
+                {t('domains.refresh')}
+              </button>
+            </div>
+          ) : runsQ.isLoading ? (
             <p className="text-sm text-gray-500">{t('common.loading')}</p>
           ) : (runsQ.data?.runs ?? []).length === 0 ? (
             <p className="text-sm text-gray-500">{t('common.no_data')}</p>
@@ -290,7 +311,7 @@ export default function DeployPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card w-full max-w-4xl bg-white p-6 dark:bg-gray-900">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">#{selectedRun.id} · {selectedRun.status}</h3>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('deploy.run_title', { id: selectedRun.id, status: selectedRun.status })}</h3>
               <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => setSelectedRun(null)}>
                 {t('common.cancel')}
               </button>

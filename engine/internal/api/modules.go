@@ -29,10 +29,12 @@ import (
 	"panelze/engine/internal/middleware"
 	"panelze/engine/internal/monitoring"
 	"panelze/engine/internal/nginx"
+	"panelze/engine/internal/openlitespeed"
 	"panelze/engine/internal/panelmirror"
 	"panelze/engine/internal/phpfpm"
 	"panelze/engine/internal/phpini"
 	"panelze/engine/internal/security"
+	"panelze/engine/internal/sitecage"
 	"panelze/engine/internal/sites"
 	"panelze/engine/internal/stack"
 	"panelze/engine/internal/system"
@@ -45,7 +47,32 @@ func engineDataDir(cfg *config.Config) string {
 	return "/var/lib/panelze/engine-data"
 }
 
+// safeDocRoot meta.DocumentRoot yalnızca site kökü altındaysa kabul eder; aksi
+// halde (örn. başka makineden sızmış /Applications/... yolu) güvenli varsayılana
+// düşer. Bu hem open_basedir kaçağını hem geçersiz chdir nedeniyle FPM test
+// başarısızlığını (502/izolasyon hatası) önler.
+func safeDocRoot(webRoot, domain string, meta *sites.SiteMeta) string {
+	siteRoot := filepath.Join(webRoot, domain)
+	def := filepath.Join(siteRoot, "public_html")
+	if meta == nil {
+		return def
+	}
+	md := strings.TrimSpace(meta.DocumentRoot)
+	if md == "" {
+		return def
+	}
+	clean := filepath.Clean(md)
+	if clean == siteRoot || strings.HasPrefix(clean, siteRoot+string(filepath.Separator)) {
+		return clean
+	}
+	return def
+}
+
 func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterGroup, log *logrus.Logger) {
+	// PanelKafes açıkken FPM reload www-data yerine root betiğe gider.
+	if cfg.Hosting.SiteCageEnabled && strings.TrimSpace(cfg.Hosting.SiteCageHelper) != "" {
+		phpfpm.DefaultHelper = cfg.Hosting.SiteCageHelper
+	}
 	phpVerRe := regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
 
 	api.GET("/system/stats", func(c *gin.Context) {
@@ -1474,6 +1501,159 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		})
 	})
 
+	api.POST("/sites/:domain/ols-vhost/revert", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		if !cfg.Hosting.OLSManageVhosts {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "openlitespeed vhost management is disabled on this server"})
+			return
+		}
+		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		if err != nil || meta == nil {
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "site meta not found"})
+			}
+			return
+		}
+		if sites.NormalizeServerType(meta.ServerType) != "openlitespeed" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "site is not using openlitespeed"})
+			return
+		}
+		path, perr := openlitespeed.VhostFilePath(cfg, d)
+		if perr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": perr.Error()})
+			return
+		}
+		if err := openlitespeed.RevertVhostRaw(cfg, d); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error(), "path": path})
+			return
+		}
+		canRev, _ := openlitespeed.VhostCanRevert(cfg, d)
+		c.JSON(http.StatusOK, gin.H{
+			"domain":     d,
+			"path":       path,
+			"message":    "openlitespeed vhost reverted to previous version",
+			"ok":         true,
+			"can_revert": canRev,
+		})
+	})
+
+	api.GET("/sites/:domain/ols-vhost", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		if !cfg.Hosting.OLSManageVhosts {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "openlitespeed vhost management is disabled on this server"})
+			return
+		}
+		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		if err != nil || meta == nil {
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "site meta not found"})
+			}
+			return
+		}
+		if sites.NormalizeServerType(meta.ServerType) != "openlitespeed" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error":       "site is not using openlitespeed",
+				"server_type": strings.TrimSpace(meta.ServerType),
+			})
+			return
+		}
+		path, perr := openlitespeed.VhostFilePath(cfg, d)
+		if perr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": perr.Error()})
+			return
+		}
+		canRev, _ := openlitespeed.VhostCanRevert(cfg, d)
+		b, rerr := openlitespeed.ReadVhostFile(cfg, d)
+		if rerr != nil {
+			if errors.Is(rerr, os.ErrNotExist) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error":      "openlitespeed vhost file not found",
+					"path":       path,
+					"hint":       "activate the site or switch server type to openlitespeed to generate the vhost",
+					"domain":     d,
+					"can_revert": canRev,
+					"content":    "",
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": rerr.Error(), "path": path})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"domain":     d,
+			"path":       path,
+			"content":    string(b),
+			"can_revert": canRev,
+		})
+	})
+
+	api.PUT("/sites/:domain/ols-vhost", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		if !cfg.Hosting.OLSManageVhosts {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "openlitespeed vhost management is disabled on this server"})
+			return
+		}
+		var req struct {
+			Content string `json:"content" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		if err != nil || meta == nil {
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "site meta not found"})
+			}
+			return
+		}
+		if sites.NormalizeServerType(meta.ServerType) != "openlitespeed" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error":       "site is not using openlitespeed",
+				"server_type": strings.TrimSpace(meta.ServerType),
+			})
+			return
+		}
+		path, perr := openlitespeed.VhostFilePath(cfg, d)
+		if perr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": perr.Error()})
+			return
+		}
+		if err := openlitespeed.WriteVhostRaw(cfg, d, []byte(req.Content)); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error": err.Error(),
+				"path":  path,
+			})
+			return
+		}
+		canRev, _ := openlitespeed.VhostCanRevert(cfg, d)
+		c.JSON(http.StatusOK, gin.H{
+			"domain":     d,
+			"path":       path,
+			"message":    "openlitespeed vhost updated and reloaded",
+			"ok":         true,
+			"can_revert": canRev,
+		})
+	})
+
 	api.POST("/license/validate", func(c *gin.Context) {
 		var req struct {
 			Key string `json:"key" binding:"required"`
@@ -1494,24 +1674,32 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	api.GET("/webserver/settings", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"settings": gin.H{
-				"nginx_manage_vhosts":              cfg.Hosting.NginxManageVhosts,
-				"nginx_reload_after_vhost":         cfg.Hosting.NginxReloadAfterVhost,
-				"apache_manage_vhosts":             cfg.Hosting.ApacheManageVhosts,
-				"apache_reload_after_vhost":        cfg.Hosting.ApacheReloadAfterVhost,
-				"apache_http_port":                 cfg.Hosting.ApacheHTTPPort,
-				"nginx_edge_proxy":                 cfg.Hosting.NginxEdgeProxy,
-				"openlitespeed_manage_vhosts":      cfg.Hosting.OLSManageVhosts,
-				"openlitespeed_http_port":          cfg.Hosting.OLSHTTPPort,
-				"openlitespeed_conf_root":          strings.TrimSpace(cfg.Hosting.OLSConfRoot),
-				"openlitespeed_reload_after_vhost": cfg.Hosting.OLSReloadAfterVhost,
-				"openlitespeed_ctrl_path":          strings.TrimSpace(cfg.Hosting.OLSCtrlPath),
-				"php_fpm_manage_pools":             cfg.Hosting.PHPFPMmanagePools,
-				"php_fpm_reload_after_pool":        cfg.Hosting.PHPFPMreloadAfterPool,
-				"php_fpm_socket":                   cfg.Hosting.PHPFPMsocket,
-				"php_fpm_listen_dir":               cfg.Hosting.PHPFPMlistenDir,
-				"php_fpm_pool_dir_template":        cfg.Hosting.PHPFPMpoolDirTemplate,
-				"php_fpm_pool_user":                cfg.Hosting.PHPFPMpoolUser,
-				"php_fpm_pool_group":               cfg.Hosting.PHPFPMpoolGroup,
+				"nginx_manage_vhosts":               cfg.Hosting.NginxManageVhosts,
+				"nginx_reload_after_vhost":          cfg.Hosting.NginxReloadAfterVhost,
+				"apache_manage_vhosts":              cfg.Hosting.ApacheManageVhosts,
+				"apache_reload_after_vhost":         cfg.Hosting.ApacheReloadAfterVhost,
+				"apache_http_port":                  cfg.Hosting.ApacheHTTPPort,
+				"nginx_edge_proxy":                  cfg.Hosting.NginxEdgeProxy,
+				"openlitespeed_manage_vhosts":       cfg.Hosting.OLSManageVhosts,
+				"openlitespeed_http_port":           cfg.Hosting.OLSHTTPPort,
+				"openlitespeed_conf_root":           strings.TrimSpace(cfg.Hosting.OLSConfRoot),
+				"openlitespeed_reload_after_vhost":  cfg.Hosting.OLSReloadAfterVhost,
+				"openlitespeed_ctrl_path":           strings.TrimSpace(cfg.Hosting.OLSCtrlPath),
+				"php_fpm_manage_pools":              cfg.Hosting.PHPFPMmanagePools,
+				"php_fpm_reload_after_pool":         cfg.Hosting.PHPFPMreloadAfterPool,
+				"php_fpm_socket":                    cfg.Hosting.PHPFPMsocket,
+				"php_fpm_listen_dir":                cfg.Hosting.PHPFPMlistenDir,
+				"php_fpm_pool_dir_template":         cfg.Hosting.PHPFPMpoolDirTemplate,
+				"php_fpm_pool_user":                 cfg.Hosting.PHPFPMpoolUser,
+				"php_fpm_pool_group":                cfg.Hosting.PHPFPMpoolGroup,
+				"site_cage_enabled":                 cfg.Hosting.SiteCageEnabled,
+				"site_cage_group":                   cfg.Hosting.SiteCageGroup,
+				"site_cage_user_prefix":             cfg.Hosting.SiteCageUserPrefix,
+				"site_cage_default_cpu_percent":     cfg.Hosting.SiteCageDefaultCPUPercent,
+				"site_cage_default_memory_mb":       cfg.Hosting.SiteCageDefaultMemoryMB,
+				"site_cage_default_pm_max_children": cfg.Hosting.SiteCageDefaultMaxChildren,
+				"site_cage_default_memory_limit":    cfg.Hosting.SiteCageDefaultMemoryLimit,
+				"panelkafes_effective_pools":        sitecage.ManagePools(cfg),
 			},
 		})
 	})
@@ -1622,6 +1810,11 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			PhpFpmPoolDirTemplate         *string `json:"php_fpm_pool_dir_template"`
 			PhpFpmPoolUser                *string `json:"php_fpm_pool_user"`
 			PhpFpmPoolGroup               *string `json:"php_fpm_pool_group"`
+			SiteCageEnabled               *bool   `json:"site_cage_enabled"`
+			SiteCageDefaultCPUPercent     *int    `json:"site_cage_default_cpu_percent"`
+			SiteCageDefaultMemoryMB       *int    `json:"site_cage_default_memory_mb"`
+			SiteCageDefaultMaxChildren    *int    `json:"site_cage_default_pm_max_children"`
+			SiteCageDefaultMemoryLimit    *string `json:"site_cage_default_memory_limit"`
 			Reload                        *bool   `json:"reload"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1687,6 +1880,29 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 		if req.PhpFpmPoolGroup != nil {
 			cfg.Hosting.PHPFPMpoolGroup = strings.TrimSpace(*req.PhpFpmPoolGroup)
+		}
+		if req.SiteCageEnabled != nil {
+			cfg.Hosting.SiteCageEnabled = *req.SiteCageEnabled
+			if *req.SiteCageEnabled {
+				cfg.Hosting.PHPFPMmanagePools = true
+				if strings.TrimSpace(cfg.Hosting.SiteCageHelper) != "" {
+					phpfpm.DefaultHelper = cfg.Hosting.SiteCageHelper
+				}
+			} else {
+				phpfpm.DefaultHelper = ""
+			}
+		}
+		if req.SiteCageDefaultCPUPercent != nil && *req.SiteCageDefaultCPUPercent > 0 {
+			cfg.Hosting.SiteCageDefaultCPUPercent = *req.SiteCageDefaultCPUPercent
+		}
+		if req.SiteCageDefaultMemoryMB != nil && *req.SiteCageDefaultMemoryMB > 0 {
+			cfg.Hosting.SiteCageDefaultMemoryMB = *req.SiteCageDefaultMemoryMB
+		}
+		if req.SiteCageDefaultMaxChildren != nil && *req.SiteCageDefaultMaxChildren > 0 {
+			cfg.Hosting.SiteCageDefaultMaxChildren = *req.SiteCageDefaultMaxChildren
+		}
+		if req.SiteCageDefaultMemoryLimit != nil {
+			cfg.Hosting.SiteCageDefaultMemoryLimit = strings.TrimSpace(*req.SiteCageDefaultMemoryLimit)
 		}
 
 		nginxChanged := oldNginxManage != cfg.Hosting.NginxManageVhosts || oldNginxReload != cfg.Hosting.NginxReloadAfterVhost
@@ -1755,9 +1971,128 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				"php_fpm_pool_dir_template":        cfg.Hosting.PHPFPMpoolDirTemplate,
 				"php_fpm_pool_user":                cfg.Hosting.PHPFPMpoolUser,
 				"php_fpm_pool_group":               cfg.Hosting.PHPFPMpoolGroup,
+				"site_cage_enabled":                cfg.Hosting.SiteCageEnabled,
+				"site_cage_group":                  cfg.Hosting.SiteCageGroup,
+				"site_cage_user_prefix":            cfg.Hosting.SiteCageUserPrefix,
+				"site_cage_default_cpu_percent":    cfg.Hosting.SiteCageDefaultCPUPercent,
+				"site_cage_default_memory_mb":      cfg.Hosting.SiteCageDefaultMemoryMB,
+				"site_cage_default_pm_max_children": cfg.Hosting.SiteCageDefaultMaxChildren,
+				"site_cage_default_memory_limit":   cfg.Hosting.SiteCageDefaultMemoryLimit,
+				"panelkafes_effective_pools":       sitecage.ManagePools(cfg),
 			},
 			"reload": reloadResult,
 		})
+	})
+
+	api.POST("/hosting/panelkafes/apply-all", func(c *gin.Context) {
+		cageCfg := sitecage.FromHosting(cfg)
+		if !cageCfg.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "panelkafes disabled in engine config"})
+			return
+		}
+		phpfpm.DefaultHelper = cageCfg.Helper
+		results, err := sitecage.ApplyAll(cageCfg, cfg.Paths.WebRoot)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		poolResults := []gin.H{}
+		okCount, failCount := 0, 0
+		if sitecage.ManagePools(cfg) {
+			ps := phpfpmSettings(cfg)
+			names, _ := sites.ListDomains(cfg.Paths.WebRoot)
+			for _, domain := range names {
+				meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+				docRoot := safeDocRoot(cfg.Paths.WebRoot, domain, meta)
+				phpV := "8.2"
+				if meta != nil && strings.TrimSpace(meta.PHPVersion) != "" {
+					phpV = meta.PHPVersion
+				}
+				opts := sitecage.PoolOptions(cfg, meta, domain, docRoot)
+				// Helper modunda WritePool yazar+test+reload eder ve soketi doğrular.
+				sock, _, _, perr := phpfpm.WritePool(ps, domain, phpV, docRoot, opts)
+				if perr != nil {
+					// KRİTİK: pool/soket oluşmadıysa vhost'a DOKUNMA (502'yi önler).
+					failCount++
+					poolResults = append(poolResults, gin.H{"domain": domain, "ok": false, "error": perr.Error()})
+					continue
+				}
+				if aerr := hosting.ApplyWebServer(cfg, domain, docRoot, meta, sock); aerr != nil {
+					failCount++
+					poolResults = append(poolResults, gin.H{"domain": domain, "ok": false, "error": aerr.Error()})
+					continue
+				}
+				// Gerçek CPU/RAM izolasyonu: pool'u kendi systemd servisi + slice'ine taşı.
+				svcErr := sitecage.ApplyService(cageCfg, domain, phpV)
+				okCount++
+				row := gin.H{"domain": domain, "ok": true, "socket": sock, "isolated": svcErr == nil}
+				if svcErr != nil {
+					row["service_warning"] = svcErr.Error()
+				}
+				poolResults = append(poolResults, row)
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "panelkafes apply-all completed",
+			"results": results,
+			"pools":   poolResults,
+			"ok":      okCount,
+			"failed":  failCount,
+		})
+	})
+
+	api.POST("/sites/:domain/panelkafes/apply", func(c *gin.Context) {
+		domain := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if domain == "" || strings.Contains(domain, "..") || !nginx.DomainSafe(domain) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		cageCfg := sitecage.FromHosting(cfg)
+		if !cageCfg.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "panelkafes disabled"})
+			return
+		}
+		phpfpm.DefaultHelper = cageCfg.Helper
+		user, err := sitecage.Ensure(cageCfg, cfg.Paths.WebRoot, domain)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+		if meta == nil {
+			meta = &sites.SiteMeta{}
+		}
+		meta.CageEnabled = true
+		meta.CageUser = user
+		_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, meta)
+		if sitecage.ManagePools(cfg) {
+			docRoot := safeDocRoot(cfg.Paths.WebRoot, domain, meta)
+			phpV := meta.PHPVersion
+			if strings.TrimSpace(phpV) == "" {
+				phpV = "8.2"
+			}
+			ps := phpfpmSettings(cfg)
+			opts := sitecage.PoolOptions(cfg, meta, domain, docRoot)
+			// Helper modunda WritePool yazar+test+reload eder ve soketi doğrular.
+			sock, _, _, perr := phpfpm.WritePool(ps, domain, phpV, docRoot, opts)
+			if perr != nil {
+				// pool/soket yoksa vhost'a dokunma → site eski çalışan soketinde kalır.
+				c.JSON(http.StatusInternalServerError, gin.H{"error": perr.Error()})
+				return
+			}
+			if aerr := hosting.ApplyWebServer(cfg, domain, docRoot, meta, sock); aerr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": aerr.Error()})
+				return
+			}
+			// Gerçek CPU/RAM izolasyonu: kendi systemd servisi + slice'i.
+			if svcErr := sitecage.ApplyService(cageCfg, domain, phpV); svcErr != nil {
+				st, _ := sitecage.FetchStatus(cageCfg, cfg.Paths.WebRoot, domain)
+				c.JSON(http.StatusOK, gin.H{"message": "panelkafes applied (izolasyon uyarısı)", "cage_user": user, "status": st, "service_warning": svcErr.Error()})
+				return
+			}
+		}
+		st, _ := sitecage.FetchStatus(cageCfg, cfg.Paths.WebRoot, domain)
+		c.JSON(http.StatusOK, gin.H{"message": "panelkafes applied", "cage_user": user, "status": st})
 	})
 
 	api.GET("/webserver/apache/modules", func(c *gin.Context) {
@@ -2452,7 +2787,9 @@ func handleFileMkdir(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := files.Mkdir(root, req.Path); err != nil {
+		if err := withHostingFileRepair(req.Domain, func() error {
+			return files.Mkdir(root, req.Path)
+		}); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -2519,7 +2856,9 @@ func handleFileWrite(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := files.WriteFile(root, req.Path, []byte(req.Content), 0o644); err != nil {
+		if err := withHostingFileRepair(req.Domain, func() error {
+			return files.WriteFile(root, req.Path, []byte(req.Content), 0o644)
+		}); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -2543,7 +2882,9 @@ func handleFileCreate(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := files.CreateFile(root, req.Path, []byte(req.Content), 0o644); err != nil {
+		if err := withHostingFileRepair(req.Domain, func() error {
+			return files.CreateFile(root, req.Path, []byte(req.Content), 0o644)
+		}); err != nil {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 			return
 		}
@@ -2846,6 +3187,17 @@ func nginxVhostManaged(cfg *config.Config, meta *sites.SiteMeta) bool {
 		return true
 	}
 	return hosting.NginxEdgeProxyEnabled(cfg)
+}
+
+func withHostingFileRepair(domain string, op func() error) error {
+	err := op()
+	if err == nil || !isPermissionDenied(err) {
+		return err
+	}
+	if repairErr := hosting.RepairSitePermissions(domain); repairErr != nil {
+		return err
+	}
+	return op()
 }
 
 func resolveFileManagerRoot(cfg *config.Config, domain string) (string, error) {

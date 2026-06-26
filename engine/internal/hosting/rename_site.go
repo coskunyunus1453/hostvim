@@ -10,6 +10,7 @@ import (
 	"panelze/engine/internal/nginx"
 	"panelze/engine/internal/panelmirror"
 	"panelze/engine/internal/phpfpm"
+	"panelze/engine/internal/sitecage"
 	"panelze/engine/internal/sites"
 	"panelze/engine/internal/ssl"
 )
@@ -153,6 +154,15 @@ func RenamePrimarySite(cfg *config.Config, from, to string) error {
 		return fmt.Errorf("rename site directory: %w", err)
 	}
 
+	cageCfg := sitecage.FromHosting(cfg)
+	if cageCfg.Enabled {
+		_ = sitecage.Remove(cageCfg, from)
+		if user, cerr := sitecage.Ensure(cageCfg, webRoot, to); cerr == nil {
+			meta.CageEnabled = true
+			meta.CageUser = user
+		}
+	}
+
 	if err := sites.WriteSiteMeta(webRoot, to, meta); err != nil {
 		return err
 	}
@@ -169,9 +179,10 @@ func RenamePrimarySite(cfg *config.Config, from, to string) error {
 	}
 	phpV = phpfpm.NormalizeVersion(phpV)
 	phpSocket := nginx.EffectivePHPSocket(phpV, cfg.Hosting.PHPFPMsocket)
-	if cfg.Hosting.PHPFPMmanagePools {
+	if sitecage.ManagePools(cfg) {
 		removed := phpfpm.RemovePoolBestEffortAllVersions(ps, from)
-		sock, _, _, perr := phpfpm.WritePool(ps, to, phpV, meta.DocumentRoot)
+		poolOpts := sitecage.PoolOptions(cfg, meta, to, meta.DocumentRoot)
+		sock, _, _, perr := phpfpm.WritePool(ps, to, phpV, meta.DocumentRoot, poolOpts)
 		if perr != nil {
 			return fmt.Errorf("php-fpm pool for new domain: %w", perr)
 		}

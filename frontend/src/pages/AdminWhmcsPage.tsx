@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { apiBaseUrl } from '../services/api'
 import { Download, Link2 } from 'lucide-react'
@@ -90,6 +90,14 @@ export default function AdminWhmcsPage() {
           <Download className="h-4 w-4" />
           {busy ? t('whmcs_integration.downloading') : t('whmcs_integration.download')}
         </button>
+      </div>
+
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-950/25">
+        <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-100">{t('whmcs_integration.deprecated_title')}</h2>
+        <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">{t('whmcs_integration.deprecated_body')}</p>
+        <Link to="/admin/billing" className="mt-3 inline-flex text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
+          {t('whmcs_integration.deprecated_cta')} →
+        </Link>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900/40">

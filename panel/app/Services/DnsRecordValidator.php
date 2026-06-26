@@ -21,6 +21,36 @@ class DnsRecordValidator
             ]);
         }
 
+        $ttl = isset($data['ttl']) ? (int) $data['ttl'] : 3600;
+        if ($ttl < 60 || $ttl > 604800) {
+            throw ValidationException::withMessages([
+                'ttl' => [__('dns.ttl_range')],
+            ]);
+        }
+        $data['ttl'] = $ttl;
+
+        $valueMax = $type === 'TXT' ? 4096 : 255;
+        if (strlen($value) > $valueMax) {
+            throw ValidationException::withMessages([
+                'value' => [__('dns.value_too_long', ['max' => $valueMax])],
+            ]);
+        }
+
+        if (in_array($type, ['MX', 'SRV'], true)) {
+            if (! isset($data['priority']) || $data['priority'] === '' || $data['priority'] === null) {
+                throw ValidationException::withMessages([
+                    'priority' => [__('dns.priority_required')],
+                ]);
+            }
+            $priority = (int) $data['priority'];
+            if ($priority < 0 || $priority > 65535) {
+                throw ValidationException::withMessages([
+                    'priority' => [__('dns.priority_range')],
+                ]);
+            }
+            $data['priority'] = $priority;
+        }
+
         if ($type === 'A' && ! filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
             throw ValidationException::withMessages([
                 'value' => [__('dns.a_must_be_ipv4')],
@@ -33,7 +63,27 @@ class DnsRecordValidator
             ]);
         }
 
+        if ($type === 'CNAME' && ! $this->isValidCnameTarget($value)) {
+            throw ValidationException::withMessages([
+                'value' => [__('dns.cname_invalid')],
+            ]);
+        }
+
+        $data['type'] = $type;
+        $data['name'] = $name;
+        $data['value'] = $value;
+
         return $data;
+    }
+
+    private function isValidCnameTarget(string $value): bool
+    {
+        $v = rtrim(strtolower($value), '.');
+
+        return (bool) preg_match(
+            '/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i',
+            $v,
+        );
     }
 
     public function isValidAValue(string $value): bool

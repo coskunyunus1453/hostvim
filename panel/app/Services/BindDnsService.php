@@ -42,6 +42,82 @@ class BindDnsService
     }
 
     /**
+     * DNS ayarları kaydı sonrası — yeniden dene ve zone NS satırlarını doğrula.
+     *
+     * @return array{ok: bool, skipped?: bool, message?: string, zones?: int, verified?: bool}
+     */
+    public function syncReliable(): array
+    {
+        if (! $this->dnsSettings->bindEnabled()) {
+            return ['ok' => true, 'skipped' => true, 'message' => 'BIND sync kapalı'];
+        }
+
+        $attempts = 2;
+        $last = ['ok' => false, 'message' => 'BIND sync başarısız'];
+
+        for ($i = 0; $i < $attempts; $i++) {
+            if ($i > 0) {
+                usleep(400_000);
+            }
+
+            $last = $this->syncViaSudo();
+            if (! ($last['ok'] ?? false)) {
+                continue;
+            }
+
+            if ($this->verifyPublishedNameServers()) {
+                return array_merge($last, ['verified' => true]);
+            }
+
+            $last = [
+                'ok' => false,
+                'message' => 'BIND zone dosyaları güncel NS ile eşleşmiyor',
+            ];
+        }
+
+        return $last;
+    }
+
+    /**
+     * En az bir aktif zone dosyasında panel NS ayarları yayınlanıyor mu?
+     */
+    public function verifyPublishedNameServers(): bool
+    {
+        [$ns1, $ns2] = $this->nameServers();
+        $expected = array_values(array_filter([
+            strtolower(rtrim($ns1, '.')),
+            strtolower(rtrim($ns2, '.')),
+        ]));
+        if ($expected === []) {
+            return true;
+        }
+
+        $zonesDir = rtrim((string) config('panelze.dns.zones_dir', '/var/lib/bind/panelze/zones'), '/');
+        $sample = Domain::query()
+            ->whereIn('status', ['active', 'pending'])
+            ->orderBy('name')
+            ->value('name');
+
+        if (! is_string($sample) || $sample === '') {
+            return true;
+        }
+
+        $path = $zonesDir.'/'.strtolower($sample).'.zone';
+        if (! is_readable($path)) {
+            return false;
+        }
+
+        $content = strtolower((string) file_get_contents($path));
+        foreach ($expected as $host) {
+            if (! str_contains($content, 'in ns '.$host.'.') && ! str_contains($content, 'in ns '.$host)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Panel kayıtlarından zone dosyalarını yazar (root ile çalıştırılmalı).
      *
      * @return array{ok: bool, zones: int, message?: string}
@@ -53,8 +129,13 @@ class BindDnsService
         }
 
         $zonesDir = rtrim((string) config('panelze.dns.zones_dir', '/var/lib/bind/panelze/zones'), '/');
-        $confPath = (string) config('panelze.dns.conf_path', '/etc/bind/named.conf.panelze-zones');
+        $confPath = $this->confPath();
         $serial = (int) date('YmdH');
+
+        $confDir = dirname($confPath);
+        if (! is_dir($confDir) && ! @mkdir($confDir, 0775, true) && ! is_dir($confDir)) {
+            return ['ok' => false, 'zones' => 0, 'message' => 'BIND conf dizini oluşturulamadı: '.$confDir];
+        }
 
         if (! is_dir($zonesDir) && ! @mkdir($zonesDir, 0775, true) && ! is_dir($zonesDir)) {
             return ['ok' => false, 'zones' => 0, 'message' => 'Zone dizini oluşturulamadı: '.$zonesDir];
@@ -107,6 +188,13 @@ class BindDnsService
         }
         File::put($confPath, $confBody);
         @chmod($confPath, 0644);
+        if (function_exists('posix_getpwnam')) {
+            $bind = posix_getpwnam('bind');
+            if ($bind !== false) {
+                @chown($confPath, 'bind');
+                @chgrp($confPath, 'bind');
+            }
+        }
 
         $reload = new Process(['rndc', 'reconfig']);
         $reload->run();
@@ -146,6 +234,27 @@ class BindDnsService
     public function serverIp(): string
     {
         return $this->dnsSettings->serverIp();
+    }
+
+  /**
+   * Üretilen zone listesi dosyası — /etc/bind salt-okunur olabilir; /var/lib/bind/panelze kullanılır.
+   */
+    public function confPath(): string
+    {
+        $zonesDir = rtrim((string) config('panelze.dns.zones_dir', '/var/lib/bind/panelze/zones'), '/');
+        $fallback = dirname($zonesDir).'/named.conf.panelze-zones';
+        $configured = trim((string) config('panelze.dns.conf_path', $fallback));
+
+        if ($configured === '' || $configured === $fallback) {
+            return $fallback;
+        }
+
+        $parent = dirname($configured);
+        if (str_starts_with($configured, '/etc/bind') && is_dir($parent) && ! is_writable($parent)) {
+            return $fallback;
+        }
+
+        return $configured;
     }
 
     private function isValidZoneName(string $zone): bool

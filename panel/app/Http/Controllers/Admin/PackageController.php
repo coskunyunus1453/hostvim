@@ -16,6 +16,20 @@ class PackageController extends Controller
         return response()->json(['packages' => $packages]);
     }
 
+    public function resellerIndex(Request $request): JsonResponse
+    {
+        $uid = (int) $request->user()->id;
+        $packages = HostingPackage::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($uid) {
+                $q->whereNull('reseller_id')->orWhere('reseller_id', $uid);
+            })
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'slug', 'description', 'price_monthly', 'price_yearly', 'currency', 'is_active']);
+
+        return response()->json(['packages' => $packages]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -56,8 +70,20 @@ class PackageController extends Controller
             'disk_space_mb' => 'sometimes|integer|min:-1',
             'bandwidth_mb' => 'sometimes|integer|min:-1',
             'max_domains' => 'sometimes|integer|min:-1',
+            'max_subdomains' => 'sometimes|integer|min:-1',
+            'max_databases' => 'sometimes|integer|min:-1',
+            'max_email_accounts' => 'sometimes|integer|min:-1',
+            'max_ftp_accounts' => 'sometimes|integer|min:-1',
+            'max_cron_jobs' => 'sometimes|integer|min:-1',
+            'cpu_limit' => 'nullable|integer',
+            'memory_limit_mb' => 'nullable|integer',
+            'php_versions' => 'nullable|array',
+            'ssl_enabled' => 'sometimes|boolean',
+            'backup_enabled' => 'sometimes|boolean',
             'price_monthly' => 'sometimes|numeric|min:0',
             'price_yearly' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|size:3',
+            'sort_order' => 'sometimes|integer',
             'is_active' => 'sometimes|boolean',
         ]);
 

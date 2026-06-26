@@ -1009,3 +1009,44 @@ a.hv-muted-nav:hover {
 		min-height: 12rem !important;
 	}
 }
+
+/* Admin — JS gerektirmeyen sekmeler (radio + label) */
+.hv-tab-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.hv-appearance-tabs .hv-tab-panel,
+.hv-theme-tabs .hv-tab-panel {
+	display: none;
+}
+
+.hv-appearance-tabs #hv-appearance-tab-site:checked ~ .hv-tab-panel-site,
+.hv-appearance-tabs #hv-appearance-tab-theme:checked ~ .hv-tab-panel-theme,
+.hv-appearance-tabs #hv-appearance-tab-home:checked ~ .hv-tab-panel-home,
+.hv-appearance-tabs #hv-appearance-tab-install:checked ~ .hv-tab-panel-install {
+	display: block;
+}
+
+.hv-theme-tabs #hv-theme-tab-general:checked ~ .hv-tab-panel-general,
+.hv-theme-tabs #hv-theme-tab-neon_top:checked ~ .hv-tab-panel-neon_top,
+.hv-theme-tabs #hv-theme-tab-neon_features:checked ~ .hv-tab-panel-neon_features {
+	display: block;
+}
+
+.hv-appearance-tabs #hv-appearance-tab-site:checked ~ .hv-tab-nav label[for="hv-appearance-tab-site"],
+.hv-appearance-tabs #hv-appearance-tab-theme:checked ~ .hv-tab-nav label[for="hv-appearance-tab-theme"],
+.hv-appearance-tabs #hv-appearance-tab-home:checked ~ .hv-tab-nav label[for="hv-appearance-tab-home"],
+.hv-appearance-tabs #hv-appearance-tab-install:checked ~ .hv-tab-nav label[for="hv-appearance-tab-install"],
+.hv-theme-tabs #hv-theme-tab-general:checked ~ .hv-tab-nav label[for="hv-theme-tab-general"],
+.hv-theme-tabs #hv-theme-tab-neon_top:checked ~ .hv-tab-nav label[for="hv-theme-tab-neon_top"],
+.hv-theme-tabs #hv-theme-tab-neon_features:checked ~ .hv-tab-nav label[for="hv-theme-tab-neon_features"] {
+	@apply !border-orange-500 !text-orange-700 dark:!text-orange-200;
+}

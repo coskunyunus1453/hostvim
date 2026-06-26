@@ -8,6 +8,7 @@ import {
   Info,
   Inbox,
   KeyRound,
+  Loader2,
   Mail,
   Pencil,
   Plus,
@@ -22,7 +23,10 @@ import clsx from 'clsx'
 import api from '../services/api'
 import { useAutoDomainId } from '../hooks/useAutoDomainId'
 import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
+
+const LOCAL_PART_RE = /^[a-zA-Z0-9]([a-zA-Z0-9._+-]*[a-zA-Z0-9])?$/
 
 type MailRow = {
   id: number
@@ -37,7 +41,6 @@ type MailRow = {
 type EngineMailbox = {
   email?: string
   quota_mb?: number
-  password?: string
 }
 
 type ForwarderRow = {
@@ -75,6 +78,8 @@ function ModalFrame({
   children: React.ReactNode
   onClose: () => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
@@ -90,7 +95,7 @@ function ModalFrame({
             type="button"
             className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             ×
           </button>
@@ -113,12 +118,23 @@ export default function EmailPage() {
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'email:write')
   const isAdmin = user?.roles?.some((r) => r.name === 'admin')
 
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: 'domain' })
   const [showAdd, setShowAdd] = useState(false)
   const [showAddForwarder, setShowAddForwarder] = useState(false)
   const [editing, setEditing] = useState<MailRow | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deletingForwarderId, setDeletingForwarderId] = useState<number | null>(null)
+  const [webmailLoginId, setWebmailLoginId] = useState<number | null>(null)
+  const [passwordReveal, setPasswordReveal] = useState<{
+    value: string
+    source: 'create' | 'update'
+    expiresAt: number
+  } | null>(null)
+  const [nowTs, setNowTs] = useState(Date.now())
 
   const [editQuota, setEditQuota] = useState(500)
   const [editForward, setEditForward] = useState('')
@@ -187,6 +203,11 @@ export default function EmailPage() {
       const plain = (res.data as { password_plain?: string })?.password_plain
       toast.success(t('email.created'))
       if (plain) {
+        setPasswordReveal({
+          value: plain,
+          source: 'create',
+          expiresAt: Date.now() + 30_000,
+        })
         void copyPlaintextWithToasts(plain, {
           ok: t('databases.password_copied'),
           fail: t('databases.copy_failed'),
@@ -213,6 +234,11 @@ export default function EmailPage() {
       const plain = (res.data as { password_plain?: string })?.password_plain
       toast.success(t('email.updated'))
       if (plain) {
+        setPasswordReveal({
+          value: plain,
+          source: 'update',
+          expiresAt: Date.now() + 30_000,
+        })
         void copyPlaintextWithToasts(plain, {
           ok: t('databases.password_copied'),
           fail: t('databases.copy_failed'),
@@ -238,8 +264,10 @@ export default function EmailPage() {
     onSuccess: () => {
       toast.success(t('email.deleted'))
       qc.invalidateQueries({ queryKey: ['email', domainId] })
+      setDeletingId(null)
     },
     onError: (err: unknown) => {
+      setDeletingId(null)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
@@ -264,8 +292,10 @@ export default function EmailPage() {
     onSuccess: () => {
       toast.success(t('email.forwarder_deleted'))
       qc.invalidateQueries({ queryKey: ['email', domainId] })
+      setDeletingForwarderId(null)
     },
     onError: (err: unknown) => {
+      setDeletingForwarderId(null)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
@@ -285,10 +315,12 @@ export default function EmailPage() {
 
   const webmailLoginM = useMutation({
     mutationFn: async (accountId: number) => {
+      setWebmailLoginId(accountId)
       const { data } = await api.post(`/email/${accountId}/webmail-login`)
       return data as { signon_url?: string; message?: string }
     },
     onSuccess: (data) => {
+      setWebmailLoginId(null)
       const raw = String(data.signon_url ?? '').trim()
       const url = safeExternalHttpUrl(raw)
       if (!url) {
@@ -299,6 +331,7 @@ export default function EmailPage() {
       toast.success(data.message ?? t('email.webmail_login_opening'))
     },
     onError: (err: unknown) => {
+      setWebmailLoginId(null)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err), { duration: 10_000 })
     },
@@ -319,6 +352,22 @@ export default function EmailPage() {
     | { mail_enabled?: boolean; mailboxes?: EngineMailbox[]; spf?: string; dmarc?: string }
     | undefined
   const engineBoxes: EngineMailbox[] = Array.isArray(mailOv?.mailboxes) ? mailOv.mailboxes : []
+
+  useEffect(() => {
+    if (!passwordReveal) return
+    const tick = window.setInterval(() => {
+      const now = Date.now()
+      setNowTs(now)
+      if (now >= passwordReveal.expiresAt) {
+        setPasswordReveal(null)
+      }
+    }, 1000)
+    return () => window.clearInterval(tick)
+  }, [passwordReveal])
+
+  const secondsLeft = passwordReveal
+    ? Math.max(0, Math.ceil((passwordReveal.expiresAt - nowTs) / 1000))
+    : 0
 
   const openEdit = (row: MailRow) => {
     setEditing(row)
@@ -356,7 +405,7 @@ export default function EmailPage() {
             <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">{t('email.subtitle')}</p>
           </div>
         </div>
-        {emailTab === 'mailboxes' && domainId !== '' && (
+        {emailTab === 'mailboxes' && domainId !== '' && canWrite && (
           <button
             type="button"
             className="btn-primary inline-flex items-center gap-2"
@@ -366,7 +415,7 @@ export default function EmailPage() {
             {t('common.create')}
           </button>
         )}
-        {emailTab === 'forwarders' && domainId !== '' && (
+        {emailTab === 'forwarders' && domainId !== '' && canWrite && (
           <button
             type="button"
             className="btn-primary inline-flex items-center gap-2"
@@ -394,6 +443,10 @@ export default function EmailPage() {
         </select>
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('email.dns_hint')}</p>
       </div>
+
+      {!canWrite && domainId !== '' && (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t('email.read_only_hint')}</p>
+      )}
 
       {domainId === '' ? (
         <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-4 py-8 text-center text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400">
@@ -432,7 +485,16 @@ export default function EmailPage() {
                 {q.isLoading ? (
                   <p className="py-10 text-center text-gray-500">{t('common.loading')}</p>
                 ) : q.isError ? (
-                  <p className="py-10 text-center text-red-600 dark:text-red-400">{t('email.load_error')}</p>
+                  <div className="py-10 text-center">
+                    <p className="text-red-600 dark:text-red-400">{t('email.load_error')}</p>
+                    <button
+                      type="button"
+                      className="btn-secondary mt-3 text-sm"
+                      onClick={() => void q.refetch()}
+                    >
+                      {t('domains.refresh')}
+                    </button>
+                  </div>
                 ) : accounts.length === 0 ? (
                   <p className="py-10 text-center text-gray-500 dark:text-gray-400">{t('email.empty_mailboxes')}</p>
                 ) : (
@@ -484,32 +546,48 @@ export default function EmailPage() {
                                 <button
                                   type="button"
                                   className="btn-primary mr-2 inline-flex items-center gap-1 py-1.5 px-2.5 text-xs"
-                                  disabled={webmailLoginM.isPending}
+                                  disabled={webmailLoginId === a.id}
                                   onClick={() => webmailLoginM.mutate(a.id)}
                                   title={t('email.webmail_login')}
                                 >
-                                  <Mail className="h-3.5 w-3.5" />
+                                  {webmailLoginId === a.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Mail className="h-3.5 w-3.5" />
+                                  )}
                                   {t('email.webmail_login_short')}
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                className="mr-1 inline-flex rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                                onClick={() => openEdit(a)}
-                                title={t('email.edit')}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="inline-flex rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                                onClick={() => {
-                                  if (window.confirm(t('common.confirm_delete'))) deleteM.mutate(a.id)
-                                }}
-                                title={t('common.delete')}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {canWrite && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="mr-1 inline-flex rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    onClick={() => openEdit(a)}
+                                    title={t('email.edit')}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="inline-flex rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                                    disabled={deletingId === a.id}
+                                    onClick={() => {
+                                      if (window.confirm(t('email.delete_confirm', { email: a.email }))) {
+                                        setDeletingId(a.id)
+                                        deleteM.mutate(a.id)
+                                      }
+                                    }}
+                                    title={t('common.delete')}
+                                  >
+                                    {deletingId === a.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                </>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -521,7 +599,23 @@ export default function EmailPage() {
             )}
 
             {emailTab === 'forwarders' &&
-              (forwarders.length === 0 ? (
+              (q.isLoading ? (
+                <p className="flex items-center justify-center gap-2 py-10 text-gray-500">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  {t('common.loading')}
+                </p>
+              ) : q.isError ? (
+                <div className="py-10 text-center">
+                  <p className="text-red-600 dark:text-red-400">{t('email.load_error')}</p>
+                  <button
+                    type="button"
+                    className="btn-secondary mt-3 text-sm"
+                    onClick={() => void q.refetch()}
+                  >
+                    {t('domains.refresh')}
+                  </button>
+                </div>
+              ) : forwarders.length === 0 ? (
                 <p className="py-10 text-center text-gray-500 dark:text-gray-400">{t('email.forwarders_empty')}</p>
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
@@ -535,7 +629,7 @@ export default function EmailPage() {
                           {t('email.forwarder_destination')}
                         </th>
                         <th className="w-28 px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-400">
-                          {t('common.actions')}
+                          {canWrite ? t('common.actions') : ''}
                         </th>
                       </tr>
                     </thead>
@@ -545,16 +639,26 @@ export default function EmailPage() {
                           <td className="px-4 py-3 font-mono text-gray-900 dark:text-gray-100">{f.source}</td>
                           <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{f.destination}</td>
                           <td className="px-4 py-3 text-right">
-                            <button
-                              type="button"
-                              className="inline-flex rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                              onClick={() => {
-                                if (window.confirm(t('common.confirm_delete'))) deleteForwarderM.mutate(f.id)
-                              }}
-                              title={t('common.delete')}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="inline-flex rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                                disabled={deletingForwarderId === f.id}
+                                onClick={() => {
+                                  if (window.confirm(t('email.forwarder_delete_confirm', { source: f.source }))) {
+                                    setDeletingForwarderId(f.id)
+                                    deleteForwarderM.mutate(f.id)
+                                  }
+                                }}
+                                title={t('common.delete')}
+                              >
+                                {deletingForwarderId === f.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -648,11 +752,11 @@ export default function EmailPage() {
                     <div className="mt-1">{webmailStatus.hint ?? t('email.webmail_dns_check_failed')}</div>
                     {webmailStatus.ns_delegated === false && (
                       <div className="mt-2 text-[11px] opacity-90">
-                        Panel NS: {(webmailStatus.panel_ns ?? []).join(', ') || '—'} · Kayıt sağlayıcı NS:{' '}
-                        {(webmailStatus.public_ns ?? []).join(', ') || '—'}
+                        {t('email.ns_panel_label')}: {(webmailStatus.panel_ns ?? []).join(', ') || '—'} ·{' '}
+                        {t('email.ns_registrar_label')}: {(webmailStatus.public_ns ?? []).join(', ') || '—'}
                       </div>
                     )}
-                    {mailStackReady && !webmailStatus.dns_ok && typeof domainId === 'number' && (
+                    {canWrite && mailStackReady && !webmailStatus.dns_ok && typeof domainId === 'number' && (
                       <button
                         type="button"
                         className="btn-secondary mt-2 py-1.5 text-xs"
@@ -669,51 +773,89 @@ export default function EmailPage() {
 
             {emailTab === 'status' &&
               (q.isLoading ? (
-                <p className="py-10 text-center text-gray-500">{t('common.loading')}</p>
-              ) : mailOv == null ? (
-                <p className="py-10 text-center text-gray-500 dark:text-gray-400">{t('email.load_error')}</p>
+                <p className="flex items-center justify-center gap-2 py-10 text-gray-500">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  {t('common.loading')}
+                </p>
+              ) : q.isError ? (
+                <div className="py-10 text-center">
+                  <p className="text-red-600 dark:text-red-400">{t('email.load_error')}</p>
+                  <button
+                    type="button"
+                    className="btn-secondary mt-3 text-sm"
+                    onClick={() => void q.refetch()}
+                  >
+                    {t('domains.refresh')}
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4 text-sm">
                   <div className="flex flex-wrap items-center gap-3 text-gray-700 dark:text-gray-300">
                     <span className="font-medium">
-                      {mailOv.mail_enabled ? t('email.mail_status_on') : t('email.mail_status_off')}
+                      {mailStackReady ? t('email.stack_webmail_ready') : t('email.stack_webmail_hint')}
                     </span>
-                    {mailOv.spf != null && mailOv.spf !== '' && (
-                      <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs dark:bg-gray-800">
-                        SPF: {mailOv.spf}
+                    {webmailStatus?.dns_ok === true && (
+                      <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                        {t('email.webmail_dns_ok')}
                       </span>
                     )}
-                    {mailOv.dmarc != null && mailOv.dmarc !== '' && (
-                      <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs dark:bg-gray-800">
-                        DMARC: {mailOv.dmarc}
+                    {webmailStatus?.dns_ok === false && webmailStatus.host && (
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                        {t('email.webmail_dns_pending', { host: webmailStatus.host })}
                       </span>
                     )}
                   </div>
-                  {engineBoxes.length > 0 ? (
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {t('email.status_mailbox_count', { count: accounts.length })}
+                  </p>
+                  {isAdmin && mailOv != null ? (
                     <>
-                      <p className="font-semibold text-gray-900 dark:text-white">{t('email.engine_mailboxes_title')}</p>
-                      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 dark:bg-gray-800/80">
-                            <tr>
-                              <th className="px-3 py-2 text-left">{t('email.table_email')}</th>
-                              <th className="px-3 py-2 text-left">{t('email.table_quota')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {engineBoxes.map((m, i) => (
-                              <tr key={`${m.email ?? i}`} className="border-t border-gray-100 dark:border-gray-800">
-                                <td className="px-3 py-2 font-mono">{m.email ?? '—'}</td>
-                                <td className="px-3 py-2">{m.quota_mb ?? '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="flex flex-wrap items-center gap-3 text-gray-700 dark:text-gray-300">
+                        <span className="font-medium">
+                          {mailOv.mail_enabled ? t('email.mail_status_on') : t('email.mail_status_off')}
+                        </span>
+                        {mailOv.spf != null && mailOv.spf !== '' && (
+                          <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs dark:bg-gray-800">
+                            SPF: {mailOv.spf}
+                          </span>
+                        )}
+                        {mailOv.dmarc != null && mailOv.dmarc !== '' && (
+                          <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs dark:bg-gray-800">
+                            DMARC: {mailOv.dmarc}
+                          </span>
+                        )}
                       </div>
+                      {engineBoxes.length > 0 ? (
+                        <>
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {t('email.engine_mailboxes_title')}
+                          </p>
+                          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-50 dark:bg-gray-800/80">
+                                <tr>
+                                  <th className="px-3 py-2 text-left">{t('email.table_email')}</th>
+                                  <th className="px-3 py-2 text-left">{t('email.table_quota')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {engineBoxes.map((m, i) => (
+                                  <tr key={`${m.email ?? i}`} className="border-t border-gray-100 dark:border-gray-800">
+                                    <td className="px-3 py-2 font-mono">{m.email ?? '—'}</td>
+                                    <td className="px-3 py-2">{m.quota_mb ?? '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-gray-500 dark:text-gray-400">{t('email.engine_mailboxes_title')}: —</p>
+                      )}
                     </>
-                  ) : (
-                    <p className="text-gray-500 dark:text-gray-400">{t('email.engine_mailboxes_title')}: —</p>
-                  )}
+                  ) : !isAdmin ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('email.status_admin_engine_hint')}</p>
+                  ) : null}
                 </div>
               ))}
 
@@ -771,15 +913,20 @@ export default function EmailPage() {
         </div>
       )}
 
-      {showAdd && domainId !== '' && (
+      {showAdd && domainId !== '' && canWrite && (
         <ModalFrame title={t('email.add_mailbox_title')} onClose={() => setShowAdd(false)}>
           <form
             className="space-y-4"
             onSubmit={(ev) => {
               ev.preventDefault()
               const fd = new FormData(ev.currentTarget)
+              const localPart = String(fd.get('local_part') || '').trim()
+              if (!LOCAL_PART_RE.test(localPart)) {
+                toast.error(t('email.local_part_invalid'))
+                return
+              }
               createM.mutate({
-                local_part: String(fd.get('local_part') || '').trim(),
+                local_part: localPart,
                 quota_mb: fd.get('quota_mb') ? Number(fd.get('quota_mb')) : 500,
               })
             }}
@@ -798,14 +945,14 @@ export default function EmailPage() {
                 {t('common.cancel')}
               </button>
               <button type="submit" className="btn-primary" disabled={createM.isPending}>
-                {t('common.create')}
+                {createM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common.create')}
               </button>
             </div>
           </form>
         </ModalFrame>
       )}
 
-      {editing && (
+      {editing && canWrite && (
         <ModalFrame title={t('email.edit_mailbox_title')} onClose={() => setEditing(null)}>
           <form className="space-y-4" onSubmit={submitEdit}>
             <p className="rounded-lg bg-gray-100 px-3 py-2 font-mono text-sm dark:bg-gray-800">{editing.email}</p>
@@ -880,14 +1027,14 @@ export default function EmailPage() {
                 {t('common.cancel')}
               </button>
               <button type="submit" className="btn-primary" disabled={updateM.isPending}>
-                {t('email.save_changes')}
+                {updateM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('email.save_changes')}
               </button>
             </div>
           </form>
         </ModalFrame>
       )}
 
-      {showAddForwarder && domainId !== '' && (
+      {showAddForwarder && domainId !== '' && canWrite && (
         <ModalFrame title={t('email.forwarder_add_title')} onClose={() => setShowAddForwarder(false)}>
           <form
             className="space-y-4"
@@ -923,6 +1070,39 @@ export default function EmailPage() {
             </div>
           </form>
         </ModalFrame>
+      )}
+
+      {passwordReveal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {t('databases.password_temp_title')}
+            </h2>
+            <p className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              {t('databases.password_temp_desc', { seconds: secondsLeft })}
+            </p>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 font-mono text-sm text-gray-900 dark:text-gray-100 break-all">
+              {passwordReveal.value}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  void copyPlaintextWithToasts(passwordReveal.value, {
+                    ok: t('databases.password_copied'),
+                    fail: t('databases.copy_failed'),
+                  })
+                }
+              >
+                {t('common.copy')}
+              </button>
+              <button type="button" className="btn-primary" onClick={() => setPasswordReveal(null)}>
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

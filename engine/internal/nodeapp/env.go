@@ -11,11 +11,11 @@ import (
 )
 
 // buildStartEnv PM2/npm sürecine verilecek ortam değişkenleri (OAuth / reverse proxy uyumu).
-func buildStartEnv(webRoot, domain string, meta *sites.SiteMeta, workAbs string, port int) []string {
+func buildStartEnv(webRoot string, sc SiteScope, meta *sites.SiteMeta, workAbs string, port int) []string {
 	merged := map[string]string{
-		"PORT":       strconv.Itoa(port),
-		"HOST":       "127.0.0.1",
-		"NODE_ENV":   "production",
+		"PORT":        strconv.Itoa(port),
+		"HOST":        "127.0.0.1",
+		"NODE_ENV":    "production",
 		"TRUST_PROXY": "1",
 	}
 
@@ -24,16 +24,23 @@ func buildStartEnv(webRoot, domain string, meta *sites.SiteMeta, workAbs string,
 		if rel == "" {
 			rel = ".env"
 		}
-		if !filepath.IsAbs(rel) {
-			rel = filepath.Join(siteBase(webRoot, domain), rel)
+		envCandidates := []string{
+			filepath.Join(workAbs, rel),
+			filepath.Join(sc.siteBase(webRoot), rel),
 		}
-		rel = filepath.Clean(rel)
-		if st, err := os.Stat(rel); err == nil && !st.IsDir() {
-			for k, v := range parseDotEnvFile(rel) {
-				merged[k] = v
+		seen := map[string]bool{}
+		for _, envPath := range envCandidates {
+			envPath = filepath.Clean(envPath)
+			if seen[envPath] {
+				continue
+			}
+			seen[envPath] = true
+			if st, err := os.Stat(envPath); err == nil && !st.IsDir() {
+				for k, v := range parseDotEnvFile(envPath) {
+					merged[k] = v
+				}
 			}
 		}
-		// .env.local / .env.production (Next.js) — dosyada tanımlı değerleri yükle
 		for _, extra := range []string{".env.local", ".env.production"} {
 			p := filepath.Join(workAbs, extra)
 			if st, err := os.Stat(p); err == nil && !st.IsDir() {
@@ -47,9 +54,18 @@ func buildStartEnv(webRoot, domain string, meta *sites.SiteMeta, workAbs string,
 	}
 
 	ssl := meta != nil && meta.SSLEnabled
-	for k, v := range publicURLVars(domain, ssl) {
+	host := sc.publicHostname(meta)
+	if host == "" {
+		host = sc.ParentDomain
+	}
+	for k, v := range publicURLVars(host, ssl) {
 		merged[k] = v
 	}
+
+	// Panelin seçtiği port/her zaman geçerli (package.json -p bayrağını geçersiz kılar).
+	merged["PORT"] = strconv.Itoa(port)
+	merged["HOST"] = "127.0.0.1"
+	merged["NODE_ENV"] = "production"
 
 	out := make([]string, 0, len(merged))
 	for k, v := range merged {

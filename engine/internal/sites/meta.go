@@ -33,6 +33,9 @@ type SiteMeta struct {
 	AppProfile   string         `json:"app_profile,omitempty"` // laravel, nextjs, node, ...
 	NodeApp      *NodeAppConfig `json:"node_app,omitempty"`
 	RedirectRules []RedirectRule `json:"redirect_rules,omitempty"`
+	// PanelKafes — site başına Linux kullanıcı izolasyonu.
+	CageEnabled bool   `json:"cage_enabled,omitempty"`
+	CageUser    string `json:"cage_user,omitempty"`
 }
 
 // ForceHTTPSRedirect SSL etkin sitelerde HTTP→HTTPS yönlendirmesi isteniyor mu (varsayılan: true).

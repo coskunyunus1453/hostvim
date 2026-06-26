@@ -34,9 +34,11 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1', 'max:10'],
-            'items.*.package_id' => ['required', 'integer', 'exists:hosting_packages,id'],
-            'items.*.billing_cycle' => ['required', 'string', 'in:monthly,yearly'],
+            'items.*.item_type' => ['nullable', 'string', 'in:hosting,domain_register'],
+            'items.*.package_id' => ['nullable', 'integer', 'exists:hosting_packages,id'],
+            'items.*.billing_cycle' => ['nullable', 'string', 'in:monthly,yearly'],
             'items.*.domain' => ['nullable', 'string', 'max:253'],
+            'items.*.domain_years' => ['nullable', 'integer', 'min:1', 'max:10'],
         ]);
 
         try {

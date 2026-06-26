@@ -56,14 +56,19 @@ export default function AdminDnsSettingsPage() {
         bind_enabled: bindEnabled,
         bootstrap_defaults: bootstrapDefaults,
       }),
-    onSuccess: () => {
-      toast.success(t('dns.settings_saved'))
+    onSuccess: (res) => {
+      const data = res?.data as { bind?: { ok?: boolean; skipped?: boolean; message?: string }; message?: string } | undefined
+      toast.success(data?.message ?? t('dns.settings_saved'))
+      if (data?.bind && data.bind.ok === false && !data.bind.skipped) {
+        toast.error(data.bind.message ?? t('dns.bind_sync_failed'), { duration: 10000 })
+      }
       qc.invalidateQueries({ queryKey: ['admin-dns-settings'] })
       qc.invalidateQueries({ queryKey: ['dns'] })
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      const ax = err as { response?: { data?: { message?: string; bind?: { message?: string } } } }
+      const msg = ax.response?.data?.message ?? ax.response?.data?.bind?.message ?? String(err)
+      toast.error(msg, { duration: 10000 })
     },
   })
 

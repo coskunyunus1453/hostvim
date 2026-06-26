@@ -7,22 +7,42 @@ use Illuminate\Support\Facades\Storage;
 
 final class LandingAppearance
 {
+    public const HEADER_BRAND_MODE_BOTH = 'both';
+
+    public const HEADER_BRAND_MODE_LOGO_ONLY = 'logo_only';
+
+    public const HEADER_BRAND_MODE_NAME_ONLY = 'name_only';
+
+    /** @var list<string> */
+    public const HEADER_BRAND_MODES = [
+        self::HEADER_BRAND_MODE_BOTH,
+        self::HEADER_BRAND_MODE_LOGO_ONLY,
+        self::HEADER_BRAND_MODE_NAME_ONLY,
+    ];
+
+    /** @var array<string, string> */
+    public const HEADER_BRAND_MODE_LABELS = [
+        self::HEADER_BRAND_MODE_BOTH => 'Logo + site adı',
+        self::HEADER_BRAND_MODE_LOGO_ONLY => 'Sadece logo',
+        self::HEADER_BRAND_MODE_NAME_ONLY => 'Sadece site adı',
+    ];
+
     public const DEFAULT_FEATURE_CARDS_TR = [
-        ['title' => 'Site & domain yönetimi', 'body' => 'Nginx sanal host, SSL, yönlendirmeler ve PHP versiyonlarını tek ekrandan kontrol edin.', 'icon' => 'globe'],
-        ['title' => 'Veritabanı & kullanıcılar', 'body' => 'MySQL / Postgres veritabanlarını, kullanıcı ve izinleri panelden yönetin.', 'icon' => 'database'],
-        ['title' => 'Güvenlik & SSL', 'body' => 'Otomatik Let’s Encrypt, güvenlik profilleri ve temel hardening ayarları.', 'icon' => 'shield'],
-        ['title' => 'Terminal & loglar', 'body' => 'Güvenli web terminali, gerçek zamanlı log izleme ve hızlı hata ayıklama.', 'icon' => 'terminal'],
-        ['title' => 'Rol & yetkilendirme', 'body' => 'Bayi, admin ve son kullanıcı rollerini ayrıştırarak güvenli erişim modeli kurun.', 'icon' => 'users'],
-        ['title' => 'Hazır stack profilleri', 'body' => 'WordPress, Laravel ve klasik PHP projeleri için ön tanımlı stack profilleri.', 'icon' => 'layers'],
+        ['title' => 'Site & alan adı', 'body' => 'Nginx/Apache/OpenLiteSpeed vhost, alt alan adı, alias, PHP sürümü ve yönlendirmeler tek panelden.', 'icon' => 'globe'],
+        ['title' => 'Veritabanı & phpMyAdmin', 'body' => 'MySQL ve PostgreSQL kullanıcı/izin yönetimi; Pro ile tek tık phpMyAdmin SSO.', 'icon' => 'database'],
+        ['title' => 'SSL & güvenlik', 'body' => 'Let\'s Encrypt otomasyonu, fail2ban, ModSecurity ve ClamAV; gelişmiş profiller Pro modülünde.', 'icon' => 'shield'],
+        ['title' => 'Node & deploy', 'body' => 'PM2 ile Node uygulamaları, Git deploy, webhook ve rollback akışları.', 'icon' => 'terminal'],
+        ['title' => 'E-posta & DNS', 'body' => 'Posta kutuları, yönlendiriciler, Roundcube webmail ve BIND9 zone senkronu.', 'icon' => 'users'],
+        ['title' => 'Kurucu & yedek', 'body' => 'WordPress ve OpenCart tek tık kurulum; zamanlanmış yerel yedekler, Pro\'da Drive/uzak restore.', 'icon' => 'layers'],
     ];
 
     public const DEFAULT_FEATURE_CARDS_EN = [
-        ['title' => 'Site & domain operations', 'body' => 'Manage Nginx virtual hosts, SSL, redirects and PHP versions from a single panel.', 'icon' => 'globe'],
-        ['title' => 'Databases & users', 'body' => 'Control MySQL/PostgreSQL databases, users and permissions without leaving the panel.', 'icon' => 'database'],
-        ['title' => 'Security & certificates', 'body' => 'Use automatic Let\'s Encrypt provisioning, security profiles and baseline hardening.', 'icon' => 'shield'],
-        ['title' => 'Terminal & logs', 'body' => 'Troubleshoot faster with a secure web terminal and real-time log streaming.', 'icon' => 'terminal'],
-        ['title' => 'Roles & access model', 'body' => 'Separate admin, reseller and customer permissions with a safer delegation flow.', 'icon' => 'users'],
-        ['title' => 'Ready stack profiles', 'body' => 'Start faster with predefined profiles for WordPress, Laravel and classic PHP apps.', 'icon' => 'layers'],
+        ['title' => 'Sites & domains', 'body' => 'Nginx/Apache/OpenLiteSpeed vhosts, subdomains, aliases, PHP versions, and redirects from one panel.', 'icon' => 'globe'],
+        ['title' => 'Databases & phpMyAdmin', 'body' => 'MySQL and PostgreSQL users/privileges; Pro adds one-click phpMyAdmin SSO.', 'icon' => 'database'],
+        ['title' => 'SSL & security', 'body' => 'Let\'s Encrypt automation, fail2ban, ModSecurity, and ClamAV; advanced profiles in the Pro security module.', 'icon' => 'shield'],
+        ['title' => 'Node & deploy', 'body' => 'PM2 Node apps, Git deploy, webhooks, and rollback flows.', 'icon' => 'terminal'],
+        ['title' => 'Email & DNS', 'body' => 'Mailboxes, forwarders, Roundcube webmail, and BIND9 zone sync.', 'icon' => 'users'],
+        ['title' => 'Installer & backups', 'body' => 'One-click WordPress and OpenCart; scheduled local backups, Drive/remote restore on Pro.', 'icon' => 'layers'],
     ];
 
     /** @var array<string, string> */
@@ -308,6 +328,23 @@ final class LandingAppearance
         }
 
         return $out !== [] ? $out : $defaultCards;
+    }
+
+    public static function headerBrandMode(): string
+    {
+        $mode = (string) (LandingSiteSetting::getValue('landing.header_brand_mode', self::HEADER_BRAND_MODE_BOTH) ?? self::HEADER_BRAND_MODE_BOTH);
+
+        return in_array($mode, self::HEADER_BRAND_MODES, true) ? $mode : self::HEADER_BRAND_MODE_BOTH;
+    }
+
+    public static function showHeaderLogo(): bool
+    {
+        return in_array(self::headerBrandMode(), [self::HEADER_BRAND_MODE_BOTH, self::HEADER_BRAND_MODE_LOGO_ONLY], true);
+    }
+
+    public static function showHeaderBrandText(): bool
+    {
+        return in_array(self::headerBrandMode(), [self::HEADER_BRAND_MODE_BOTH, self::HEADER_BRAND_MODE_NAME_ONLY], true);
     }
 
     public static function siteLogoUrl(): ?string

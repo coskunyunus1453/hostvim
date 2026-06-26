@@ -105,6 +105,9 @@ class PluginStoreController extends Controller
 
     public function deactivate(Request $request, PluginModule $pluginModule): JsonResponse
     {
+        if ($pluginModule->slug === 'integration-cloudflare' || ! $pluginModule->is_public) {
+            return response()->json(['message' => 'module not available'], 404);
+        }
         $user = $request->user();
         $row = UserPluginModule::query()
             ->where('user_id', $user->id)
@@ -148,8 +151,9 @@ class PluginStoreController extends Controller
                     'status' => $run->status,
                     'dry_run' => (bool) $run->dry_run,
                     'progress' => (int) $run->progress,
-                    'output' => $run->output,
-                    'error_message' => $run->error_message,
+                    'error_message' => $run->error_message
+                        ? mb_substr((string) $run->error_message, 0, 500)
+                        : null,
                     'created_at' => optional($run->created_at)->toIso8601String(),
                     'started_at' => optional($run->started_at)->toIso8601String(),
                     'finished_at' => optional($run->finished_at)->toIso8601String(),
@@ -331,7 +335,6 @@ class PluginStoreController extends Controller
             'target_domain' => [
                 'id' => $targetDomain->id,
                 'name' => $targetDomain->name,
-                'document_root' => $targetDomain->document_root,
             ],
         ]);
     }

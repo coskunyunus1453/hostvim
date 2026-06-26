@@ -33,6 +33,7 @@ class Invoice extends Model
         'paid_at',
         'payment_method',
         'transaction_ref',
+        'payment_merchant_ref',
         'reminders_sent',
         'last_reminder_at',
         'notes',

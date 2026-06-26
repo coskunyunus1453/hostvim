@@ -102,6 +102,17 @@ type HostingConfig struct {
 	PHPFPMpoolUser        string `mapstructure:"php_fpm_pool_user"`
 	PHPFPMpoolGroup       string `mapstructure:"php_fpm_pool_group"`
 
+	// PanelKafes — site başına Linux kullanıcı + PHP-FPM izolasyonu (CloudLinux/CageFS benzeri).
+	SiteCageEnabled            bool   `mapstructure:"site_cage_enabled"`
+	SiteCageGroup              string `mapstructure:"site_cage_group"`
+	SiteCageUserPrefix         string `mapstructure:"site_cage_user_prefix"`
+	SiteCageEngineUser         string `mapstructure:"site_cage_engine_user"`
+	SiteCageHelper             string `mapstructure:"site_cage_helper"`
+	SiteCageDefaultCPUPercent  int    `mapstructure:"site_cage_default_cpu_percent"`
+	SiteCageDefaultMemoryMB    int    `mapstructure:"site_cage_default_memory_mb"`
+	SiteCageDefaultMaxChildren int    `mapstructure:"site_cage_default_pm_max_children"`
+	SiteCageDefaultMemoryLimit string `mapstructure:"site_cage_default_memory_limit"`
+
 	ApacheManageVhosts     bool   `mapstructure:"apache_manage_vhosts"`
 	ApacheSitesAvailable   string `mapstructure:"apache_sites_available"`
 	ApacheSitesEnabled     string `mapstructure:"apache_sites_enabled"`
@@ -110,6 +121,8 @@ type HostingConfig struct {
 	ApacheHTTPPort int `mapstructure:"apache_http_port"`
 	// NginxEdgeProxy — Apache/OLS siteleri için nginx 80/443 edge + backend proxy (mevcut nginx siteleri değişmez).
 	NginxEdgeProxy bool `mapstructure:"nginx_edge_proxy"`
+	// VhostConfPrefix — nginx/apache vhost dosya öneki (varsayılan panelze; hostvim kurulumlarında hostvim).
+	VhostConfPrefix string `mapstructure:"vhost_conf_prefix"`
 
 	// OpenLiteSpeed (server_type: openlitespeed) — conf.d parçaları + listener map dosyaları.
 	OLSManageVhosts       bool   `mapstructure:"openlitespeed_manage_vhosts"`
@@ -270,6 +283,16 @@ func setDefaults() {
 	viper.SetDefault("hosting.php_fpm_reload_after_pool", false)
 	viper.SetDefault("hosting.php_fpm_pool_user", "www-data")
 	viper.SetDefault("hosting.php_fpm_pool_group", "www-data")
+
+	viper.SetDefault("hosting.site_cage_enabled", false)
+	viper.SetDefault("hosting.site_cage_group", "panelze-hosting")
+	viper.SetDefault("hosting.site_cage_user_prefix", "pk")
+	viper.SetDefault("hosting.site_cage_engine_user", "www-data")
+	viper.SetDefault("hosting.site_cage_helper", "/usr/local/sbin/panelze-site-cage")
+	viper.SetDefault("hosting.site_cage_default_cpu_percent", 100)
+	viper.SetDefault("hosting.site_cage_default_memory_mb", 1024)
+	viper.SetDefault("hosting.site_cage_default_pm_max_children", 20)
+	viper.SetDefault("hosting.site_cage_default_memory_limit", "256M")
 
 	viper.SetDefault("hosting.apache_manage_vhosts", false)
 	viper.SetDefault("hosting.apache_sites_available", "/etc/apache2/sites-available")

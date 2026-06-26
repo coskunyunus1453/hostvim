@@ -20,7 +20,7 @@ class SeoAnalyzerService
         }
 
         $host = parse_url($url, PHP_URL_HOST);
-        if (! is_string($host) || $this->isBlockedHost($host)) {
+        if (! is_string($host) || $this->isBlockedHost($host) || ! $this->hostResolvesToPublicIps($host)) {
             return ['ok' => false, 'error' => __('curious.seo_blocked_host')];
         }
 
@@ -35,8 +35,8 @@ class SeoAnalyzerService
                 ])
                 ->timeout(max(5, (int) config('panelze.curious.seo_timeout', 20)))
                 ->get($url);
-        } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => __('curious.seo_fetch_failed', ['detail' => $e->getMessage()])];
+        } catch (\Throwable) {
+            return ['ok' => false, 'error' => __('curious.seo_fetch_failed')];
         }
 
         $durationMs = (int) round((microtime(true) - $started) * 1000);
@@ -285,15 +285,61 @@ class SeoAnalyzerService
         if ($host === 'localhost' || $host === '0.0.0.0') {
             return true;
         }
+        foreach (['.local', '.internal', '.localhost', 'metadata.google', 'metadata.goog'] as $needle) {
+            if (str_contains($host, $needle)) {
+                return true;
+            }
+        }
         if (filter_var($host, FILTER_VALIDATE_IP)) {
-            return ! filter_var(
-                $host,
-                FILTER_VALIDATE_IP,
-                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-            );
+            return ! $this->isPublicIp($host);
         }
 
         return false;
+    }
+
+    private function hostResolvesToPublicIps(string $host): bool
+    {
+        $host = strtolower(trim($host, '[]'));
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return $this->isPublicIp($host);
+        }
+
+        $ips = [];
+        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
+        if (is_array($records)) {
+            foreach ($records as $rec) {
+                if (isset($rec['ip']) && is_string($rec['ip'])) {
+                    $ips[] = $rec['ip'];
+                }
+                if (isset($rec['ipv6']) && is_string($rec['ipv6'])) {
+                    $ips[] = $rec['ipv6'];
+                }
+            }
+        }
+        if ($ips === []) {
+            $resolved = gethostbyname($host);
+            if ($resolved === $host) {
+                return false;
+            }
+            $ips[] = $resolved;
+        }
+
+        foreach ($ips as $ip) {
+            if (! $this->isPublicIp($ip)) {
+                return false;
+            }
+        }
+
+        return $ips !== [];
+    }
+
+    private function isPublicIp(string $ip): bool
+    {
+        return (bool) filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        );
     }
 
     private function loadDom(string $html): ?\DOMDocument

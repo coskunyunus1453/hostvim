@@ -111,6 +111,12 @@ export default function Header() {
     navigate('/login')
   }
 
+  const formatPanelCheck = (item: { id?: string; message?: string }) => {
+    const id = item.id ?? 'unknown'
+    const label = t(`panel_self_heal.check_labels.${id}`, { defaultValue: id })
+    return item.message ? `${label}: ${item.message}` : label
+  }
+
   const panelRepairM = useMutation({
     mutationFn: async () => {
       const { data } = await api.post('/system/panel/repair')
@@ -118,6 +124,8 @@ export default function Header() {
         ok?: boolean
         summary?: { failed?: number }
         message?: string
+        checks?: Array<{ ok?: boolean; id?: string; message?: string }>
+        repair_steps?: Array<{ ok?: boolean; id?: string; message?: string }>
       }
     },
     onSuccess: (data) => {
@@ -125,13 +133,22 @@ export default function Header() {
       if (failed === 0) {
         toast.success(t('panel_self_heal.repair_success'))
       } else {
-        const checks = (data as { checks?: Array<{ ok?: boolean; id?: string; message?: string }> })?.checks ?? []
+        const checks = data?.checks ?? []
+        const failedSteps = (data?.repair_steps ?? []).filter((s) => !s.ok)
         const remaining = checks
           .filter((c) => !c.ok)
           .slice(0, 3)
-          .map((c) => `${c.id}: ${c.message}`)
-          .join(' | ')
-        toast((remaining || data?.message || t('panel_self_heal.repair_partial')) as string, { icon: '⚠️', duration: 8000 })
+          .map(formatPanelCheck)
+          .join('\n')
+        const stepHint = failedSteps
+          .slice(0, 2)
+          .map(formatPanelCheck)
+          .join('\n')
+        const detail = [remaining, stepHint].filter(Boolean).join('\n')
+        toast((detail || data?.message || t('panel_self_heal.repair_partial')) as string, {
+          icon: '⚠️',
+          duration: 10000,
+        })
       }
     },
     onError: (err: unknown) => {

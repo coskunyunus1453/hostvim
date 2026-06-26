@@ -116,8 +116,12 @@ class ResellerRoleController extends Controller
         abort_if($role->is_system, 403);
         abort_unless((int) $role->owner_user_id === (int) $request->user()->id, 403);
 
+        if ($role->users()->exists()) {
+            return response()->json(['message' => __('users.role_in_use')], 422);
+        }
+
         $role->delete();
 
-        return response()->json(['message' => 'OK']);
+        return response()->json(['message' => __('users.role_deleted')]);
     }
 }

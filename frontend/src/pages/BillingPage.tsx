@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 import { CreditCard, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
@@ -56,6 +58,8 @@ export default function BillingPage() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const autoCheckoutStarted = useRef(false)
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'billing:write')
 
   const isAllowedCheckoutHost = (url: string): boolean => {
     try {
@@ -88,8 +92,8 @@ export default function BillingPage() {
     mutationFn: async (payload: { package_id: number; billing_cycle: 'monthly' | 'yearly' }) =>
       api.post('/billing/checkout', {
         ...payload,
-        success_url: `${window.location.origin}/billing`,
-        cancel_url: `${window.location.origin}/billing`,
+        success_url: `${window.location.origin}/billing?checkout=success`,
+        cancel_url: `${window.location.origin}/billing?checkout=cancel`,
       }),
     onSuccess: (res) => {
       const raw = (res.data as { url?: string })?.url
@@ -97,7 +101,7 @@ export default function BillingPage() {
       if (url && isAllowedCheckoutHost(url)) {
         window.location.href = url
       } else if (raw) {
-        toast.error('Güvensiz checkout URL engellendi')
+        toast.error(t('billing.checkout_blocked'))
       } else {
         toast.success(t('billing.demo_mode'))
       }
@@ -111,7 +115,16 @@ export default function BillingPage() {
   })
 
   useEffect(() => {
-    if (searchParams.get('autoCheckout') !== '1' || autoCheckoutStarted.current) {
+    const checkout = searchParams.get('checkout')
+    if (checkout === 'success') {
+      toast.success(t('billing.checkout_success'))
+    } else if (checkout === 'cancel') {
+      toast(t('billing.checkout_cancel'))
+    }
+  }, [searchParams, t])
+
+  useEffect(() => {
+    if (!canWrite || searchParams.get('autoCheckout') !== '1' || autoCheckoutStarted.current) {
       return
     }
     const raw = sessionStorage.getItem('pendingCheckout')
@@ -128,7 +141,7 @@ export default function BillingPage() {
     } catch {
       /* ignore */
     }
-  }, [searchParams, checkoutM])
+  }, [searchParams, checkoutM, canWrite])
 
   const packages = pkgs.data?.packages ?? []
   const subRows: SubRow[] = subs.data?.data ?? []
@@ -154,6 +167,13 @@ export default function BillingPage() {
           <p className="text-gray-500 dark:text-gray-400 text-sm">{t('billing.subtitle')}</p>
         </div>
       </div>
+
+      {!canWrite && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+          {t('billing.read_only_hint')}
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <ShieldCheck className="h-5 w-5 text-primary-600 dark:text-primary-400" />
@@ -161,7 +181,14 @@ export default function BillingPage() {
             {t('billing.license_title')}
           </h2>
         </div>
-        {licenseQ.isLoading ? (
+        {licenseQ.isError ? (
+          <div className="p-4 text-sm text-red-700 dark:text-red-300">
+            <p>{t('billing.license_load_error')}</p>
+            <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void licenseQ.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : licenseQ.isLoading ? (
           <p className="p-4 text-gray-500">{t('common.loading')}</p>
         ) : !lic?.has_license_key ? (
           <p className="p-4 text-sm text-gray-500">{t('billing.license_none')}</p>
@@ -205,6 +232,11 @@ export default function BillingPage() {
             </div>
           </dl>
         )}
+        {lic?.hub_reachable === false && (
+          <p className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+            {t('billing.hub_unreachable')}
+          </p>
+        )}
         {lic?.downgraded_to_community && (
           <p className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
             {t('billing.license_downgraded')}
@@ -219,6 +251,14 @@ export default function BillingPage() {
 
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('billing.packages')}</h2>
+        {pkgs.isError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
+            <p>{t('billing.packages_load_error')}</p>
+            <button type="button" className="btn-secondary mt-2 text-xs" onClick={() => void pkgs.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {packages.map((p) => (
             <div key={p.id} className="card p-5 flex flex-col gap-3">
@@ -230,35 +270,35 @@ export default function BillingPage() {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 <p>
-                  Aylık: {p.price_monthly} {p.currency}
+                  {t('billing.price_monthly', { price: p.price_monthly, currency: p.currency })}
                 </p>
                 <p>
-                  Yıllık: {p.price_yearly} {p.currency}
+                  {t('billing.price_yearly', { price: p.price_yearly, currency: p.currency })}
                 </p>
               </div>
               <div className="flex gap-2 mt-auto">
                 <button
                   type="button"
                   className="btn-primary text-sm flex-1"
-                  disabled={!p.is_active || checkoutM.isPending}
+                  disabled={!canWrite || !p.is_active || checkoutM.isPending}
                   onClick={() => checkoutM.mutate({ package_id: p.id, billing_cycle: 'monthly' })}
                 >
-                  Aylık
+                  {t('billing.cycle_monthly')}
                 </button>
                 <button
                   type="button"
                   className="btn-secondary text-sm flex-1"
-                  disabled={!p.is_active || checkoutM.isPending}
+                  disabled={!canWrite || !p.is_active || checkoutM.isPending}
                   onClick={() => checkoutM.mutate({ package_id: p.id, billing_cycle: 'yearly' })}
                 >
-                  Yıllık
+                  {t('billing.cycle_yearly')}
                 </button>
               </div>
             </div>
           ))}
         </div>
         {pkgs.isLoading && <p className="text-gray-500 py-4">{t('common.loading')}</p>}
-        {!pkgs.isLoading && packages.length === 0 && (
+        {!pkgs.isLoading && !pkgs.isError && packages.length === 0 && (
           <p className="text-gray-500 py-4">{t('common.no_data')}</p>
         )}
       </div>
@@ -267,31 +307,48 @@ export default function BillingPage() {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           {t('billing.subscriptions')}
         </h2>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800/80">
-            <tr>
-              <th className="text-left px-4 py-2">Paket</th>
-              <th className="text-left px-4 py-2">Döngü</th>
-              <th className="text-left px-4 py-2">Tutar</th>
-              <th className="text-left px-4 py-2">{t('common.status')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subRows.map((s) => (
-              <tr key={s.id} className="border-t border-gray-100 dark:border-gray-800">
-                <td className="px-4 py-2">{s.hosting_package?.name ?? '—'}</td>
-                <td className="px-4 py-2">{s.billing_cycle}</td>
-                <td className="px-4 py-2">
-                  {s.amount} {s.currency}
-                </td>
-                <td className="px-4 py-2">{s.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {subs.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
-        {!subs.isLoading && subRows.length === 0 && (
-          <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+        {subs.isError ? (
+          <div className="p-4 text-sm text-red-700 dark:text-red-300">
+            <p>{t('billing.subs_load_error')}</p>
+            <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void subs.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : (
+          <>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800/80">
+                <tr>
+                  <th className="text-left px-4 py-2">{t('billing.col_package')}</th>
+                  <th className="text-left px-4 py-2">{t('billing.col_cycle')}</th>
+                  <th className="text-left px-4 py-2">{t('billing.col_amount')}</th>
+                  <th className="text-left px-4 py-2">{t('common.status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subRows.map((s) => (
+                  <tr key={s.id} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="px-4 py-2">{s.hosting_package?.name ?? '—'}</td>
+                    <td className="px-4 py-2">
+                      {s.billing_cycle === 'yearly'
+                        ? t('billing.cycle_yearly')
+                        : s.billing_cycle === 'monthly'
+                          ? t('billing.cycle_monthly')
+                          : s.billing_cycle}
+                    </td>
+                    <td className="px-4 py-2">
+                      {s.amount} {s.currency}
+                    </td>
+                    <td className="px-4 py-2">{s.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {subs.isLoading && <p className="p-4 text-gray-500">{t('common.loading')}</p>}
+            {!subs.isLoading && subRows.length === 0 && (
+              <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
+            )}
+          </>
         )}
       </div>
     </div>

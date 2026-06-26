@@ -35,8 +35,18 @@ import DomainQuickSettingsModal, {
   type DomainQuickRow,
 } from '../components/domains/DomainQuickSettingsModal'
 import { safeDomainUrl } from '../lib/urlSafety'
+import { tokenHasAbility } from '../lib/abilities'
+import { useAuthStore } from '../store/authStore'
 
 const PHP_OPTIONS = ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'] as const
+
+const DOMAIN_HOST_RE =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
+
+function isValidDomainHostname(name: string): boolean {
+  const n = name.trim().toLowerCase()
+  return n.length > 0 && n.length <= 255 && DOMAIN_HOST_RE.test(n)
+}
 
 type DomainRow = {
   id: number
@@ -142,11 +152,18 @@ export default function DomainsPage() {
   const [logTarget, setLogTarget] = useState<DomainRow | null>(null)
   const [trafficTarget, setTrafficTarget] = useState<DomainRow | null>(null)
   const [logLines, setLogLines] = useState(200)
+  const [page, setPage] = useState(1)
+  const [deletingSubId, setDeletingSubId] = useState<number | null>(null)
+  const [busySubSsl, setBusySubSsl] = useState<Record<number, boolean>>({})
   const sslTimers = useRef<Record<number, number>>({})
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'domains:write')
+  const canSsl = tokenHasAbility(abilities, 'ssl:write')
 
   const domainsQ = useQuery({
-    queryKey: ['domains', 'paginated'],
-    queryFn: async () => (await api.get('/domains')).data,
+    queryKey: ['domains', 'paginated', page],
+    queryFn: async () =>
+      (await api.get('/domains', { params: { page, per_page: 50 } })).data,
   })
   const switchableServersQ = useQuery({
     queryKey: ['domains', 'switchable-server-types'],
@@ -257,8 +274,9 @@ export default function DomainsPage() {
   })
 
   const deleteSubM = useMutation({
-    mutationFn: async (vars: { parentId: number; path_segment: string }) =>
+    mutationFn: async (vars: { parentId: number; path_segment: string; subId: number }) =>
       api.delete(`/domains/${vars.parentId}/subdomains`, { data: { path_segment: vars.path_segment } }),
+    onMutate: (vars) => setDeletingSubId(vars.subId),
     onSuccess: () => {
       toast.success(t('domains.subdomain_deleted'))
       qc.invalidateQueries({ queryKey: ['domains'] })
@@ -267,6 +285,7 @@ export default function DomainsPage() {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
+    onSettled: () => setDeletingSubId(null),
   })
 
   const createAliasM = useMutation({
@@ -375,27 +394,44 @@ export default function DomainsPage() {
   })
 
   const sslIssueM = useMutation({
-    mutationFn: async (vars: { id: number }) => api.post(`/domains/${vars.id}/ssl/issue`, {}),
+    mutationFn: async (vars: { id: number; subdomain_id?: number }) =>
+      api.post(
+        `/domains/${vars.id}/ssl/issue`,
+        vars.subdomain_id ? { subdomain_id: vars.subdomain_id } : {},
+      ),
     onMutate: (vars) => {
-      setBusyFlag(vars.id, 'ssl', true)
-      startSslProgress(vars.id)
+      if (vars.subdomain_id) {
+        setBusySubSsl((prev) => ({ ...prev, [vars.subdomain_id!]: true }))
+      } else {
+        setBusyFlag(vars.id, 'ssl', true)
+        startSslProgress(vars.id)
+      }
     },
     onSuccess: (_, vars) => {
       toast.success(t('ssl.issued'))
       qc.invalidateQueries({ queryKey: ['domains'] })
-      setBusyFlag(vars.id, 'ssl', false)
-      finishSslProgress(vars.id, true)
+      if (vars.subdomain_id) {
+        setBusySubSsl((prev) => ({ ...prev, [vars.subdomain_id!]: false }))
+      } else {
+        setBusyFlag(vars.id, 'ssl', false)
+        finishSslProgress(vars.id, true)
+      }
     },
     onError: (err: unknown, vars) => {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
-      setBusyFlag(vars.id, 'ssl', false)
-      finishSslProgress(vars.id, false)
+      if (vars.subdomain_id) {
+        setBusySubSsl((prev) => ({ ...prev, [vars.subdomain_id!]: false }))
+      } else {
+        setBusyFlag(vars.id, 'ssl', false)
+        finishSslProgress(vars.id, false)
+      }
     },
   })
 
   const list: DomainRow[] = domainsQ.data?.data ?? []
   const total = (domainsQ.data?.total as number | undefined) ?? list.length
+  const lastPage = (domainsQ.data?.last_page as number | undefined) ?? 1
   const searchQ = search.toLowerCase()
   const filtered = list.filter((d) => {
     if (d.name.toLowerCase().includes(searchQ)) return true
@@ -444,6 +480,7 @@ export default function DomainsPage() {
         <button
           type="button"
           className="btn-primary flex items-center gap-2"
+          disabled={!canWrite}
           onClick={() => openAddModal('domain')}
         >
           <Plus className="h-4 w-4" />
@@ -482,6 +519,13 @@ export default function DomainsPage() {
                 </button>
               </div>
             </div>
+
+            {trafficQ.isError && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+                {(trafficQ.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                  t('domains.traffic_load_error')}
+              </p>
+            )}
 
             {trafficQ.isLoading && <p className="py-6 text-sm text-gray-500">{t('common.loading')}</p>}
 
@@ -527,13 +571,13 @@ export default function DomainsPage() {
 
                     <div className="mb-6 flex flex-wrap gap-2">
                       {[
-                        { k: '2xx', v: trafficQ.data.traffic.status_2xx ?? 0, c: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' },
-                        { k: '3xx', v: trafficQ.data.traffic.status_3xx ?? 0, c: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200' },
-                        { k: '4xx', v: trafficQ.data.traffic.status_4xx ?? 0, c: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200' },
-                        { k: '5xx', v: trafficQ.data.traffic.status_5xx ?? 0, c: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200' },
+                        { k: '2xx', v: trafficQ.data.traffic.status_2xx ?? 0, c: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200', label: t('domains.traffic_status_2xx') },
+                        { k: '3xx', v: trafficQ.data.traffic.status_3xx ?? 0, c: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200', label: t('domains.traffic_status_3xx') },
+                        { k: '4xx', v: trafficQ.data.traffic.status_4xx ?? 0, c: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200', label: t('domains.traffic_status_4xx') },
+                        { k: '5xx', v: trafficQ.data.traffic.status_5xx ?? 0, c: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200', label: t('domains.traffic_status_5xx') },
                       ].map((x) => (
                         <span key={x.k} className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${x.c}`}>
-                          HTTP {x.k}: {x.v}
+                          {x.label}: {x.v}
                         </span>
                       ))}
                     </div>
@@ -598,6 +642,13 @@ export default function DomainsPage() {
               </div>
             </div>
 
+            {logsQ.isError && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+                {(logsQ.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                  t('domains.logs_load_error')}
+              </p>
+            )}
+
             {logsQ.isLoading && <p className="py-4 text-sm text-gray-500">{t('common.loading')}</p>}
             {!logsQ.isLoading && (logsQ.data?.logs ?? []).length === 0 && (
               <p className="py-4 text-sm text-gray-500">{t('domains.logs_empty')}</p>
@@ -658,8 +709,10 @@ export default function DomainsPage() {
                   addMode === 'subdomain'
                     ? 'bg-primary-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                  list.length === 0 && 'cursor-not-allowed opacity-50',
                 )}
-                onClick={() => setAddMode('subdomain')}
+                disabled={list.length === 0}
+                onClick={() => list.length > 0 && setAddMode('subdomain')}
               >
                 {t('domains.add_mode_subdomain')}
               </button>
@@ -670,8 +723,10 @@ export default function DomainsPage() {
                   addMode === 'alias'
                     ? 'bg-primary-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                  list.length === 0 && 'cursor-not-allowed opacity-50',
                 )}
-                onClick={() => setAddMode('alias')}
+                disabled={list.length === 0}
+                onClick={() => list.length > 0 && setAddMode('alias')}
               >
                 {t('domains.add_mode_alias')}
               </button>
@@ -683,9 +738,14 @@ export default function DomainsPage() {
               onSubmit={(ev) => {
                 ev.preventDefault()
                 const fd = new FormData(ev.currentTarget)
+                const name = String(fd.get('name') || '').trim()
+                if (!isValidDomainHostname(name)) {
+                  toast.error(t('domains.invalid_hostname'))
+                  return
+                }
                 const emailRaw = String(fd.get('lets_encrypt_email') || '').trim()
                 createM.mutate({
-                  name: String(fd.get('name') || '').trim(),
+                  name,
                   php_version: String(fd.get('php_version') || '8.2'),
                   server_type: String(fd.get('server_type') || 'nginx'),
                   issue_lets_encrypt: issueLeOnCreate,
@@ -967,8 +1027,11 @@ export default function DomainsPage() {
                           : 'text-rose-500'
                   const healthHint =
                     health && health.reasons.length > 0
-                      ? `Health ${score}/100 - ${health.reasons.join(' | ')}`
-                      : `Health ${score}/100`
+                      ? t('domains.health_tooltip_with_reasons', {
+                          score,
+                          reasons: health.reasons.join(' | '),
+                        })
+                      : t('domains.health_tooltip', { score })
 
                   const statusBadge = clsx(
                     'px-2.5 py-1 text-xs font-medium rounded-full',
@@ -1034,7 +1097,7 @@ export default function DomainsPage() {
                         <select
                           className="input w-[120px]"
                           value={domain.php_version}
-                          disabled={!!b.php}
+                          disabled={!!b.php || !canWrite}
                           onChange={(e) => {
                             const next = e.target.value
                             if (next === domain.php_version) return
@@ -1072,7 +1135,7 @@ export default function DomainsPage() {
                               <button
                                 type="button"
                                 className="btn-secondary px-2.5 py-1.5 text-xs disabled:opacity-70"
-                                disabled={!!b.ssl}
+                                disabled={!!b.ssl || !canSsl}
                                 onClick={() => {
                                   if (!window.confirm(t('domains.confirm_ssl_issue'))) {
                                     return
@@ -1105,7 +1168,7 @@ export default function DomainsPage() {
                           <select
                             className="input min-w-[130px] max-w-[180px] flex-1"
                             value={domain.server_type}
-                            disabled={!!b.server}
+                            disabled={!!b.server || !canWrite}
                             onChange={(e) => {
                               const next = e.target.value
                               if (next === domain.server_type) return
@@ -1157,7 +1220,7 @@ export default function DomainsPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        {canToggle ? (
+                        {canToggle && canWrite ? (
                           <button
                             type="button"
                             className={statusBadge}
@@ -1222,7 +1285,7 @@ export default function DomainsPage() {
                             onClick={() => {
                               const url = safeDomainUrl(domain.name)
                               if (!url) {
-                                toast.error('Geçersiz domain URL')
+                                toast.error(t('domains.invalid_domain_url'))
                                 return
                               }
                               window.open(url, '_blank', 'noopener,noreferrer')
@@ -1234,6 +1297,7 @@ export default function DomainsPage() {
                             type="button"
                             title={t('domains.delete_site')}
                             className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
+                            disabled={!canWrite}
                             onClick={() => setDeleteTarget(domain)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1285,7 +1349,26 @@ export default function DomainsPage() {
                             {t('domains.ssl_active')}
                           </span>
                         ) : (
-                          <span className="text-gray-400">{t('domains.ssl_none')}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-gray-400">{t('domains.ssl_none')}</span>
+                            {canSsl && (
+                              <button
+                                type="button"
+                                className="btn-secondary px-2 py-1 text-[11px] disabled:opacity-70"
+                                disabled={!!busySubSsl[sub.id]}
+                                onClick={() => {
+                                  if (!window.confirm(t('domains.confirm_ssl_issue'))) return
+                                  sslIssueM.mutate({ id: domain.id, subdomain_id: sub.id })
+                                }}
+                              >
+                                {busySubSsl[sub.id] ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  t('domains.ssl_add_letsencrypt')
+                                )}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-3 text-sm text-gray-500">
@@ -1306,7 +1389,7 @@ export default function DomainsPage() {
                             <FolderOpen className="h-4 w-4" />
                           </Link>
                           <Link
-                            to="/ssl"
+                            to={`/ssl?focus=${encodeURIComponent(sub.hostname)}`}
                             title={t('domains.subdomain_ssl')}
                             className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/40 text-green-600 dark:text-green-400"
                           >
@@ -1337,7 +1420,7 @@ export default function DomainsPage() {
                             onClick={() => {
                               const url = safeDomainUrl(sub.hostname)
                               if (!url) {
-                                toast.error('Geçersiz domain URL')
+                                toast.error(t('domains.invalid_domain_url'))
                                 return
                               }
                               window.open(url, '_blank', 'noopener,noreferrer')
@@ -1349,12 +1432,12 @@ export default function DomainsPage() {
                             type="button"
                             title={t('domains.subdomain_delete')}
                             className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
-                            disabled={deleteSubM.isPending}
+                            disabled={deletingSubId === sub.id || !canWrite}
                             onClick={() => {
                               if (!window.confirm(t('domains.subdomain_delete_confirm', { hostname: sub.hostname }))) {
                                 return
                               }
-                              deleteSubM.mutate({ parentId: domain.id, path_segment: sub.path_segment })
+                              deleteSubM.mutate({ parentId: domain.id, path_segment: sub.path_segment, subId: sub.id })
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1397,7 +1480,7 @@ export default function DomainsPage() {
                             onClick={() => {
                               const url = safeDomainUrl(alias.hostname)
                               if (!url) {
-                                toast.error('Geçersiz domain URL')
+                                toast.error(t('domains.invalid_domain_url'))
                                 return
                               }
                               window.open(url, '_blank', 'noopener,noreferrer')
@@ -1430,8 +1513,46 @@ export default function DomainsPage() {
           </table>
         </div>
 
-        {!domainsQ.isLoading && filtered.length === 0 && (
+        {domainsQ.isError && (
+          <div className="border-t border-gray-200 px-6 py-8 text-center dark:border-panel-border">
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {(domainsQ.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                t('domains.list_load_error')}
+            </p>
+            <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void domainsQ.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        )}
+
+        {!domainsQ.isLoading && !domainsQ.isError && filtered.length === 0 && (
           <div className="py-12 text-center text-gray-500 dark:text-gray-400">{t('common.no_data')}</div>
+        )}
+
+        {!domainsQ.isLoading && !domainsQ.isError && lastPage > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4 dark:border-panel-border">
+            <p className="text-sm text-gray-500">
+              {t('domains.page_of', { page, last: lastPage, total })}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                {t('domains.prev_page')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                disabled={page >= lastPage}
+                onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+              >
+                {t('domains.next_page')}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

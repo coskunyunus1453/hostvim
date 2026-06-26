@@ -110,6 +110,15 @@ export default function AdminRolesPage() {
       </div>
 
       <div className="card overflow-hidden">
+        {rolesQ.isError ? (
+          <div className="p-6 text-sm text-red-600 dark:text-red-400">
+            <p>{t('roles.roles_load_error')}</p>
+            <button type="button" className="btn-secondary mt-3 text-xs" onClick={() => void rolesQ.refetch()}>
+              {t('common.refresh')}
+            </button>
+          </div>
+        ) : (
+        <>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800/80">
             <tr>
@@ -140,7 +149,10 @@ export default function AdminRolesPage() {
                       <button
                         type="button"
                         className="btn-secondary text-xs py-1 inline-flex items-center gap-1 text-red-600"
-                        onClick={() => delM.mutate(r.id)}
+                          onClick={() => {
+                            if (!window.confirm(t('roles.delete_confirm'))) return
+                            delM.mutate(r.id)
+                          }}
                         disabled={delM.isPending}
                       >
                         <Trash2 className="h-3 w-3" /> {t('common.delete')}
@@ -154,6 +166,8 @@ export default function AdminRolesPage() {
           </tbody>
         </table>
         {rolesQ.isLoading && <p className="p-6 text-center text-gray-500">{t('common.loading')}</p>}
+        </>
+        )}
       </div>
 
       {showForm && (
@@ -166,6 +180,10 @@ export default function AdminRolesPage() {
                 ev.preventDefault()
                 const fd = new FormData(ev.currentTarget)
                 const selected = fd.getAll('permissions') as string[]
+                if (selected.length === 0) {
+                  toast.error(t('roles.permissions_required'))
+                  return
+                }
                 const nameSlug = String(fd.get('name') || '').trim().toLowerCase()
                 saveM.mutate({
                   id: editing?.id,
@@ -178,8 +196,8 @@ export default function AdminRolesPage() {
             >
               {!editing && (
                 <div>
-                  <label className="label">Tekil anahtar (örn. support_readonly)</label>
-                  <input name="name" className="input w-full" required pattern="[a-z0-9][a-z0-9_\-]*" placeholder="örnek_rol" />
+                  <label className="label">{t('roles.role_key_label')}</label>
+                  <input name="name" className="input w-full" required pattern="[a-z0-9][a-z0-9_\-]*" placeholder={t('roles.role_key_placeholder')} />
                 </div>
               )}
               <div>
@@ -198,6 +216,19 @@ export default function AdminRolesPage() {
               </label>
               <div className="space-y-3 max-h-[40vh] overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-lg p-3">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('roles.permissions')}</p>
+                {registryQ.isLoading ? (
+                  <p className="text-sm text-gray-500">{t('common.loading')}</p>
+                ) : registryQ.isError ? (
+                  <div className="text-sm text-red-600 dark:text-red-400">
+                    <p>{t('roles.registry_load_error')}</p>
+                    <button type="button" className="btn-secondary mt-2 text-xs" onClick={() => void registryQ.refetch()}>
+                      {t('common.refresh')}
+                    </button>
+                  </div>
+                ) : grouped.size === 0 ? (
+                  <p className="text-sm text-gray-500">{t('common.no_data')}</p>
+                ) : (
+                <>
                 {Array.from(grouped.entries()).map(([group, items]) => (
                   <div key={group}>
                     <p className="text-xs uppercase text-gray-500 mb-1">{group}</p>
@@ -216,12 +247,14 @@ export default function AdminRolesPage() {
                     </div>
                   </div>
                 ))}
+                </>
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditing(null) }}>
                   {t('common.cancel')}
                 </button>
-                <button type="submit" className="btn-primary" disabled={saveM.isPending}>
+                <button type="submit" className="btn-primary" disabled={saveM.isPending || registryQ.isLoading || registryQ.isError}>
                   {t('common.save')}
                 </button>
               </div>

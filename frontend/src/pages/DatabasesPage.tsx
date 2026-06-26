@@ -20,10 +20,12 @@ import {
   Info,
   Sparkles,
   Crown,
+  Loader2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { safeExternalHttpUrl } from '../lib/urlSafety'
 import { isHostingSuperAdmin } from '../lib/authRoles'
+import { useDomainsList } from '../hooks/useDomains'
 
 type ServerMysqlApi = {
   provision: {
@@ -118,15 +120,19 @@ export default function DatabasesPage() {
   const isSuperAdmin = isHostingSuperAdmin(user)
   const isAdmin = user?.roles?.some((r) => r.name === 'admin') ?? false
   const abilities = useAuthStore((s) => s.user?.abilities)
-  const canImportDb = tokenHasAbility(abilities, 'databases:write')
+  const canWrite = tokenHasAbility(abilities, 'databases:write')
+  const canImportDb = canWrite
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [rotatingId, setRotatingId] = useState<number | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [createType, setCreateType] = useState('mysql')
   const [editCredentialsDb, setEditCredentialsDb] = useState<DbRow | null>(null)
   const [importDb, setImportDb] = useState<DbRow | null>(null)
   const [passwordReveal, setPasswordReveal] = useState<{
     value: string
-    source: 'rotate' | 'edit'
+    source: 'rotate' | 'edit' | 'create'
     expiresAt: number
   } | null>(null)
   const [nowTs, setNowTs] = useState<number>(Date.now())
@@ -136,8 +142,8 @@ export default function DatabasesPage() {
   const [selectedDbId, setSelectedDbId] = useState<number | null>(null)
 
   const databasesQ = useQuery({
-    queryKey: ['databases', 'paginated'],
-    queryFn: async () => (await api.get('/databases')).data,
+    queryKey: ['databases', 'paginated', page],
+    queryFn: async () => (await api.get('/databases', { params: { page, per_page: 50 } })).data,
   })
 
   const uiLinksQ = useQuery({
@@ -156,10 +162,7 @@ export default function DatabasesPage() {
     queryFn: async () => (await api.get('/admin/settings/server-mysql')).data as ServerMysqlApi,
   })
 
-  const domainsQ = useQuery({
-    queryKey: ['domains', 'paginated'],
-    queryFn: async () => (await api.get('/domains')).data,
-  })
+  const domainsQ = useDomainsList()
 
   const phpmyadminUrl = uiLinksQ.data?.phpmyadmin_url?.trim() ?? ''
   const adminerUrl = uiLinksQ.data?.adminer_url?.trim() ?? ''
@@ -176,10 +179,18 @@ export default function DatabasesPage() {
       return data as { password_plain?: string }
     },
     onSuccess: (data) => {
-      const msg = data.password_plain
-        ? `${t('databases.created')} — ${t('databases.password_once')}: ${data.password_plain}`
-        : t('databases.created')
-      toast.success(msg, { duration: data.password_plain ? 25_000 : 4000 })
+      toast.success(t('databases.created'))
+      if (data.password_plain) {
+        setPasswordReveal({
+          value: data.password_plain,
+          source: 'create',
+          expiresAt: Date.now() + 30_000,
+        })
+        void copyPlaintextWithToasts(data.password_plain, {
+          ok: t('databases.password_copied'),
+          fail: t('databases.copy_failed'),
+        })
+      }
       qc.invalidateQueries({ queryKey: ['databases'] })
       setShowAdd(false)
     },
@@ -194,6 +205,7 @@ export default function DatabasesPage() {
       const { data } = await api.post(`/databases/${id}/rotate-password`)
       return data as { password_plain?: string }
     },
+    onMutate: (id) => setRotatingId(id),
     onSuccess: (data) => {
       toast.success(t('databases.password_rotated'))
       if (data.password_plain) {
@@ -213,6 +225,7 @@ export default function DatabasesPage() {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
+    onSettled: () => setRotatingId(null),
   })
 
   const pmaSsoM = useMutation({
@@ -278,6 +291,7 @@ export default function DatabasesPage() {
 
   const deleteM = useMutation({
     mutationFn: async (id: number) => api.delete(`/databases/${id}`),
+    onMutate: (id) => setDeletingId(id),
     onSuccess: () => {
       toast.success(t('databases.deleted'))
       qc.invalidateQueries({ queryKey: ['databases'] })
@@ -286,6 +300,7 @@ export default function DatabasesPage() {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
+    onSettled: () => setDeletingId(null),
   })
 
   type ImportMeta = {
@@ -516,7 +531,8 @@ export default function DatabasesPage() {
 
   const list: DbRow[] = databasesQ.data?.data ?? []
   const total = (databasesQ.data?.total as number | undefined) ?? list.length
-  const domainOptions: { id: number; name: string }[] = domainsQ.data?.data ?? []
+  const lastPage = (databasesQ.data?.last_page as number | undefined) ?? 1
+  const domainOptions = domainsQ.data ?? []
   const filtered = list.filter((db) => db.name.toLowerCase().includes(search.toLowerCase()))
   const selectedDb = selectedDbId != null ? filtered.find((d) => d.id === selectedDbId) : null
 
@@ -611,6 +627,7 @@ export default function DatabasesPage() {
             <button
               type="button"
               className="btn-primary flex items-center gap-2"
+              disabled={!canWrite}
               onClick={() => {
                 setCreateType('mysql')
                 setShowAdd(true)
@@ -620,6 +637,10 @@ export default function DatabasesPage() {
               {t('databases.add')}
             </button>
           </div>
+
+          {!canWrite && (
+            <p className="text-sm text-amber-700 dark:text-amber-300">{t('databases.read_only_hint')}</p>
+          )}
 
           <div className="card">
             <div className="p-4 border-b border-gray-200 dark:border-panel-border space-y-3">
@@ -700,11 +721,29 @@ export default function DatabasesPage() {
                   {databasesQ.isLoading && (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        {t('common.loading')}
+                        <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                      </td>
+                    </tr>
+                  )}
+                  {databasesQ.isError && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center">
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          {(databasesQ.error as { response?: { data?: { message?: string } } })?.response
+                            ?.data?.message ?? t('databases.list_load_error')}
+                        </p>
+                        <button
+                          type="button"
+                          className="btn-secondary mt-3 text-sm"
+                          onClick={() => void databasesQ.refetch()}
+                        >
+                          {t('domains.refresh')}
+                        </button>
                       </td>
                     </tr>
                   )}
                   {!databasesQ.isLoading &&
+                    !databasesQ.isError &&
                     filtered.map((db) => (
                       <tr
                         key={db.id}
@@ -733,7 +772,10 @@ export default function DatabasesPage() {
                               type="button"
                               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                               title={t('databases.copy_name')}
-                              onClick={() => copyText(db.name, t('databases.name_copied'))}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void copyText(db.name, t('databases.name_copied'))
+                              }}
                             >
                               <Copy className="h-3.5 w-3.5" />
                             </button>
@@ -757,7 +799,10 @@ export default function DatabasesPage() {
                               type="button"
                               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                               title={t('databases.copy_username')}
-                              onClick={() => copyText(db.username, t('databases.username_copied'))}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void copyText(db.username, t('databases.username_copied'))
+                              }}
                             >
                               <Copy className="h-3.5 w-3.5" />
                             </button>
@@ -771,7 +816,7 @@ export default function DatabasesPage() {
                         </td>
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            {(db.type === 'mysql' || db.type === 'postgresql') && (
+                            {canWrite && (db.type === 'mysql' || db.type === 'postgresql') && (
                               <button
                                 type="button"
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
@@ -801,19 +846,23 @@ export default function DatabasesPage() {
                                 <Upload className="h-4 w-4" />
                               </button>
                             )}
-                            {(db.type === 'mysql' || db.type === 'postgresql') && (
+                            {canWrite && (db.type === 'mysql' || db.type === 'postgresql') && (
                               <button
                                 type="button"
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
                                 title={t('databases.rotate_password')}
                                 onClick={() => {
-                                  if (window.confirm(t('databases.rotate_password') + '?')) {
+                                  if (window.confirm(t('databases.rotate_password_confirm', { name: db.name }))) {
                                     rotateM.mutate(db.id)
                                   }
                                 }}
-                                disabled={rotateM.isPending}
+                                disabled={rotatingId === db.id}
                               >
-                                <KeyRound className="h-4 w-4" />
+                                {rotatingId === db.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <KeyRound className="h-4 w-4" />
+                                )}
                               </button>
                             )}
                             {db.type === 'mysql' && phpmyadminUrl && (
@@ -865,18 +914,24 @@ export default function DatabasesPage() {
                                 <ExternalLink className="h-4 w-4" />
                               </button>
                             )}
-                            <button
-                              type="button"
-                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600"
-                              onClick={() => {
-                                if (window.confirm(t('common.confirm_delete'))) {
-                                  deleteM.mutate(db.id)
-                                }
-                              }}
-                              disabled={deleteM.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600"
+                                onClick={() => {
+                                  if (window.confirm(t('databases.delete_confirm', { name: db.name }))) {
+                                    deleteM.mutate(db.id)
+                                  }
+                                }}
+                                disabled={deletingId === db.id}
+                              >
+                                {deletingId === db.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -885,9 +940,35 @@ export default function DatabasesPage() {
               </table>
             </div>
 
-            {!databasesQ.isLoading && filtered.length === 0 && (
+            {!databasesQ.isLoading && !databasesQ.isError && filtered.length === 0 && (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 {t('common.no_data')}
+              </div>
+            )}
+
+            {!databasesQ.isLoading && !databasesQ.isError && lastPage > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4 dark:border-panel-border">
+                <p className="text-sm text-gray-500">
+                  {t('databases.page_of', { page, last: lastPage, total })}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    {t('databases.prev_page')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm"
+                    disabled={page >= lastPage}
+                    onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  >
+                    {t('databases.next_page')}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1098,7 +1179,7 @@ export default function DatabasesPage() {
         )}
       </div>
 
-      {showAdd && (
+      {showAdd && canWrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1339,7 +1420,7 @@ export default function DatabasesPage() {
         </div>
       )}
 
-      {editCredentialsDb && (
+      {editCredentialsDb && canWrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card max-w-lg w-full p-6 space-y-4 bg-white dark:bg-gray-900">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

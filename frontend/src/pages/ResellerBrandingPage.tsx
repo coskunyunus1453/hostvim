@@ -117,6 +117,14 @@ export default function ResellerBrandingPage() {
         </div>
       </div>
 
+      {q.isError ? (
+        <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
+          <p>{t('reseller.white_label_load_error')}</p>
+          <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void q.refetch()}>
+            {t('common.refresh')}
+          </button>
+        </div>
+      ) : (
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-panel-card p-6 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -261,6 +269,7 @@ export default function ResellerBrandingPage() {
           </button>
         </div>
       </div>
+      )}
     </div>
   )
 }

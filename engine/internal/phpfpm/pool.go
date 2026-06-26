@@ -46,6 +46,67 @@ type HostingPoolSettings struct {
 	SocketListenDir string
 	FPMUser         string
 	FPMGroup        string
+	ListenOwner     string
+	ListenGroup     string
+	// Helper boş değilse pool yazma/test/reload root betiğine (sudo) devredilir.
+	// PanelKafes (cage) modunda engine www-data olduğu için pool.d'ye doğrudan
+	// yazamaz; helper root olarak yazar, `php-fpm -t` ve reload eder, soketi doğrular.
+	Helper string
+}
+
+// PoolOptions site başına PanelKafes / kaynak limiti.
+type PoolOptions struct {
+	SiteUser     string
+	SiteGroup    string
+	MaxChildren  int
+	MemoryLimit  string
+	BaseDir      string // open_basedir kökü (site kökü). Boşsa docRoot kullanılır.
+	ExtraBasedir string // örn. site/tmp — session/upload/tmp buraya yönlenir
+}
+
+func (h HostingPoolSettings) poolUser(opts PoolOptions) string {
+	if strings.TrimSpace(opts.SiteUser) != "" {
+		return strings.TrimSpace(opts.SiteUser)
+	}
+	return h.poolUserDefault()
+}
+
+func (h HostingPoolSettings) poolGroup(opts PoolOptions) string {
+	if strings.TrimSpace(opts.SiteGroup) != "" {
+		return strings.TrimSpace(opts.SiteGroup)
+	}
+	if strings.TrimSpace(opts.SiteUser) != "" && strings.TrimSpace(h.FPMGroup) != "" {
+		return h.FPMGroup
+	}
+	return h.poolGroupDefault()
+}
+
+func (h HostingPoolSettings) poolUserDefault() string {
+	if strings.TrimSpace(h.FPMUser) == "" {
+		return "www-data"
+	}
+	return h.FPMUser
+}
+
+func (h HostingPoolSettings) poolGroupDefault() string {
+	if strings.TrimSpace(h.FPMGroup) == "" {
+		return "www-data"
+	}
+	return h.FPMGroup
+}
+
+func (h HostingPoolSettings) listenOwner() string {
+	if strings.TrimSpace(h.ListenOwner) != "" {
+		return h.ListenOwner
+	}
+	return "www-data"
+}
+
+func (h HostingPoolSettings) listenGroup() string {
+	if strings.TrimSpace(h.ListenGroup) != "" {
+		return h.ListenGroup
+	}
+	return "www-data"
 }
 
 func (h HostingPoolSettings) poolDirForVersion(phpVersion string) string {
@@ -69,21 +130,7 @@ func (h HostingPoolSettings) SocketForDomain(domain string) string {
 	return SocketPath(h.listenDir(), domain)
 }
 
-func (h HostingPoolSettings) poolUser() string {
-	if strings.TrimSpace(h.FPMUser) == "" {
-		return "www-data"
-	}
-	return h.FPMUser
-}
-
-func (h HostingPoolSettings) poolGroup() string {
-	if strings.TrimSpace(h.FPMGroup) == "" {
-		return "www-data"
-	}
-	return h.FPMGroup
-}
-
-const poolTemplate = `; Panelze — %s — PHP %s
+const poolTemplate = `; Panelze PanelKafes — %s — PHP %s
 [%s]
 user = %s
 group = %s
@@ -92,10 +139,15 @@ listen.owner = %s
 listen.group = %s
 listen.mode = 0660
 pm = ondemand
-pm.max_children = 30
+pm.max_children = %d
 pm.process_idle_timeout = 30s
 chdir = %s
-php_admin_value[open_basedir] = %s:/tmp:/var/tmp
+php_admin_value[open_basedir] = %s
+php_admin_value[memory_limit] = %s
+php_admin_value[session.save_path] = %s
+php_admin_value[upload_tmp_dir] = %s
+php_value[sys_temp_dir] = %s
+php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,pcntl_fork
 `
 
 // ReadPoolSnapshot mevcut pool dosyası varsa içeriğini döner (geri alma / sürüm değişimi yedeği).
@@ -151,9 +203,103 @@ func RestorePoolConf(h HostingPoolSettings, domain, phpVersion string, previous 
 	return os.Remove(p)
 }
 
+// RenderPool pool dosyası içeriğini ve hedef soketi üretir (dosya yazmaz).
+// Helper (root) modunda içerik bu fonksiyonla üretilip betiğe stdin ile verilir.
+func RenderPool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts ...PoolOptions) (body, socket string, err error) {
+	var o PoolOptions
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	domain = strings.TrimSpace(domain)
+	if domain == "" || strings.Contains(domain, "..") {
+		return "", "", fmt.Errorf("invalid domain")
+	}
+	docRoot = filepath.Clean(docRoot)
+	if strings.Contains(docRoot, "..") {
+		return "", "", fmt.Errorf("invalid document root")
+	}
+	socket = SocketPath(h.listenDir(), domain)
+	maxCh := o.MaxChildren
+	if maxCh <= 0 {
+		maxCh = 30
+	}
+	memLim := strings.TrimSpace(o.MemoryLimit)
+	if memLim == "" {
+		memLim = "256M"
+	}
+	// open_basedir kökü: site kökü (BaseDir) — Laravel gibi docroot=public/ olan
+	// projelerde vendor/storage/.env üst dizinde olduğundan docRoot yetmez.
+	base := strings.TrimSpace(o.BaseDir)
+	if base == "" {
+		base = docRoot
+	} else {
+		base = filepath.Clean(base)
+		if strings.Contains(base, "..") {
+			return "", "", fmt.Errorf("invalid base dir")
+		}
+	}
+	// session/upload/tmp dizini: site'ye özel tmp (izolasyon korunur).
+	tmpDir := strings.TrimSpace(o.ExtraBasedir)
+	if tmpDir == "" {
+		tmpDir = "/tmp"
+	}
+	basedir := base
+	if tmpDir != "" && !strings.HasPrefix(tmpDir, base+string(filepath.Separator)) && tmpDir != base {
+		basedir += ":" + tmpDir
+	}
+	basedir += ":/tmp:/var/tmp"
+	body = fmt.Sprintf(
+		poolTemplate,
+		domain,
+		NormalizeVersion(phpVersion),
+		PoolName(domain),
+		h.poolUser(o),
+		h.poolGroup(o),
+		socket,
+		h.listenOwner(),
+		h.listenGroup(),
+		maxCh,
+		docRoot,
+		basedir,
+		memLim,
+		tmpDir,
+		tmpDir,
+		tmpDir,
+	)
+	return body, socket, nil
+}
+
+// writePoolViaHelper pool içeriğini root betiğe (sudo) stdin ile verir; betik
+// yazar, `php-fpm -t` test eder, reload eder ve soketin oluştuğunu doğrular.
+func writePoolViaHelper(helper, phpVersion, domain, body string) (socket string, err error) {
+	cmd := exec.Command("sudo", "-n", helper, "write-pool", NormalizeVersion(phpVersion), domain)
+	cmd.Stdin = strings.NewReader(body)
+	out, e := cmd.CombinedOutput()
+	msg := strings.TrimSpace(string(out))
+	if e != nil {
+		if msg == "" {
+			msg = e.Error()
+		}
+		return "", fmt.Errorf("panelkafes write-pool: %s", msg)
+	}
+	// Betik son satırda "OK <socket>" döner.
+	last := msg
+	if i := strings.LastIndex(msg, "\n"); i >= 0 {
+		last = strings.TrimSpace(msg[i+1:])
+	}
+	socket = strings.TrimSpace(strings.TrimPrefix(last, "OK "))
+	if socket == "" {
+		return "", fmt.Errorf("panelkafes write-pool: soket alınamadı (%s)", msg)
+	}
+	return socket, nil
+}
+
 // WritePool pool dosyasını yazar; önceki içerik varsa geri alma için döner.
-// Yazdıktan sonra mümkünse `php-fpm -t` ile doğrular; test başarısızsa dosyayı eski haline getirir.
-func WritePool(h HostingPoolSettings, domain, phpVersion, docRoot string) (socket string, previous []byte, hadPrevious bool, err error) {
+func WritePool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts ...PoolOptions) (socket string, previous []byte, hadPrevious bool, err error) {
+	var o PoolOptions
+	if len(opts) > 0 {
+		o = opts[0]
+	}
 	domain = strings.TrimSpace(domain)
 	if domain == "" || strings.Contains(domain, "..") {
 		return "", nil, false, fmt.Errorf("invalid domain")
@@ -161,6 +307,22 @@ func WritePool(h HostingPoolSettings, domain, phpVersion, docRoot string) (socke
 	docRoot = filepath.Clean(docRoot)
 	if strings.Contains(docRoot, "..") {
 		return "", nil, false, fmt.Errorf("invalid document root")
+	}
+
+	// PanelKafes / helper modu: yazma+test+reload+soket doğrulama root betikte.
+	if strings.TrimSpace(h.Helper) != "" {
+		body, sock, rerr := RenderPool(h, domain, phpVersion, docRoot, o)
+		if rerr != nil {
+			return "", nil, false, rerr
+		}
+		sockOut, herr := writePoolViaHelper(h.Helper, phpVersion, domain, body)
+		if herr != nil {
+			return "", nil, false, herr
+		}
+		if strings.TrimSpace(sockOut) != "" {
+			sock = sockOut
+		}
+		return sock, nil, false, nil
 	}
 
 	socket = SocketPath(h.listenDir(), domain)
@@ -179,19 +341,10 @@ func WritePool(h HostingPoolSettings, domain, phpVersion, docRoot string) (socke
 		hadPrevious = true
 	}
 
-	body := fmt.Sprintf(
-		poolTemplate,
-		domain,
-		NormalizeVersion(phpVersion),
-		PoolName(domain),
-		h.poolUser(),
-		h.poolGroup(),
-		socket,
-		h.poolUser(),
-		h.poolGroup(),
-		docRoot,
-		docRoot,
-	)
+	body, _, rerr := RenderPool(h, domain, phpVersion, docRoot, o)
+	if rerr != nil {
+		return "", previous, hadPrevious, rerr
+	}
 
 	if err := os.WriteFile(confPath, []byte(body), 0o644); err != nil {
 		return "", previous, hadPrevious, fmt.Errorf("write pool: %w", err)
@@ -247,10 +400,36 @@ func RemovePoolBestEffortAllVersions(h HostingPoolSettings, domain string) []str
 	return removed
 }
 
+// ReloadWith helper (root) modunda php-fpm reload'unu betiğe devreder; aksi halde
+// doğrudan systemctl/service kullanır. Engine www-data ise reload yetkisi yoktur,
+// bu yüzden PanelKafes modunda helper şarttır.
+func ReloadWith(h HostingPoolSettings, phpVersion string) error {
+	if strings.TrimSpace(h.Helper) != "" {
+		v := NormalizeVersion(phpVersion)
+		out, err := exec.Command("sudo", "-n", h.Helper, "reload-fpm", v).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("panelkafes reload-fpm %s: %w — %s", v, err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
+	return Reload(phpVersion)
+}
+
+// DefaultHelper PanelKafes (cage) modunda set edilir. Boş değilse Reload, engine
+// www-data olduğundan systemctl yerine root betiğe (sudo) devreder.
+var DefaultHelper string
+
 // Reload debian/ubuntu: systemctl reload php8.2-fpm
 func Reload(phpVersion string) error {
 	v := NormalizeVersion(phpVersion)
 	svc := "php" + v + "-fpm"
+	if h := strings.TrimSpace(DefaultHelper); h != "" {
+		out, err := exec.Command("sudo", "-n", h, "reload-fpm", v).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("panelkafes reload-fpm %s: %w — %s", v, err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
 	if _, err := exec.LookPath("systemctl"); err == nil {
 		out, err := exec.Command("systemctl", "reload", svc).CombinedOutput()
 		if err != nil {

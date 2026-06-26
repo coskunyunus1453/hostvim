@@ -39,6 +39,9 @@ class PublicLandingApiController extends Controller
             'locales' => $localeLabels,
             'site_name' => trim((string) (LandingSiteSetting::getValue('landing.site_name', '') ?? '')),
             'site_tagline' => trim((string) (LandingSiteSetting::getValue('landing.site_tagline', '') ?? '')),
+            'header_brand_mode' => LandingAppearance::headerBrandMode(),
+            'header_show_logo' => LandingAppearance::showHeaderLogo(),
+            'header_show_brand_text' => LandingAppearance::showHeaderBrandText(),
             'theme' => [
                 'active' => LandingAppearance::activeTheme(),
                 'class' => LandingAppearance::themeClass(),

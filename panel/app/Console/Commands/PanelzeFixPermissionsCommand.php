@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\PanelAdminSpaService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
@@ -38,6 +39,17 @@ class PanelzeFixPermissionsCommand extends Command
             } catch (\Throwable $e) {
                 $ok = false;
                 $this->error('FAIL '.$dir.' — '.$e->getMessage());
+            }
+        }
+
+        $spaSteps = [];
+        app(PanelAdminSpaService::class)->repair($spaSteps);
+        foreach ($spaSteps as $step) {
+            if ($step['ok']) {
+                $this->line('OK  '.$step['id'].' — '.$step['message']);
+            } else {
+                $ok = false;
+                $this->warn('WARN '.$step['id'].' — '.$step['message']);
             }
         }
 

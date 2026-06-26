@@ -1,0 +1,122 @@
+# Panelze Engine — üretim şablonu (/etc/panelze/engine.yaml olarak kopyalanır)
+# Kurulum: install-production.sh otomatik doldurur (__INTERNAL_KEY__, __PANELZE_HOME__)
+
+server:
+  port: 9090
+  host: "127.0.0.1"
+  debug: false
+  secret_key: "__ENGINE_SECRET_KEY__"
+  # Faz 9 — Prometheus (127.0.0.1’de dinliyorsanız yerel scrape veya SSH tüneli)
+  prometheus_enabled: true
+  prometheus_path: "/metrics"
+  read_timeout_seconds: 600
+  write_timeout_seconds: 600
+  idle_timeout_seconds: 120
+
+database:
+  host: "127.0.0.1"
+  port: 5432
+  name: "panelze"
+  user: "panelze"
+  password: "__ENGINE_DB_PASSWORD__"
+
+docker:
+  enabled: false
+  socket_path: "/var/run/docker.sock"
+  network: "panelze_net"
+
+services:
+  nginx:
+    enabled: true
+    config_path: "/etc/nginx"
+    binary_path: "/usr/sbin/nginx"
+  php_fpm:
+    enabled: true
+    config_path: "/etc/php"
+    binary_path: "/usr/sbin/php-fpm8.2"
+  mysql:
+    enabled: true
+    config_path: "/etc/mysql"
+    binary_path: "/usr/sbin/mysqld"
+  postfix:
+    enabled: false
+    config_path: "/etc/postfix"
+    binary_path: "/usr/sbin/postfix"
+  dovecot:
+    enabled: false
+    config_path: "/etc/dovecot"
+    binary_path: "/usr/sbin/dovecot"
+  redis:
+    enabled: false
+    config_path: "/etc/redis"
+    binary_path: "/usr/bin/redis-server"
+
+security:
+  jwt_secret: "__ENGINE_JWT_SECRET__"
+  internal_api_key: "__INTERNAL_KEY__"
+  # Virgülle ayrılmış origin listesi; internal API için wildcard kullanmayın.
+  allowed_origins: "__PANEL_ORIGINS__"
+  token_expiry: 3600
+  max_login_attempts: 5
+  fail2ban_enabled: true
+
+paths:
+  web_root: "__PANELZE_HOME__/data/www"
+  vhosts_dir: "__PANELZE_HOME__/data/vhosts"
+  ssl_dir: "__PANELZE_HOME__/data/ssl"
+  backup_dir: "__PANELZE_HOME__/data/backups"
+  log_dir: "__PANELZE_HOME__/data/logs"
+  temp_dir: "__PANELZE_HOME__/data/tmp"
+
+hosting:
+  nginx_manage_vhosts: true
+  nginx_sites_enabled: "/etc/nginx/sites-enabled"
+  php_fpm_socket: "__PHP_FPM_SOCKET__"
+  nginx_reload_after_vhost: true
+  php_fpm_manage_pools: true
+  php_fpm_reload_after_pool: true
+  php_fpm_listen_dir: "/run/php"
+  php_fpm_pool_dir_template: "/etc/php/{{version}}/fpm/pool.d"
+  # PanelKafes — site başına Linux kullanıcı + PHP-FPM izolasyonu
+  site_cage_enabled: true
+  site_cage_group: "panelze-hosting"
+  site_cage_user_prefix: "pk"
+  site_cage_engine_user: "www-data"
+  site_cage_helper: "/usr/local/sbin/panelze-site-cage"
+  site_cage_default_cpu_percent: 100
+  site_cage_default_memory_mb: 1024
+  site_cage_default_pm_max_children: 20
+  site_cage_default_memory_limit: "256M"
+  # Nginx 80/443 edge; Apache/OLS backend — mevcut nginx siteleri aynı kalır
+  nginx_edge_proxy: true
+  apache_manage_vhosts: true
+  apache_reload_after_vhost: true
+  # Nginx panel 80/443 kullanır; Apache HTTP bu portta (çakışma yok)
+  apache_http_port: 8080
+  openlitespeed_manage_vhosts: true
+  openlitespeed_conf_root: "/usr/local/lsws"
+  openlitespeed_http_port: 8088
+  openlitespeed_reload_after_vhost: true
+  openlitespeed_ctrl_path: ""
+  manage_ssl: true
+  certbot_path: "/usr/bin/certbot"
+  lets_encrypt_email: "__LETS_ENCRYPT_EMAIL__"
+  lets_encrypt_staging: false
+  # false: Let's Encrypt yalnızca istenen hostname (www SAN yok)
+  lets_encrypt_include_www: false
+  manage_site_tools: false
+  manage_node_apps: true
+  composer_path: "/usr/bin/composer"
+  npm_path: "/usr/bin/npm"
+  pm2_path: "/usr/bin/pm2"
+  pm2_home: "/var/www/panelze/data/pm2"
+  pm2_run_user: "www-data"
+  node_watchdog_enabled: true
+  node_watchdog_interval_seconds: 60
+  tools_max_seconds: 600
+  wordpress_zip_url: "https://wordpress.org/latest.zip"
+  # Faz 6 — site dizini tar.gz (panel yedeği); restore varsayılan kapalı (üzerine yazar)
+  execute_backups: true
+  backup_tar_path: "tar"
+  backup_max_seconds: 7200
+  execute_backup_restore: false

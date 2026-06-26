@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Support\PanelFeatureCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,8 @@ class PlanController extends Controller
     {
         return view('admin.plans.create', [
             'features_raw' => old('features_raw', ''),
+            'catalog_community' => implode("\n", PanelFeatureCatalog::communityPlanFeatures('tr')),
+            'catalog_pro' => implode("\n", PanelFeatureCatalog::proPlanFeatures('tr')),
         ]);
     }
 
@@ -45,6 +48,8 @@ class PlanController extends Controller
         return view('admin.plans.edit', [
             'plan' => $plan,
             'features_raw' => old('features_raw', implode("\n", $plan->features ?? [])),
+            'catalog_community' => implode("\n", PanelFeatureCatalog::communityPlanFeatures('tr')),
+            'catalog_pro' => implode("\n", PanelFeatureCatalog::proPlanFeatures('tr')),
         ]);
     }
 

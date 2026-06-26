@@ -20,10 +20,14 @@ func RunWatchdog(cfg *config.Config, log *logrus.Logger) {
 	go func() {
 		time.Sleep(15 * time.Second)
 		if report, err := ReconcileAll(cfg); err != nil {
+			StoreWatchdogSnapshot(report, err)
 			log.Warnf("node watchdog initial reconcile: %v", err)
-		} else if report != nil && (report.Started > 0 || report.Restarted > 0 || report.Failed > 0) {
-			log.Infof("node watchdog initial: checked=%d started=%d restarted=%d failed=%d",
-				report.Checked, report.Started, report.Restarted, report.Failed)
+		} else {
+			StoreWatchdogSnapshot(report, nil)
+			if report != nil && (report.Started > 0 || report.Restarted > 0 || report.Failed > 0) {
+				log.Infof("node watchdog initial: checked=%d started=%d restarted=%d failed=%d",
+					report.Checked, report.Started, report.Restarted, report.Failed)
+			}
 		}
 
 		ticker := time.NewTicker(time.Duration(interval) * time.Second)
@@ -31,9 +35,11 @@ func RunWatchdog(cfg *config.Config, log *logrus.Logger) {
 		for range ticker.C {
 			report, err := ReconcileAll(cfg)
 			if err != nil {
+				StoreWatchdogSnapshot(report, err)
 				log.Warnf("node watchdog reconcile: %v", err)
 				continue
 			}
+			StoreWatchdogSnapshot(report, nil)
 			if report == nil {
 				continue
 			}

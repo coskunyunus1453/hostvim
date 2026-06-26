@@ -25,6 +25,7 @@ import {
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import clsx from 'clsx'
+import { tokenHasAbility } from '../lib/abilities'
 import { useDomainsList } from '../hooks/useDomains'
 import { useProFeatures } from '../hooks/useProFeatures'
 import MalwareScanVisualizer from '../components/security/MalwareScanVisualizer'
@@ -120,7 +121,9 @@ const PRO_FEATURE_TABS: Record<string, SecurityTabId> = {
 export default function SecurityPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
   const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
+  const canManage = isAdmin && tokenHasAbility(abilities, 'security:write')
   const { licensePro, licenseValid } = useProFeatures()
   const hasSecurityPro = licensePro && licenseValid
   const [tab, setTab] = useState<SecurityTabId>('advisor')
@@ -846,7 +849,20 @@ export default function SecurityPage() {
     q.isLoading ? (
       <p className="text-gray-500">{t('common.loading')}</p>
     ) : q.isError ? (
-      <p className="text-sm text-amber-600">{t('security.overview_error')}</p>
+      <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-6 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
+        <p className="text-sm text-amber-800 dark:text-amber-200">
+          {(q.error as { response?: { status?: number } })?.response?.status === 403
+            ? t('security.access_denied')
+            : t('security.overview_error')}
+        </p>
+        <button
+          type="button"
+          className="btn-secondary mt-3 text-sm"
+          onClick={() => void q.refetch()}
+        >
+          {t('domains.refresh')}
+        </button>
+      </div>
     ) : null
 
   const refreshBtn = (
@@ -876,6 +892,10 @@ export default function SecurityPage() {
         </div>
         {refreshBtn}
       </div>
+
+      {!canManage && tokenHasAbility(abilities, 'security:read') && (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t('security.read_only_hint')}</p>
+      )}
 
       {(q.isLoading || (q.isFetching && !overview)) && (
         <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-900/40 dark:bg-primary-950/20">
@@ -933,7 +953,7 @@ export default function SecurityPage() {
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t('security.shields.title')}</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('security.shields.hint')}</p>
             </div>
-            {isAdmin &&
+            {canManage &&
               (!overview.fail2ban?.enabled || !overview.modsecurity?.enabled || !overview.firewall?.enabled) && (
                 <button
                   type="button"
@@ -1056,7 +1076,16 @@ export default function SecurityPage() {
           {q.isLoading && !overview ? (
             <p className="text-gray-500">{t('security.loading.title')}</p>
           ) : q.isError ? (
-            <p className="text-sm text-amber-600">{t('security.advisor.load_error')}</p>
+            <div className="text-center py-6">
+              <p className="text-sm text-amber-600">{t('security.advisor.load_error')}</p>
+              <button
+                type="button"
+                className="btn-secondary mt-3 text-sm"
+                onClick={() => void q.refetch()}
+              >
+                {t('domains.refresh')}
+              </button>
+            </div>
           ) : (
             <>
               <div className="grid gap-4 lg:grid-cols-3">
@@ -1269,7 +1298,7 @@ export default function SecurityPage() {
                 </div>
               )}
 
-              {isAdmin && (
+              {canManage && (
                 <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-700 dark:bg-gray-900/40">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('security.firewall.add_rule')}</h3>
                   <form
@@ -1349,7 +1378,7 @@ export default function SecurityPage() {
                         : '—'}
                     </p>
                   </div>
-                  {isAdmin && hasSecurityPro && (
+                  {canManage && hasSecurityPro && (
                     <button
                       type="button"
                       className="btn-primary"
@@ -1407,7 +1436,7 @@ export default function SecurityPage() {
                   <p className="mt-1 font-mono text-xs text-gray-600 dark:text-gray-400">
                     {overview?.clamav?.last_scan != null ? String(overview.clamav.last_scan) : t('security.clamav.no_scan')}
                   </p>
-                  {isAdmin && (
+                  {canManage && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -1449,7 +1478,7 @@ export default function SecurityPage() {
                 </div>
               </div>
 
-              {isAdmin && (
+              {canManage && (
                 <>
                   <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-5 dark:border-violet-900/40 dark:bg-violet-950/20">
                     <h3 className="text-base font-semibold text-violet-900 dark:text-violet-200">{t('security.fim.title')}</h3>
@@ -1762,7 +1791,7 @@ export default function SecurityPage() {
               <p className="mt-4 text-sm font-medium text-gray-900 dark:text-white">
                 {t('security.status.label')}: {coverage.modsecOk ? t('security.status.on') : t('security.status.off')}
               </p>
-              {isAdmin && (
+              {canManage && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1848,7 +1877,7 @@ export default function SecurityPage() {
                 {((siteRulesQ.data?.result?.rules as Array<{ id?: string; domain?: string; mode?: string; target?: string }> | undefined) ?? []).map((r) => (
                   <div key={String(r.id)} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white/70 px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900/40">
                     <span className="font-mono">{String(r.domain)} • {String(r.mode)} • {String(r.target)}</span>
-                    {isAdmin && (
+                    {canManage && (
                       <button
                         type="button"
                         className="rounded-md border border-red-300 p-1 text-red-600 dark:border-red-700"
@@ -1895,7 +1924,7 @@ export default function SecurityPage() {
                   <p className="mt-3 font-mono text-xs text-gray-700 dark:text-gray-300">{overview.fail2ban.jails.join(', ')}</p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {isAdmin && (
+                  {canManage && (
                     <>
                       <button
                         type="button"
@@ -1941,7 +1970,7 @@ export default function SecurityPage() {
                 <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{t('security.brute.toggle_hint')}</p>
               </div>
 
-              {isAdmin && (
+              {canManage && (
                 <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-700 dark:bg-gray-900/40">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('security.brute.jail_title')}</h3>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -2042,13 +2071,13 @@ export default function SecurityPage() {
                   className="input w-48"
                   value={rateLimitProfile}
                   onChange={(e) => setRateLimitProfile(e.target.value as 'wordpress' | 'laravel' | 'api')}
-                  disabled={!isAdmin || rateLimitM.isPending}
+                  disabled={!canManage || rateLimitM.isPending}
                 >
                   <option value="wordpress">wordpress</option>
                   <option value="laravel">laravel</option>
                   <option value="api">api</option>
                 </select>
-                <button type="button" className="btn-primary" disabled={!isAdmin || !hasSecurityPro || rateLimitM.isPending} onClick={() => rateLimitM.mutate(rateLimitProfile)}>
+                <button type="button" className="btn-primary" disabled={!canManage || !hasSecurityPro || rateLimitM.isPending} onClick={() => rateLimitM.mutate(rateLimitProfile)}>
                   {t('security.pro_live.rate.apply')}
                 </button>
               </div>
@@ -2081,7 +2110,7 @@ export default function SecurityPage() {
                 <p>tcp_max_syn_backlog: {String(ddosSysctlQ.data?.result?.status?.tcp_max_syn_backlog ?? '—')}</p>
                 <p>score: {String(ddosSysctlQ.data?.result?.status?.score ?? '—')}</p>
               </div>
-              {isAdmin && hasSecurityPro && (
+              {canManage && hasSecurityPro && (
                 <button type="button" className="btn-primary mt-3" disabled={ddosHardenM.isPending} onClick={() => ddosHardenM.mutate()}>
                   {ddosHardenM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('security.attack.ddos_apply')}
                 </button>
@@ -2101,7 +2130,7 @@ export default function SecurityPage() {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 mode: {String(intelPolicyQ.data?.policy?.mode ?? 'observe')} · private IP bypass: {String(intelStatusQ.data?.status?.private_ip_geo_bypass ?? true)}
               </p>
-              {isAdmin && (
+              {canManage && (
                 <form
                   className="mt-3 space-y-2"
                   onSubmit={(ev) => {

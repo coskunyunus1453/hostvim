@@ -100,7 +100,7 @@ done
 
 echo "==> İzinler ($WU:$WG)"
 chown -R "$WU:$WG" "$WR" 2>/dev/null || true
-find "$WR" -type d -exec chmod 775 {} \; 2>/dev/null || true
+find "$WR" -type d -exec chmod 2775 {} \; 2>/dev/null || true
 find "$WR" -type f -exec chmod 664 {} \; 2>/dev/null || true
 
 rm -rf "$WORK"

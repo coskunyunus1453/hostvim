@@ -4,6 +4,7 @@ return [
     'speed_file_failed' => 'Hız testi dosyası oluşturulamadı.',
     'speed_upload_too_large' => 'Yükleme testi en fazla :max_mb MB olabilir.',
     'speed_prepared' => 'İndirme testi hazır.',
+    'speed_prepare_failed' => 'Hız testi hazırlanamadı. Kısa süre sonra tekrar deneyin.',
     'speed_token_invalid' => 'Test bağlantısı geçersiz veya süresi doldu.',
     'speed_upload_missing' => 'Yükleme verisi alınamadı.',
     'speed_upload_done' => 'Yükleme testi tamamlandı.',
@@ -17,7 +18,7 @@ return [
 
     'seo_invalid_url' => 'Geçerli bir site adresi girin (ör. https://ornek.com).',
     'seo_blocked_host' => 'Yerel veya özel ağ adresleri taranamaz.',
-    'seo_fetch_failed' => 'Siteye erişilemedi: :detail',
+    'seo_fetch_failed' => 'Siteye erişilemedi. Adresi ve erişilebilirliği kontrol edin.',
     'seo_http_error' => 'HTTP yanıt kodu: :code',
     'seo_failed' => 'SEO analizi tamamlanamadı.',
     'seo_done' => 'SEO analizi tamamlandı.',

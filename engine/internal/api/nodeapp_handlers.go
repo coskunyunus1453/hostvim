@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"panelze/engine/internal/config"
@@ -15,11 +16,52 @@ import (
 func handleNodeAppsReconcile(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		report, err := nodeapp.ReconcileAll(cfg)
+		nodeapp.StoreWatchdogSnapshot(report, err)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "report": report})
 			return
 		}
 		c.JSON(http.StatusOK, report)
+	}
+}
+
+func handleNodeAppsWatchdogStatus(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		snap := nodeapp.LastWatchdogSnapshot()
+		if snap.Report == nil && snap.Error == "" {
+			c.JSON(http.StatusOK, gin.H{
+				"checked": 0,
+				"started": 0,
+				"restarted": 0,
+				"failed": 0,
+				"items": []any{},
+				"stale": true,
+			})
+			return
+		}
+		if snap.Error != "" && snap.Report == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"error": snap.Error,
+				"at": snap.At.UTC().Format(time.RFC3339),
+				"failed": 0,
+				"items": []any{},
+			})
+			return
+		}
+		out := gin.H{
+			"at": snap.At.UTC().Format(time.RFC3339),
+			"checked": snap.Report.Checked,
+			"started": snap.Report.Started,
+			"restarted": snap.Report.Restarted,
+			"already_healthy": snap.Report.AlreadyHealthy,
+			"failed": snap.Report.Failed,
+			"pm2_resurrected": snap.Report.Pm2Resurrected,
+			"items": snap.Report.Items,
+		}
+		if snap.Error != "" {
+			out["error"] = snap.Error
+		}
+		c.JSON(http.StatusOK, out)
 	}
 }
 
@@ -45,13 +87,20 @@ func nodeAppDomainOK(c *gin.Context) (string, bool) {
 	return d, true
 }
 
+func nodeAppPathSegment(c *gin.Context) string {
+	if seg := strings.TrimSpace(c.Query("path_segment")); seg != "" {
+		return seg
+	}
+	return ""
+}
+
 func handleNodeAppGet(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		d, ok := nodeAppDomainOK(c)
 		if !ok {
 			return
 		}
-		view, err := nodeapp.GetConfig(cfg, d)
+		view, err := nodeapp.GetConfig(cfg, d, nodeAppPathSegment(c))
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
@@ -67,16 +116,22 @@ func handleNodeAppDetect(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		var req struct {
-			WorkDir string `json:"work_dir"`
+			WorkDir     string `json:"work_dir"`
+			PathSegment string `json:"path_segment"`
 		}
 		_ = c.ShouldBindJSON(&req)
-		base := detectDocumentRootBase(cfg.Paths.WebRoot, d)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		sc := nodeapp.ScopeFrom(d, seg)
+		base := sc.SiteBase(cfg.Paths.WebRoot)
 		det, err := nodeapp.Detect(base, req.WorkDir)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		meta, _ := sc.ReadMeta(cfg.Paths.WebRoot)
 		appProfile := ""
 		if meta != nil {
 			appProfile = strings.TrimSpace(meta.AppProfile)
@@ -103,12 +158,18 @@ func handleNodeAppUpdate(cfg *config.Config) gin.HandlerFunc {
 			ListenPort  int    `json:"listen_port"`
 			AutoStart   *bool  `json:"auto_start"`
 			EnvFile     string `json:"env_file"`
+			PathSegment string `json:"path_segment"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		sc := nodeapp.ScopeFrom(d, seg)
+		meta, err := sc.ReadMeta(cfg.Paths.WebRoot)
 		if err != nil || meta == nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
 			return
@@ -138,7 +199,7 @@ func handleNodeAppUpdate(cfg *config.Config) gin.HandlerFunc {
 		if req.EnvFile != "" {
 			patch.EnvFile = req.EnvFile
 		}
-		view, err := nodeapp.UpdateConfig(cfg, d, patch, req.AppProfile)
+		view, err := nodeapp.UpdateConfig(cfg, d, seg, patch, req.AppProfile)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -154,10 +215,15 @@ func handleNodeAppAutoConfigure(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		var req struct {
-			AppProfile string `json:"app_profile"`
+			AppProfile  string `json:"app_profile"`
+			PathSegment string `json:"path_segment"`
 		}
 		_ = c.ShouldBindJSON(&req)
-		view, err := nodeapp.AutoConfigureFromDetect(cfg, d, req.AppProfile)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		view, err := nodeapp.AutoConfigureFromDetect(cfg, d, seg, req.AppProfile)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -172,7 +238,15 @@ func handleNodeAppStart(cfg *config.Config) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		out, err := nodeapp.Start(cfg, d)
+		var req struct {
+			PathSegment string `json:"path_segment"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		out, err := nodeapp.StartWithPrep(cfg, d, seg)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "output": out})
 			return
@@ -187,7 +261,15 @@ func handleNodeAppStop(cfg *config.Config) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		out, err := nodeapp.Stop(cfg, d)
+		var req struct {
+			PathSegment string `json:"path_segment"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		out, err := nodeapp.Stop(cfg, d, seg)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "output": out})
 			return
@@ -202,7 +284,15 @@ func handleNodeAppRestart(cfg *config.Config) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		out, err := nodeapp.Restart(cfg, d)
+		var req struct {
+			PathSegment string `json:"path_segment"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		out, err := nodeapp.Restart(cfg, d, seg)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "output": out})
 			return
@@ -218,10 +308,15 @@ func handleNodeAppInstall(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		var req struct {
-			UseCI bool `json:"use_ci"`
+			UseCI       bool   `json:"use_ci"`
+			PathSegment string `json:"path_segment"`
 		}
 		_ = c.ShouldBindJSON(&req)
-		out, err := nodeapp.NpmInstall(cfg, d, req.UseCI)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		out, err := nodeapp.NpmInstall(cfg, d, seg, req.UseCI)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "output": out})
 			return
@@ -236,12 +331,20 @@ func handleNodeAppHeal(cfg *config.Config) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		res, err := nodeapp.Heal(cfg, d)
+		var req struct {
+			PathSegment string `json:"path_segment"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		res, err := nodeapp.Heal(cfg, d, seg)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "result": res})
 			return
 		}
-		view, _ := nodeapp.GetConfig(cfg, d)
+		view, _ := nodeapp.GetConfig(cfg, d, seg)
 		c.JSON(http.StatusOK, gin.H{
 			"message": res.Message,
 			"healthy": res.Healthy,
@@ -257,7 +360,15 @@ func handleNodeAppBuild(cfg *config.Config) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		out, err := nodeapp.NpmBuild(cfg, d)
+		var req struct {
+			PathSegment string `json:"path_segment"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		seg := strings.TrimSpace(req.PathSegment)
+		if seg == "" {
+			seg = nodeAppPathSegment(c)
+		}
+		out, err := nodeapp.NpmBuild(cfg, d, seg)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "output": out})
 			return

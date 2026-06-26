@@ -50,9 +50,15 @@
 
         <div>
             <label for="features_raw" class="admin-label">Özellikler (satır satır)</label>
-            <textarea id="features_raw" name="features_raw" rows="8"
-                      class="admin-field mt-1 font-mono">{{ $features_raw }}</textarea>
-            <p class="mt-1 text-[11px] text-slate-500">Her satır bir madde olarak listelenir.</p>
+            <div class="mt-1 mb-2 flex flex-wrap gap-2">
+                <button type="button" class="admin-btn-outline px-3 py-1 text-xs" data-hv-plan-fill="community">Community listesini yükle</button>
+                <button type="button" class="admin-btn-outline px-3 py-1 text-xs" data-hv-plan-fill="pro">Pro modül listesini yükle</button>
+            </div>
+            <textarea id="features_raw" name="features_raw" rows="10"
+                      class="admin-field font-mono"
+                      data-hv-plan-community="{{ $catalog_community ?? '' }}"
+                      data-hv-plan-pro="{{ $catalog_pro ?? '' }}">{{ $features_raw }}</textarea>
+            <p class="mt-1 text-xs text-slate-500">Panelze v0.1 gerçek özellik listesinden tek tıkla doldurabilirsiniz.</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-6">
@@ -80,4 +86,17 @@
             </a>
         </div>
     </form>
+    <script>
+        (function () {
+            var ta = document.getElementById('features_raw');
+            if (!ta) return;
+            document.querySelectorAll('[data-hv-plan-fill]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var key = btn.getAttribute('data-hv-plan-fill');
+                    var val = key === 'pro' ? ta.getAttribute('data-hv-plan-pro') : ta.getAttribute('data-hv-plan-community');
+                    if (val) ta.value = val;
+                });
+            });
+        })();
+    </script>
 </x-admin.layout>

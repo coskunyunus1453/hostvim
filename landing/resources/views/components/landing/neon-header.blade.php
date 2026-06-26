@@ -1,13 +1,7 @@
 <header class="hv-neon-header relative z-20 border-b border-slate-200/80 bg-white/70 backdrop-blur-2xl dark:border-slate-800/60 dark:bg-slate-950/75">
     <div class="hv-container">
         <div class="flex h-14 items-center justify-between gap-3 sm:h-[3.75rem]">
-            <a href="{{ route('landing.home') }}" class="group flex min-w-0 items-center gap-2.5 sm:gap-3">
-                <x-landing.brand-logo variant="neon" />
-                <div class="min-w-0 leading-tight">
-                    <span class="block truncate text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-50 sm:text-base">{{ landing_p('brand.name') }}</span>
-                    <span class="hidden text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:block">{{ landing_p('brand.subtitle') }}</span>
-                </div>
-            </a>
+            <x-landing.header-brand variant="neon" />
 
             <nav class="hidden items-center gap-1 text-sm font-medium md:flex">
                 @foreach ($landingHeaderNav as $navItem)

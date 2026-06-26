@@ -26,7 +26,6 @@ function resolvePanelApiBase(): string {
 export const apiBaseUrl = resolvePanelApiBase()
 
 const api = axios.create({
-  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -34,6 +33,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
+  config.baseURL = resolvePanelApiBase()
   const token = useAuthStore.getState().token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

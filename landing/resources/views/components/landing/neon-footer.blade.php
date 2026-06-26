@@ -8,7 +8,7 @@
                 </div>
                 <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{{ landing_p('brand.subtitle') }}</p>
                 <p class="text-xs text-slate-500 dark:text-slate-500">
-                    © {{ date('Y') }} {{ landing_p('brand.name') }}. {{ landing_p('footer.rights') }}
+                    © 2026 {{ landing_p('brand.name') }}. {{ landing_p('footer.rights') }}
                     @if ($hvNeonFootNote = \App\Services\LandingAppearance::footerExtraNote())
                         <span class="mt-1 block text-slate-500">{{ $hvNeonFootNote }}</span>
                     @endif

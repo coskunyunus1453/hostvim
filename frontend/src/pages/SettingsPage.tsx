@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useThemeStore } from '../store/themeStore'
 import { useAuthStore } from '../store/authStore'
-import { mustEnrollTwoFactor } from '../lib/authRoles'
+import { mustEnrollTwoFactor, isServerAdminUI } from '../lib/authRoles'
 import { useBranding } from '../hooks/useBranding'
 import { safeBrandingImageUrl } from '../lib/urlSafety'
 import api from '../services/api'
@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const showMandatory2faBanner =
     mandatory2faParam || mustEnrollTwoFactor(user, enforceAdmin2fa)
   const showMandatoryPasswordBanner = mandatoryPasswordParam || user?.force_password_change === true
+  const privileged2faPolicy = enforceAdmin2fa === true && isServerAdminUI(user)
   const { data: branding } = useBranding()
   const safeCustomerBrandingUrl = safeBrandingImageUrl(branding?.logo_customer_url)
   const safeAdminBrandingUrl = safeBrandingImageUrl(branding?.logo_admin_url)
@@ -102,7 +103,12 @@ export default function SettingsPage() {
       },
     onSuccess: (data) => {
       const summary = data.checks.map((c) => `${c.ok ? 'OK' : 'ERR'}: ${c.message}`).join(' | ')
-      toast.success((data.ok ? 'Tanılama başarılı' : 'Tanılamada sorun var') + ' — ' + summary, { duration: 12000 })
+      toast.success(
+        (data.ok ? t('settings.branding_diagnostics_ok') : t('settings.branding_diagnostics_fail')) +
+          ' — ' +
+          summary,
+        { duration: 12000 },
+      )
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
@@ -123,6 +129,10 @@ export default function SettingsPage() {
   const [twofaQrDataUrl, setTwofaQrDataUrl] = useState<string | null>(null)
   const [twofaDisableOpen, setTwofaDisableOpen] = useState(false)
   const [twofaDisablePassword, setTwofaDisablePassword] = useState('')
+  const [twofaRegenOpen, setTwofaRegenOpen] = useState(false)
+  const [twofaRegenPassword, setTwofaRegenPassword] = useState('')
+  const [twofaRestartOpen, setTwofaRestartOpen] = useState(false)
+  const [twofaRestartPassword, setTwofaRestartPassword] = useState('')
 
   useEffect(() => {
     if (!twofaSetup?.otpauth_url) {
@@ -149,12 +159,16 @@ export default function SettingsPage() {
   }, [twofaSetup])
 
   const setupM = useMutation({
-    mutationFn: async () =>
-      (await api.post('/auth/2fa/setup')).data as { two_factor_enabled: false; otpauth_url: string; secret: string },
+    mutationFn: async (password?: string) =>
+      (
+        await api.post('/auth/2fa/setup', password ? { password } : {})
+      ).data as { two_factor_enabled: boolean; otpauth_url: string; secret: string },
     onSuccess: (res) => {
       setTwofaSetup({ otpauth_url: res.otpauth_url, secret: res.secret })
       setTwofaOtp('')
       setTwofaBackupCodes(null)
+      setTwofaRestartPassword('')
+      setTwofaRestartOpen(false)
       toast.success(t('settings.two_factor_setup_ready_toast'))
       qc.invalidateQueries({ queryKey: ['twofa-status'] })
     },
@@ -184,12 +198,16 @@ export default function SettingsPage() {
   })
 
   const regenBackupM = useMutation({
-    mutationFn: async () =>
-      (await api.post('/auth/2fa/backup-codes/regenerate')).data as {
+    mutationFn: async (password: string) =>
+      (
+        await api.post('/auth/2fa/backup-codes/regenerate', { password })
+      ).data as {
         backup_codes: string[]
       },
     onSuccess: (res) => {
       setTwofaBackupCodes(res.backup_codes)
+      setTwofaRegenOpen(false)
+      setTwofaRegenPassword('')
       toast.success(t('settings.two_factor_backup_regen_toast'))
     },
     onError: (err: unknown) => {
@@ -253,7 +271,7 @@ export default function SettingsPage() {
       password_confirmation: string
     }) => api.post('/user/password', payload),
     onSuccess: () => {
-      toast.success('Şifre güncellendi')
+      toast.success(t('settings.password_updated'))
       updateUser({ force_password_change: false })
     },
     onError: (err: unknown) => {
@@ -264,6 +282,14 @@ export default function SettingsPage() {
       toast.error(first ?? String(err))
     },
   })
+
+  useEffect(() => {
+    if (!mandatoryPasswordParam && !showMandatoryPasswordBanner) return
+    const id = requestAnimationFrame(() => {
+      document.getElementById('settings-password')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [mandatoryPasswordParam, showMandatoryPasswordBanner])
 
   useEffect(() => {
     if (!mandatory2faParam && !showMandatory2faBanner) return
@@ -324,6 +350,14 @@ export default function SettingsPage() {
               )}
             </div>
           )}
+          {brandingCfgQ.isError && (
+            <p className="mb-4 text-sm text-red-600 dark:text-red-400">
+              {t('settings.branding_config_load_error')}{' '}
+              <button type="button" className="underline" onClick={() => void brandingCfgQ.refetch()}>
+                {t('common.refresh')}
+              </button>
+            </p>
+          )}
           <form
             className="space-y-4 max-w-xl"
             onSubmit={async (ev) => {
@@ -361,7 +395,7 @@ export default function SettingsPage() {
               {t('common.save')}
             </button>
             <button type="button" className="btn-secondary ml-2" onClick={() => brandDiagM.mutate()} disabled={brandDiagM.isPending}>
-              Storage Tanılama
+              {t('settings.branding_diagnostics')}
             </button>
             <p className="text-xs text-gray-500">
               {t('settings.branding_limit_hint', { kb: brandingCfgQ.data?.max_upload_kb ?? 900 })}
@@ -415,12 +449,12 @@ export default function SettingsPage() {
           }}
         >
           <div>
-            <label className="label">Name</label>
-            <input name="name" type="text" defaultValue={user?.name} className="input" required />
+            <label className="label">{t('settings.col_name')}</label>
+            <input name="name" type="text" defaultValue={user?.name} className="input" required autoComplete="name" />
           </div>
           <div>
-            <label className="label">Email</label>
-            <input name="email" type="email" defaultValue={user?.email} className="input" required />
+            <label className="label">{t('settings.col_email')}</label>
+            <input name="email" type="email" defaultValue={user?.email} className="input" required autoComplete="email" />
           </div>
           <div className="sm:col-span-2">
             <button type="submit" className="btn-primary" disabled={profileM.isPending}>
@@ -494,7 +528,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="card p-6">
+      <div id="settings-password" className="card p-6 scroll-mt-6">
         <div className="flex items-center gap-3 mb-6">
           <Lock className="h-5 w-5 text-gray-500" />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -515,18 +549,18 @@ export default function SettingsPage() {
           }}
         >
           <div>
-            <label className="label">Mevcut şifre</label>
+            <label className="label">{t('settings.current_password')}</label>
             <input name="username" type="email" defaultValue={user?.email || ''} autoComplete="username" className="hidden" tabIndex={-1} />
             <input name="current_password" type="password" className="input w-full" required autoComplete="current-password" />
           </div>
           <div>
-            <label className="label">Yeni şifre</label>
-            <input name="password" type="password" className="input w-full" required autoComplete="new-password" />
+            <label className="label">{t('settings.new_password')}</label>
+            <input name="password" type="password" className="input w-full" required minLength={8} autoComplete="new-password" />
             <p className="mt-1 text-xs text-gray-500">{t('settings.password_policy_hint')}</p>
           </div>
           <div>
-            <label className="label">Yeni şifre (tekrar)</label>
-            <input name="password_confirmation" type="password" className="input w-full" required autoComplete="new-password" />
+            <label className="label">{t('settings.new_password_confirm')}</label>
+            <input name="password_confirmation" type="password" className="input w-full" required minLength={8} autoComplete="new-password" />
           </div>
           <button type="submit" className="btn-primary" disabled={passM.isPending}>
             {t('common.save')}
@@ -552,18 +586,29 @@ export default function SettingsPage() {
         </div>
 
         <div className="mt-5 space-y-4">
-          {!twoFaStatusQ.isLoading && !twoFaStatusQ.data?.two_factor_enabled && (
+          {twoFaStatusQ.isError && (
+            <div className="text-sm text-red-600 dark:text-red-400">
+              <p>{t('settings.twofa_load_error')}</p>
+              <button type="button" className="btn-secondary mt-2 text-xs" onClick={() => void twoFaStatusQ.refetch()}>
+                {t('common.refresh')}
+              </button>
+            </div>
+          )}
+
+          {twoFaStatusQ.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+
+          {!twoFaStatusQ.isLoading && !twoFaStatusQ.isError && !twoFaStatusQ.data?.two_factor_enabled && (
             <>
-              <button type="button" className="btn-primary" disabled={setupM.isPending} onClick={() => setupM.mutate()}>
+              <button type="button" className="btn-primary" disabled={setupM.isPending} onClick={() => setupM.mutate(undefined)}>
                 {t('settings.two_factor_start_setup')}
               </button>
 
               {twofaSetup && (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
                   <div className="flex flex-col sm:flex-row gap-5 sm:items-start">
                     <div>
-                      <p className="text-sm text-gray-300 mb-2">{t('settings.two_factor_qr_label')}</p>
-                      <div className="w-[220px] h-[220px] bg-black/20 rounded-lg flex items-center justify-center">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t('settings.two_factor_qr_label')}</p>
+                      <div className="w-[220px] h-[220px] bg-gray-100 dark:bg-black/20 rounded-lg flex items-center justify-center">
                         {twofaQrDataUrl ? (
                           <img src={twofaQrDataUrl} alt="" className="w-[220px] h-[220px] object-contain" />
                         ) : (
@@ -574,12 +619,12 @@ export default function SettingsPage() {
 
                     <div className="flex-1 space-y-3">
                       <div>
-                        <p className="text-sm text-gray-300 mb-1">{t('settings.two_factor_secret_label')}</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{t('settings.two_factor_secret_label')}</p>
                         <div className="flex items-center gap-2">
                           <input
                             value={twofaSetup.secret}
                             readOnly
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm"
+                            className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white text-sm font-mono"
                           />
                           <button
                             type="button"
@@ -599,14 +644,14 @@ export default function SettingsPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                           {t('settings.two_factor_otp_label')}
                         </label>
                         <input
                           value={twofaOtp}
                           onChange={(e) => setTwofaOtp(e.target.value)}
                           inputMode="numeric"
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                          className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                           placeholder={t('settings.two_factor_otp_placeholder')}
                         />
                       </div>
@@ -651,76 +696,173 @@ export default function SettingsPage() {
             </>
           )}
 
-          {!!twoFaStatusQ.data?.two_factor_enabled && (
+          {!twoFaStatusQ.isLoading && !twoFaStatusQ.isError && !!twoFaStatusQ.data?.two_factor_enabled && (
             <div className="space-y-3">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm text-gray-300">{t('settings.two_factor_active_title')}</p>
+              <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300">{t('settings.two_factor_active_title')}</p>
                 <p className="text-xs text-gray-500 mt-1">{t('settings.two_factor_active_backup_hint')}</p>
               </div>
               <button
                 type="button"
                 className="btn-secondary w-full"
                 disabled={regenBackupM.isPending}
-                onClick={() => regenBackupM.mutate()}
-              >
-                {t('settings.two_factor_regen_backup')}
-              </button>
-              <button
-                type="button"
-                className="btn-primary w-full"
-                disabled={setupM.isPending}
-                onClick={() => setupM.mutate()}
-              >
-                {t('settings.two_factor_restart_setup')}
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-200 hover:bg-red-500/15 disabled:opacity-50"
-                disabled={disable2faM.isPending}
                 onClick={() => {
-                  setTwofaDisableOpen((o) => !o)
-                  setTwofaDisablePassword('')
+                  setTwofaRegenOpen((o) => !o)
+                  setTwofaRegenPassword('')
                 }}
               >
-                {twofaDisableOpen ? t('settings.two_factor_cancel') : t('settings.two_factor_disable')}
+                {twofaRegenOpen ? t('settings.two_factor_cancel') : t('settings.two_factor_regen_backup')}
               </button>
-              {twofaDisableOpen && (
-                <div className="rounded-xl border border-red-500/30 bg-black/20 p-4 space-y-3">
-                  <p className="text-sm text-gray-300">{t('settings.two_factor_disable_hint')}</p>
-                  <label className="block text-sm font-medium text-gray-300">{t('settings.two_factor_disable_password_label')}</label>
+              {twofaRegenOpen && (
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 space-y-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('settings.two_factor_regen_password_label')}
+                  </label>
                   <input
                     type="password"
                     autoComplete="current-password"
-                    value={twofaDisablePassword}
-                    onChange={(e) => setTwofaDisablePassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white"
+                    value={twofaRegenPassword}
+                    onChange={(e) => setTwofaRegenPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white"
                   />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
-                      disabled={disable2faM.isPending || !twofaDisablePassword}
-                      onClick={() => disable2faM.mutate(twofaDisablePassword)}
-                    >
-                      {t('settings.two_factor_disable_confirm')}
-                    </button>
+                  <button
+                    type="button"
+                    className="btn-primary w-full"
+                    disabled={regenBackupM.isPending || !twofaRegenPassword}
+                    onClick={() => regenBackupM.mutate(twofaRegenPassword)}
+                  >
+                    {t('settings.two_factor_regen_confirm')}
+                  </button>
+                </div>
+              )}
+              {!twofaSetup && (
+                <button
+                  type="button"
+                  className="btn-primary w-full"
+                  disabled={setupM.isPending}
+                  onClick={() => {
+                    setTwofaRestartOpen((o) => !o)
+                    setTwofaRestartPassword('')
+                  }}
+                >
+                  {twofaRestartOpen ? t('settings.two_factor_cancel') : t('settings.two_factor_restart_setup')}
+                </button>
+              )}
+              {twofaRestartOpen && !twofaSetup && (
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 space-y-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('settings.two_factor_restart_password_label')}
+                  </label>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={twofaRestartPassword}
+                    onChange={(e) => setTwofaRestartPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary w-full"
+                    disabled={setupM.isPending || !twofaRestartPassword}
+                    onClick={() => setupM.mutate(twofaRestartPassword)}
+                  >
+                    {t('settings.two_factor_restart_setup')}
+                  </button>
+                </div>
+              )}
+              {twofaSetup && twoFaStatusQ.data?.two_factor_enabled && (
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 space-y-4">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{t('settings.two_factor_qr_label')}</p>
+                  <div className="flex flex-col sm:flex-row gap-5 sm:items-start">
+                    <div className="w-[220px] h-[220px] bg-gray-100 dark:bg-black/20 rounded-lg flex items-center justify-center">
+                      {twofaQrDataUrl ? (
+                        <img src={twofaQrDataUrl} alt="" className="w-[220px] h-[220px] object-contain" />
+                      ) : (
+                        <span className="text-xs text-gray-500">{t('settings.two_factor_qr_loading')}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <input
+                        value={twofaSetup.secret}
+                        readOnly
+                        className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white text-sm font-mono"
+                      />
+                      <input
+                        value={twofaOtp}
+                        onChange={(e) => setTwofaOtp(e.target.value)}
+                        inputMode="numeric"
+                        className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white"
+                        placeholder={t('settings.two_factor_otp_placeholder')}
+                      />
+                      <button
+                        type="button"
+                        className="btn-primary w-full"
+                        disabled={verifyM.isPending || !/^\d{6}$/.test(twofaOtp.trim())}
+                        onClick={() => verifyM.mutate(twofaOtp.trim())}
+                      >
+                        {t('settings.two_factor_activate')}
+                      </button>
+                    </div>
                   </div>
                 </div>
+              )}
+              {!privileged2faPolicy && (
+                <>
+                  <button
+                    type="button"
+                    className="w-full rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-200 hover:bg-red-500/15 disabled:opacity-50"
+                    disabled={disable2faM.isPending}
+                    onClick={() => {
+                      setTwofaDisableOpen((o) => !o)
+                      setTwofaDisablePassword('')
+                    }}
+                  >
+                    {twofaDisableOpen ? t('settings.two_factor_cancel') : t('settings.two_factor_disable')}
+                  </button>
+                  {twofaDisableOpen && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-50 dark:bg-black/20 p-4 space-y-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{t('settings.two_factor_disable_hint')}</p>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('settings.two_factor_disable_password_label')}
+                      </label>
+                      <input
+                        type="password"
+                        autoComplete="current-password"
+                        value={twofaDisablePassword}
+                        onChange={(e) => setTwofaDisablePassword(e.target.value)}
+                        className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                          disabled={disable2faM.isPending || !twofaDisablePassword}
+                          onClick={() => disable2faM.mutate(twofaDisablePassword)}
+                        >
+                          {t('settings.two_factor_disable_confirm')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
 
           {twofaBackupCodes && twofaBackupCodes.length > 0 && (
-            <div className="rounded-xl border border-primary-500/30 bg-primary-500/10 p-4">
-              <p className="text-sm font-semibold text-white mb-2">{t('settings.two_factor_backup_title')}</p>
+            <div className="rounded-xl border border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 p-4">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{t('settings.two_factor_backup_title')}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {twofaBackupCodes.map((c) => (
-                  <div key={c} className="rounded-lg bg-black/20 border border-white/10 px-3 py-2 text-xs text-gray-100">
+                  <div
+                    key={c}
+                    className="rounded-lg bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10 px-3 py-2 text-xs text-gray-800 dark:text-gray-100 font-mono"
+                  >
                     {c}
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-gray-300 mt-3">{t('settings.two_factor_backup_footer')}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 mt-3">{t('settings.two_factor_backup_footer')}</p>
             </div>
           )}
         </div>

@@ -1,14 +1,12 @@
 package nodeapp
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"panelze/engine/internal/config"
 	"panelze/engine/internal/hosting"
@@ -42,27 +40,15 @@ type ConfigView struct {
 }
 
 func siteBase(webRoot, domain string) string {
-	return filepath.Clean(filepath.Join(webRoot, domain, "public_html"))
+	return scopeFrom(domain, "").siteBase(webRoot)
 }
 
 func resolveWorkAbs(webRoot, domain, workDirRel string) (string, string, error) {
-	base := siteBase(webRoot, domain)
-	workDirRel = strings.TrimSpace(workDirRel)
-	if workDirRel == "" {
-		workDirRel = "."
-	}
-	if strings.Contains(workDirRel, "..") || filepath.IsAbs(workDirRel) {
-		return "", "", fmt.Errorf("invalid work_dir")
-	}
-	workAbs := base
-	if workDirRel != "." {
-		workAbs = filepath.Join(base, workDirRel)
-	}
-	workAbs = filepath.Clean(workAbs)
-	if !strings.HasPrefix(workAbs+string(os.PathSeparator), base+string(os.PathSeparator)) && workAbs != base {
-		return "", "", fmt.Errorf("work_dir escapes site base")
-	}
-	return workAbs, workDirRel, nil
+	return scopeFrom(domain, "").resolveWorkAbs(webRoot, workDirRel)
+}
+
+func resolveWorkAbsScoped(webRoot string, sc SiteScope, workDirRel string) (string, string, error) {
+	return sc.resolveWorkAbs(webRoot, workDirRel)
 }
 
 func pm2Home(cfg *config.Config) string {
@@ -88,9 +74,11 @@ func npmBin(cfg *config.Config) string {
 }
 
 func pm2Name(domain string) string {
-	s := strings.ToLower(strings.TrimSpace(domain))
-	s = strings.ReplaceAll(s, ".", "-")
-	return "panelze-" + s
+	return scopeFrom(domain, "").pm2Name()
+}
+
+func pm2NameScoped(sc SiteScope) string {
+	return sc.pm2Name()
 }
 
 func runUser(cfg *config.Config) string {
@@ -139,8 +127,9 @@ func pm2Output(cfg *config.Config, args ...string) (string, error) {
 }
 
 // GetConfig meta + durum döndürür.
-func GetConfig(cfg *config.Config, domain string) (*ConfigView, error) {
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+func GetConfig(cfg *config.Config, domain, pathSegment string) (*ConfigView, error) {
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -162,14 +151,14 @@ func GetConfig(cfg *config.Config, domain string) (*ConfigView, error) {
 	if view.Profile == "" {
 		view.Profile = view.AppProfile
 	}
-	st, _ := StatusOf(cfg, domain, meta)
+	st, _ := StatusOf(cfg, sc, meta)
 	view.Status = st
 	return view, nil
 }
 
 // StatusOf PM2 durumunu okur.
-func StatusOf(cfg *config.Config, domain string, meta *sites.SiteMeta) (Status, error) {
-	st := Status{PM2Name: pm2Name(domain)}
+func StatusOf(cfg *config.Config, sc SiteScope, meta *sites.SiteMeta) (Status, error) {
+	st := Status{PM2Name: sc.pm2Name()}
 	if meta != nil && meta.NodeApp != nil {
 		st.ListenPort = meta.NodeApp.ListenPort
 		st.Profile = meta.NodeApp.Profile
@@ -186,22 +175,14 @@ func StatusOf(cfg *config.Config, domain string, meta *sites.SiteMeta) (Status, 
 	if err != nil {
 		return st, nil
 	}
-	name := pm2Name(domain)
-	// basit JSON arama — tam parse yerine hızlı eşleşme
+	name := sc.pm2Name()
 	if !strings.Contains(out, `"name":"`+name+`"`) && !strings.Contains(out, `"name": "`+name+`"`) {
 		return st, nil
 	}
-	st.Running = strings.Contains(out, `"status":"online"`) || strings.Contains(out, `"status": "online"`)
 	st.Status = pm2StatusFromJlist(out, name)
+	st.Running = strings.EqualFold(st.Status, "online")
 	if st.Status == "" {
-		if st.Running {
-			st.Status = "online"
-		} else {
-			st.Status = "stopped"
-		}
-	}
-	if strings.EqualFold(st.Status, "online") {
-		st.Running = true
+		st.Status = "stopped"
 	}
 	return st, nil
 }
@@ -228,11 +209,12 @@ func pm2StatusFromJlist(jlist, name string) string {
 }
 
 // UpdateConfig meta günceller, nginx vhost yeniler, isteğe bağlı auto_start.
-func UpdateConfig(cfg *config.Config, domain string, patch *sites.NodeAppConfig, appProfile string) (*ConfigView, error) {
+func UpdateConfig(cfg *config.Config, domain, pathSegment string, patch *sites.NodeAppConfig, appProfile string) (*ConfigView, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return nil, fmt.Errorf("manage_node_apps devre dışı")
 	}
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -245,7 +227,7 @@ func UpdateConfig(cfg *config.Config, domain string, patch *sites.NodeAppConfig,
 			meta.NodeApp.Profile = hosting.NormalizeAppProfile(patch.Profile)
 		}
 		if patch.WorkDir != "" {
-			if _, _, werr := resolveWorkAbs(cfg.Paths.WebRoot, domain, patch.WorkDir); werr != nil {
+			if _, _, werr := sc.resolveWorkAbs(cfg.Paths.WebRoot, patch.WorkDir); werr != nil {
 				return nil, werr
 			}
 			meta.NodeApp.WorkDir = strings.TrimSpace(patch.WorkDir)
@@ -270,67 +252,131 @@ func UpdateConfig(cfg *config.Config, domain string, patch *sites.NodeAppConfig,
 	if meta.NodeApp.WorkDir == "" {
 		meta.NodeApp.WorkDir = "."
 	}
-	if meta.NodeApp.ListenPort <= 0 {
-		meta.NodeApp.ListenPort = DefaultPortForProfile(meta.NodeApp.Profile)
-	}
 	if meta.NodeApp.StartScript == "" {
 		meta.NodeApp.StartScript = "start"
 	}
+	if meta.NodeApp.EnvFile == "" {
+		meta.NodeApp.EnvFile = ".env"
+	}
+	preferred := meta.NodeApp.ListenPort
+	meta.NodeApp.ListenPort = AllocateListenPort(
+		cfg,
+		sc,
+		meta.NodeApp.Profile,
+		preferred,
+		sc.siteBase(cfg.Paths.WebRoot),
+		meta.NodeApp.WorkDir,
+	)
 
-	if err := sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, meta); err != nil {
+	if err := sc.writeMeta(cfg.Paths.WebRoot, meta); err != nil {
 		return nil, err
 	}
 
-	sock := ""
-	if err := hosting.ApplyWebServer(cfg, domain, meta.DocumentRoot, meta, sock); err != nil {
+	if err := sc.applyWebServer(cfg, meta); err != nil {
 		return nil, err
 	}
 
 	if meta.NodeApp.AutoStart && meta.NodeApp.Enabled {
-		if _, err := Start(cfg, domain); err != nil {
+		if _, err := startWithPrep(cfg, domain, pathSegment); err != nil {
 			return nil, err
 		}
 	}
 
-	return GetConfig(cfg, domain)
+	return GetConfig(cfg, domain, pathSegment)
+}
+
+// StartWithPrep gerekirse build alır, ardından PM2 ile başlatır.
+func StartWithPrep(cfg *config.Config, domain, pathSegment string) (string, error) {
+	return startWithPrep(cfg, domain, pathSegment)
+}
+
+func startWithPrep(cfg *config.Config, domain, pathSegment string) (string, error) {
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
+	if err != nil || meta == nil || meta.NodeApp == nil {
+		return "", fmt.Errorf("site not found")
+	}
+	workAbs, _, err := sc.resolveWorkAbs(cfg.Paths.WebRoot, meta.NodeApp.WorkDir)
+	if err != nil {
+		return "", err
+	}
+	profile := meta.NodeApp.Profile
+	if profile == "" {
+		profile = meta.AppProfile
+	}
+	if _, err := ensureProductionReady(cfg, domain, pathSegment, workAbs, profile); err != nil {
+		return "", err
+	}
+	return Start(cfg, domain, pathSegment)
 }
 
 // Start PM2 ile uygulamayı başlatır.
-func Start(cfg *config.Config, domain string) (string, error) {
+func Start(cfg *config.Config, domain, pathSegment string) (string, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return "", fmt.Errorf("manage_node_apps devre dışı")
 	}
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil || meta.NodeApp == nil || !meta.NodeApp.Enabled {
 		return "", fmt.Errorf("node app not enabled")
 	}
-	workAbs, _, err := resolveWorkAbs(cfg.Paths.WebRoot, domain, meta.NodeApp.WorkDir)
+	workAbs, _, err := sc.resolveWorkAbs(cfg.Paths.WebRoot, meta.NodeApp.WorkDir)
 	if err != nil {
 		return "", err
 	}
 	if err := validateStartScript(workAbs, meta.NodeApp.StartScript); err != nil {
 		return "", err
 	}
+	profile := meta.NodeApp.Profile
+	if profile == "" {
+		profile = meta.AppProfile
+	}
+	if profileNeedsProductionBuild(profile) && !hasProductionBuild(workAbs, profile) {
+		return "", fmt.Errorf("production build eksik veya tamamlanmamış; önce npm run build çalıştırın")
+	}
+	if buildInProgress(workAbs) {
+		return "", fmt.Errorf("npm build devam ediyor; tamamlanmasını bekleyin")
+	}
 
-	name := pm2Name(domain)
-	_, _ = pm2Output(cfg, "delete", name)
+	name := sc.pm2Name()
+	st, _ := StatusOf(cfg, sc, meta)
+	if st.Running {
+		_, _ = pm2Output(cfg, "stop", name)
+	} else {
+		_, _ = pm2Output(cfg, "delete", name)
+	}
 
+	if _, _, err := syncNodeListenPort(cfg, sc, meta); err != nil {
+		return "", err
+	}
+	meta, err = sc.readMeta(cfg.Paths.WebRoot)
+	if err != nil || meta == nil || meta.NodeApp == nil {
+		return "", fmt.Errorf("site meta")
+	}
 	port := meta.NodeApp.ListenPort
 	if port <= 0 {
-		port = DefaultPortForProfile(meta.NodeApp.Profile)
+		return "", fmt.Errorf("listen port not configured")
+	}
+	if err := sc.applyWebServer(cfg, meta); err != nil {
+		return "", fmt.Errorf("vhost: %w", err)
 	}
 
-	env := buildStartEnv(cfg.Paths.WebRoot, domain, meta, workAbs, port)
+	env := buildStartEnv(cfg.Paths.WebRoot, sc, meta, workAbs, port)
 
-	script := meta.NodeApp.StartScript
+	plan, err := buildPm2StartPlan(workAbs, profile, meta.NodeApp.StartScript, port)
+	if err != nil {
+		return "", err
+	}
 	args := []string{
-		"start", npmBin(cfg),
+		"start", plan.Program,
+		"-f",
 		"--name", name,
 		"--cwd", workAbs,
-		"--",
-		"run", script,
 	}
-	// pm2 start npm --name ... --cwd ... -- run start
+	if len(plan.Args) > 0 {
+		args = append(args, "--")
+		args = append(args, plan.Args...)
+	}
 	cmd := pm2Cmd(cfg, args...)
 	cmd.Env = append(os.Environ(), env...)
 	out, err := cmd.CombinedOutput()
@@ -342,32 +388,33 @@ func Start(cfg *config.Config, domain string) (string, error) {
 		return s, err
 	}
 	_, _ = pm2Output(cfg, "save")
-	if err := ensureListening(cfg, domain); err != nil {
+	if err := ensureListening(cfg, sc); err != nil {
 		return s, fmt.Errorf("started but not listening: %w", err)
 	}
 	return s, nil
 }
 
 // Stop PM2 sürecini durdurur.
-func Stop(cfg *config.Config, domain string) (string, error) {
+func Stop(cfg *config.Config, domain, pathSegment string) (string, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return "", fmt.Errorf("manage_node_apps devre dışı")
 	}
-	return pm2Output(cfg, "delete", pm2Name(domain))
+	return pm2Output(cfg, "delete", scopeFrom(domain, pathSegment).pm2Name())
 }
 
 // Restart yeniden başlatır.
-func Restart(cfg *config.Config, domain string) (string, error) {
+func Restart(cfg *config.Config, domain, pathSegment string) (string, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return "", fmt.Errorf("manage_node_apps devre dışı")
 	}
-	name := pm2Name(domain)
+	sc := scopeFrom(domain, pathSegment)
+	name := sc.pm2Name()
 	out, err := pm2Output(cfg, "restart", name)
 	if err != nil && strings.Contains(err.Error(), "not found") {
-		return Start(cfg, domain)
+		return startWithPrep(cfg, domain, pathSegment)
 	}
 	if err == nil {
-		if listenErr := ensureListening(cfg, domain); listenErr != nil {
+		if listenErr := ensureListening(cfg, sc); listenErr != nil {
 			return out, fmt.Errorf("restarted but not listening: %w", listenErr)
 		}
 	}
@@ -375,11 +422,11 @@ func Restart(cfg *config.Config, domain string) (string, error) {
 }
 
 // RemoveSite cleanup on delete.
-func RemoveSite(cfg *config.Config, domain string) {
+func RemoveSite(cfg *config.Config, domain, pathSegment string) {
 	if !cfg.Hosting.ManageNodeApps {
 		return
 	}
-	_, _ = Stop(cfg, domain)
+	_, _ = Stop(cfg, domain, pathSegment)
 }
 
 func validateStartScript(workAbs, script string) error {
@@ -409,11 +456,12 @@ func validateScriptExists(workAbs, script string) error {
 }
 
 // NpmInstall npm ci/install çalıştırır.
-func NpmInstall(cfg *config.Config, domain string, useCI bool) (string, error) {
+func NpmInstall(cfg *config.Config, domain, pathSegment string, useCI bool) (string, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return "", fmt.Errorf("manage_node_apps devre dışı")
 	}
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil {
 		return "", fmt.Errorf("site not found")
 	}
@@ -421,7 +469,7 @@ func NpmInstall(cfg *config.Config, domain string, useCI bool) (string, error) {
 	if meta.NodeApp != nil && meta.NodeApp.WorkDir != "" {
 		workDir = meta.NodeApp.WorkDir
 	}
-	workAbs, _, err := resolveWorkAbs(cfg.Paths.WebRoot, domain, workDir)
+	workAbs, _, err := sc.resolveWorkAbs(cfg.Paths.WebRoot, workDir)
 	if err != nil {
 		return "", err
 	}
@@ -429,34 +477,22 @@ func NpmInstall(cfg *config.Config, domain string, useCI bool) (string, error) {
 	if maxSec <= 0 {
 		maxSec = 600
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxSec)*time.Second)
-	defer cancel()
 	var args []string
 	if useCI {
 		args = []string{"ci", "--no-audit", "--no-fund"}
 	} else {
 		args = []string{"install", "--no-audit", "--no-fund"}
 	}
-	cmd := exec.CommandContext(ctx, npmBin(cfg), args...)
-	cmd.Dir = workAbs
-	cmd.Env = append(os.Environ(), "NODE_ENV=production")
-	out, err := cmd.CombinedOutput()
-	s := strings.TrimSpace(string(out))
-	if err != nil {
-		if s != "" {
-			return s, fmt.Errorf("%w — %s", err, s)
-		}
-		return s, err
-	}
-	return s, nil
+	return runNpmAsSiteUser(cfg, workAbs, maxSec, args...)
 }
 
 // NpmBuild npm run build.
-func NpmBuild(cfg *config.Config, domain string) (string, error) {
+func NpmBuild(cfg *config.Config, domain, pathSegment string) (string, error) {
 	if !cfg.Hosting.ManageNodeApps {
 		return "", fmt.Errorf("manage_node_apps devre dışı")
 	}
-	meta, err := sites.ReadSiteMeta(cfg.Paths.WebRoot, domain)
+	sc := scopeFrom(domain, pathSegment)
+	meta, err := sc.readMeta(cfg.Paths.WebRoot)
 	if err != nil || meta == nil {
 		return "", fmt.Errorf("site not found")
 	}
@@ -464,36 +500,37 @@ func NpmBuild(cfg *config.Config, domain string) (string, error) {
 	if meta.NodeApp != nil && meta.NodeApp.WorkDir != "" {
 		workDir = meta.NodeApp.WorkDir
 	}
-	workAbs, _, err := resolveWorkAbs(cfg.Paths.WebRoot, domain, workDir)
+	workAbs, _, err := sc.resolveWorkAbs(cfg.Paths.WebRoot, workDir)
 	if err != nil {
 		return "", err
 	}
 	if err := validateScriptExists(workAbs, "build"); err != nil {
 		return "", err
 	}
+	if buildInProgress(workAbs) {
+		return "", fmt.Errorf("npm build zaten çalışıyor")
+	}
+	release, err := acquireBuildLock(workAbs)
+	if err != nil {
+		return "", fmt.Errorf("build lock: %w", err)
+	}
+	defer release()
 	maxSec := cfg.Hosting.ToolsMaxSeconds
 	if maxSec <= 0 {
 		maxSec = 900
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxSec)*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, npmBin(cfg), "run", "build")
-	cmd.Dir = workAbs
-	cmd.Env = append(os.Environ(), "NODE_ENV=production")
-	out, err := cmd.CombinedOutput()
-	s := strings.TrimSpace(string(out))
+	out, err := runNpmAsSiteUser(cfg, workAbs, maxSec, "run", "build")
 	if err != nil {
-		if s != "" {
-			return s, fmt.Errorf("%w — %s", err, s)
-		}
-		return s, err
+		return out, err
 	}
-	return s, nil
+	ensureWritableArtifacts(cfg, workAbs)
+	return out, nil
 }
 
 // AutoConfigureFromDetect algılama sonucunu uygular (aaPanel benzeri tek tık).
-func AutoConfigureFromDetect(cfg *config.Config, domain, appProfile string) (*ConfigView, error) {
-	base := siteBase(cfg.Paths.WebRoot, domain)
+func AutoConfigureFromDetect(cfg *config.Config, domain, pathSegment, appProfile string) (*ConfigView, error) {
+	sc := scopeFrom(domain, pathSegment)
+	base := sc.siteBase(cfg.Paths.WebRoot)
 	det, err := DetectBest(base)
 	if err != nil {
 		return nil, err
@@ -505,20 +542,22 @@ func AutoConfigureFromDetect(cfg *config.Config, domain, appProfile string) (*Co
 	if profile == "" {
 		profile = det.Profile
 	}
+	port := AllocateListenPort(cfg, sc, profile, det.SuggestedPort, base, det.WorkDir)
 	patch := &sites.NodeAppConfig{
 		Enabled:     true,
 		Profile:     profile,
 		WorkDir:     det.WorkDir,
 		StartScript: det.StartScript,
-		ListenPort:  det.SuggestedPort,
+		ListenPort:  port,
 		AutoStart:   true,
+		EnvFile:     ".env",
 	}
-	view, err := UpdateConfig(cfg, domain, patch, profile)
+	view, err := UpdateConfig(cfg, domain, pathSegment, patch, profile)
 	if err != nil {
 		return nil, err
 	}
-	if _, healErr := Heal(cfg, domain); healErr != nil {
+	if _, healErr := Heal(cfg, domain, pathSegment); healErr != nil {
 		return view, healErr
 	}
-	return GetConfig(cfg, domain)
+	return GetConfig(cfg, domain, pathSegment)
 }

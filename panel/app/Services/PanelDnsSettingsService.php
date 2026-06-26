@@ -3,9 +3,14 @@
 namespace App\Services;
 
 use App\Models\PanelSetting;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class PanelDnsSettingsService
 {
+    public const CACHE_KEY = 'panelze:dns:settings';
+
+    public const CACHE_TTL_SECONDS = 300;
     public const KEY_NS1 = 'dns.ns1';
 
     public const KEY_NS2 = 'dns.ns2';
@@ -98,6 +103,13 @@ class PanelDnsSettingsService
         if (array_key_exists('bootstrap_defaults', $data)) {
             $set(self::KEY_BOOTSTRAP_DEFAULTS, $data['bootstrap_defaults'] ? '1' : '0');
         }
+
+        self::forgetCache();
+    }
+
+    public static function forgetCache(): void
+    {
+        Cache::forget(self::CACHE_KEY);
     }
 
     /**
@@ -232,8 +244,24 @@ class PanelDnsSettingsService
 
     private function stored(string $key): ?string
     {
-        $value = PanelSetting::query()->where('key', $key)->value('value');
+        $value = $this->settingsMap()->get($key);
 
         return is_string($value) ? $value : null;
+    }
+
+    /** @return Collection<string, string|null> */
+    private function settingsMap(): Collection
+    {
+        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL_SECONDS, function (): Collection {
+            return PanelSetting::query()
+                ->whereIn('key', [
+                    self::KEY_NS1,
+                    self::KEY_NS2,
+                    self::KEY_SERVER_IP,
+                    self::KEY_BIND_ENABLED,
+                    self::KEY_BOOTSTRAP_DEFAULTS,
+                ])
+                ->pluck('value', 'key');
+        });
     }
 }

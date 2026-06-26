@@ -209,6 +209,15 @@ export default function AdminLogsPage() {
               )}
             </div>
 
+            {logsQ.isError && (
+              <div className="text-sm text-red-600 dark:text-red-400">
+                <p>{t('logs_page.load_error')}</p>
+                <button type="button" className="btn-secondary mt-2 text-xs" onClick={() => void logsQ.refetch()}>
+                  {t('common.refresh')}
+                </button>
+              </div>
+            )}
+
             {logsQ.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
 
             {!logsQ.isLoading && (logsQ.data?.logs ?? []).length === 0 && (

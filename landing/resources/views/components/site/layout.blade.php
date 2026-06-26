@@ -94,13 +94,7 @@
     <header class="relative z-20 border-b border-slate-200/90 bg-white/85 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/80">
         <div class="hv-container">
             <div class="flex h-[4.25rem] items-center justify-between gap-4">
-                <a href="{{ route('landing.home') }}" class="flex items-center gap-3">
-                    <x-landing.brand-logo />
-                    <div class="flex flex-col leading-tight">
-                        <span class="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">{{ landing_p('brand.name') }}</span>
-                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ landing_p('brand.subtitle') }}</span>
-                    </div>
-                </a>
+                <x-landing.header-brand variant="classic" />
 
                 <nav class="hidden items-center gap-7 text-base font-medium md:flex">
                     <x-landing.nav-menu :items="$landingHeaderNav" link-class="hv-muted-nav font-medium" />
@@ -195,7 +189,7 @@
         <div class="hv-container flex flex-col gap-4 text-sm sm:flex-row sm:items-start sm:justify-between">
             <div class="flex min-w-0 flex-1 flex-col gap-2">
                 <div class="flex flex-wrap items-center gap-2 text-slate-600 dark:text-slate-400">
-                    <span>© {{ date('Y') }} {{ landing_p('brand.name') }}</span>
+                    <span>© 2026 {{ landing_p('brand.name') }}</span>
                     @if ($hvFooterNoteSite = \App\Services\LandingAppearance::footerExtraNote())
                         <span class="text-slate-500 dark:text-slate-500">{{ $hvFooterNoteSite }}</span>
                     @endif
@@ -224,7 +218,7 @@
              x-show="open"
              x-transition.duration.220.origin-right>
             <div class="flex h-14 items-center justify-between border-b border-slate-200/90 px-4 dark:border-slate-800/80">
-                <span class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ landing_p('brand.name') }}</span>
+                <x-landing.header-brand variant="classic" context="drawer" />
                 <button type="button" @click="open = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300/90 text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <span class="sr-only">{{ landing_p('nav.close') }}</span>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /sepet
+Disallow: /odeme
+Disallow: /hesabim
+Disallow: /giris
+Disallow: /kayit
+
+Sitemap: https://hostvim.com/sitemap.xml

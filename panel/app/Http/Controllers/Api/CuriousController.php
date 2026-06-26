@@ -28,8 +28,8 @@ class CuriousController extends Controller
         $userId = (int) $request->user()->id;
         try {
             $payload = $this->speedTest->prepareDownload($userId);
-        } catch (\Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+        } catch (\Throwable) {
+            return response()->json(['message' => __('curious.speed_prepare_failed')], 500);
         }
 
         return response()->json([

@@ -2,6 +2,9 @@
 
 return [
     'queued' => 'Yedek kuyruğa alındı',
+    'retry_already_completed' => 'Bu yedek zaten tamamlanmış.',
+    'retry_already_running' => 'Bu yedek zaten çalışıyor veya kuyrukta.',
+    'domain_not_found' => 'Alan adı bulunamadı.',
     'deleted' => 'Yedek silindi',
     'restore_started' => 'Geri yükleme başlatıldı',
     'restore_no_engine_id' => 'Bu yedeğin engine kaydı yok; yeni yedek alıp ondan geri yükleyin.',
@@ -16,6 +19,7 @@ return [
     'download_unavailable' => 'İndirilebilir yedek dosyası bulunamadı.',
     'upload_required' => 'Yedek arşivi (.tar.gz) gerekli.',
     'upload_failed' => 'Dosya yüklenemedi.',
+    'upload_invalid_archive' => 'Yalnızca .tar.gz, .tgz veya .gz arşivleri kabul edilir.',
     'google_drive_not_configured' => 'Google Drive OAuth henüz yapılandırılmamış. Panelze.com → Panel entegrasyonları veya sunucu .env.',
     'google_drive_state_invalid' => 'OAuth oturumu geçersiz veya süresi doldu. Tekrar deneyin.',
     'google_drive_connected' => 'Google Drive bağlandı.',

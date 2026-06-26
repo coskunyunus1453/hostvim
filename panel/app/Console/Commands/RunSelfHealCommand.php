@@ -34,14 +34,18 @@ class RunSelfHealCommand extends Command
 
     private function handleNodeAppsWatchdog(EngineApiService $engine): void
     {
-        $report = $engine->reconcileNodeApps();
-        if (! empty($report['error'])) {
-            $dedupe = 'node-reconcile-error-'.date('YmdHi');
+        $report = $engine->getNodeAppsWatchdogStatus();
+        if (! empty($report['error']) && empty($report['items'])) {
+            $err = (string) $report['error'];
+            if ($this->isBenignWatchdogTransportError($err)) {
+                return;
+            }
+            $dedupe = 'node-watchdog-error-'.date('YmdH');
             if (! $this->alertExists($dedupe)) {
                 $this->createAlert([
-                    'level' => 'error',
-                    'title' => 'Node.js watchdog hatası',
-                    'message' => (string) $report['error'],
+                    'level' => 'warning',
+                    'title' => 'Node.js watchdog',
+                    'message' => $this->friendlyWatchdogError($err),
                     'path' => '/node-apps',
                     'dedupe_key' => $dedupe,
                 ]);
@@ -61,7 +65,7 @@ class RunSelfHealCommand extends Command
                     continue;
                 }
                 $dom = (string) ($item['domain'] ?? '?');
-                $err = (string) ($item['error'] ?? 'bilinmeyen');
+                $err = $this->friendlyNodeAppError((string) ($item['error'] ?? 'bilinmeyen'));
                 $lines[] = "{$dom}: {$err}";
                 if (count($lines) >= 5) {
                     break;
@@ -214,5 +218,34 @@ class RunSelfHealCommand extends Command
             return;
         }
         SystemAlert::query()->create($payload);
+    }
+
+    private function isBenignWatchdogTransportError(string $error): bool
+    {
+        $e = strtolower($error);
+
+        return str_contains($e, 'timed out')
+            || str_contains($e, 'curl error 28')
+            || str_contains($e, 'connection refused')
+            || str_contains($e, 'manage_node_apps devre');
+    }
+
+    private function friendlyWatchdogError(string $error): string
+    {
+        if ($this->isBenignWatchdogTransportError($error)) {
+            return 'Node.js uygulama denetimi şu an engine üzerinden okunamadı. Dahili watchdog çalışmaya devam eder; bir süre sonra tekrar kontrol edilecek.';
+        }
+
+        return $error;
+    }
+
+    private function friendlyNodeAppError(string $error): string
+    {
+        $e = strtolower($error);
+        if (str_contains($e, 'not listening') || str_contains($e, 'port_not_listening')) {
+            return 'Uygulama başlatıldı ancak beklenen port dinlenmiyor. Panel portu package.json ile senkronlanıyor; birkaç dakika içinde otomatik düzelecek veya Node uygulaması sayfasından «Onar» kullanın.';
+        }
+
+        return $error;
     }
 }

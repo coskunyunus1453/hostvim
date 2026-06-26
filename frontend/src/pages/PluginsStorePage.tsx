@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import api from '../services/api'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
 import { useAutoDomainId } from '../hooks/useAutoDomainId'
 
@@ -48,6 +49,8 @@ type DiscoverResponse = {
 export default function PluginsStorePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'tools:run')
   const setActivePluginSlugs = useAuthStore((s) => s.setActivePluginSlugs)
 
   const refreshActivePluginSlugs = async () => {
@@ -142,6 +145,10 @@ export default function PluginsStorePage() {
       toast.success(t('plugins.installed'))
       qc.invalidateQueries({ queryKey: ['plugins-store'] })
     },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
   })
 
   const activateM = useMutation({
@@ -151,6 +158,10 @@ export default function PluginsStorePage() {
       qc.invalidateQueries({ queryKey: ['plugins-store'] })
       await refreshActivePluginSlugs()
     },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
   })
 
   const deactivateM = useMutation({
@@ -159,6 +170,10 @@ export default function PluginsStorePage() {
       toast.success(t('plugins.deactivated'))
       qc.invalidateQueries({ queryKey: ['plugins-store'] })
       await refreshActivePluginSlugs()
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
     },
   })
   const startMigrationM = useMutation({
@@ -186,6 +201,10 @@ export default function PluginsStorePage() {
       setSecret('')
       qc.invalidateQueries({ queryKey: ['plugins-migration-runs'] })
     },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
   })
   const preflightM = useMutation({
     mutationFn: async (moduleId: number) =>
@@ -207,6 +226,10 @@ export default function PluginsStorePage() {
     onSuccess: (data) => {
       setPreflight(data)
       toast.success(data.ok ? t('plugins.preflight_ok') : t('plugins.preflight_warn'))
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
     },
   })
   const discoverM = useMutation({
@@ -232,6 +255,10 @@ export default function PluginsStorePage() {
       const su = data.suggested_db_user || data.db_users?.[0]
       setDbUser((prev) => prev.trim() || su || '')
       toast.success(t('plugins.discover_done'))
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
     },
   })
 
@@ -359,6 +386,22 @@ export default function PluginsStorePage() {
           </button>
         </div>
       </div>
+
+      {!canWrite && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+          {t('plugins.read_only_hint')}
+        </div>
+      )}
+
+      {q.isError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200 flex flex-wrap items-center gap-3">
+          <span>{t('plugins.load_error')}</span>
+          <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => q.refetch()}>
+            {t('domains.refresh')}
+          </button>
+        </div>
+      )}
+
       <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200">
         <p className="font-semibold">{t('plugins.migration_assistant_title')}</p>
         <p className="mt-1 text-xs">{t('plugins.migration_assistant_hint')}</p>
@@ -378,7 +421,7 @@ export default function PluginsStorePage() {
                 </span>
               ) : (
                 <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-2 py-1 dark:bg-emerald-900/30 dark:text-emerald-200">
-                  Free
+                  {t('plugins.free_label')}
                 </span>
               )}
             </div>
@@ -403,7 +446,12 @@ export default function PluginsStorePage() {
               ) : null}
               <div className="ml-auto flex gap-2">
                 {!m.installed ? (
-                  <button type="button" className="btn-primary py-1.5 text-xs" onClick={() => installM.mutate(m.id)}>
+                  <button
+                    type="button"
+                    className="btn-primary py-1.5 text-xs"
+                    disabled={!canWrite || installM.isPending}
+                    onClick={() => installM.mutate(m.id)}
+                  >
                     {t('plugins.install')}
                   </button>
                 ) : m.active ? (
@@ -412,6 +460,7 @@ export default function PluginsStorePage() {
                       <button
                         type="button"
                         className="btn-primary py-1.5 text-xs"
+                        disabled={!canWrite}
                         onClick={() => {
                           setConfigModule(m)
                           setSourceHost('')
@@ -445,12 +494,22 @@ export default function PluginsStorePage() {
                         {t('plugins.open')}
                       </Link>
                     )}
-                    <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => deactivateM.mutate(m.id)}>
+                    <button
+                      type="button"
+                      className="btn-secondary py-1.5 text-xs"
+                      disabled={!canWrite || deactivateM.isPending}
+                      onClick={() => deactivateM.mutate(m.id)}
+                    >
                       {t('plugins.deactivate')}
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="btn-primary py-1.5 text-xs" onClick={() => activateM.mutate(m.id)}>
+                  <button
+                    type="button"
+                    className="btn-primary py-1.5 text-xs"
+                    disabled={!canWrite || activateM.isPending}
+                    onClick={() => activateM.mutate(m.id)}
+                  >
                     {t('plugins.activate')}
                   </button>
                 )}
@@ -546,7 +605,7 @@ export default function PluginsStorePage() {
                   <div className="text-xs font-medium text-gray-700 dark:text-gray-200">{t('plugins.standard_path_label')}</div>
                   <code className="block break-all text-xs text-gray-800 dark:text-gray-100">{resolvedSourcePath || t('plugins.standard_path_pending')}</code>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className="btn-secondary py-1.5 text-xs" disabled={discoverM.isPending} onClick={() => discoverM.mutate(configModule.id)}>
+                    <button type="button" className="btn-secondary py-1.5 text-xs" disabled={!canWrite || discoverM.isPending} onClick={() => discoverM.mutate(configModule.id)}>
                       {t('plugins.discover_step1')}
                     </button>
                   </div>
@@ -574,7 +633,7 @@ export default function PluginsStorePage() {
                       <p className="text-xs text-emerald-700 dark:text-emerald-300">{t('plugins.path_from_discover')}: {resolvedSourcePath}</p>
                     )}
                   </div>
-                  <button type="button" className="btn-secondary shrink-0 py-1.5 text-xs sm:mb-0" disabled={discoverM.isPending} onClick={() => discoverM.mutate(configModule.id)}>
+                  <button type="button" className="btn-secondary shrink-0 py-1.5 text-xs sm:mb-0" disabled={!canWrite || discoverM.isPending} onClick={() => discoverM.mutate(configModule.id)}>
                     {t('plugins.discover_step1')}
                   </button>
                 </div>
@@ -634,8 +693,8 @@ export default function PluginsStorePage() {
                 {t('plugins.skip_db_preflight')}
               </label>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => discoverM.mutate(configModule.id)}>{t('plugins.discover')}</button>
-                <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => preflightM.mutate(configModule.id)}>{t('plugins.preflight')}</button>
+                <button type="button" className="btn-secondary py-1.5 text-xs" disabled={!canWrite || discoverM.isPending} onClick={() => discoverM.mutate(configModule.id)}>{t('plugins.discover')}</button>
+                <button type="button" className="btn-secondary py-1.5 text-xs" disabled={!canWrite || preflightM.isPending} onClick={() => preflightM.mutate(configModule.id)}>{t('plugins.preflight')}</button>
               </div>
               {discoverData && (
                 <div className="rounded-md border border-gray-200 dark:border-gray-700 p-2 text-xs space-y-1">
@@ -661,7 +720,7 @@ export default function PluginsStorePage() {
                   </div>
                   {preflight.checks.map((c) => (
                     <div key={c.key} className={c.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}>
-                      {c.ok ? 'OK' : 'ERR'} - {c.message}
+                      {c.ok ? t('plugins.check_ok') : t('plugins.check_err')} - {c.message}
                     </div>
                   ))}
                 </div>
@@ -684,7 +743,7 @@ export default function PluginsStorePage() {
                     <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => setWizardStep(2)}>{t('plugins.back')}</button>
                     <div className="flex gap-2">
                       <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => setConfigModule(null)}>{t('common.cancel')}</button>
-                      <button type="button" className="btn-primary py-1.5 text-xs" onClick={() => startMigrationNow(configModule.id)}>{t('plugins.start')}</button>
+                      <button type="button" className="btn-primary py-1.5 text-xs" disabled={!canWrite || startMigrationM.isPending} onClick={() => startMigrationNow(configModule.id)}>{t('plugins.start')}</button>
                     </div>
                   </div>
                 </div>
@@ -696,7 +755,18 @@ export default function PluginsStorePage() {
 
       <div className="card p-4">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">{t('plugins.migration_runs')}</h3>
+        {runsQ.isError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200 flex flex-wrap items-center gap-3">
+            <span>{t('plugins.runs_load_error')}</span>
+            <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => runsQ.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        )}
         <div className="space-y-2">
+          {(runsQ.data?.runs ?? []).length === 0 && !runsQ.isLoading && !runsQ.isError && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('plugins.runs_empty')}</p>
+          )}
           {(runsQ.data?.runs ?? []).map((r) => (
             <div key={r.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
               <div className="flex flex-wrap items-center gap-2 text-xs">

@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { Lock, RefreshCw, ShieldOff, Info, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useHostingTargets, type HostingTarget } from '../hooks/useHostingTargets'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 import SslProgressModal, {
   type SslJobAction,
   type SslJobState,
@@ -74,10 +77,16 @@ function formatDiagnostics(rows: DiagnosticRow[] | undefined): string[] {
 export default function SslPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'ssl:write')
+  const [searchParams] = useSearchParams()
+  const focusHost = (searchParams.get('focus') ?? '').trim().toLowerCase()
+  const focusRowRef = useRef<HTMLTableRowElement | null>(null)
   const [manualTarget, setManualTarget] = useState<HostingTarget | null>(null)
   const [manualCert, setManualCert] = useState('')
   const [manualKey, setManualKey] = useState('')
   const [job, setJob] = useState<SslJobState | null>(null)
+  const [settingsDomainId, setSettingsDomainId] = useState<number | null>(null)
 
   const sslQ = useQuery({
     queryKey: ['ssl'],
@@ -87,6 +96,12 @@ export default function SslPage() {
 
   const targetsQ = useHostingTargets()
   const targets = targetsQ.data ?? []
+
+  const focusTargetKey = useMemo(() => {
+    if (!focusHost) return null
+    const hit = targets.find((ht) => ht.hostname.toLowerCase() === focusHost)
+    return hit?.key ?? null
+  }, [focusHost, targets])
 
   const certs = sslQ.data?.certificates ?? []
 
@@ -221,6 +236,9 @@ export default function SslPage() {
         ...(vars.auto_renew !== undefined ? { auto_renew: vars.auto_renew } : {}),
         ...(vars.force_https !== undefined ? { force_https: vars.force_https } : {}),
       }),
+    onMutate: (vars) => {
+      setSettingsDomainId(vars.id)
+    },
     onSuccess: () => {
       toast.success(t('ssl.settings_saved'))
       invalidate()
@@ -228,6 +246,9 @@ export default function SslPage() {
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
+    },
+    onSettled: () => {
+      setSettingsDomainId(null)
     },
   })
 
@@ -276,6 +297,17 @@ export default function SslPage() {
   }
 
   const loading = targetsQ.isLoading || sslQ.isLoading
+  const loadError = targetsQ.isError || sslQ.isError
+
+  const refetchAll = () => {
+    void sslQ.refetch()
+    void targetsQ.refetch()
+  }
+
+  useEffect(() => {
+    if (loading || !focusTargetKey || !focusRowRef.current) return
+    focusRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [focusTargetKey, loading])
 
   return (
     <div className="space-y-6">
@@ -302,6 +334,18 @@ export default function SslPage() {
         </div>
       </div>
 
+      {!canWrite && (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t('ssl.read_only_hint')}</p>
+      )}
+
+      {loadError ? (
+        <div className="card rounded-lg border border-red-200 bg-red-50 px-4 py-8 text-center dark:border-red-900/40 dark:bg-red-950/30">
+          <p className="text-sm text-red-700 dark:text-red-300">{t('ssl.load_error')}</p>
+          <button type="button" className="btn-secondary mt-3 text-sm" onClick={refetchAll}>
+            {t('domains.refresh')}
+          </button>
+        </div>
+      ) : (
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] text-sm">
@@ -312,13 +356,15 @@ export default function SslPage() {
                 <th className="text-left px-4 py-2">{t('common.status')}</th>
                 <th className="text-left px-4 py-2">{t('ssl.expires')}</th>
                 <th className="text-left px-4 py-2">{t('ssl.col_settings')}</th>
-                <th className="text-right px-4 py-2">{t('common.actions')}</th>
+                {canWrite && (
+                  <th className="text-right px-4 py-2">{t('common.actions')}</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={canWrite ? 6 : 5} className="px-4 py-8 text-center text-gray-500">
                     {t('common.loading')}
                   </td>
                 </tr>
@@ -332,11 +378,20 @@ export default function SslPage() {
                   const days = daysUntil(c?.expires_at ?? ht.ssl_expiry ?? null)
                   const expiringSoon = days !== null && days >= 0 && days <= 30
                   const rowLocked = busyKey === ht.key
+                  const rowSettingsBusy = settingsDomainId === ht.domain_id
+                  const isFocused = focusTargetKey === ht.key
 
                   return (
                     <tr
                       key={ht.key}
-                      className={`border-t border-gray-100 dark:border-gray-800 ${rowLocked ? 'bg-primary-50/40 dark:bg-primary-900/10' : ''}`}
+                      ref={isFocused ? focusRowRef : undefined}
+                      className={`border-t border-gray-100 dark:border-gray-800 ${
+                        rowLocked
+                          ? 'bg-primary-50/40 dark:bg-primary-900/10'
+                          : isFocused
+                            ? 'bg-amber-50/80 ring-2 ring-inset ring-amber-400 dark:bg-amber-950/30'
+                            : ''
+                      }`}
                     >
                       <td className="px-4 py-3 font-medium">
                         <span className={isSub ? 'pl-4 font-mono text-sm' : ''}>
@@ -379,7 +434,7 @@ export default function SslPage() {
                       <td className="px-4 py-3">
                         {isSub ? (
                           <span className="text-xs text-gray-400">{t('ssl.subdomain_settings_na')}</span>
-                        ) : (
+                        ) : canWrite ? (
                           <div className="space-y-2">
                             <label
                               className={`flex items-center gap-2 text-xs ${hasSsl ? 'cursor-pointer' : 'opacity-50'}`}
@@ -389,7 +444,7 @@ export default function SslPage() {
                                 type="checkbox"
                                 className="rounded border-gray-300"
                                 checked={forceHttps}
-                                disabled={!hasSsl || settingsM.isPending || rowLocked}
+                                disabled={!hasSsl || rowSettingsBusy || rowLocked}
                                 onChange={(e) =>
                                   settingsM.mutate({ id: ht.domain_id, force_https: e.target.checked })
                                 }
@@ -404,7 +459,7 @@ export default function SslPage() {
                                 type="checkbox"
                                 className="rounded border-gray-300"
                                 checked={autoRenew}
-                                disabled={!c || settingsM.isPending || rowLocked}
+                                disabled={!c || rowSettingsBusy || rowLocked}
                                 onChange={(e) =>
                                   settingsM.mutate({ id: ht.domain_id, auto_renew: e.target.checked })
                                 }
@@ -412,8 +467,18 @@ export default function SslPage() {
                               <span>{t('ssl.auto_renew')}</span>
                             </label>
                           </div>
+                        ) : (
+                          <div className="space-y-1 text-xs text-gray-500">
+                            <p>
+                              {t('ssl.force_https')}: {forceHttps ? t('common.yes') : t('common.no')}
+                            </p>
+                            <p>
+                              {t('ssl.auto_renew')}: {autoRenew ? t('common.yes') : t('common.no')}
+                            </p>
+                          </div>
                         )}
                       </td>
+                      {canWrite && (
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-wrap justify-end gap-1">
                           <button
@@ -467,6 +532,7 @@ export default function SslPage() {
                           )}
                         </div>
                       </td>
+                      )}
                     </tr>
                   )
                 })
@@ -478,8 +544,9 @@ export default function SslPage() {
           <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
         )}
       </div>
+      )}
 
-      {manualTarget && (
+      {manualTarget && canWrite && (
         <div className="card space-y-4 p-4">
           <h2 className="font-semibold text-gray-900 dark:text-white">
             {t('ssl.manual_upload')} — {manualTarget.hostname}

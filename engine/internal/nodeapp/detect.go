@@ -246,13 +246,14 @@ func detectAtWorkDir(siteBase, workDirRel string) (*DetectResult, error) {
 	profile := inferProfile(workAbs, &pkg)
 	script := pickStartScript(pkg.Scripts)
 	scripts := scriptKeys(pkg.Scripts)
+	suggestedPort := inferPortFromWorkDir(siteBase, workDirRel, profile)
 
 	return &DetectResult{
 		HasPackageJSON: true,
 		Profile:        profile,
 		WorkDir:        workDirRel,
 		StartScript:    script,
-		SuggestedPort:  DefaultPortForProfile(profile),
+		SuggestedPort:  suggestedPort,
 		Scripts:        scripts,
 		PackageName:    strings.TrimSpace(pkg.Name),
 	}, nil

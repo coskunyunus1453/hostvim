@@ -89,6 +89,39 @@ sudo bash deploy/bootstrap/install-production.sh
 BASH;
     }
 
+    /** Ana sayfa: yalnızca Community + Pro kurulum komutları. */
+    /** @return array{label: string, command: string, note?: string}[] */
+    public static function homeSectionsForLocale(string $locale): array
+    {
+        if ($locale === 'en') {
+            return [
+                [
+                    'label' => 'Community (free)',
+                    'command' => self::community(),
+                    'note' => 'Debian/Ubuntu VPS · root or sudo. Up to 5 sites per server.',
+                ],
+                [
+                    'label' => 'Pro (licensed)',
+                    'command' => self::pro('hv_YOUR_KEY'),
+                    'note' => 'Replace hv_YOUR_KEY with the key from your Panelze account or purchase email.',
+                ],
+            ];
+        }
+
+        return [
+            [
+                'label' => 'Community (ücretsiz)',
+                'command' => self::community(),
+                'note' => 'Debian/Ubuntu VPS · root veya sudo. Sunucu başına en fazla 5 site.',
+            ],
+            [
+                'label' => 'Pro (lisanslı)',
+                'command' => self::pro('hv_ANAHTARINIZ'),
+                'note' => 'hv_ANAHTARINIZ yerine Panelze hesabınızdaki veya satın alma e-postanızdaki anahtarı yazın.',
+            ],
+        ];
+    }
+
     /** @return array{label: string, command: string, note?: string}[] */
     public static function sectionsForLocale(string $locale): array
     {

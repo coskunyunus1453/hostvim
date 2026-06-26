@@ -49,6 +49,7 @@ export default function DomainDeleteConfirmModal({ open, domain, onClose, onDele
   if (!open || !domain) return null
 
   const expectedPhrase = t('domains.delete_confirm_expected')
+  const phraseOk = phrase.trim() === expectedPhrase
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
@@ -113,7 +114,7 @@ export default function DomainDeleteConfirmModal({ open, domain, onClose, onDele
           <button
             type="button"
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            disabled={deleteM.isPending}
+            disabled={deleteM.isPending || !phraseOk}
             onClick={() => deleteM.mutate()}
           >
             {deleteM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\SslCertificate;
 use App\Services\EngineApiService;
+use App\Services\HostingSiteTargetResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -13,7 +14,7 @@ class SslRenewDueCommand extends Command
 
     protected $description = 'Renew Let\'s Encrypt certificates with auto_renew enabled that expire soon';
 
-    public function handle(EngineApiService $engine): int
+    public function handle(EngineApiService $engine, HostingSiteTargetResolver $targets): int
     {
         $rows = SslCertificate::query()
             ->where('auto_renew', true)
@@ -21,7 +22,7 @@ class SslRenewDueCommand extends Command
             ->where('provider', 'letsencrypt')
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now()->addDays(30))
-            ->with('domain')
+            ->with(['domain', 'siteSubdomain'])
             ->limit(20)
             ->get();
 
@@ -31,10 +32,15 @@ class SslRenewDueCommand extends Command
                 continue;
             }
 
-            $res = $engine->renewSSL($domain->name);
+            $target = $targets->forDomain($domain, $cert->site_subdomain_id);
+            $res = $engine->renewSSL(
+                $target->hostname,
+                $target->isSubdomain() ? $target->engineSiteName : null,
+                $target->subdomain?->path_segment,
+            );
             if (! empty($res['error'])) {
                 Log::warning('panelze.ssl_auto_renew_failed', [
-                    'domain' => $domain->name,
+                    'hostname' => $target->hostname,
                     'certificate_id' => $cert->id,
                     'error' => $res['error'],
                 ]);
@@ -46,10 +52,21 @@ class SslRenewDueCommand extends Command
                 'status' => 'active',
                 'expires_at' => now()->addDays(90),
             ]);
-            $domain->update(['ssl_expiry' => $cert->expires_at]);
+
+            if ($target->isSubdomain() && $target->subdomain) {
+                $target->subdomain->update([
+                    'ssl_enabled' => true,
+                    'ssl_expiry' => $cert->expires_at,
+                ]);
+            } else {
+                $domain->update([
+                    'ssl_enabled' => true,
+                    'ssl_expiry' => $cert->expires_at,
+                ]);
+            }
 
             Log::info('panelze.ssl_auto_renew_ok', [
-                'domain' => $domain->name,
+                'hostname' => $target->hostname,
                 'certificate_id' => $cert->id,
             ]);
         }

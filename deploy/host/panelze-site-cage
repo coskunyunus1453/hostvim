@@ -1,0 +1,405 @@
+#!/usr/bin/env bash
+# PanelKafes — site başına Linux kullanıcı izolasyonu (CloudLinux/CageFS benzeri katman).
+# Engine www-data: sudo -n /usr/local/sbin/panelze-site-cage <cmd> ...
+set -euo pipefail
+
+GROUP="${PANELZE_CAGE_GROUP:-panelze-hosting}"
+PREFIX="${PANELZE_CAGE_USER_PREFIX:-pk}"
+ENGINE_USER="${PANELZE_CAGE_ENGINE_USER:-www-data}"
+SLICE_PREFIX="panelkafes"
+DEFAULT_CPU_PCT="${PANELZE_CAGE_CPU_PERCENT:-100}"
+DEFAULT_MEM_MB="${PANELZE_CAGE_MEMORY_MB:-1024}"
+
+usage() {
+  echo "usage: panelze-site-cage ensure-user <domain> <web_root>" >&2
+  echo "       panelze-site-cage apply <domain> <web_root>" >&2
+  echo "       panelze-site-cage limits <domain> [cpu_percent] [memory_mb]" >&2
+  echo "       panelze-site-cage remove-user <domain>" >&2
+  echo "       panelze-site-cage status <domain> <web_root>" >&2
+  echo "       panelze-site-cage apply-all <web_root>" >&2
+  echo "       panelze-site-cage ensure-group" >&2
+  echo "       panelze-site-cage ensure-fpm" >&2
+  echo "       panelze-site-cage write-pool <version> <domain>  (pool icerigi stdin)" >&2
+  echo "       panelze-site-cage cage-service <domain> <version> [cpu%] [mem_mb]" >&2
+  echo "       panelze-site-cage cage-service-remove <domain> <version>" >&2
+  echo "       panelze-site-cage reload-fpm <version>" >&2
+  exit 2
+}
+
+slug_from_domain() {
+  local d
+  d="$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr '.' '-' | tr -cd 'a-z0-9-')"
+  echo "${d:0:48}"
+}
+
+user_from_domain() {
+  local slug
+  slug="$(slug_from_domain "$1")"
+  local u="${PREFIX}-${slug}"
+  echo "${u:0:32}"
+}
+
+slice_name() {
+  echo "${SLICE_PREFIX}-$(slug_from_domain "$1")"
+}
+
+ensure_group() {
+  if ! getent group "$GROUP" >/dev/null 2>&1; then
+    groupadd --system "$GROUP" >/dev/null 2>&1
+  fi
+  if id "$ENGINE_USER" &>/dev/null; then
+    usermod -aG "$GROUP" "$ENGINE_USER" >/dev/null 2>&1 || true
+  fi
+}
+
+# Engine (www-data) PHP-FPM pool.d ve socket dizinlerine yazabilsin.
+ensure_fpm_writable() {
+  local d
+  for d in /etc/php/*/fpm/pool.d; do
+    [[ -d "$d" ]] || continue
+    chgrp "$ENGINE_USER" "$d" 2>/dev/null || true
+    chmod 2775 "$d" 2>/dev/null || true
+  done
+  if [[ -d /run/php ]]; then
+    chgrp "$ENGINE_USER" /run/php 2>/dev/null || true
+    chmod 2775 /run/php 2>/dev/null || true
+  fi
+  # php-fpm -t testi (engine www-data) master error_log'u açabilsin.
+  local log
+  for log in /var/log/php*-fpm.log; do
+    [[ -e "$log" ]] || continue
+    chgrp "$ENGINE_USER" "$log" 2>/dev/null || true
+    chmod 660 "$log" 2>/dev/null || true
+  done
+}
+
+# write-pool <version> <domain> — stdin'den PHP-FPM pool içeriğini alır; root olarak
+# yazar, `php-fpm -t` test eder, reload eder ve soketin oluştuğunu doğrular.
+# Başarıda son satırda "OK <socket>" döner; başarısızlıkta eski içeriği geri yükler.
+cmd_write_pool() {
+  local ver="${1:-}" domain="${2:-}"
+  [[ -n "$ver" && -n "$domain" ]] || usage
+  ensure_fpm_writable
+  local slug pool_dir conf sock prev had_prev
+  slug="$(slug_from_domain "$domain")"
+  pool_dir="/etc/php/${ver}/fpm/pool.d"
+  [[ -d "$pool_dir" ]] || { echo "pool.d yok: $pool_dir" >&2; exit 1; }
+  conf="${pool_dir}/panelze-${slug}.conf"
+  sock="/run/php/panelze-${slug}.sock"
+  prev=""
+  had_prev="0"
+  if [[ -f "$conf" ]]; then prev="$(cat "$conf")"; had_prev="1"; fi
+  # stdin -> pool dosyası
+  cat > "$conf"
+  if [[ ! -s "$conf" ]]; then
+    if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$conf"; else rm -f "$conf"; fi
+    echo "bos pool icerigi" >&2; exit 1
+  fi
+  # Yapılandırma testi (root: master error_log sorunu olmaz)
+  local terr
+  if ! terr="$(php-fpm${ver} -t 2>&1)"; then
+    if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$conf"; else rm -f "$conf"; fi
+    # Hatanın son anlamlı satırını döndür (chdir/open_basedir vb. teşhis için).
+    local detail
+    detail="$(printf '%s\n' "$terr" | grep -iE 'ERROR|does not exist' | tail -1)"
+    echo "php-fpm${ver} -t basarisiz: ${detail:-bkz fpm log}" >&2; exit 1
+  fi
+  if ! systemctl reload "php${ver}-fpm" 2>/dev/null; then
+    systemctl restart "php${ver}-fpm" 2>/dev/null || { echo "reload/restart basarisiz php${ver}-fpm" >&2; exit 1; }
+  fi
+  # Soketin oluşmasını bekle (master listen soketini reload'da açar)
+  local i
+  for i in $(seq 1 20); do [[ -S "$sock" ]] && break; sleep 0.25; done
+  if [[ ! -S "$sock" ]]; then
+    if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$conf"; else rm -f "$conf"; fi
+    systemctl reload "php${ver}-fpm" 2>/dev/null || true
+    echo "soket olusmadi: $sock" >&2; exit 1
+  fi
+  echo "OK $sock"
+}
+
+# cage-service <domain> <version> [cpu_percent] [memory_mb]
+# Site için ayrı PHP-FPM systemd servisi + kaynak slice'i kurar. Böylece CPU/RAM
+# limiti (CPUQuota/MemoryMax) kernel cgroup ile GERÇEKTEN enforce edilir.
+# Paylaşımlı master'daki pool'u kendi servisine taşır; hata olursa geri alır.
+cmd_cage_service() {
+  local domain="${1:-}" ver="${2:-}"
+  local cpu="${3:-$DEFAULT_CPU_PCT}" mem="${4:-$DEFAULT_MEM_MB}"
+  [[ -n "$domain" && -n "$ver" ]] || usage
+  local slug slice pool_src sock pidfile logfile conf_dir conf svc unit i
+  slug="$(slug_from_domain "$domain")"
+  slice="$(slice_name "$domain")"
+  pool_src="/etc/php/${ver}/fpm/pool.d/panelze-${slug}.conf"
+  sock="/run/php/panelze-${slug}.sock"
+  pidfile="/run/php/panelze-fpm-${slug}.pid"
+  logfile="/var/log/panelze-fpm-${slug}.log"
+  conf_dir="/etc/panelze/fpm"
+  conf="${conf_dir}/${slug}.conf"
+  svc="panelze-fpm-${slug}"
+  unit="/etc/systemd/system/${svc}.service"
+  mkdir -p "$conf_dir"
+
+  # Pool kaynağı: paylaşımlı pool.d veya zaten taşınmış per-site config
+  if [[ ! -f "$pool_src" && ! -f "$conf" ]]; then
+    echo "pool yok: $pool_src" >&2; exit 1
+  fi
+
+  # 1) Kaynak slice (CPU/RAM)
+  cat >"/etc/systemd/system/${slice}.slice" <<EOF
+[Unit]
+Description=PanelKafes resource slice for ${domain}
+
+[Slice]
+CPUQuota=${cpu}%
+MemoryMax=${mem}M
+EOF
+
+  # 2) Per-site FPM config: global + pool içeriği (kaynak pool.d'den)
+  local pool_body
+  if [[ -f "$pool_src" ]]; then
+    pool_body="$(cat "$pool_src")"
+  else
+    # zaten taşınmış: mevcut conf'tan pool bölümünü koru ([global] hariç değil, tümü yeniden)
+    pool_body="$(sed '/^\[global\]/,/^\[/{/^\[global\]/d;/^pid =/d;/^error_log =/d;/^daemonize =/d;}' "$conf")"
+  fi
+  {
+    echo "[global]"
+    echo "pid = ${pidfile}"
+    echo "error_log = ${logfile}"
+    echo "daemonize = no"
+    echo ""
+    printf '%s\n' "$pool_body"
+  } >"$conf.tmp"
+
+  # 3) systemd servis (slice'a bağlı)
+  cat >"$unit" <<EOF
+[Unit]
+Description=PanelKafes PHP-FPM ${domain} (PHP ${ver})
+After=network.target
+
+[Service]
+Slice=${slice}.slice
+Type=notify
+ExecStart=/usr/sbin/php-fpm${ver} --nodaemonize --fpm-config ${conf}
+ExecReload=/bin/kill -USR2 \$MAINPID
+PIDFile=${pidfile}
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  mv "$conf.tmp" "$conf"
+  systemctl daemon-reload 2>/dev/null || true
+
+  # 4) Config testi
+  if ! php-fpm${ver} -t -y "$conf" >/dev/null 2>&1; then
+    echo "per-site fpm config testi basarisiz ($conf)" >&2; exit 1
+  fi
+
+  # 5) Paylaşımlı master'dan pool'u kaldır + reload (socket boşalsın)
+  local bak=""
+  if [[ -f "$pool_src" ]]; then
+    bak="${pool_src}.cagebak"
+    mv "$pool_src" "$bak"
+    systemctl reload "php${ver}-fpm" 2>/dev/null || true
+  fi
+  for i in $(seq 1 16); do [[ -S "$sock" ]] || break; sleep 0.25; done
+
+  # 6) Per-site servisi başlat
+  systemctl enable "$svc" >/dev/null 2>&1 || true
+  if ! systemctl restart "$svc" 2>/dev/null; then
+    [[ -n "$bak" && -f "$bak" ]] && { mv "$bak" "$pool_src"; systemctl reload "php${ver}-fpm" 2>/dev/null || true; }
+    echo "servis baslatilamadi: $svc" >&2; exit 1
+  fi
+  for i in $(seq 1 24); do [[ -S "$sock" ]] && break; sleep 0.25; done
+  if [[ ! -S "$sock" ]]; then
+    systemctl stop "$svc" 2>/dev/null || true
+    systemctl disable "$svc" >/dev/null 2>&1 || true
+    [[ -n "$bak" && -f "$bak" ]] && { mv "$bak" "$pool_src"; systemctl reload "php${ver}-fpm" 2>/dev/null || true; }
+    echo "per-site soket olusmadi: $sock" >&2; exit 1
+  fi
+  [[ -n "$bak" && -f "$bak" ]] && rm -f "$bak"
+  echo "OK cage-service svc=${svc} slice=${slice} cpu=${cpu}% mem=${mem}M"
+}
+
+# cage-service-remove <domain> <version> — per-site servisi kaldırır, pool'u
+# paylaşımlı master'a geri taşır (cage tamamen kapatılırken).
+cmd_cage_service_remove() {
+  local domain="${1:-}" ver="${2:-}"
+  [[ -n "$domain" && -n "$ver" ]] || usage
+  local slug svc unit conf pool_dst
+  slug="$(slug_from_domain "$domain")"
+  svc="panelze-fpm-${slug}"
+  unit="/etc/systemd/system/${svc}.service"
+  conf="/etc/panelze/fpm/${slug}.conf"
+  pool_dst="/etc/php/${ver}/fpm/pool.d/panelze-${slug}.conf"
+  systemctl stop "$svc" 2>/dev/null || true
+  systemctl disable "$svc" >/dev/null 2>&1 || true
+  [[ -f "$unit" ]] && rm -f "$unit"
+  if [[ -f "$conf" && ! -f "$pool_dst" ]]; then
+    sed '/^\[global\]/,/^$/d' "$conf" >"$pool_dst" 2>/dev/null || true
+    systemctl reload "php${ver}-fpm" 2>/dev/null || true
+  fi
+  [[ -f "$conf" ]] && rm -f "$conf"
+  systemctl daemon-reload 2>/dev/null || true
+  echo "OK cage-service-remove $svc"
+}
+
+# reload-fpm <version> — root olarak servisi yeniden yükle (engine www-data yapamaz).
+cmd_reload_fpm() {
+  local ver="${1:-}"
+  [[ -n "$ver" ]] || usage
+  local svc="php${ver}-fpm"
+  if systemctl reload "$svc" 2>/dev/null; then
+    echo "OK reload $svc"
+  elif systemctl restart "$svc" 2>/dev/null; then
+    echo "OK restart $svc"
+  else
+    echo "WARN reload failed $svc" >&2
+    exit 1
+  fi
+}
+
+cmd_ensure_user() {
+  local domain="$1" web_root="$2"
+  [[ -n "$domain" && -n "$web_root" ]] || usage
+  ensure_group
+  local user site_root
+  user="$(user_from_domain "$domain")"
+  site_root="${web_root%/}/$domain"
+  mkdir -p "$site_root"
+  if ! id "$user" &>/dev/null; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin \
+      --gid "$GROUP" --home-dir "$site_root" "$user" >/dev/null 2>&1
+  else
+    usermod --home "$site_root" --gid "$GROUP" "$user" >/dev/null 2>&1 || true
+  fi
+  usermod -aG "$GROUP" "$user" >/dev/null 2>&1 || true
+  mkdir -p "$site_root/tmp" >/dev/null 2>&1
+  echo "$user"
+}
+
+cmd_apply() {
+  local domain="$1" web_root="$2"
+  [[ -n "$domain" && -n "$web_root" ]] || usage
+  ensure_group
+  ensure_fpm_writable
+  local user site_root
+  user="$(cmd_ensure_user "$domain" "$web_root")"
+  site_root="${web_root%/}/$domain"
+  [[ -d "$site_root" ]] || { echo "site root missing: $site_root" >&2; exit 1; }
+
+  chown -R "$user:$GROUP" "$site_root"
+  find "$site_root" -type d -exec chmod 2775 {} +
+  find "$site_root" -type f -exec chmod 664 {} +
+  chmod 1777 "$site_root/tmp" 2>/dev/null || chmod 2777 "$site_root/tmp" 2>/dev/null || true
+
+  for priv in .panelze .panelsar .hostvim; do
+    if [[ -d "$site_root/$priv" ]]; then
+      chown -R "$user:$GROUP" "$site_root/$priv"
+      chmod 750 "$site_root/$priv"
+      find "$site_root/$priv" -type f -exec chmod 640 {} +
+    fi
+  done
+
+  limits_file="/etc/security/limits.d/panelkafes-${user}.conf"
+  cat >"$limits_file" <<EOF
+# PanelKafes — $domain
+$user soft nproc 80
+$user hard nproc 120
+$user soft nofile 8192
+$user hard nofile 16384
+EOF
+  echo "OK apply $domain user=$user"
+}
+
+cmd_limits() {
+  local domain="$1"
+  local cpu="${2:-$DEFAULT_CPU_PCT}"
+  local mem="${3:-$DEFAULT_MEM_MB}"
+  [[ -n "$domain" ]] || usage
+  local slice
+  slice="$(slice_name "$domain")"
+  local unit="/etc/systemd/system/${slice}.slice"
+  cat >"$unit" <<EOF
+[Unit]
+Description=PanelKafes resource slice for ${domain}
+Documentation=https://panelze.local/panelkafes
+
+[Slice]
+CPUQuota=${cpu}%
+MemoryMax=${mem}M
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "OK limits slice=${slice} cpu=${cpu}% mem=${mem}M"
+}
+
+cmd_remove_user() {
+  local domain="$1"
+  [[ -n "$domain" ]] || usage
+  local user slice unit limits_file
+  user="$(user_from_domain "$domain")"
+  slice="$(slice_name "$domain")"
+  unit="/etc/systemd/system/${slice}.slice"
+  limits_file="/etc/security/limits.d/panelkafes-${user}.conf"
+  [[ -f "$unit" ]] && rm -f "$unit"
+  [[ -f "$limits_file" ]] && rm -f "$limits_file"
+  systemctl daemon-reload 2>/dev/null || true
+  if id "$user" &>/dev/null; then
+    userdel "$user" 2>/dev/null || true
+  fi
+  echo "OK removed $user"
+}
+
+cmd_status() {
+  local domain="$1" web_root="$2"
+  [[ -n "$domain" && -n "$web_root" ]] || usage
+  local user site_root
+  user="$(user_from_domain "$domain")"
+  site_root="${web_root%/}/$domain"
+  local exists="false" user_exists="false" owner=""
+  [[ -d "$site_root" ]] && exists="true"
+  id "$user" &>/dev/null && user_exists="true"
+  if [[ -d "$site_root" ]]; then
+    owner="$(stat -c '%U:%G' "$site_root" 2>/dev/null || echo '')"
+  fi
+  printf '{"domain":"%s","cage_user":"%s","user_exists":%s,"site_exists":%s,"owner":"%s","group":"%s"}\n' \
+    "$domain" "$user" "$user_exists" "$exists" "$owner" "$GROUP"
+}
+
+cmd_apply_all() {
+  local web_root="$1"
+  [[ -n "$web_root" && -d "$web_root" ]] || usage
+  ensure_group
+  ensure_fpm_writable
+  local d
+  for d in "$web_root"/*; do
+    [[ -d "$d" ]] || continue
+    local name
+    name="$(basename "$d")"
+    [[ "$name" == .* ]] && continue
+    cmd_apply "$name" "$web_root" || echo "WARN: $name" >&2
+    cmd_limits "$name" "$DEFAULT_CPU_PCT" "$DEFAULT_MEM_MB" || true
+  done
+  echo "OK apply-all"
+}
+
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  ensure-group) ensure_group; echo "OK group $GROUP" ;;
+  ensure-fpm) ensure_fpm_writable; echo "OK fpm writable" ;;
+  write-pool) cmd_write_pool "${1:-}" "${2:-}" ;;
+  cage-service) cmd_cage_service "${1:-}" "${2:-}" "${3:-}" "${4:-}" ;;
+  cage-service-remove) cmd_cage_service_remove "${1:-}" "${2:-}" ;;
+  reload-fpm) cmd_reload_fpm "${1:-}" ;;
+  ensure-user) cmd_ensure_user "${1:-}" "${2:-}" ;;
+  apply) cmd_apply "${1:-}" "${2:-}" ;;
+  limits) cmd_limits "${1:-}" "${2:-}" "${3:-}" ;;
+  remove-user) cmd_remove_user "${1:-}" ;;
+  status) cmd_status "${1:-}" "${2:-}" ;;
+  apply-all) cmd_apply_all "${1:-}" ;;
+  *) usage ;;
+esac

@@ -54,6 +54,7 @@ export const authService = {
     force_password_change?: boolean
     white_label?: WhiteLabelUi | null
     active_plugin_slugs?: string[]
+    impersonated_by?: { id: number; name: string; email: string } | null
   }> => {
     const { data } = await api.get('/auth/me')
     return data

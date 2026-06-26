@@ -18,6 +18,8 @@ import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { CRON_PRESETS, joinCronFields, parseCronFields, presetIdForSchedule } from '../utils/cronHumanize'
 import { useAutoDomainId } from '../hooks/useAutoDomainId'
+import { useAuthStore } from '../store/authStore'
+import { tokenHasAbility } from '../lib/abilities'
 
 type CronSuggestion = {
   id: string
@@ -87,6 +89,9 @@ type QuotaSummary = {
 
 export default function CronPage() {
   const { t } = useTranslation()
+  const isAdmin = useAuthStore((s) => s.user?.roles?.some((r) => r.name === 'admin'))
+  const abilities = useAuthStore((s) => s.user?.abilities)
+  const canWrite = tokenHasAbility(abilities, 'cron:write')
   const qc = useQueryClient()
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editing, setEditing] = useState<CronRow | null>(null)
@@ -98,8 +103,10 @@ export default function CronPage() {
   const [description, setDescription] = useState('')
   const [logJob, setLogJob] = useState<CronRow | null>(null)
   const [logFilter, setLogFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'timeout'>('all')
+  const [runningId, setRunningId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const { domainId: discoverDomainId, setDomainId: setDiscoverDomainId, domainsQ } =
-    useAutoDomainId({ param: false })
+    useAutoDomainId({ param: 'domain' })
   const [discoverDeep, setDiscoverDeep] = useState(true)
 
   const q = useQuery({
@@ -234,24 +241,29 @@ export default function CronPage() {
 
   const deleteM = useMutation({
     mutationFn: async (id: number) => api.delete(`/cron/${id}`),
+    onMutate: (id) => setDeletingId(id),
     onSuccess: () => {
+      setDeletingId(null)
       toast.success(t('cron.deleted'))
       qc.invalidateQueries({ queryKey: ['cron'] })
       qc.invalidateQueries({ queryKey: ['cron-summary'] })
     },
     onError: (err: unknown) => {
-      const ax = err as { response?: { data?: { message?: string } } }
-      toast.error(ax.response?.data?.message ?? String(err))
+      setDeletingId(null)
+      toast.error(apiErrorMessage(err))
     },
   })
 
   const runNowM = useMutation({
     mutationFn: async (id: number) => api.post(`/cron/${id}/run-now`),
+    onMutate: (id) => setRunningId(id),
     onSuccess: (_, id) => {
+      setRunningId(null)
       toast.success(t('cron.run_now_success'))
       qc.invalidateQueries({ queryKey: ['cron-runs', id] })
     },
     onError: (err: unknown) => {
+      setRunningId(null)
       toast.error(apiErrorMessage(err))
     },
   })
@@ -329,11 +341,17 @@ export default function CronPage() {
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('cron.subtitle')}</p>
           </div>
         </div>
-        <button type="button" className="btn-primary flex items-center gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          {t('cron.add_task')}
-        </button>
+        {canWrite && (
+          <button type="button" className="btn-primary flex items-center gap-2" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            {t('cron.add_task')}
+          </button>
+        )}
       </div>
+
+      {!canWrite && (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t('cron.read_only_hint')}</p>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5 space-y-3 border-l-4 border-primary-500">
@@ -393,8 +411,8 @@ export default function CronPage() {
                 <th className="text-left px-4 py-2">{t('cron.col_human')}</th>
                 <th className="text-left px-4 py-2">{t('cron.col_command')}</th>
                 <th className="text-left px-4 py-2">{t('cron.col_note')}</th>
-                <th className="text-left px-4 py-2">{t('cron.col_engine')}</th>
-                <th className="text-right px-4 py-2">{t('common.actions')}</th>
+                {isAdmin && <th className="text-left px-4 py-2">{t('cron.col_engine')}</th>}
+                {canWrite && <th className="text-right px-4 py-2">{t('common.actions')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -425,9 +443,12 @@ export default function CronPage() {
                         {t('cron.system_locked')}
                       </span>
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs text-gray-500">
-                      {job.engine_job_id?.trim() ? job.engine_job_id : '—'}
-                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-2 font-mono text-xs text-gray-500">
+                        {job.engine_job_id?.trim() ? job.engine_job_id : '—'}
+                      </td>
+                    )}
+                    {canWrite && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
                       <button
                         type="button"
@@ -462,6 +483,7 @@ export default function CronPage() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
+                    )}
                   </tr>
                 )
               })}
@@ -481,7 +503,7 @@ export default function CronPage() {
               <th className="text-left px-4 py-2">{t('cron.col_human')}</th>
               <th className="text-left px-4 py-2">{t('cron.col_command')}</th>
               <th className="text-left px-4 py-2">{t('cron.col_note')}</th>
-              <th className="text-left px-4 py-2">{t('cron.col_engine')}</th>
+              {isAdmin && <th className="text-left px-4 py-2">{t('cron.col_engine')}</th>}
               <th className="text-right px-4 py-2">{t('common.actions')}</th>
             </tr>
           </thead>
@@ -515,61 +537,93 @@ export default function CronPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-500">
-                    {job.engine_job_id?.trim() ? job.engine_job_id : '—'}
-                  </td>
+                  {isAdmin && (
+                    <td className="px-4 py-2 font-mono text-xs text-gray-500">
+                      {job.engine_job_id?.trim() ? job.engine_job_id : '—'}
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      className="mr-1 inline-flex p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
-                      title={t('cron.run_now')}
-                      onClick={() => runNowM.mutate(job.id)}
-                      disabled={runNowM.isPending || !!job.is_system}
-                    >
-                      {runNowM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                    </button>
-                    <button
-                      type="button"
-                      className="mr-1 inline-flex p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                      title={t('cron.logs')}
-                      onClick={() => setLogJob(job)}
-                      disabled={!!job.is_system}
-                    >
-                      <TerminalSquare className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="mr-1 inline-flex p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                      title={t('common.edit')}
-                      onClick={() => openEdit(job)}
-                      disabled={!!job.is_system}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-                      title={t('common.delete')}
-                      onClick={() => {
-                        if (window.confirm(t('common.confirm_delete'))) deleteM.mutate(job.id)
-                      }}
-                      disabled={!!job.is_system}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canWrite && (
+                      <>
+                        <button
+                          type="button"
+                          className="mr-1 inline-flex p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
+                          title={t('cron.run_now')}
+                          onClick={() => runNowM.mutate(job.id)}
+                          disabled={runningId === job.id || !!job.is_system}
+                        >
+                          {runningId === job.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          className="mr-1 inline-flex p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          title={t('cron.logs')}
+                          onClick={() => setLogJob(job)}
+                          disabled={!!job.is_system}
+                        >
+                          <TerminalSquare className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="mr-1 inline-flex p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                          title={t('common.edit')}
+                          onClick={() => openEdit(job)}
+                          disabled={!!job.is_system}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title={t('common.delete')}
+                          onClick={() => {
+                            if (window.confirm(t('common.confirm_delete'))) deleteM.mutate(job.id)
+                          }}
+                          disabled={!!job.is_system || deletingId === job.id}
+                        >
+                          {deletingId === job.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                      </>
+                    )}
+                    {!canWrite && (
+                      <button
+                        type="button"
+                        className="inline-flex p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        title={t('cron.logs')}
+                        onClick={() => setLogJob(job)}
+                      >
+                        <TerminalSquare className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        {q.isLoading && <p className="p-6 text-center text-gray-500">{t('common.loading')}</p>}
-        {!q.isLoading && userRows.length === 0 && (
+        {q.isError ? (
+          <div className="px-4 py-8 text-center">
+            <p className="text-sm text-red-700 dark:text-red-300">{t('cron.load_error')}</p>
+            <button type="button" className="btn-secondary mt-3 text-sm" onClick={() => void q.refetch()}>
+              {t('domains.refresh')}
+            </button>
+          </div>
+        ) : q.isLoading ? (
+          <p className="p-6 text-center text-gray-500">{t('common.loading')}</p>
+        ) : userRows.length === 0 ? (
           <p className="p-6 text-center text-gray-500">{t('cron.empty_hint')}</p>
-        )}
+        ) : null}
       </div>
 
-      {modal && (
+      {modal && canWrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
           <div className="card my-8 max-w-2xl w-full p-6 space-y-4 bg-white dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-2">
@@ -896,9 +950,9 @@ export default function CronPage() {
                   type="button"
                   className="btn-primary flex items-center gap-2"
                   onClick={() => runNowM.mutate(logJob.id)}
-                  disabled={runNowM.isPending || !!logJob.is_system}
+                  disabled={runningId === logJob.id || !!logJob.is_system || !canWrite}
                 >
-                  {runNowM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  {runningId === logJob.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                   {t('cron.run_now')}
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setLogJob(null)}>
@@ -908,7 +962,10 @@ export default function CronPage() {
             </div>
 
             {runsQ.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
-            {!runsQ.isLoading && filteredRuns.length === 0 && (
+            {runsQ.isError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{t('cron.load_error')}</p>
+            )}
+            {!runsQ.isLoading && !runsQ.isError && filteredRuns.length === 0 && (
               <p className="text-sm text-gray-500">{t('cron.no_logs')}</p>
             )}
 

@@ -1,5 +1,9 @@
 @php
+    $tabKeys = ['site', 'theme', 'home', 'install'];
     $activeTab = $activeTab ?? request('tab', 'site');
+    if (! in_array($activeTab, $tabKeys, true)) {
+        $activeTab = 'site';
+    }
     $tabs = [
         'site' => 'Site ayarları',
         'theme' => 'Tema ayarları',
@@ -16,29 +20,84 @@
             </p>
         </div>
 
-        <div class="admin-form-panel !shadow-none space-y-4">
-            <nav class="flex flex-wrap gap-2" aria-label="Görünüm sekmeleri">
+        <div class="admin-form-panel hv-appearance-tabs !shadow-none space-y-4">
+            @foreach ($tabKeys as $key)
+                <input type="radio"
+                       name="hv-appearance-tab"
+                       id="hv-appearance-tab-{{ $key }}"
+                       class="hv-tab-input"
+                       @checked($activeTab === $key)>
+            @endforeach
+
+            <nav class="hv-tab-nav flex flex-wrap gap-2" aria-label="Görünüm sekmeleri">
                 @foreach ($tabs as $key => $label)
-                    <a href="{{ route('admin.appearance.index', ['tab' => $key]) }}"
-                       class="admin-btn-outline px-4 py-2 text-xs {{ $activeTab === $key ? '!border-orange-500 !text-orange-700 dark:!text-orange-200' : '' }}"
-                       @if ($activeTab === $key) aria-current="page" @endif>
+                    <label for="hv-appearance-tab-{{ $key }}"
+                           class="admin-btn-outline hv-tab-label cursor-pointer px-4 py-2 text-xs">
                         {{ $label }}
-                    </a>
+                    </label>
                 @endforeach
             </nav>
 
-            @if ($activeTab === 'site')
-                @include('admin.site-settings.edit', ['embedded' => true])
-            @elseif ($activeTab === 'theme')
-                @include('admin.theme-settings.edit', ['embedded' => true])
-            @elseif ($activeTab === 'home')
-                @include('admin.public-home-content.edit', ['embedded' => true])
-            @elseif ($activeTab === 'install')
+            <div class="hv-tab-panel hv-tab-panel-site">
+                @include('admin.site-settings.edit', [
+                    'embedded' => true,
+                    'siteName' => $siteName,
+                    'siteTagline' => $siteTagline,
+                    'logoUrl' => $logoUrl,
+                    'faviconUrl' => $faviconUrl,
+                    'contactEmail' => $contactEmail,
+                    'socialTwitter' => $socialTwitter,
+                    'socialGithub' => $socialGithub,
+                    'socialLinkedin' => $socialLinkedin,
+                    'analyticsGa4' => $analyticsGa4,
+                    'analyticsHeadCode' => $analyticsHeadCode,
+                    'analyticsBodyCode' => $analyticsBodyCode,
+                    'footerExtraNote' => $footerExtraNote,
+                    'logoMaxHeightPx' => $logoMaxHeightPx,
+                    'logoMaxWidthPx' => $logoMaxWidthPx,
+                    'logoFooterMaxHeightPx' => $logoFooterMaxHeightPx,
+                    'logoFooterMaxWidthPx' => $logoFooterMaxWidthPx,
+                    'headerBrandMode' => $headerBrandMode,
+                ])
+            </div>
+
+            <div class="hv-tab-panel hv-tab-panel-theme">
+                @include('admin.theme-settings.edit', [
+                    'embedded' => true,
+                    'activeTheme' => $activeTheme,
+                    'graphicMotif' => $graphicMotif,
+                    'primaryHex' => $primaryHex,
+                    'themes' => $themes,
+                    'motifs' => $motifs,
+                    'featureIcons' => $featureIcons,
+                    'neonTop' => $neonTop,
+                    'neonStackSection' => $neonStackSection,
+                    'neonStackItems' => $neonStackItems,
+                    'neonGridSection' => $neonGridSection,
+                    'neonGridItems' => $neonGridItems,
+                ])
+            </div>
+
+            <div class="hv-tab-panel hv-tab-panel-home">
+                @include('admin.public-home-content.edit', [
+                    'embedded' => true,
+                    'groups' => $groups,
+                    'allowedKeys' => $allowedKeys,
+                    'overrides' => $overrides,
+                    'featureCards' => $featureCards,
+                    'heroImageUrl' => $heroImageUrl,
+                    'heroImageAlt' => $heroImageAlt,
+                    'heroImageCaption' => $heroImageCaption,
+                    'icons' => $icons,
+                ])
+            </div>
+
+            <div class="hv-tab-panel hv-tab-panel-install">
                 @include('admin.install-settings.edit', [
                     'embedded' => true,
-                    'installSettings' => $installSettings ?? \App\Services\InstallGuide::settings(),
+                    'installSettings' => $installSettings,
                 ])
-            @endif
+            </div>
         </div>
     </div>
 </x-admin.layout>

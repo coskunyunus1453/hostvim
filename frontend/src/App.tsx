@@ -14,12 +14,13 @@ import SslPage from './pages/SslPage'
 import InstallerPage from './pages/InstallerPage'
 import NodeAppPage from './pages/NodeAppPage'
 import DeployPage from './pages/DeployPage'
-import BillingPage from './pages/BillingPage'
 import SettingsPage from './pages/SettingsPage'
 import ResellerPage from './pages/ResellerPage'
 import ResellerBrandingPage from './pages/ResellerBrandingPage'
 import OnboardingPage from './pages/OnboardingPage'
 import WhmcsSsoBootstrap from './components/WhmcsSsoBootstrap'
+import StoreAccountRedirect from './components/StoreAccountRedirect'
+import StoreAdminRedirect from './components/StoreAdminRedirect'
 
 const DomainsPage = lazy(() => import('./pages/DomainsPage'))
 const DatabasesPage = lazy(() => import('./pages/DatabasesPage'))
@@ -48,10 +49,7 @@ const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'))
 const PluginsStorePage = lazy(() => import('./pages/PluginsStorePage'))
 const AiAdvisorPage = lazy(() => import('./pages/AiAdvisorPage'))
 const CuriousPage = lazy(() => import('./pages/CuriousPage'))
-const InvoicesPage = lazy(() => import('./pages/InvoicesPage'))
-const SupportPage = lazy(() => import('./pages/SupportPage'))
 const AdminBillingPage = lazy(() => import('./pages/AdminBillingPage'))
-const AdminSupportPage = lazy(() => import('./pages/AdminSupportPage'))
 
 function PageLoader() {
   const { t } = useTranslation()
@@ -136,9 +134,10 @@ export default function App() {
         <Route path="installer" element={<InstallerPage />} />
         <Route path="node-apps" element={<AdvancedRoute><NodeAppPage /></AdvancedRoute>} />
         <Route path="deploy" element={<AdvancedRoute><DeployPage /></AdvancedRoute>} />
-        <Route path="billing" element={<AdvancedRoute><ProFeatureGate moduleKey="stripe_billing"><BillingPage /></ProFeatureGate></AdvancedRoute>} />
-        <Route path="invoices" element={<LazyPage><InvoicesPage /></LazyPage>} />
-        <Route path="support" element={<LazyPage><SupportPage /></LazyPage>} />
+        <Route path="billing" element={<StoreAccountRedirect />} />
+        <Route path="invoices" element={<StoreAccountRedirect />} />
+        <Route path="domain-portfolio" element={<StoreAccountRedirect />} />
+        <Route path="support" element={<StoreAccountRedirect />} />
         <Route path="reseller" element={<AdvancedRoute><ResellerPage /></AdvancedRoute>} />
         <Route path="reseller/branding" element={<AdvancedRoute><ResellerBrandingPage /></AdvancedRoute>} />
         <Route path="onboarding" element={<OnboardingPage />} />
@@ -149,7 +148,10 @@ export default function App() {
         <Route path="admin/roles" element={<AdvancedRoute><LazyPage><AdminRolesPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/packages" element={<AdvancedRoute><LazyPage><AdminPackagesPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/billing" element={<AdvancedRoute><LazyPage><AdminBillingPage /></LazyPage></AdvancedRoute>} />
-        <Route path="admin/support" element={<AdvancedRoute><LazyPage><AdminSupportPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/billing" element={<StoreAdminRedirect path="/admin/faturalama-otomasyonu" message="Faturalama ve ödeme ayarları hostvim.com admin panelinde yönetilir." />} />
+        <Route path="admin/whmcs" element={<StoreAdminRedirect path="/admin/orders" message="WHMCS yerine hostvim.com sipariş ve faturalama kullanılıyor." />} />
+        <Route path="admin/mail-settings" element={<StoreAdminRedirect path="/admin/eposta-ayarlari" message="Giden e-posta ayarları hostvim.com admin panelinde yönetilir." />} />
+        <Route path="admin/support" element={<StoreAdminRedirect path="/admin/support-tickets" message="Destek talepleri hostvim.com admin panelinde yönetilir." />} />
         <Route path="admin/whmcs" element={<AdvancedRoute><LazyPage><AdminWhmcsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/system" element={<AdvancedRoute><LazyPage><AdminSystemPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/server-settings" element={<AdvancedRoute><LazyPage><AdminServerSettingsPage /></LazyPage></AdvancedRoute>} />

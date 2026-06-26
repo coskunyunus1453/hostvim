@@ -16,6 +16,8 @@ export interface User {
   force_password_change?: boolean
   onboarding_completed_at?: string | null
   created_at: string
+  /** Admin impersonation oturumunda yönetici bilgisi (/auth/me). */
+  impersonated_by?: { id: number; name: string; email: string }
 }
 
 /** Oturum / giriş sonrası bayi markası (CSS ve içerik). */

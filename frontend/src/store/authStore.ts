@@ -7,6 +7,12 @@ interface AuthState {
   token: string | null
   portal: 'customer' | 'vendor'
   isAuthenticated: boolean
+  /** Admin impersonation: geri dönüş için saklanan yönetici oturumu */
+  impersonationBackup: {
+    user: User
+    token: string
+    portal: 'customer' | 'vendor'
+  } | null
   /** Bayi white-label tema verisi (giriş /auth/me). */
   whiteLabel: WhiteLabelUi | null
   /** Aktif eklenti slug listesi (/auth/me). */
@@ -23,6 +29,12 @@ interface AuthState {
       active_plugin_slugs?: string[]
     },
   ) => void
+  startImpersonation: (
+    customer: User,
+    customerToken: string,
+    backup: { user: User; token: string; portal: 'customer' | 'vendor' },
+  ) => void
+  endImpersonation: () => boolean
   setEnforceAdmin2fa: (v: boolean | null) => void
   setWhiteLabelUi: (w: WhiteLabelUi | null) => void
   setActivePluginSlugs: (slugs: string[]) => void
@@ -37,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       portal: 'customer',
       isAuthenticated: false,
+      impersonationBackup: null,
       whiteLabel: null,
       activePluginSlugs: [],
       enforceAdmin2fa: null,
@@ -51,6 +64,26 @@ export const useAuthStore = create<AuthState>()(
           enforceAdmin2fa:
             extras?.enforce_admin_2fa !== undefined ? extras.enforce_admin_2fa : null,
         }),
+      startImpersonation: (customer, customerToken, backup) =>
+        set({
+          impersonationBackup: backup,
+          user: customer,
+          token: customerToken,
+          portal: 'customer',
+          isAuthenticated: true,
+        }),
+      endImpersonation: () => {
+        const backup = useAuthStore.getState().impersonationBackup
+        if (!backup) return false
+        set({
+          user: backup.user,
+          token: backup.token,
+          portal: backup.portal,
+          isAuthenticated: true,
+          impersonationBackup: null,
+        })
+        return true
+      },
       setEnforceAdmin2fa: (v) => set({ enforceAdmin2fa: v }),
       setWhiteLabelUi: (w) => set({ whiteLabel: w }),
       setActivePluginSlugs: (slugs) => set({ activePluginSlugs: slugs }),
@@ -60,6 +93,7 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           portal: 'customer',
           isAuthenticated: false,
+          impersonationBackup: null,
           whiteLabel: null,
           activePluginSlugs: [],
           enforceAdmin2fa: null,
@@ -77,6 +111,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         portal: state.portal,
         isAuthenticated: state.isAuthenticated,
+        impersonationBackup: state.impersonationBackup,
         whiteLabel: state.whiteLabel,
         activePluginSlugs: state.activePluginSlugs,
         enforceAdmin2fa: state.enforceAdmin2fa,

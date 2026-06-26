@@ -44,4 +44,7 @@ return [
     'discover_from_routes' => 'Defined in routes/console or Kernel',
     'discover_spark_manual' => 'Complete command name (e.g. scrape:prices)',
     'discover_deep_label' => 'Deep scan (all artisan commands, ~1–2 min)',
+    'system_edit_forbidden' => 'System cron jobs cannot be edited.',
+    'system_delete_forbidden' => 'System cron jobs cannot be deleted.',
+    'system_run_admin_only' => 'System cron jobs can only be run by an administrator.',
 ];

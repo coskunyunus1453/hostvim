@@ -19,7 +19,7 @@ class NavMenuSeeder extends Seeder
             ['label' => 'Kurulum', 'label_en' => 'Installation', 'href' => '/setup'],
             ['label' => 'Dokümantasyon', 'label_en' => 'Documentation', 'href' => '/docs'],
             ['label' => 'Blog', 'label_en' => 'Blog', 'href' => '/blog'],
-            ['label' => 'SSS', 'label_en' => 'FAQ', 'href' => '/#faq'],
+            ['label' => 'SSS', 'label_en' => 'FAQ', 'href' => '/p/sss'],
         ];
 
         foreach ($header as $i => $row) {
@@ -37,7 +37,7 @@ class NavMenuSeeder extends Seeder
         $footer = [
             ['label' => 'Dokümantasyon', 'label_en' => 'Documentation', 'href' => '/docs'],
             ['label' => 'Blog', 'label_en' => 'Blog', 'href' => '/blog'],
-            ['label' => 'SSS', 'label_en' => 'FAQ', 'href' => '/#faq'],
+            ['label' => 'SSS', 'label_en' => 'FAQ', 'href' => '/p/sss'],
             ['label' => 'Yönetim girişi', 'label_en' => 'Admin login', 'href' => '/admin/login'],
         ];
 

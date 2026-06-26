@@ -138,6 +138,30 @@ func defaultSiteIndexHTML(primaryLabel string, subdomain bool, docRoot, phpVersi
 	return buf.Bytes()
 }
 
+// docRootHasSiteContent mevcut müşteri dosyaları varsa placeholder yazılmamalı.
+func docRootHasSiteContent(docRoot string) bool {
+	entries, err := os.ReadDir(docRoot)
+	if err != nil || len(entries) == 0 {
+		return false
+	}
+	for _, e := range entries {
+		name := e.Name()
+		switch name {
+		case "index.php", "artisan", "wp-config.php", "wp-load.php", "composer.json", "app", "vendor", "public", "wp-content", "wp-admin":
+			return true
+		case "index.html":
+			if info, err := e.Info(); err == nil && info.Size() > 7000 {
+				return true
+			}
+		default:
+			if name != "." && name != ".." {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func Provision(webRoot, domain, phpVersion, serverType string) (documentRoot string, err error) {
 	domain = normalizeDomain(domain)
 	if !isValidDomain(domain) {
@@ -160,10 +184,13 @@ func Provision(webRoot, domain, phpVersion, serverType string) (documentRoot str
 	if oldMeta != nil && strings.TrimSpace(oldMeta.DocumentRoot) != "" {
 		docRoot = filepath.Clean(oldMeta.DocumentRoot)
 	}
-	if err := os.MkdirAll(docRoot, 0o755); err != nil {
+	if err := os.MkdirAll(docRoot, 0o2775); err != nil {
 		return "", err
 	}
-	if oldMeta == nil {
+	if err := os.Chmod(docRoot, 0o2775); err != nil {
+		return "", err
+	}
+	if oldMeta == nil && !docRootHasSiteContent(docRoot) {
 		html := defaultSiteIndexHTML(domain, false, docRoot, phpVersion)
 		index := filepath.Join(docRoot, "index.html")
 		if err := os.WriteFile(index, html, 0o644); err != nil {
@@ -184,6 +211,8 @@ func Provision(webRoot, domain, phpVersion, serverType string) (documentRoot str
 		meta.NodeApp = oldMeta.NodeApp
 		meta.RedirectRules = append([]RedirectRule(nil), oldMeta.RedirectRules...)
 		meta.SSLEnabled = oldMeta.SSLEnabled
+		meta.CageEnabled = oldMeta.CageEnabled
+		meta.CageUser = oldMeta.CageUser
 	}
 	if err := WriteSiteMeta(webRoot, domain, meta); err != nil {
 		return "", err
@@ -219,12 +248,17 @@ func ProvisionSubdomain(webRoot, parentDomain, hostname, pathSegment, phpVersion
 	st := NormalizeServerType(serverType)
 	base := filepath.Join(webRoot, parentDomain, pathSegment)
 	docRoot := filepath.Join(base, "public_html")
-	if err := os.MkdirAll(docRoot, 0o755); err != nil {
+	if err := os.MkdirAll(docRoot, 0o2775); err != nil {
 		return "", err
 	}
-	html := defaultSiteIndexHTML(hostname, true, docRoot, phpVersion)
-	if err := os.WriteFile(filepath.Join(docRoot, "index.html"), html, 0o644); err != nil {
+	if err := os.Chmod(docRoot, 0o2775); err != nil {
 		return "", err
+	}
+	if !docRootHasSiteContent(docRoot) {
+		html := defaultSiteIndexHTML(hostname, true, docRoot, phpVersion)
+		if err := os.WriteFile(filepath.Join(docRoot, "index.html"), html, 0o644); err != nil {
+			return "", err
+		}
 	}
 	meta := &SiteMeta{
 		Hostname:     hostname,

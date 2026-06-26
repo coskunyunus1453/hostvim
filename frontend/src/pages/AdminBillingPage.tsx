@@ -265,6 +265,64 @@ function SettingsTab() {
         <textarea value={str('payment_instructions')} onChange={(e) => set('payment_instructions', e.target.value)} rows={3} className={inputCls} />
       </Field>
 
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Ödeme sağlayıcıları</h3>
+        <Field label="Varsayılan sağlayıcı">
+          <select value={str('payment_provider') || 'auto'} onChange={(e) => set('payment_provider', e.target.value)} className={inputCls}>
+            <option value="auto">Otomatik (TRY → PayTR/iyzico)</option>
+            <option value="paytr">PayTR</option>
+            <option value="iyzico">iyzico</option>
+            <option value="stripe">Stripe</option>
+            <option value="manual">Manuel / Havale</option>
+          </select>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Toggle label="PayTR aktif" checked={bool('paytr_enabled')} onChange={(v) => set('paytr_enabled', v)} />
+          <Toggle label="iyzico aktif" checked={bool('iyzico_enabled')} onChange={(v) => set('iyzico_enabled', v)} />
+          <Toggle label="Stripe aktif" checked={bool('stripe_enabled')} onChange={(v) => set('stripe_enabled', v)} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="PayTR Merchant ID"><input value={str('paytr_merchant_id')} onChange={(e) => set('paytr_merchant_id', e.target.value)} className={inputCls} /></Field>
+          <Field label="PayTR Key"><input value={str('paytr_merchant_key')} onChange={(e) => set('paytr_merchant_key', e.target.value)} className={inputCls} /></Field>
+          <Field label="PayTR Salt"><input value={str('paytr_merchant_salt')} onChange={(e) => set('paytr_merchant_salt', e.target.value)} className={inputCls} /></Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="iyzico API Key"><input value={str('iyzico_api_key')} onChange={(e) => set('iyzico_api_key', e.target.value)} className={inputCls} /></Field>
+          <Field label="iyzico Secret"><input value={str('iyzico_secret_key')} onChange={(e) => set('iyzico_secret_key', e.target.value)} className={inputCls} /></Field>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Toggle label="PayTR test modu" checked={bool('paytr_test_mode')} onChange={(v) => set('paytr_test_mode', v)} />
+          <Toggle label="iyzico sandbox" checked={bool('iyzico_test_mode')} onChange={(v) => set('iyzico_test_mode', v)} />
+        </div>
+        <p className="text-xs text-gray-500">PayTR bildirim URL: <code className="text-[11px]">/api/billing/paytr/callback</code> · iyzico: <code className="text-[11px]">/api/billing/iyzico/callback</code></p>
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Alan adı kaydı</h3>
+        <Toggle label="Müşteri alan adı kaydı açık" checked={bool('domain_register_enabled')} onChange={(v) => set('domain_register_enabled', v)} />
+        <Field label="Registrar">
+          <select value={str('domain_registrar') || 'manual'} onChange={(e) => set('domain_registrar', e.target.value)} className={inputCls}>
+            <option value="manual">Manuel kuyruk</option>
+            <option value="resellerclub">ResellerClub (otomatik)</option>
+          </select>
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="ResellerClub Auth User ID"><input value={str('resellerclub_auth_userid')} onChange={(e) => set('resellerclub_auth_userid', e.target.value)} className={inputCls} /></Field>
+          <Field label="ResellerClub API Key"><input value={str('resellerclub_api_key')} onChange={(e) => set('resellerclub_api_key', e.target.value)} className={inputCls} type="password" autoComplete="off" /></Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Varsayılan müşteri ID (opsiyonel)"><input type="number" value={num('resellerclub_customer_id')} onChange={(e) => set('resellerclub_customer_id', Number(e.target.value))} className={inputCls} /></Field>
+          <div className="flex items-end">
+            <Toggle label="ResellerClub test (sandbox)" checked={bool('resellerclub_test_mode')} onChange={(v) => set('resellerclub_test_mode', v)} />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Nameserver 1 (boş = panel DNS)"><input value={str('resellerclub_ns1')} onChange={(e) => set('resellerclub_ns1', e.target.value)} className={inputCls} placeholder="ns1.ornek.com" /></Field>
+          <Field label="Nameserver 2"><input value={str('resellerclub_ns2')} onChange={(e) => set('resellerclub_ns2', e.target.value)} className={inputCls} placeholder="ns2.ornek.com" /></Field>
+        </div>
+        <TestRegistrarButton />
+      </div>
+
       <div className="flex justify-end">
         <button className="btn-primary text-sm" disabled={saveM.isPending || !form} onClick={() => saveM.mutate(form!)}>
           <Save className="h-4 w-4" /> Kaydet
@@ -291,5 +349,18 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded" />
       {label}
     </label>
+  )
+}
+
+function TestRegistrarButton() {
+  const testM = useMutation({
+    mutationFn: async () => (await api.post('/admin/settings/billing/test-registrar')).data as { ok: boolean; message: string },
+    onSuccess: (d) => (d.ok ? toast.success(d.message) : toast.error(d.message)),
+    onError: () => toast.error('Bağlantı testi başarısız.'),
+  })
+  return (
+    <button type="button" className="btn-secondary text-sm" disabled={testM.isPending} onClick={() => testM.mutate()}>
+      ResellerClub bağlantısını test et
+    </button>
   )
 }

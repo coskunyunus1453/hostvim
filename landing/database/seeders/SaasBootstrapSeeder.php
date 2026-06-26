@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\SaasLicenseProduct;
 use App\Models\SaasProductModule;
+use App\Support\PanelFeatureCatalog;
 use App\Support\SaasModuleDefaults;
 use Illuminate\Database\Seeder;
 
@@ -11,15 +12,7 @@ class SaasBootstrapSeeder extends Seeder
 {
     public function run(): void
     {
-        $moduleDefs = [
-            ['key' => 'vendor_panel', 'label' => 'Vendor kontrol düzlemi', 'sort_order' => 10],
-            ['key' => 'backups_pro', 'label' => 'Gelişmiş yedekleme (Drive / uzak)', 'sort_order' => 20],
-            ['key' => 'monitoring_advanced', 'label' => 'Gelişmiş izleme', 'sort_order' => 30],
-            ['key' => 'ai_advisor', 'label' => 'PanelZeka / AI', 'sort_order' => 40],
-            ['key' => 'curious_tools', 'label' => 'Meraklısına', 'sort_order' => 45],
-            ['key' => 'stripe_billing', 'label' => 'Stripe faturalama', 'sort_order' => 50],
-            ['key' => 'phpmyadmin_sso', 'label' => 'phpMyAdmin tek tık giriş', 'sort_order' => 55],
-        ];
+        $moduleDefs = PanelFeatureCatalog::proModuleDefs();
 
         $allKeys = [];
         foreach ($moduleDefs as $m) {
@@ -27,13 +20,15 @@ class SaasBootstrapSeeder extends Seeder
             $integration = SaasModuleDefaults::integration($m['key']);
             SaasProductModule::query()->updateOrCreate(
                 ['key' => $m['key']],
-                array_merge($m, [
+                [
+                    'label' => $m['label'],
+                    'sort_order' => $m['sort_order'],
                     'is_paid' => true,
                     'is_active' => true,
-                    'description' => null,
+                    'description' => $m['description'],
                     'ui_paths' => $integration['ui_paths'],
                     'api_route_prefixes' => $integration['api_route_prefixes'],
-                ])
+                ]
             );
         }
 
@@ -44,7 +39,7 @@ class SaasBootstrapSeeder extends Seeder
             ['code' => 'community'],
             [
                 'name' => 'Panelze Community',
-                'description' => 'Freemium — Pro modüller görünür, lisans ile açılır',
+                'description' => 'Freemium — çekirdek hosting paneli; Pro modüller lisans ile açılır (en fazla 5 site).',
                 'default_limits' => ['max_sites' => 5],
                 'default_modules' => $allOff,
                 'is_active' => true,
@@ -63,7 +58,7 @@ class SaasBootstrapSeeder extends Seeder
                         'pro-lifetime' => 'Panelze Pro (Sınırsız)',
                         default => 'Panelze Pro',
                     },
-                    'description' => 'Tüm Pro modüller',
+                    'description' => 'Panelze v'.PanelFeatureCatalog::PANEL_VERSION.' — tüm Pro modüller dahil',
                     'default_limits' => ['max_sites' => 500],
                     'default_modules' => $proModules,
                     'is_active' => true,

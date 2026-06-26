@@ -85,6 +85,7 @@ class OutboundMailSettingsController extends Controller
             $set('outbound_mail.smtp_password', encrypt($validated['smtp_password']));
         }
 
+        OutboundMailConfigurator::forgetCache();
         OutboundMailConfigurator::apply();
 
         return $this->show();
@@ -102,6 +103,7 @@ class OutboundMailSettingsController extends Controller
             ], 422);
         }
 
+        OutboundMailConfigurator::forgetCache();
         OutboundMailConfigurator::apply();
 
         $default = (string) config('mail.default', 'log');
