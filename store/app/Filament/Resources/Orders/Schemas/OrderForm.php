@@ -27,15 +27,25 @@ class OrderForm
                     'paid' => 'Ödendi',
                     'failed' => 'Başarısız',
                 ])->disabled(fn (?string $state): bool => $state === 'paid'),
+                TextInput::make('paymentMethod.name')->label('Ödeme Yöntemi')->disabled(),
+                TextInput::make('subtotal')->label('Ara Toplam')->prefix('₺')->disabled(),
+                TextInput::make('discount_amount')->label('İndirim')->prefix('₺')->disabled()
+                    ->helperText(fn ($record): ?string => $record?->coupon_code ? 'Kupon: '.$record->coupon_code : null),
                 TextInput::make('total')->label('Toplam')->prefix('₺')->disabled(),
                 TextInput::make('payment_reference')->label('Ödeme Referansı'),
                 Textarea::make('notes')->label('Notlar')->columnSpanFull(),
             ])->columns(2),
 
-            Section::make('Panelze')->schema([
+            Section::make('Panelze (Hosting Kurulumu)')->schema([
                 TextInput::make('panel_order_number')->label('Panel Sipariş No')->disabled(),
                 TextInput::make('panel_provision_status')->label('Panel Durumu')->disabled(),
                 Textarea::make('panel_provision_error')->label('Panel Hata')->disabled()->columnSpanFull(),
+            ])->columns(2)->collapsed(),
+
+            Section::make('Bulut Sunucu Kurulumu')->schema([
+                TextInput::make('cloud_provision_status')->label('Bulut Durumu')->disabled(),
+                TextInput::make('cloud_provisioned_at')->label('Kurulum Tarihi')->disabled(),
+                Textarea::make('cloud_provision_error')->label('Bulut Hata')->disabled()->columnSpanFull(),
             ])->columns(2)->collapsed(),
 
             Section::make('Müşteri')->schema([

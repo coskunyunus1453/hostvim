@@ -9,6 +9,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class CloudServersTable
@@ -23,12 +24,29 @@ class CloudServersTable
                 TextColumn::make('ipv4')->label('IPv4')->copyable()->placeholder('—'),
                 TextColumn::make('region')->label('Bölge')->toggleable(),
                 TextColumn::make('plan')->label('Plan')->toggleable(),
-                TextColumn::make('status')->label('Durum')->badge()->color(fn (string $state): string => match ($state) {
-                    'active' => 'success',
-                    'provisioning', 'pending' => 'warning',
-                    'failed', 'destroyed' => 'danger',
-                    default => 'gray',
-                }),
+                TextColumn::make('status')->label('Durum')->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active' => 'Aktif',
+                        'provisioning' => 'Kuruluyor',
+                        'pending' => 'Bekliyor',
+                        'failed' => 'Başarısız',
+                        'destroyed' => 'Silindi',
+                        default => $state,
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'active' => 'success',
+                        'provisioning', 'pending' => 'warning',
+                        'failed', 'destroyed' => 'danger',
+                        default => 'gray',
+                    }),
+                TextColumn::make('provision_error')
+                    ->label('Hata Nedeni')
+                    ->state(fn (CloudServer $r): ?string => $r->status === CloudServer::STATUS_FAILED ? ($r->provision_error ?: null) : null)
+                    ->color('danger')
+                    ->wrap()
+                    ->placeholder('—')
+                    ->toggleable()
+                    ->tooltip(fn (CloudServer $r): ?string => $r->provision_error ?: null),
                 TextColumn::make('panel_state')
                     ->label('Panel')
                     ->state(fn (CloudServer $record): string => match ($record->meta['panel_install'] ?? null) {
@@ -47,6 +65,20 @@ class CloudServersTable
                 TextColumn::make('provisioned_at')->label('Kurulum')->dateTime('d.m.Y H:i')->toggleable(),
             ])
             ->defaultSort('id', 'desc')
+            ->filters([
+                SelectFilter::make('status')->label('Durum')->options([
+                    'active' => 'Aktif',
+                    'provisioning' => 'Kuruluyor',
+                    'pending' => 'Bekliyor',
+                    'failed' => 'Başarısız',
+                    'destroyed' => 'Silindi',
+                ]),
+                SelectFilter::make('provider_api')->label('Sağlayıcı')->options(fn (): array => CloudServer::query()
+                    ->whereNotNull('provider_api')
+                    ->distinct()
+                    ->pluck('provider_api', 'provider_api')
+                    ->all()),
+            ])
             ->recordActions([
                 ActionGroup::make([
                     Action::make('start')

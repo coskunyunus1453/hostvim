@@ -293,7 +293,12 @@ class CartService
                 if ($this->domainSettings->registerEnabled()) {
                     $check = $this->domains->check($domain);
                     if (! ($check['available'] ?? false)) {
-                        throw new InvalidArgumentException('Alan adı artık müsait değil: '.$domain);
+                        // Musait olmayan domaini sepette tutma; kullaniciyi bilgilendir.
+                        // (Onceden exception firlatiyordu ve checkout/sepet 500 veriyordu.)
+                        $this->remove($key);
+                        session()->flash('error', 'Sepetinizdeki "'.$domain.'" alan adı artık müsait olmadığı için sepetten çıkarıldı.');
+
+                        continue;
                     }
                     $years = max(1, (int) ($item['domain_years'] ?? 1));
                     $price = round((float) ($check['register_price'] ?? 0) * $years, 2);

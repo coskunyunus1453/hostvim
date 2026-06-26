@@ -3,47 +3,51 @@
 namespace App\Support;
 
 /**
- * Populer TLD katalogu: yaklasik Spaceship maliyetleri (USD/yil).
+ * Populer TLD katalogu: Spaceship maliyetleri (USD/yil).
  *
- * NOT: Spaceship API'si standart TLD fiyat katalogu DONDURMEZ
- * (sadece premium domainlerde fiyat doner). Bu yuzden buradaki
- * maliyetler YAKLASIK referans degerlerdir; yonetici kendi Spaceship
- * hesabindan teyit edip guncellemelidir. Satis fiyati = maliyet x USD/TRY
- * kuru x (1 + kar marji) olarak otomatik hesaplanir.
+ * Maliyetler ICANN ucreti (genelde 0.20 USD) DAHIL toplam alis tutaridir.
+ * Satis fiyati = maliyet x USD/TRY kuru x (1 + kar marji) olarak otomatik hesaplanir.
  *
- * register: yillik kayit maliyeti, renew: yillik yenileme maliyeti (USD).
+ * Satir bicimi: [tld, register, renew, sort, verified?]
+ *  - register: yillik kayit maliyeti (USD, ICANN dahil)
+ *  - renew:    yillik yenileme maliyeti (USD, ICANN dahil)
+ *  - verified: true => Spaceship'ten dogrulanmis GUNCEL fiyat (2026-06).
+ *              false/yok => yaklasik referans deger (yonetici teyit etmeli).
+ *
+ * Dogrulanmis fiyatlar https://www.spaceship.com/domains/ uzerinden alinmistir
+ * (gosterilen kayit/yenileme fiyati + 0.20 USD ICANN ucreti).
  */
 class DomainTldCatalog
 {
     /**
-     * @return list<array{tld: string, register: float, renew: float, sort: int}>
+     * @return list<array{tld: string, register: float, renew: float, sort: int, verified: bool}>
      */
     public static function all(): array
     {
         $raw = [
             // Klasik / en populer
-            ['.com', 9.48, 11.48, 1],
-            ['.net', 12.48, 14.48, 2],
-            ['.org', 9.98, 11.98, 3],
-            ['.info', 4.48, 22.48, 4],
+            ['.com', 9.08, 10.18, 1, true],
+            ['.net', 11.40, 11.40, 2, true],
+            ['.org', 6.85, 11.59, 3, true],
+            ['.info', 3.31, 21.94, 4, true],
             ['.biz', 14.98, 16.98, 5],
-            ['.co', 24.98, 29.98, 6],
-            ['.me', 8.98, 21.98, 7],
+            ['.co', 3.48, 25.98, 6, true],
+            ['.me', 8.70, 15.53, 7, true],
             ['.tv', 29.98, 34.98, 8],
             ['.cc', 9.98, 11.98, 9],
             ['.name', 8.98, 10.98, 10],
-            ['.pro', 5.98, 19.98, 11],
+            ['.pro', 2.79, 21.94, 11, true],
             ['.mobi', 14.98, 19.98, 12],
             ['.asia', 12.98, 14.98, 13],
+            ['.it.com', 3.62, 25.88, 14, true],
 
             // Teknoloji / yeni nesil
-            ['.io', 34.98, 44.98, 20],
-            ['.dev', 12.98, 14.98, 21],
+            ['.io', 31.98, 51.75, 20, true],
+            ['.dev', 10.55, 12.62, 21, true],
             ['.app', 13.98, 15.98, 22],
-            ['.tech', 5.98, 49.98, 23],
-            ['.cloud', 3.98, 19.98, 24],
-            ['.ai', 69.98, 99.98, 25],
-            ['.dev', 12.98, 14.98, 26],
+            ['.tech', 7.42, 50.92, 23, true],
+            ['.cloud', 3.49, 20.90, 24, true],
+            ['.ai', 79.98, 79.98, 25, true],
             ['.software', 19.98, 24.98, 27],
             ['.systems', 6.98, 21.98, 28],
             ['.network', 6.98, 21.98, 29],
@@ -52,15 +56,16 @@ class DomainTldCatalog
             ['.tools', 6.98, 31.98, 32],
             ['.host', 9.98, 79.98, 33],
             ['.website', 2.98, 24.98, 34],
-            ['.site', 2.98, 28.98, 35],
-            ['.online', 3.48, 33.48, 36],
+            ['.site', 1.18, 20.18, 35, true],
+            ['.online', 1.18, 20.18, 36, true],
             ['.space', 2.48, 22.98, 37],
-            ['.click', 3.98, 11.98, 38],
+            ['.click', 1.24, 10.55, 38, true],
             ['.link', 8.98, 11.98, 39],
+            ['.llc', 10.55, 34.36, 40, true],
 
             // E-ticaret / is
-            ['.store', 4.98, 54.98, 50],
-            ['.shop', 2.48, 35.98, 51],
+            ['.store', 1.18, 30.78, 50, true],
+            ['.shop', 0.90, 31.25, 51, true],
             ['.shopping', 6.98, 31.98, 52],
             ['.business', 6.98, 19.98, 53],
             ['.company', 7.98, 14.98, 54],
@@ -94,7 +99,7 @@ class DomainTldCatalog
             ['.blog', 4.98, 29.98, 90],
             ['.news', 8.98, 24.98, 91],
             ['.media', 7.98, 34.98, 92],
-            ['.live', 4.98, 23.98, 93],
+            ['.live', 2.27, 26.08, 93, true],
             ['.life', 3.98, 29.98, 94],
             ['.world', 4.98, 29.98, 95],
             ['.fun', 3.98, 23.98, 96],
@@ -123,7 +128,7 @@ class DomainTldCatalog
             ['.tours', 12.98, 47.98, 119],
 
             // Kisa / ucuz / promosyon
-            ['.xyz', 2.98, 13.98, 130],
+            ['.xyz', 0.98, 12.72, 130, true],
             ['.top', 2.98, 8.98, 131],
             ['.icu', 2.48, 12.98, 132],
             ['.cyou', 2.48, 13.98, 133],
@@ -135,26 +140,43 @@ class DomainTldCatalog
             ['.gg', 64.98, 74.98, 139],
 
             // Ulke kodlu (ccTLD)
-            ['.us', 6.98, 9.98, 150],
+            ['.us', 4.14, 6.48, 150, true],
             ['.uk', 7.98, 9.98, 151],
-            ['.co.uk', 7.98, 9.98, 152],
+            ['.co.uk', 5.42, 5.42, 152, true],
             ['.eu', 5.98, 8.98, 153],
             ['.de', 6.98, 8.98, 154],
             ['.nl', 7.98, 9.98, 155],
             ['.fr', 9.98, 11.98, 156],
             ['.es', 8.98, 10.98, 157],
             ['.it', 7.98, 9.98, 158],
-            ['.ca', 12.98, 14.98, 159],
+            ['.ca', 9.32, 9.32, 159, true],
             ['.in', 8.98, 10.98, 160],
             ['.co.in', 5.98, 7.98, 161],
             ['.tr', 12.98, 14.98, 162],
         ];
 
         $out = [];
-        foreach ($raw as [$tld, $register, $renew, $sort]) {
-            $out[$tld] = ['tld' => $tld, 'register' => $register, 'renew' => $renew, 'sort' => $sort];
+        foreach ($raw as $row) {
+            $tld = $row[0];
+            $out[$tld] = [
+                'tld' => $tld,
+                'register' => (float) $row[1],
+                'renew' => (float) $row[2],
+                'sort' => (int) $row[3],
+                'verified' => (bool) ($row[4] ?? false),
+            ];
         }
 
         return array_values($out);
+    }
+
+    /**
+     * Sadece Spaceship'ten dogrulanmis guncel fiyatlari dondurur.
+     *
+     * @return list<array{tld: string, register: float, renew: float, sort: int, verified: bool}>
+     */
+    public static function verified(): array
+    {
+        return array_values(array_filter(self::all(), fn ($e) => $e['verified']));
     }
 }

@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Filament\Resources\CloudServers\CloudServerResource;
 use App\Filament\Resources\ContactMessages\ContactMessageResource;
+use App\Filament\Resources\DomainNames\DomainNameResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SupportTickets\SupportTicketResource;
 use App\Models\AdminNotification;
 use App\Models\CloudServer;
 use App\Models\ContactMessage;
+use App\Models\DomainName;
 use App\Models\Order;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketMessage;
@@ -254,6 +256,20 @@ class AdminNotificationService
         }
     }
 
+    public function fromDomainProvisionFailed(Order $order, string $domain, ?string $message): void
+    {
+        $this->notify(
+            type: AdminNotification::TYPE_PROVISION_DOMAIN_FAILED,
+            title: 'Alan adı kaydı başarısız',
+            body: $domain.' · '.$order->order_number.' · '.($message ?: 'Hata detayı yok'),
+            actionUrl: OrderResource::getUrl('edit', ['record' => $order]),
+            notifiable: $order,
+            dedupeKey: 'provision_domain_failed:'.$order->id.':'.$domain,
+            icon: 'heroicon-o-globe-alt',
+            color: 'danger',
+        );
+    }
+
     public function fromCloudServerFailed(CloudServer $server): void
     {
         $orderNumber = $server->order?->order_number ?? '#'.$server->order_id;
@@ -406,6 +422,28 @@ class AdminNotificationService
             ->each(function (CloudServer $server) use (&$created): void {
                 $before = AdminNotification::query()->count();
                 $this->fromCloudServerFailed($server);
+                if (AdminNotification::query()->count() > $before) {
+                    $created++;
+                }
+            });
+
+        DomainName::query()
+            ->where('status', 'failed')
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get()
+            ->each(function (DomainName $domain) use (&$created): void {
+                $before = AdminNotification::query()->count();
+                $this->notify(
+                    type: AdminNotification::TYPE_PROVISION_DOMAIN_FAILED,
+                    title: 'Alan adı kaydı başarısız',
+                    body: $domain->domain.' · '.(is_array($domain->meta) ? ($domain->meta['register_error'] ?? 'Hata detayı yok') : 'Hata detayı yok'),
+                    actionUrl: DomainNameResource::getUrl('index'),
+                    notifiable: $domain,
+                    dedupeKey: 'provision_domain_failed:domain:'.$domain->id,
+                    icon: 'heroicon-o-globe-alt',
+                    color: 'danger',
+                );
                 if (AdminNotification::query()->count() > $before) {
                     $created++;
                 }

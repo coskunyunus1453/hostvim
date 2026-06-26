@@ -5,6 +5,7 @@ namespace App\Services\Domain;
 use App\Jobs\FulfillDomainOrderJob;
 use App\Models\DomainName;
 use App\Models\Order;
+use App\Services\AdminNotificationService;
 use Throwable;
 
 /**
@@ -13,7 +14,10 @@ use Throwable;
  */
 class DomainProvisioningService
 {
-    public function __construct(private DomainManagementService $management) {}
+    public function __construct(
+        private DomainManagementService $management,
+        private AdminNotificationService $notifications,
+    ) {}
 
     public function dispatchIfNeeded(Order $order): void
     {
@@ -59,9 +63,13 @@ class DomainProvisioningService
             $apiName = is_array($item->config_meta ?? null) ? ($item->config_meta['registrar_api'] ?? null) : null;
 
             try {
-                $this->management->registerForOrder($order, $domain, $years, $apiName);
+                $result = $this->management->registerForOrder($order, $domain, $years, $apiName);
+                if (! ($result['ok'] ?? false)) {
+                    $this->notifications->fromDomainProvisionFailed($order, $domain, $result['message'] ?? null);
+                }
             } catch (Throwable $e) {
                 report($e);
+                $this->notifications->fromDomainProvisionFailed($order, $domain, $e->getMessage());
             }
         }
     }

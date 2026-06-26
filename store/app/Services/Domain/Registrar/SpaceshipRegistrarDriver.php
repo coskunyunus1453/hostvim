@@ -78,30 +78,72 @@ class SpaceshipRegistrarDriver implements DomainManagementInterface, DomainRegis
         return $out;
     }
 
+    /**
+     * Birden fazla alan adini tek istekte kontrol eder.
+     *
+     * @param  list<string>  $domains
+     * @return array<string, array{available: bool, reason: ?string}>
+     */
+    public function checkAvailabilityBulk(DomainRegistrar $account, array $domains): array
+    {
+        if (! $this->isConfigured($account) || $domains === []) {
+            return [];
+        }
+
+        $domains = array_values(array_unique(array_map(
+            fn ($d) => strtolower(trim((string) $d)),
+            $domains
+        )));
+
+        $response = $this->request($account, 'post', self::BASE.'/v1/domains/available', [
+            'domains' => $domains,
+        ]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($response->json('domains') ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $domain = strtolower((string) ($row['domain'] ?? ''));
+            if ($domain === '') {
+                continue;
+            }
+            $result = strtolower((string) ($row['result'] ?? ''));
+            $available = in_array($result, ['available', 'premium'], true);
+            $out[$domain] = [
+                'available' => $available,
+                'reason' => $available ? null : ($result ?: 'unavailable'),
+            ];
+        }
+
+        return $out;
+    }
+
     public function checkAvailability(DomainRegistrar $account, string $domain): array
     {
         if (! $this->isConfigured($account)) {
             return ['available' => false, 'currency' => 'USD', 'reason' => 'not_configured'];
         }
 
-        $response = $this->request($account, 'get', self::BASE.'/v1/domains/'.urlencode($domain).'/available');
+        // Tekil GET /available ucu domain basina 5 istek/300sn ile cok kisitli
+        // (429 doner). Bulk POST /available ucu daha cömert oldugundan tekil
+        // sorgu da bulk uzerinden yapilir.
+        $key = strtolower(trim($domain));
+        $bulk = $this->checkAvailabilityBulk($account, [$key]);
 
-        if (! $response->successful()) {
-            return ['available' => false, 'currency' => 'USD', 'reason' => 'api_error'];
+        if (isset($bulk[$key])) {
+            return [
+                'available' => $bulk[$key]['available'],
+                'currency' => 'USD',
+                'reason' => $bulk[$key]['reason'],
+            ];
         }
 
-        $row = $response->json() ?? [];
-        $result = strtolower((string) ($row['result'] ?? ''));
-        $available = in_array($result, ['available', 'premium'], true);
-        $pricing = $this->extractPricing($row);
-
-        return [
-            'available' => $available,
-            'register_price' => $pricing['register'] ?? null,
-            'renew_price' => $pricing['renew'] ?? null,
-            'currency' => $pricing['currency'] ?? 'USD',
-            'reason' => $available ? null : ($result ?: 'unavailable'),
-        ];
+        return ['available' => false, 'currency' => 'USD', 'reason' => 'api_error'];
     }
 
  

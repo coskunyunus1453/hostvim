@@ -26,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
     {
         \App\Services\OutboundMailConfigurator::apply();
 
-        View::composer(['layouts.*', 'home', 'products.*', 'blog.*', 'pages.*', 'cart.*', 'checkout.*', 'contact.*', 'auth.*', 'account.*', 'domain.*'], LayoutComposer::class);
+        View::composer(['layouts.*', 'home', 'products.*', 'landing.*', 'blog.*', 'pages.*', 'cart.*', 'checkout.*', 'contact.*', 'auth.*', 'account.*', 'domain.*'], LayoutComposer::class);
 
         \App\Models\SiteSetting::observe(\App\Observers\SiteSettingObserver::class);
         \App\Models\Order::observe(\App\Observers\OrderObserver::class);

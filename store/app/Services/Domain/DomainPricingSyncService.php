@@ -108,21 +108,42 @@ class DomainPricingSyncService
     }
 
     /**
-     * Hazir TLD katalogundaki uzantilari (yaklasik maliyetlerle) toplu ekler.
-     * Mevcut kayitlara DOKUNMAZ (elle girilen fiyatlar korunur).
+     * Hazir TLD katalogundaki uzantilari (maliyetlerle) toplu ekler.
      *
-     * @return array{created: int, skipped: int}
+     * @param  bool  $activate   Yeni eklenenler aktif (satista) olsun mu.
+     * @param  bool  $overwrite  Mevcut kayitlarin maliyet/fiyatini da guncelle.
+     * @param  bool  $onlyVerified  Sadece Spaceship'ten dogrulanmis fiyatlari uygula.
+     * @return array{created: int, updated: int, skipped: int}
      */
-    public function importFromCatalog(bool $activate = true): array
+    public function importFromCatalog(bool $activate = true, bool $overwrite = false, bool $onlyVerified = false): array
     {
         $created = 0;
+        $updated = 0;
         $skipped = 0;
 
-        foreach (DomainTldCatalog::all() as $entry) {
-            $tld = $this->normalizeTld($entry['tld']);
+        $entries = $onlyVerified ? DomainTldCatalog::verified() : DomainTldCatalog::all();
 
-            if (DomainTld::query()->where('tld', $tld)->exists()) {
-                $skipped++;
+        foreach ($entries as $entry) {
+            $tld = $this->normalizeTld($entry['tld']);
+            $register = (float) $entry['register'];
+            $renew = (float) ($entry['renew'] ?? $entry['register']);
+
+            $row = DomainTld::query()->where('tld', $tld)->first();
+
+            if ($row !== null) {
+                if (! $overwrite) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $row->wholesale_register = $register;
+                $row->wholesale_renew = $renew;
+                $row->wholesale_currency = 'USD';
+                // Maliyet degisti: otomatik fiyatlamaya gecir ki satis fiyati kurla yeniden hesaplansin.
+                $row->auto_price = true;
+                $row->save(); // saving hook satis fiyatini yeniden hesaplar
+                $updated++;
 
                 continue;
             }
@@ -130,8 +151,8 @@ class DomainPricingSyncService
             $row = new DomainTld();
             $row->fill([
                 'tld' => $tld,
-                'wholesale_register' => $entry['register'],
-                'wholesale_renew' => $entry['renew'] ?? $entry['register'],
+                'wholesale_register' => $register,
+                'wholesale_renew' => $renew,
                 'wholesale_currency' => 'USD',
                 'auto_price' => true,
                 'is_active' => $activate,
@@ -141,7 +162,18 @@ class DomainPricingSyncService
             $created++;
         }
 
-        return compact('created', 'skipped');
+        return compact('created', 'updated', 'skipped');
+    }
+
+    /**
+     * Spaceship'ten dogrulanmis GUNCEL maliyetleri uygular.
+     * Mevcut TLD'lerin maliyetini gunceller, eksik olanlari ekler.
+     *
+     * @return array{created: int, updated: int, skipped: int}
+     */
+    public function applyVerifiedPrices(bool $activate = true): array
+    {
+        return $this->importFromCatalog(activate: $activate, overwrite: true, onlyVerified: true);
     }
 
     /**

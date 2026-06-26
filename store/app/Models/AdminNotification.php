@@ -29,6 +29,8 @@ class AdminNotification extends Model
 
     public const TYPE_PROVISION_CLOUD_FAILED = 'provision_cloud_failed';
 
+    public const TYPE_PROVISION_DOMAIN_FAILED = 'provision_domain_failed';
+
     public const TYPE_CLOUD_SERVER_FAILED = 'cloud_server_failed';
 
     public const TYPE_PAYMENT_EXPIRING = 'payment_expiring';

@@ -110,6 +110,43 @@ return [
                 'linode/ubuntu24.04' => 'Ubuntu 24.04',
             ],
         ],
+        'contabo' => [
+            'api_name' => 'contabo',
+            'name' => 'Contabo',
+            'tagline' => 'Yüksek kaynak / uygun fiyat',
+            'highlight' => 'VPS ve VDS otomatik kurulum (API). EU/US/Asya lokasyonları. cloud-init ile Panelze kurulabilir.',
+            'website' => 'https://contabo.com',
+            'docs_url' => 'https://api.contabo.com/',
+            'currency' => 'EUR',
+            'credential_fields' => [
+                'client_id' => ['label' => 'Client ID', 'type' => 'text', 'required' => true],
+                'client_secret' => ['label' => 'Client Secret', 'type' => 'password', 'required' => true],
+                'api_user' => ['label' => 'API User (e-posta)', 'type' => 'text', 'required' => true],
+                'api_password' => ['label' => 'API Password', 'type' => 'password', 'required' => true],
+            ],
+            'default_regions' => [
+                'EU' => 'Avrupa (Almanya)',
+                'UK' => 'Birleşik Krallık',
+                'US-central' => 'ABD - Merkez',
+                'US-east' => 'ABD - Doğu',
+                'US-west' => 'ABD - Batı',
+                'SIN' => 'Singapur (Asya)',
+            ],
+            'default_sizes' => [
+                'V1' => 'VPS S SSD — 4 vCPU, 8 GB',
+                'V2' => 'VPS M SSD — 6 vCPU, 16 GB',
+                'V3' => 'VPS L SSD — 8 vCPU, 30 GB',
+                'V12' => 'VPS S NVMe — 4 vCPU, 8 GB',
+                'V8' => 'VDS S — 3 pCPU, 24 GB',
+                'V9' => 'VDS M — 4 pCPU, 32 GB',
+                'V10' => 'VDS L — 6 pCPU, 48 GB',
+            ],
+            'default_images' => [
+                // Contabo standart imaj UUID'leri; admin panelde "İmajları çek" ile güncelleyebilirsiniz.
+                'afecbb85-e2fc-46f0-9684-b46b1faf00bb' => 'Ubuntu 24.04',
+                'd64d5c6c-9dda-4e38-8174-0ee282474d8a' => 'Ubuntu 22.04',
+            ],
+        ],
     ],
 
     'hostname_prefix' => 'hv',

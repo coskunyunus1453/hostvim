@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\DomainNames\Tables;
 
 use App\Models\DomainName;
+use App\Models\OrderItem;
 use App\Services\Domain\DomainManagementService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -10,10 +11,10 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class DomainNamesTable
@@ -27,23 +28,90 @@ class DomainNamesTable
                 TextColumn::make('domain')->label('Domain')->searchable()->sortable()->weight('bold'),
                 TextColumn::make('registrar_api')->label('Sağlayıcı')->badge(),
                 TextColumn::make('status')->label('Durum')->badge()->placeholder('—')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'registered', 'active' => 'Kayıtlı',
+                        'registering' => 'Kaydediliyor',
+                        'pendingTransfer' => 'Transfer Bekliyor',
+                        'pending' => 'Beklemede',
+                        'expired' => 'Süresi Doldu',
+                        'failed' => 'Başarısız',
+                        default => $state ?: '—',
+                    })
                     ->color(fn (?string $state): string => match ($state) {
                         'registered', 'active' => 'success',
+                        'registering' => 'info',
                         'pendingTransfer', 'pending' => 'warning',
-                        'expired' => 'danger',
+                        'expired', 'failed' => 'danger',
                         default => 'gray',
                     }),
+                TextColumn::make('register_error')
+                    ->label('Hata Nedeni')
+                    ->state(fn (DomainName $r): ?string => $r->status === 'failed' && is_array($r->meta) ? ($r->meta['register_error'] ?? null) : null)
+                    ->color('danger')
+                    ->wrap()
+                    ->placeholder('—')
+                    ->toggleable()
+                    ->tooltip(fn (DomainName $r): ?string => is_array($r->meta) ? ($r->meta['register_error'] ?? null) : null),
                 TextColumn::make('expires_at')->label('Bitiş')->date('d.m.Y')->sortable()->placeholder('—')
                     ->color(fn (DomainName $r): string => $r->expires_at && $r->expires_at->isBefore(now()->addDays(30)) ? 'danger' : 'gray'),
-                IconColumn::make('auto_renew')->label('Oto. Yenile')->boolean(),
+                IconColumn::make('auto_renew')->label('Oto. Yenile')->boolean()->toggleable(),
                 IconColumn::make('privacy')->label('Gizlilik')->boolean()
-                    ->state(fn (DomainName $r): bool => $r->privacy === 'high'),
-                IconColumn::make('locked')->label('Kilit')->boolean(),
+                    ->state(fn (DomainName $r): bool => $r->privacy === 'high')->toggleable(),
+                IconColumn::make('locked')->label('Kilit')->boolean()->toggleable(),
                 TextColumn::make('ns_provider')->label('NS')->badge()->placeholder('—')->toggleable(),
                 TextColumn::make('last_synced_at')->label('Senkron')->since()->toggleable()->placeholder('—'),
             ])
             ->defaultSort('expires_at', 'asc')
+            ->filters([
+                SelectFilter::make('status')->label('Durum')->options([
+                    'registered' => 'Kayıtlı',
+                    'registering' => 'Kaydediliyor',
+                    'failed' => 'Başarısız',
+                    'expired' => 'Süresi Doldu',
+                    'pendingTransfer' => 'Transfer Bekliyor',
+                ]),
+                SelectFilter::make('registrar_api')->label('Sağlayıcı')->options(fn (): array => DomainName::query()
+                    ->whereNotNull('registrar_api')
+                    ->distinct()
+                    ->pluck('registrar_api', 'registrar_api')
+                    ->all()),
+            ])
             ->recordActions([
+                Action::make('retryRegister')
+                    ->label('Tekrar Kaydet')
+                    ->icon('heroicon-o-arrow-path-rounded-square')
+                    ->color('warning')
+                    ->visible(fn (DomainName $r): bool => $r->status === 'failed')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (DomainName $record): string => $record->domain.' — yeniden kaydet')
+                    ->modalDescription('Alan adı sağlayıcıda (Spaceship) yeniden kaydedilmeye çalışılır. Kayıt ücreti Spaceship bakiyenizden düşer. Bakiye yetersizse kayıt yine başarısız olur.')
+                    ->action(function (DomainName $record): void {
+                        $order = $record->order;
+                        if ($order === null) {
+                            Notification::make()->title('Sipariş bağlantısı yok')->body('Bu domaine bağlı sipariş bulunamadı, manuel kayıt gerekir.')->danger()->send();
+
+                            return;
+                        }
+
+                        $item = OrderItem::query()
+                            ->where('order_id', $order->id)
+                            ->where('item_type', 'domain_register')
+                            ->whereRaw('LOWER(domain_name) = ?', [$record->domain])
+                            ->first();
+                        $years = max(1, (int) ($item->domain_years ?? 1));
+
+                        try {
+                            $result = app(DomainManagementService::class)->registerForOrder($order, $record->domain, $years, $record->registrar_api);
+                            Notification::make()
+                                ->title($result['ok'] ? 'Kayıt başarılı' : 'Kayıt başarısız')
+                                ->body($result['message'])
+                                ->{$result['ok'] ? 'success' : 'danger'}()
+                                ->persistent()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Hata')->body($e->getMessage())->danger()->send();
+                        }
+                    }),
                 Action::make('dns')
                     ->label('DNS Kayıtları')
                     ->icon('heroicon-o-server-stack')

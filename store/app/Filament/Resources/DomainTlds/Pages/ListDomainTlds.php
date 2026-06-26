@@ -20,6 +20,28 @@ class ListDomainTlds extends ListRecords
         return [
             CreateAction::make(),
 
+            Action::make('applyVerifiedPrices')
+                ->label('Spaceship güncel fiyatlarını uygula')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Spaceship güncel maliyetlerini uygula')
+                ->modalDescription('Spaceship.com üzerinden doğrulanmış güncel maliyetler (kayıt/yenileme + 0.20 USD ICANN ücreti) uygulanır. Mevcut uzantıların maliyeti güncellenir, eksik olanlar eklenir; satış fiyatı USD kuru ve kâr marjı ile otomatik yeniden hesaplanır.')
+                ->modalSubmitActionLabel('Fiyatları güncelle')
+                ->schema([
+                    Toggle::make('activate')
+                        ->label('Yeni eklenen uzantılar hemen satışta olsun')
+                        ->default(true),
+                ])
+                ->action(function (array $data, DomainPricingSyncService $sync): void {
+                    $result = $sync->applyVerifiedPrices((bool) ($data['activate'] ?? true));
+                    Notification::make()
+                        ->title('Spaceship fiyatları uygulandı')
+                        ->body("Güncellenen: {$result['updated']} · Yeni eklenen: {$result['created']}")
+                        ->success()
+                        ->send();
+                }),
+
             Action::make('importCatalog')
                 ->label('Katalogdan içe aktar')
                 ->icon('heroicon-o-rectangle-stack')

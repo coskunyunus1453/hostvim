@@ -85,6 +85,8 @@ class DomainTld extends Model
 
         $this->register_price = round($converter->toTry($wholesaleRegister, $currency) * $factor, 2);
         $this->renew_price = round($converter->toTry($wholesaleRenew, $currency) * $factor, 2);
+        // Transfer fiyati genelde yenileme ile aynidir (Spaceship dahil).
+        $this->transfer_price = $this->renew_price;
         $this->prices_synced_at = now();
     }
 }

@@ -185,6 +185,7 @@ class AccountingReportsPage extends Page
         $customers = $reports->customerRanking($from, $to, 20);
         $inactive = $reports->inactiveCustomers(90, 20);
         $byType = $reports->revenueByServiceType($from, $to);
+        $byPaymentMethod = $reports->revenueByPaymentMethod($from, $to);
         $expenses = $reports->expensesByCategory($from, $to);
         $trend = $reports->dailyTrend(30);
 
@@ -196,6 +197,7 @@ class AccountingReportsPage extends Page
             'customers' => $customers,
             'inactive' => $inactive,
             'byType' => $byType,
+            'byPaymentMethod' => $byPaymentMethod,
             'expenses' => $expenses,
             'trend' => $trend,
         ];

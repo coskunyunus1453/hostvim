@@ -38,8 +38,16 @@
     .bg-hv-footer { background-color: var(--hv-footer-bg); }
 
     .border-hv-border { border-color: var(--hv-border); }
+    .border-hv-primary { border-color: var(--hv-primary); }
+    .border-hv-secondary { border-color: var(--hv-secondary); }
+    .hover\:border-hv-primary:hover { border-color: var(--hv-primary); }
+    .focus\:border-hv-primary:focus { border-color: var(--hv-primary); }
+    .divide-hv-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--hv-border); }
     .from-hv-primary { --tw-gradient-from: var(--hv-primary); }
     .to-hv-secondary { --tw-gradient-to: var(--hv-secondary); }
+    /* Tailwind v4 gradient stops, custom token'larla guvenli calisma icin hazir gradient */
+    .bg-hv-gradient { background-image: linear-gradient(135deg, var(--hv-primary), var(--hv-secondary)); }
+    .bg-hv-gradient-r { background-image: linear-gradient(90deg, var(--hv-primary), var(--hv-secondary)); }
     .via-hv-bg { --tw-gradient-via: var(--hv-bg); }
     .from-hv-surface { --tw-gradient-from: var(--hv-surface); }
     .to-hv-surface { --tw-gradient-to: var(--hv-surface); }

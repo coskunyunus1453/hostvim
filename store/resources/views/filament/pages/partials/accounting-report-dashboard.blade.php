@@ -239,6 +239,25 @@
         </x-filament::section>
     </div>
 
+    <x-filament::section heading="Ödeme yöntemine göre gelir & komisyon" compact>
+        <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            Komisyon oranları "Ödeme Yöntemleri" ekranından her yöntem için girilir. Net = Gelir − tahmini komisyon.
+        </p>
+        @include('filament.pages.partials.accounting-data-table', [
+            'headers' => ['Yöntem', 'Sipariş', 'Gelir', 'Komisyon %', 'Tah. Komisyon', 'Net'],
+            'align' => ['start', 'end', 'end', 'end', 'end', 'end'],
+            'rows' => collect($report['byPaymentMethod'])->map(fn ($row) => [
+                '<span class="font-medium text-gray-950 dark:text-white">'.e($row['label']).'</span>',
+                '<span class="fi-accounting-badge">'.e((string) $row['order_count']).'</span>',
+                AccountingReportsPage::money($row['revenue']),
+                '<span class="fi-accounting-badge fi-accounting-badge--muted">'.AccountingReportsPage::percent($row['commission_rate']).'</span>',
+                '<span class="fi-accounting-money fi-accounting-money--loss">'.AccountingReportsPage::money($row['commission']).'</span>',
+                '<span class="fi-accounting-money fi-accounting-money--profit">'.AccountingReportsPage::money($row['net']).'</span>',
+            ])->all(),
+            'empty' => 'Bu dönemde ödeme kaydı yok.',
+        ])
+    </x-filament::section>
+
     <div class="grid gap-6 xl:grid-cols-2">
         <x-filament::section heading="En kârlı ürünler / hizmetler" compact>
             @include('filament.pages.partials.profit-table', ['rows' => $report['topProfit']])
