@@ -2416,7 +2416,13 @@
     "confirm_impersonate": "{{email}} hesabına müşteri olarak giriş yapılsın mı?",
     "impersonation_started": "Müşteri oturumu açıldı",
     "impersonation_banner": "{{customer}} olarak görüntülüyorsunuz (yönetici: {{admin}})",
-    "impersonation_exit": "Yönetici oturumuna dön"
+    "impersonation_exit": "Yönetici oturumuna dön",
+    "hosting_package": "Hosting paketi",
+    "package_none": "Paket yok",
+    "package_hint": "Paketteki CPU/RAM limiti kullanıcının tüm sitelerine uygulanır.",
+    "assign_package": "Paket ata",
+    "package_assigned": "Paket atandı, mevcut sitelere uygulanıyor",
+    "package_apply_note": "Paket değişince kullanıcının tüm aktif sitelerine yeni CPU/RAM limiti arka planda uygulanır."
   },
   "domain_portfolio": {
     "title": "Alan Adı Portföyü",
