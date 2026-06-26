@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# PanelKafes — site başına Linux kullanıcı izolasyonu (CloudLinux/CageFS benzeri katman).
+# Engine www-data: sudo -n /usr/local/sbin/panelze-site-cage <cmd> ...
+set -euo pipefail
+
+GROUP="${PANELZE_CAGE_GROUP:-panelze-hosting}"
+PREFIX="${PANELZE_CAGE_USER_PREFIX:-pk}"
+ENGINE_USER="${PANELZE_CAGE_ENGINE_USER:-www-data}"
+SLICE_PREFIX="panelkafes"
+DEFAULT_CPU_PCT="${PANELZE_CAGE_CPU_PERCENT:-100}"
+DEFAULT_MEM_MB="${PANELZE_CAGE_MEMORY_MB:-1024}"
+
+usage() {
+  echo "usage: panelze-site-cage ensure-user <domain> <web_root>" >&2
+  echo "       panelze-site-cage apply <domain> <web_root>" >&2
+  echo "       panelze-site-cage limits <domain> [cpu_percent] [memory_mb]" >&2
+  echo "       panelze-site-cage remove-user <domain>" >&2
+  echo "       panelze-site-cage status <domain> <web_root>" >&2
+  echo "       panelze-site-cage apply-all <web_root>" >&2
+  echo "       panelze-site-cage ensure-group" >&2
+  exit 2
+}
+
+slug_from_domain() {
+  local d
+  d="$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr '.' '-' | tr -cd 'a-z0-9-')"
+  echo "${d:0:48}"
+}
+
+user_from_domain() {
+  local slug
+  slug="$(slug_from_domain "$1")"
+  local u="${PREFIX}-${slug}"
+  echo "${u:0:32}"
+}
+
+slice_name() {
+  echo "${SLICE_PREFIX}-$(slug_from_domain "$1")"
+}
+
+ensure_group() {
+  if ! getent group "$GROUP" >/dev/null 2>&1; then
+    groupadd --system "$GROUP"
+  fi
+  if id "$ENGINE_USER" &>/dev/null; then
+    usermod -aG "$GROUP" "$ENGINE_USER" 2>/dev/null || true
+  fi
+}
+
+cmd_ensure_user() {
+  local domain="$1" web_root="$2"
+  [[ -n "$domain" && -n "$web_root" ]] || usage
+  ensure_group
+  local user site_root
+  user="$(user_from_domain "$domain")"
+  site_root="${web_root%/}/$domain"
+  mkdir -p "$site_root"
+  if ! id "$user" &>/dev/null; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin \
+      --gid "$GROUP" --home-dir "$site_root" "$user"
+  else
+    usermod --home "$site_root" --gid "$GROUP" "$user" 2>/dev/null || true
+  fi
+  usermod -aG "$GROUP" "$user" 2>/dev/null || true
+  mkdir -p "$site_root/tmp"
+  echo "$user"
+}
+
+cmd_apply() {
+  local domain="$1" web_root="$2"
+  [[ -n "$domain" && -n "$web_root" ]] || usage
+  ensure_group
+  local user site_root
+  user="$(cmd_ensure_user "$domain" "$web_root")"
+  site_root="${web_root%/}/$domain"
+  [[ -d "$site_root" ]] || { echo "site root missing: $site_root" >&2; exit 1; }
+
+  chown -R "$user:$GROUP" "$site_root"
+  find "$site_root" -type d -exec chmod 2775 {} +
+  find "$site_root" -type f -exec chmod 664 {} +
+  chmod 1777 "$site_root/tmp" 2>/dev/null || chmod 2777 "$site_root/tmp" 2>/dev/null || true
+
+  for priv in .panelze .panelsar .hostvim; do
+    if [[ -d "$site_root/$priv" ]]; then
+      chown -R "$user:$GROUP" "$site_root/$priv"
+      chmod 750 "$site_root/$priv"
+      find "$site_root/$priv" -type f -exec chmod 640 {} +
+    fi
+  done
+
+  limits_file="/etc/security/limits.d/panelkafes-${user}.conf"
+  cat >"$limits_file" <<EOF
+# PanelKafes — $domain
+$user soft nproc 80
+$user hard nproc 120
+$user soft nofile 8192
+$user hard nofile 16384
+EOF
+  echo "OK apply $domain user=$user"
+}
+
+cmd_limits() {
+  local domain="$1"
+  local cpu="${2:-$DEFAULT_CPU_PCT}"
+  local mem="${3:-$DEFAULT_MEM_MB}"
+  [[ -n "$domain" ]] || usage
+  local slice
+  slice="$(slice_name "$domain")"
+  local unit="/etc/systemd/system/${slice}.slice"
+  cat >"$unit" <<EOF
+[Unit]
+Description=PanelKafes resource slice for ${domain}
+Documentation=https://panelze.local/panelkafes
+
+[Slice]
+CPUQuota=${cpu}%
+MemoryMax=${mem}M
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "OK limits slice=${slice} cpu=${cpu}% mem=${mem}M"
+}
+
+cmd_remove_user() {
+  local domain="$1"
+  [[ -n "$domain" ]] || usage
+  local user slice unit limits_file
+  user="$(user_from_domain "$domain")"
+  slice="$(slice_name "$domain")"
+  unit="/etc/systemd/system/${slice}.slice"
+  limits_file="/etc/security/limits.d/panelkafes-${user}.conf"
+  [[ -f "$unit" ]] && rm -f "$unit"
+  [[ -f "$limits_file" ]] && rm -f "$limits_file"
+  systemctl daemon-reload 2>/dev/null || true
+  if id "$user" &>/dev/null; then
+    userdel "$user" 2>/dev/null || true
+  fi
+  echo "OK removed $user"
+}
+
+cmd_status() {
+  local domain="$1" web_root="$2"
+  [[ -n "$domain" && -n "$web_root" ]] || usage
+  local user site_root
+  user="$(user_from_domain "$domain")"
+  site_root="${web_root%/}/$domain"
+  local exists="false" user_exists="false" owner=""
+  [[ -d "$site_root" ]] && exists="true"
+  id "$user" &>/dev/null && user_exists="true"
+  if [[ -d "$site_root" ]]; then
+    owner="$(stat -c '%U:%G' "$site_root" 2>/dev/null || echo '')"
+  fi
+  printf '{"domain":"%s","cage_user":"%s","user_exists":%s,"site_exists":%s,"owner":"%s","group":"%s"}\n' \
+    "$domain" "$user" "$user_exists" "$exists" "$owner" "$GROUP"
+}
+
+cmd_apply_all() {
+  local web_root="$1"
+  [[ -n "$web_root" && -d "$web_root" ]] || usage
+  ensure_group
+  local d
+  for d in "$web_root"/*; do
+    [[ -d "$d" ]] || continue
+    local name
+    name="$(basename "$d")"
+    [[ "$name" == .* ]] && continue
+    cmd_apply "$name" "$web_root" || echo "WARN: $name" >&2
+    cmd_limits "$name" "$DEFAULT_CPU_PCT" "$DEFAULT_MEM_MB" || true
+  done
+  echo "OK apply-all"
+}
+
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  ensure-group) ensure_group; echo "OK group $GROUP" ;;
+  ensure-user) cmd_ensure_user "${1:-}" "${2:-}" ;;
+  apply) cmd_apply "${1:-}" "${2:-}" ;;
+  limits) cmd_limits "${1:-}" "${2:-}" "${3:-}" ;;
+  remove-user) cmd_remove_user "${1:-}" ;;
+  status) cmd_status "${1:-}" "${2:-}" ;;
+  apply-all) cmd_apply_all "${1:-}" ;;
+  *) usage ;;
+esac

@@ -564,9 +564,6 @@ if [[ -f "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" ]]; then
   install -m 755 "$REPO_ROOT/deploy/scripts/fix-hosting-permissions.sh" /usr/local/sbin/panelze-fix-hosting-perms
   ln -sfn /usr/local/sbin/panelze-fix-hosting-perms /usr/local/sbin/panelsar-fix-hosting-perms
 fi
-if [[ -f "$REPO_ROOT/deploy/host/panelze-site-cage" ]]; then
-  install -m 755 "$REPO_ROOT/deploy/host/panelze-site-cage" /usr/local/sbin/panelze-site-cage
-fi
 # PM2 global (Node uygulamaları)
 if command -v npm >/dev/null 2>&1 && ! command -v pm2 >/dev/null 2>&1; then
   npm install -g pm2 2>/dev/null || true
@@ -603,9 +600,6 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-hosting-perms
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-fix-hosting-perms
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
 visudo -cf /etc/sudoers.d/panelze-engine

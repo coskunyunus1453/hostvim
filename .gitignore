@@ -70,3 +70,8 @@ dist-artifacts/
 dist-artifacts/
 
 dist-artifacts/
+
+# Production gizli ortam dosyalari (asla commit edilmez)
+.env.production
+.env.staging
+**/.env.production

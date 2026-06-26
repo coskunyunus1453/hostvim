@@ -1,5 +1,4 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -187,90 +186,21 @@ function isSafeNewFileName(name: string): boolean {
 }
 
 /** Klasör/dosya göreli yolu — segment başına sadece . .. \ ve kontrolsüz uzunluk engellenir (UTF-8 dosya adları OK). */
-function collapseRelativePath(path: string): string {
-  return path
-    .trim()
-    .replace(/\\/g, '/')
-    .replace(/^\/+/, '')
-    .split('/')
-    .filter((seg) => seg !== '' && seg !== '.' && seg !== '..')
-    .join('/')
-}
-
 function isSafeRelativePath(path: string): boolean {
-  const collapsed = collapseRelativePath(path)
-  if (!collapsed) return true
-  const segs = collapsed.split('/')
+  const t = path.trim().replace(/^\/+/g, '')
+  if (!t) return true
+  if (t.includes('\\')) return false
+  const segs = t.split('/').filter(Boolean)
+  if (segs.length === 0) return true
+  if (segs.some((s) => s === '.' || s === '..')) return false
   if (segs.some((s) => s.length > 255)) return false
   return true
 }
 
 function joinRel(dir: string, name: string): string {
-  const d = collapseRelativePath(dir)
-  const n = collapseRelativePath(name)
-  if (!d) return n
-  if (!n) return d
-  return `${d}/${n}`
-}
-
-function uploadFileBaseName(file: File): string | null {
-  const fromName = (file.name.split(/[/\\]/).pop() ?? '').trim()
-  if (fromName && fromName !== '.' && fromName !== '..') return fromName
-
-  const rel = String((file as FileWithRelPath & { relativePath?: string }).relativePath ?? '')
-    .trim()
-    .replace(/\\/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/^\.\/+/, '')
-  const fromRel = rel.split('/').filter(Boolean).pop() ?? ''
-  if (fromRel && fromRel !== '.' && fromRel !== '..') return fromRel
-
-  return null
-}
-
-/** Klasör sürükleme: çok segmentli yol; tek dosya: boş (hedef = mevcut dizin). */
-function folderUploadRelativePath(file: File): string {
-  const wrp = String((file as FileWithRelPath).webkitRelativePath ?? '').trim()
-  const rp = String((file as FileWithRelPath & { relativePath?: string }).relativePath ?? '').trim()
-  const raw = (wrp || rp).replace(/\\/g, '/').replace(/^\/+/, '').replace(/^\.\/+/, '')
-  if (!raw.includes('/')) return ''
-  return collapseRelativePath(raw)
-}
-
-/** Tek dosya: yalnızca ad; klasör sürükleme: webkitRelativePath / relativePath. */
-function normalizeUploadItem(file: File, currentDir: string): NormalizedUploadItem | null {
-  const dir = collapseRelativePath(currentDir)
-  const folderRel = folderUploadRelativePath(file)
-
-  if (folderRel !== '') {
-    const segs = folderRel.split('/').filter(Boolean)
-    if (segs.length === 0) return null
-    const baseName = segs[segs.length - 1]
-    const parentSub = segs.length > 1 ? segs.slice(0, -1).join('/') : ''
-    const parentRel = parentSub ? joinRel(dir, parentSub) : dir
-    return { file, relFromBase: folderRel, parentRel, baseName }
-  }
-
-  const baseName = uploadFileBaseName(file)
-  if (!baseName || !isSafeRelativePath(baseName)) return null
-
-  return {
-    file,
-    relFromBase: baseName,
-    parentRel: dir,
-    baseName,
-  }
-}
-
-async function filesFromDropEvent(event: DropEvent): Promise<File[]> {
-  if (event && typeof event === 'object' && 'type' in event && event.type === 'change') {
-    const input = (event as Event).target
-    if (input instanceof HTMLInputElement && input.files) {
-      return Array.from(input.files)
-    }
-  }
-  const picked = await fromEvent(event)
-  return picked.filter((f): f is File => f instanceof File)
+  const d = dir.replace(/^\/+|\/+$/g, '')
+  if (!d) return name
+  return `${d}/${name}`
 }
 
 function parentPath(p: string): string {
@@ -919,8 +849,7 @@ export default function FileManagerPage() {
     ) => {
       const fd = new FormData()
       fd.append('file', item.file, item.baseName)
-      const uploadDir = collapseRelativePath(item.parentRel)
-      fd.append('path', uploadDir)
+      fd.append('path', item.parentRel)
       fd.append('if_exists', item.ifExists ?? ifExists)
       const sizeHint = item.file.size > 0 ? item.file.size : 0
       const res = await api.post<{
@@ -1032,19 +961,17 @@ export default function FileManagerPage() {
                 lastLoaded = ld
               }
               const overallLoaded = Math.min(overallTotal, completedSum + ld)
-              flushSync(() => {
-                setUploadProgressView((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        currentLoaded: ld,
-                        currentTotal: tsize,
-                        overallLoaded,
-                        speedBps: emaSpeed,
-                      }
-                    : null,
-                )
-              })
+              setUploadProgressView((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      currentLoaded: ld,
+                      currentTotal: tsize,
+                      overallLoaded,
+                      speedBps: emaSpeed,
+                    }
+                  : null,
+              )
             }, defaultIfExists)
             if (uploaded?.skipped) {
               completedSum += w
@@ -1056,19 +983,6 @@ export default function FileManagerPage() {
               completedSum += w
               ok++
             }
-            flushSync(() => {
-              setUploadProgressView((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      currentLoaded: w,
-                      currentTotal: w,
-                      overallLoaded: completedSum,
-                      speedBps: emaSpeed,
-                    }
-                  : null,
-              )
-            })
           } catch (err: unknown) {
             failed++
             const ax = err as {
@@ -1141,21 +1055,27 @@ export default function FileManagerPage() {
       if (uploadBatchLock.current) return
       uploadBatchLock.current = true
       setUploadBusy(true)
-      const basePath = collapseRelativePath(path)
+      const basePath = path
       try {
         const items: NormalizedUploadItem[] = []
         for (const file of rawFiles) {
-          const normalized = normalizeUploadItem(file, basePath)
-          if (normalized === null) {
+          const hinted = (file as FileWithRelPath & { path?: string }).path
+            || (file as FileWithRelPath).webkitRelativePath
+          const wrp = hinted && String(hinted).trim() !== '' ? String(hinted) : ''
+          const relFromBase =
+            wrp !== '' ? wrp.replace(/\\/g, '/') : file.name
+          if (!isSafeRelativePath(relFromBase)) {
             toast.error(t('files.invalid_path'))
             continue
           }
-          items.push(normalized)
+          const segs = relFromBase.split('/').filter(Boolean)
+          if (segs.length === 0) continue
+          const baseName = segs[segs.length - 1]
+          const parentSub = segs.length > 1 ? segs.slice(0, -1).join('/') : ''
+          const parentRel = parentSub ? joinRel(basePath, parentSub) : basePath
+          items.push({ file, relFromBase, parentRel, baseName })
         }
-        if (items.length === 0) {
-          toast.error(t('files.upload_err'))
-          return
-        }
+        if (items.length === 0) return
 
         const rootListing = await fetchAllFileEntries(domainId, basePath, subdomainId)
         const allowed: NormalizedUploadItem[] = []
@@ -1640,7 +1560,8 @@ export default function FileManagerPage() {
     async (accepted: File[], _rejections: unknown, event: DropEvent) => {
       let batch: File[] = []
       try {
-        batch = await filesFromDropEvent(event)
+        const picked = await fromEvent(event)
+        batch = picked.filter((f): f is File => f instanceof File)
       } catch {
         batch = accepted
       }
@@ -1658,7 +1579,7 @@ export default function FileManagerPage() {
     disabled: domainId === '' || uploadBusy || !canWrite,
     noClick: true,
     multiple: true,
-    getFilesFromEvent: filesFromDropEvent,
+    getFilesFromEvent: fromEvent,
   })
 
   const entries = filesQ.data?.entries ?? []
