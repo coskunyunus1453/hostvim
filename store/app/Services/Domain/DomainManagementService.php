@@ -162,6 +162,21 @@ class DomainManagementService
 
         try {
             $driver = $this->managementDriver($account);
+
+            // Idempotency: domain saglayicida zaten kayitliysa TEKRAR register etme.
+            // (Job retry / timeout sonrasi mukerrer kayit ve cifte ucretlendirmeyi onler.)
+            try {
+                $existingInfo = $driver->getDomainInfo($account, $domain);
+            } catch (\Throwable) {
+                $existingInfo = null;
+            }
+            if (is_array($existingInfo) && ! empty($existingInfo['domain'])) {
+                $row->update($this->mapRemote($apiName, $existingInfo));
+                $this->refresh($row->fresh());
+
+                return ['ok' => true, 'message' => 'Alan adı sağlayıcıda zaten kayıtlı; bilgiler senkronlandı.'];
+            }
+
             // Domain musteri adina kaydedilir (registrant = musteri bilgileri).
             // WHOIS gizliligi varsayilan acik, otomatik yenileme kapali.
             $result = $driver->registerDomain($account, $domain, $years, false, true, $this->registrantFromOrder($order));
@@ -200,14 +215,14 @@ class DomainManagementService
         $user = $order->user;
 
         return [
-            'name' => $user->name ?? $order->customer_name,
-            'email' => $user->email ?? $order->customer_email,
-            'phone' => $user->phone ?? $order->customer_phone,
-            'company' => $user->company ?? $order->customer_company,
-            'address' => $user->address ?? $order->customer_address,
-            'city' => $user->city ?? null,
-            'postal_code' => $user->postal_code ?? null,
-            'country' => $user->country ?? 'TR',
+            'name' => $user?->name ?? $order->customer_name,
+            'email' => $user?->email ?? $order->customer_email,
+            'phone' => $user?->phone ?? $order->customer_phone,
+            'company' => $user?->company ?? $order->customer_company,
+            'address' => $user?->address ?? $order->customer_address,
+            'city' => $user?->city ?? null,
+            'postal_code' => $user?->postal_code ?? null,
+            'country' => $user?->country ?? 'TR',
         ];
     }
 

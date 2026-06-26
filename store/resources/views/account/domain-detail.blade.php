@@ -52,7 +52,7 @@
                 @csrf
                 <label class="text-sm">
                     <span class="block text-hv-muted">Yıl</span>
-                    <select name="years" class="mt-1 rounded-lg border border-hv-border bg-white px-3 py-2 text-sm">
+                    <select name="years" class="mt-1 rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm">
                         @for($y = 1; $y <= 10; $y++)
                             <option value="{{ $y }}">{{ $y }} yıl</option>
                         @endfor
@@ -77,7 +77,7 @@
                     </label>
                 </div>
                 <div id="ns-custom" class="{{ $domain->ns_provider === 'custom' ? '' : 'hidden' }}">
-                    <textarea name="hosts" rows="3" placeholder="ns1.example.com&#10;ns2.example.com" class="w-full rounded-lg border border-hv-border bg-white px-3 py-2 text-sm font-mono">{{ collect($domain->nameservers ?? [])->implode("\n") }}</textarea>
+                    <textarea name="hosts" rows="3" placeholder="ns1.example.com&#10;ns2.example.com" class="w-full rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm font-mono">{{ collect($domain->nameservers ?? [])->implode("\n") }}</textarea>
                     <p class="mt-1 text-xs text-hv-muted">Her satıra bir nameserver (en az 2 adet).</p>
                 </div>
                 <button class="btn-primary">Kaydet</button>
@@ -111,16 +111,16 @@
                             @foreach($records as $i => $r)
                                 <tr>
                                     <td class="py-1 pr-2">
-                                        <select name="records[{{ $i }}][type]" class="rounded-lg border border-hv-border bg-white px-2 py-1.5">
+                                        <select name="records[{{ $i }}][type]" class="rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5">
                                             @foreach(['A','AAAA','CNAME','MX','TXT','NS','CAA','SRV','ALIAS'] as $t)
                                                 <option value="{{ $t }}" {{ ($r['type'] ?? '') === $t ? 'selected' : '' }}>{{ $t }}</option>
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][name]" value="{{ $r['name'] ?? '@' }}" class="w-24 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][value]" value="{{ $r['value'] ?? '' }}" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][ttl]" type="number" value="{{ $r['ttl'] ?? 3600 }}" class="w-20 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][priority]" type="number" value="{{ $r['priority'] ?? '' }}" class="w-16 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][name]" value="{{ $r['name'] ?? '@' }}" class="w-24 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][value]" value="{{ $r['value'] ?? '' }}" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][ttl]" type="number" value="{{ $r['ttl'] ?? 3600 }}" class="w-20 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][priority]" type="number" value="{{ $r['priority'] ?? '' }}" class="w-16 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
                                     <td class="py-1"><button type="button" onclick="this.closest('tr').remove()" class="text-red-600 hover:underline">Sil</button></td>
                                 </tr>
                             @endforeach
@@ -141,11 +141,11 @@
         const i = dnsIndex++;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="py-1 pr-2"><select name="records[${i}][type]" class="rounded-lg border border-hv-border bg-white px-2 py-1.5">${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select></td>
-            <td class="py-1 pr-2"><input name="records[${i}][name]" value="@" class="w-24 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
-            <td class="py-1 pr-2"><input name="records[${i}][value]" value="" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
-            <td class="py-1 pr-2"><input name="records[${i}][ttl]" type="number" value="3600" class="w-20 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
-            <td class="py-1 pr-2"><input name="records[${i}][priority]" type="number" value="" class="w-16 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><select name="records[${i}][type]" class="rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5">${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select></td>
+            <td class="py-1 pr-2"><input name="records[${i}][name]" value="@" class="w-24 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><input name="records[${i}][value]" value="" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><input name="records[${i}][ttl]" type="number" value="3600" class="w-20 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><input name="records[${i}][priority]" type="number" value="" class="w-16 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
             <td class="py-1"><button type="button" onclick="this.closest('tr').remove()" class="text-red-600 hover:underline">Sil</button></td>`;
         document.getElementById('dns-rows').appendChild(tr);
     }

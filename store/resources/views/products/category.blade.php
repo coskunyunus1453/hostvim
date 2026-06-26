@@ -1,11 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="bg-gradient-to-b from-orange-50/50 to-white py-16">
+<section class="bg-gradient-to-b from-hv-surface to-hv-bg py-16">
     <div class="mx-auto max-w-7xl px-4 lg:px-8">
-        <nav class="text-sm text-stone-500"><a href="{{ route('products.index') }}" class="hover:text-[#C2410C]">Ürünler</a> / <span class="text-stone-800">{{ $category->name }}</span></nav>
-        <h1 class="mt-4 text-4xl font-extrabold text-stone-900">{{ $category->name }}</h1>
-        @if($category->description)<p class="mt-4 max-w-2xl text-lg text-stone-600">{{ $category->description }}</p>@endif
+        <h1 class="mt-4 text-4xl font-extrabold text-hv-text">{{ $category->name }}</h1>
+        @if($category->description)<p class="mt-4 max-w-2xl text-lg text-hv-muted">{{ $category->description }}</p>@endif
     </div>
 </section>
 
@@ -15,7 +14,7 @@
             @forelse($category->activeProducts as $product)
                 @include('partials.pricing-card', ['product' => $product, 'category' => $category])
             @empty
-                <p class="col-span-full text-center text-stone-500">Paketler yakında eklenecek.</p>
+                <p class="col-span-full text-center text-hv-muted">Paketler yakında eklenecek.</p>
             @endforelse
         </div>
     </div>

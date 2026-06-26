@@ -5,6 +5,16 @@
     @csrf
     @method('PUT')
 
+    @if($errors->any())
+        <div class="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+            <ul class="list-disc list-inside space-y-1">
+                @foreach($errors->all() as $e)
+                    <li>{{ $e }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6">
         <h2 class="text-lg font-semibold text-hv-text">Kişisel bilgiler</h2>
         <div class="mt-4 grid gap-4 sm:grid-cols-2">

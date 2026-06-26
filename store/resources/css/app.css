@@ -51,6 +51,8 @@
     .via-hv-bg { --tw-gradient-via: var(--hv-bg); }
     .from-hv-surface { --tw-gradient-from: var(--hv-surface); }
     .to-hv-surface { --tw-gradient-to: var(--hv-surface); }
+    .from-hv-bg { --tw-gradient-from: var(--hv-bg); }
+    .to-hv-bg { --tw-gradient-to: var(--hv-bg); }
 
     .shadow-hv-primary\/25 { --tw-shadow-color: color-mix(in srgb, var(--hv-primary) 25%, transparent); }
 }
@@ -684,10 +686,10 @@
     color: var(--hv-primary);
 }
 .campaign-popup-title { @apply text-2xl font-extrabold; color: var(--hv-text); }
-.campaign-popup-desc { @apply text-sm; color: var(--hv-muted); }
+.campaign-popup-desc { @apply text-sm; color: var(--hv-text-muted); }
 .campaign-popup-countdown { @apply flex flex-col gap-1; }
 .campaign-popup-code { @apply space-y-1; }
-.campaign-popup-code-label { @apply text-xs font-semibold uppercase; color: var(--hv-muted); }
+.campaign-popup-code-label { @apply text-xs font-semibold uppercase; color: var(--hv-text-muted); }
 .campaign-popup-cta { @apply mt-2 w-full text-center; }
 
 body.has-flash-bar .hv-header-sticky { top: 0; }

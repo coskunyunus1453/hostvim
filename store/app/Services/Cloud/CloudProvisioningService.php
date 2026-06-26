@@ -9,6 +9,7 @@ use App\Models\CloudServer;
 use App\Models\EmailTemplate;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\AdminNotificationService;
 use App\Services\Cloud\Provider\CloudProviderResolver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,7 @@ class CloudProvisioningService
     public function __construct(
         private CloudSettings $settings,
         private CloudProviderResolver $providers,
+        private AdminNotificationService $notifications,
     ) {}
 
     public function dispatchIfNeeded(Order $order): void
@@ -77,7 +79,17 @@ class CloudProvisioningService
 
             $quantity = max(1, min(10, (int) $line->quantity));
 
-            for ($i = 0; $i < $quantity; $i++) {
+            // Idempotency: bu kalem icin saglayicida zaten olusturulmus (external_id'li,
+            // basarisiz olmayan) sunuculari say. Retry'da bunlar TEKRAR olusturulmaz —
+            // boylece ozellikle Contabo gibi ucretli saglayicilarda mukerrer sunucu/fatura onlenir.
+            $alreadyProvisioned = CloudServer::query()
+                ->where('order_item_id', $line->id)
+                ->whereNotNull('external_id')
+                ->where('status', '!=', CloudServer::STATUS_FAILED)
+                ->count();
+            $provisioned += $alreadyProvisioned;
+
+            for ($i = $alreadyProvisioned; $i < $quantity; $i++) {
                 try {
                     $this->provisionOne($order, $line, $product, $i);
                     $provisioned++;
@@ -244,28 +256,41 @@ class CloudProvisioningService
             }
         }
 
-        $result = $driver->createServer($account, $createConfig);
+        try {
+            $result = $driver->createServer($account, $createConfig);
 
-        $externalId = (string) ($result['external_id'] ?? '');
-        $serverRow->update([
-            'external_id' => $externalId ?: null,
-            'ipv4' => $result['ipv4'] ?? null,
-            'ipv6' => $result['ipv6'] ?? null,
-            'root_password' => $result['root_password'] ?? null,
-            'status' => CloudServer::STATUS_PROVISIONING,
-            'meta' => array_merge($serverRow->meta ?? [], $result['meta'] ?? []),
-        ]);
+            $externalId = (string) ($result['external_id'] ?? '');
+            $serverRow->update([
+                'external_id' => $externalId ?: null,
+                'ipv4' => $result['ipv4'] ?? null,
+                'ipv6' => $result['ipv6'] ?? null,
+                'root_password' => $result['root_password'] ?? null,
+                'status' => CloudServer::STATUS_PROVISIONING,
+                'meta' => array_merge($serverRow->meta ?? [], $result['meta'] ?? []),
+            ]);
 
-        // Sunucu hazir (IP + aktif) olana kadar polling yap.
-        if ($externalId !== '') {
-            $polled = $this->pollUntilReady($driver, $account, $externalId);
-            if ($polled !== null) {
-                $serverRow->update([
-                    'ipv4' => $polled['ipv4'] ?? $serverRow->ipv4,
-                    'ipv6' => $polled['ipv6'] ?? $serverRow->ipv6,
-                    'meta' => array_merge($serverRow->meta ?? [], $polled['meta'] ?? []),
-                ]);
+            // Sunucu hazir (IP + aktif) olana kadar polling yap.
+            if ($externalId !== '') {
+                $polled = $this->pollUntilReady($driver, $account, $externalId);
+                if ($polled !== null) {
+                    $serverRow->update([
+                        'ipv4' => $polled['ipv4'] ?? $serverRow->ipv4,
+                        'ipv6' => $polled['ipv6'] ?? $serverRow->ipv6,
+                        'meta' => array_merge($serverRow->meta ?? [], $polled['meta'] ?? []),
+                    ]);
+                }
             }
+        } catch (Throwable $e) {
+            // Sunucu olusturma/polling basarisiz: satiri FAILED isaretle ki admin panelinde
+            // "Kuruluyor"da sonsuza dek takili kalmasin ve hata nedeni gorunsun.
+            $serverRow->refresh();
+            $serverRow->update([
+                'status' => CloudServer::STATUS_FAILED,
+                'provision_error' => Str::limit($e->getMessage(), 480),
+            ]);
+            $this->notifications->fromCloudServerFailed($serverRow->fresh());
+
+            throw $e;
         }
 
         $serverRow->refresh();
@@ -416,6 +441,40 @@ CLOUDINIT;
             'cloud_provision_error' => $message,
             'status' => 'processing',
         ]);
+
+        $this->sendProvisionDelayedEmail($order);
+    }
+
+    /**
+     * Sunucu kurulumu otomatik tamamlanamadiginda musteriye bilgilendirme gonderir.
+     * (Admin'e bildirim OrderObserver -> AdminNotificationService uzerinden ayrica gider.)
+     */
+    private function sendProvisionDelayedEmail(Order $order): void
+    {
+        if (empty($order->customer_email)) {
+            return;
+        }
+
+        $body = '<p>Sayın '.e($order->customer_name).',</p>'
+            .'<p><strong>'.e($order->order_number).'</strong> numaralı sunucu siparişiniz alındı ve ödemeniz onaylandı. '
+            .'Sunucu kurulumunuz otomatik olarak tamamlanamadı; ekibimiz bilgilendirildi ve kurulumu en kısa sürede tamamlayacaktır.</p>'
+            .'<p>Herhangi bir işlem yapmanıza gerek yoktur. Sunucunuz hazır olduğunda erişim bilgileriniz e-posta ile iletilecektir.</p>';
+
+        try {
+            $template = EmailTemplate::query()->where('slug', 'order-confirmation')->where('is_active', true)->first();
+            if ($template !== null) {
+                $subject = 'Siparişiniz işleniyor — '.$order->order_number;
+                Mail::to($order->customer_email)->queue(new TemplatedMail($subject, $body));
+
+                return;
+            }
+
+            Mail::raw(strip_tags(str_replace(['</p>', '<br>'], ["\n\n", "\n"], $body)), function ($message) use ($order): void {
+                $message->to($order->customer_email)->subject('Siparişiniz işleniyor — '.$order->order_number);
+            });
+        } catch (Throwable $e) {
+            Log::warning('cloud.delayed_email_failed', ['order' => $order->order_number, 'error' => $e->getMessage()]);
+        }
     }
 
     private function sendServerCredentialsEmail(Order $order): void
