@@ -49,6 +49,20 @@ class SalesCurrencyService
     }
 
     /**
+     * Vitrinde (satın alma sayfası) gösterilecek fiyat — site gösterim para birimi.
+     *
+     * @return array{minor: int, currency: string}|null
+     */
+    public function displayPrice(SaasLicenseProduct $product): ?array
+    {
+        return match ($this->displayCurrency()) {
+            'USD' => $this->resolveForCheckoutCurrency($product, 'usd'),
+            'EUR' => $this->resolveForCheckoutCurrency($product, 'eur'),
+            default => $this->resolvePaytr($product),
+        };
+    }
+
+    /**
      * @return array{minor: int, currency: string}|null
      */
     public function resolveForProvider(SaasLicenseProduct $product, string $provider): ?array
@@ -140,13 +154,7 @@ class SalesCurrencyService
      */
     private function resolveBankTransfer(SaasLicenseProduct $product): ?array
     {
-        $target = $this->displayCurrency();
-
-        return match ($target) {
-            'USD' => $this->resolveForCheckoutCurrency($product, 'usd'),
-            'EUR' => $this->resolveForCheckoutCurrency($product, 'eur'),
-            default => $this->resolvePaytr($product),
-        };
+        return $this->displayPrice($product);
     }
 
     public function tryMinorToUsdMinor(int $tryMinor): int

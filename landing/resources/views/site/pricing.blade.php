@@ -54,6 +54,10 @@
                                 @endforeach
                             </ul>
                         @endif
+                        <a href="{{ route('site.buy') }}"
+                           class="mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition {{ $plan->is_featured ? 'bg-[rgb(var(--hv-brand-600)/1)] text-white hover:opacity-95' : 'border border-slate-300/90 text-slate-800 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800' }}">
+                            {{ app()->getLocale() === 'tr' ? 'Satın Al' : 'Buy now' }}
+                        </a>
                     </div>
                 @endforeach
             </div>

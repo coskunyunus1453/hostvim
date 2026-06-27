@@ -31,29 +31,45 @@ class StripeLicensingService
         $successUrl = url('/license/success?ref='.urlencode($order->order_ref));
         $cancelUrl = url('/license/cancel?ref='.urlencode($order->order_ref));
 
+        $metadata = [
+            'order_ref' => $order->order_ref,
+            'saas_license_product_id' => (string) $product->id,
+        ];
+
+        $priceData = [
+            'currency' => strtolower((string) $order->currency),
+            'unit_amount' => (int) $order->amount_minor,
+            'product_data' => [
+                'name' => $product->name,
+                'description' => $product->description ?: $product->name,
+            ],
+        ];
+
+        $recurring = $product->isRecurring();
+        if ($recurring) {
+            $priceData['recurring'] = ['interval' => $product->billing_interval === 'year' ? 'year' : 'month'];
+        }
+
+        $params = [
+            'mode' => $recurring ? 'subscription' : 'payment',
+            'customer_email' => $order->email,
+            'client_reference_id' => $order->order_ref,
+            'metadata' => $metadata,
+            'line_items' => [[
+                'price_data' => $priceData,
+                'quantity' => 1,
+            ]],
+            'success_url' => $successUrl.'&session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => $cancelUrl,
+        ];
+
+        if ($recurring) {
+            // Yenileme faturalarında (invoice.paid) order_ref'i bulabilmek için aboneliğe de metadata yaz.
+            $params['subscription_data'] = ['metadata' => $metadata];
+        }
+
         try {
-            return Session::create([
-                'mode' => 'payment',
-                'customer_email' => $order->email,
-                'client_reference_id' => $order->order_ref,
-                'metadata' => [
-                    'order_ref' => $order->order_ref,
-                    'saas_license_product_id' => (string) $product->id,
-                ],
-                'line_items' => [[
-                    'price_data' => [
-                        'currency' => strtolower((string) $order->currency),
-                        'unit_amount' => (int) $order->amount_minor,
-                        'product_data' => [
-                            'name' => $product->name,
-                            'description' => $product->description ?: $product->name,
-                        ],
-                    ],
-                    'quantity' => 1,
-                ]],
-                'success_url' => $successUrl.'&session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => $cancelUrl,
-            ]);
+            return Session::create($params);
         } catch (ApiErrorException $e) {
             Log::warning('Stripe checkout create failed: '.$e->getMessage());
             throw new RuntimeException('stripe_checkout_failed');

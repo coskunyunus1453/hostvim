@@ -21,6 +21,7 @@ class SaasLicense extends Model
         'subscription_renews_at',
         'billing_provider',
         'billing_reference',
+        'subscription_provider_id',
         'notes',
     ];
 

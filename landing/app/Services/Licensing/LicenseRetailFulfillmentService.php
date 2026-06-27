@@ -14,13 +14,13 @@ use Throwable;
 
 class LicenseRetailFulfillmentService
 {
-    public function fulfillIfPending(SaasCheckoutOrder $order, string $billingReference): ?SaasLicense
+    public function fulfillIfPending(SaasCheckoutOrder $order, string $billingReference, ?string $subscriptionId = null): ?SaasLicense
     {
         if ($order->status === 'completed' && $order->saas_license_id) {
             return $order->license;
         }
 
-        return DB::transaction(function () use ($order, $billingReference): ?SaasLicense {
+        return DB::transaction(function () use ($order, $billingReference, $subscriptionId): ?SaasLicense {
             /** @var SaasCheckoutOrder $locked */
             $locked = SaasCheckoutOrder::query()->whereKey($order->id)->lockForUpdate()->first();
             if (! $locked) {
@@ -57,19 +57,26 @@ class LicenseRetailFulfillmentService
 
             $licenseKey = 'hv_'.Str::lower(Str::random(32));
 
+            $isRecurring = $product->isRecurring();
+            $isStripeSub = $isRecurring && $locked->provider === 'stripe' && $subscriptionId !== null;
+
+            $expiresAt = $isRecurring ? $this->addInterval(now(), (string) $product->billing_interval) : null;
+
             $license = SaasLicense::query()->create([
                 'license_key' => $licenseKey,
                 'saas_customer_id' => $customer->id,
                 'saas_license_product_id' => $product->id,
                 'status' => 'active',
                 'starts_at' => now(),
-                'expires_at' => null,
+                'expires_at' => $expiresAt,
                 'limits_override' => null,
                 'modules_override' => null,
-                'subscription_status' => 'active',
-                'subscription_renews_at' => null,
+                // Stripe aboneliği otomatik yenilenir; diğer sağlayıcılarda dönem sonunda manuel yenileme gerekir.
+                'subscription_status' => $isRecurring ? ($isStripeSub ? 'active' : 'manual') : 'active',
+                'subscription_renews_at' => $isStripeSub ? $expiresAt : null,
                 'billing_provider' => $locked->provider,
                 'billing_reference' => $billingReference,
+                'subscription_provider_id' => $isStripeSub ? $subscriptionId : null,
                 'notes' => 'Retail checkout '.$locked->order_ref,
             ]);
 
@@ -90,5 +97,57 @@ class LicenseRetailFulfillmentService
 
             return $license;
         });
+    }
+
+    /**
+     * Yinelenen abonelik faturası ödendiğinde lisansın bitiş/yenilenme tarihini Stripe'ın
+     * dönem sonuna (mutlak değer) eşitler — bu yüzden çift sayım olmaz, idempotenttir.
+     */
+    public function renewSubscription(string $subscriptionId, \DateTimeInterface $periodEnd): ?SaasLicense
+    {
+        $license = SaasLicense::query()
+            ->where('subscription_provider_id', $subscriptionId)
+            ->first();
+
+        if (! $license) {
+            return null;
+        }
+
+        $license->update([
+            'expires_at' => $periodEnd,
+            'subscription_renews_at' => $periodEnd,
+            'subscription_status' => 'active',
+            'status' => 'active',
+        ]);
+
+        return $license;
+    }
+
+    public function markSubscriptionStatus(string $subscriptionId, string $status): ?SaasLicense
+    {
+        $license = SaasLicense::query()
+            ->where('subscription_provider_id', $subscriptionId)
+            ->first();
+
+        if (! $license) {
+            return null;
+        }
+
+        $update = ['subscription_status' => $status];
+        if ($status === 'canceled') {
+            // Yenileme durur; erişim mevcut dönem sonuna (expires_at) kadar devam eder.
+            $update['subscription_renews_at'] = null;
+        }
+
+        $license->update($update);
+
+        return $license;
+    }
+
+    private function addInterval(\Illuminate\Support\Carbon $from, string $interval): \Illuminate\Support\Carbon
+    {
+        return $interval === 'year'
+            ? $from->copy()->addYearNoOverflow()
+            : $from->copy()->addMonthNoOverflow();
     }
 }

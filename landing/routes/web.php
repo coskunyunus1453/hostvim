@@ -38,6 +38,7 @@ use App\Http\Controllers\Site\Auth\RegisterController as SiteRegisterController;
 use App\Http\Controllers\Site\BlogController;
 use App\Http\Controllers\Site\CommunityController;
 use App\Http\Controllers\Site\CommunityParticipationController;
+use App\Http\Controllers\Site\BuyController;
 use App\Http\Controllers\Site\CommunityProfileController;
 use App\Http\Controllers\Site\DocController;
 use App\Http\Controllers\Site\LandingMediaController;
@@ -49,6 +50,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::permanentRedirect('/kurulum', '/setup');
 Route::permanentRedirect('/fiyatlandirma', '/pricing');
+Route::permanentRedirect('/satin-al', '/buy');
 
 // Google Drive OAuth — tüm panel kurulumları için tek redirect URI (panelze.com/backups/google-callback)
 Route::get('/backups/google-callback', GoogleDriveOAuthProxyController::class)
@@ -94,6 +96,7 @@ Route::get('/', function () {
 
 Route::get('/setup', [SitePageController::class, 'setup'])->name('site.setup');
 Route::get('/pricing', [PricingController::class, 'index'])->name('site.pricing');
+Route::get('/buy', [BuyController::class, 'index'])->name('site.buy');
 
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/category/{blog_category:slug}', [BlogController::class, 'category'])->name('blog.category');

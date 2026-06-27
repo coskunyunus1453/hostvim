@@ -18,7 +18,13 @@ class SaasLicenseProduct extends Model
         'price_try_minor',
         'price_usd_minor',
         'price_eur_minor',
+        'billing_interval',
     ];
+
+    public function isRecurring(): bool
+    {
+        return in_array($this->billing_interval, ['month', 'year'], true);
+    }
 
     protected function casts(): array
     {

@@ -66,6 +66,11 @@ class SaasBootstrapSeeder extends Seeder
                     'price_try_minor' => $code === 'pro-yearly' ? 1_999_000 : ($code === 'pro-lifetime' ? 4_999_000 : 199_900),
                     'price_usd_minor' => $code === 'pro-yearly' ? 199_000 : ($code === 'pro-lifetime' ? 499_000 : 19_900),
                     'price_eur_minor' => $code === 'pro-yearly' ? 185_000 : ($code === 'pro-lifetime' ? 459_000 : 18_500),
+                    'billing_interval' => match ($code) {
+                        'pro-monthly' => 'month',
+                        'pro-yearly' => 'year',
+                        default => null,
+                    },
                 ]
             );
         }
