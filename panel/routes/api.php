@@ -657,6 +657,7 @@ Route::prefix('integrations/store')
         Route::get('domains/check', [StoreIntegrationController::class, 'domainCheck']);
         Route::get('fulfill/status', [StoreIntegrationController::class, 'fulfillStatus']);
         Route::post('fulfill', [StoreIntegrationController::class, 'fulfill']);
+        Route::post('domains/registered', [StoreIntegrationController::class, 'markDomainRegistered']);
 
         Route::post('customer/link', [StoreCustomerController::class, 'linkByEmail']);
         Route::get('customer/summary', [StoreCustomerController::class, 'summary']);

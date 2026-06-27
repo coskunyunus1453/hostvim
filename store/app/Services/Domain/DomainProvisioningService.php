@@ -8,6 +8,7 @@ use App\Models\DomainName;
 use App\Models\EmailTemplate;
 use App\Models\Order;
 use App\Services\AdminNotificationService;
+use App\Services\Panel\PanelzeApiService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -21,6 +22,7 @@ class DomainProvisioningService
     public function __construct(
         private DomainManagementService $management,
         private AdminNotificationService $notifications,
+        private PanelzeApiService $panelApi,
     ) {}
 
     public function dispatchIfNeeded(Order $order): void
@@ -70,6 +72,7 @@ class DomainProvisioningService
                 $result = $this->management->registerForOrder($order, $domain, $years, $apiName);
                 if ($result['ok'] ?? false) {
                     $this->sendCustomerDomainEmail($order, $domain, true);
+                    $this->syncPanelDomainStatus($domain);
                 } else {
                     $this->notifications->fromDomainProvisionFailed($order, $domain, $result['message'] ?? null);
                     $this->sendCustomerDomainEmail($order, $domain, false);
@@ -120,6 +123,33 @@ class DomainProvisioningService
             });
         } catch (Throwable $e) {
             Log::warning('domain.customer_email_failed', ['domain' => $domain, 'order' => $order->order_number, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Spaceship'te kayit tamamlanan domaini panelde (Panelze) de aktif duruma ceker.
+     * Panelde domain varsayilan olarak manuel/pending kaydedildigi icin bu senkron
+     * sayesinde "hem domain hem hosting" siparisinde domain panelde de dogru gorunur.
+     * Best-effort: hata olsa bile musteri/siparis akisi etkilenmez.
+     */
+    private function syncPanelDomainStatus(string $domain): void
+    {
+        if (! $this->panelApi->isConfigured()) {
+            return;
+        }
+
+        try {
+            $row = DomainName::query()->where('domain', $domain)->first();
+            $status = ($row !== null && in_array($row->status, ['registered', 'active'], true)) ? 'active' : 'pending';
+
+            $this->panelApi->markDomainRegistered([
+                'domain' => $domain,
+                'status' => $status,
+                'expires_at' => optional($row?->expires_at)->toDateString(),
+                'registrar' => $row?->registrar_api,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('domain.panel_sync_failed', ['domain' => $domain, 'error' => $e->getMessage()]);
         }
     }
 

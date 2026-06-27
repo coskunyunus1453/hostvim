@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Integrations;
 
 use App\Http\Controllers\Controller;
+use App\Models\DomainRegistration;
 use App\Models\HostingPackage;
 use App\Services\Billing\BillingSettings;
 use App\Services\Domain\DomainAvailabilityService;
 use App\Services\Integrations\StoreFulfillmentService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -145,5 +147,54 @@ class StoreIntegrationController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    /**
+     * Mağaza (Spaceship) tarafında domain kaydı tamamlandığında, paneldeki
+     * DomainRegistration kaydını (varsayılan manuel/pending) güncel duruma çeker.
+     * Böylece "hem domain hem hosting" siparişinde domain panelde de doğru görünür.
+     */
+    public function markDomainRegistered(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'domain' => ['required', 'string', 'max:253'],
+            'status' => ['nullable', 'string', 'in:active,registered,registering,pending,failed'],
+            'expires_at' => ['nullable', 'date'],
+            'registrar' => ['nullable', 'string', 'max:40'],
+            'registrar_ref' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $domain = strtolower(trim($validated['domain']));
+
+        $reg = DomainRegistration::query()
+            ->where('domain', $domain)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($reg === null) {
+            return response()->json(['ok' => true, 'updated' => false, 'message' => 'Panelde domain kaydı yok; atlandı.']);
+        }
+
+        $status = match (strtolower((string) ($validated['status'] ?? 'active'))) {
+            'failed' => DomainRegistration::STATUS_FAILED,
+            'pending', 'registering' => DomainRegistration::STATUS_PENDING,
+            default => DomainRegistration::STATUS_ACTIVE,
+        };
+
+        $attrs = ['status' => $status];
+        if (! empty($validated['expires_at'])) {
+            $attrs['expires_at'] = Carbon::parse($validated['expires_at']);
+        }
+        if (! empty($validated['registrar'])) {
+            $attrs['registrar'] = $validated['registrar'];
+            $attrs['source_registrar'] = $validated['registrar'];
+        }
+        if (! empty($validated['registrar_ref'])) {
+            $attrs['registrar_ref'] = $validated['registrar_ref'];
+        }
+
+        $reg->update($attrs);
+
+        return response()->json(['ok' => true, 'updated' => true, 'status' => $status]);
     }
 }
