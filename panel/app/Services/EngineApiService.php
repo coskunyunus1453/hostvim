@@ -174,16 +174,25 @@ class EngineApiService
         ]));
     }
 
-    public function createSite(string $domain, int $userId, string $phpVersion = '8.2', string $serverType = 'nginx'): array
+    public function createSite(string $domain, int $userId, string $phpVersion = '8.2', string $serverType = 'nginx', int $cpuLimit = 0, int $memoryLimitMb = 0): array
     {
         $serverType = $this->normalizeServerType($serverType);
 
-        return $this->postChecked('/api/v1/sites', [
+        $payload = [
             'domain' => $domain,
             'user_id' => $userId,
             'php_version' => $phpVersion,
             'server_type' => $serverType,
-        ]);
+        ];
+        // Paket bazlı PanelKafes kaynak limiti (0 = engine global varsayılanı).
+        if ($cpuLimit > 0) {
+            $payload['cpu_limit'] = $cpuLimit;
+        }
+        if ($memoryLimitMb > 0) {
+            $payload['memory_limit_mb'] = $memoryLimitMb;
+        }
+
+        return $this->postChecked('/api/v1/sites', $payload);
     }
 
     /**
@@ -800,9 +809,18 @@ class EngineApiService
     /**
      * @return array{message?: string, cage_user?: string, status?: array<string, mixed>}
      */
-    public function applyPanelKafesSite(string $domain): array
+    public function applyPanelKafesSite(string $domain, int $cpuLimit = 0, int $memoryLimitMb = 0): array
     {
-        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/panelkafes/apply', []);
+        $payload = [];
+        // Paket bazlı kaynak limiti (0 = engine global varsayılanı / mevcut site meta korunur).
+        if ($cpuLimit > 0) {
+            $payload['cpu_limit'] = $cpuLimit;
+        }
+        if ($memoryLimitMb > 0) {
+            $payload['memory_limit_mb'] = $memoryLimitMb;
+        }
+
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/panelkafes/apply', $payload);
     }
 
     /**

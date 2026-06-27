@@ -2,6 +2,7 @@
 
 namespace App\Services\Integrations;
 
+use App\Models\Domain;
 use App\Models\DomainRegistration;
 use App\Models\DomainTransfer;
 use App\Models\Invoice;
@@ -289,6 +290,118 @@ class StoreCustomerService
             'status' => DomainTransfer::STATUS_PENDING,
             'notes' => $validated['notes'] ?? null,
         ]);
+    }
+
+    /**
+     * Hesaplar arası domain/hosting sahipliği devri (store admin onayı sonrası çağrılır).
+     *
+     * @param  array{type: string, domain: string, target_email: string}  $validated
+     * @return array<string, mixed>
+     */
+    public function transferOwnership(User $source, array $validated): array
+    {
+        $type = $validated['type'] === 'hosting' ? 'hosting' : 'domain';
+        $domain = strtolower(trim((string) ($validated['domain'] ?? '')));
+        $targetEmail = strtolower(trim((string) ($validated['target_email'] ?? '')));
+
+        if ($domain === '') {
+            throw ValidationException::withMessages(['domain' => 'Devredilecek alan adı belirtilmedi.']);
+        }
+        if ($targetEmail === '' || $targetEmail === strtolower((string) $source->email)) {
+            throw ValidationException::withMessages(['target_email' => 'Geçerli bir hedef hesap belirtilmedi.']);
+        }
+
+        $target = $this->resolveOrCreateTargetUser($targetEmail);
+        if ((int) $target->id === (int) $source->id) {
+            throw ValidationException::withMessages(['target_email' => 'Kaynak ve hedef hesap aynı olamaz.']);
+        }
+
+        $moved = [];
+
+        if ($type === 'domain') {
+            $registration = DomainRegistration::query()
+                ->where('user_id', $source->id)
+                ->where('domain', $domain)
+                ->first();
+            if ($registration !== null) {
+                $registration->update(['user_id' => $target->id]);
+                $moved[] = 'registration';
+            }
+        } else {
+            $hostingDomain = Domain::query()
+                ->where('user_id', $source->id)
+                ->where('name', $domain)
+                ->first();
+            if ($hostingDomain !== null) {
+                // user_id mass-assignment korumalı; alt kaynaklar domain_id ile bağlı olduğundan otomatik taşınır.
+                $hostingDomain->forceFill(['user_id' => $target->id])->save();
+                $moved[] = 'site';
+
+                // Aboneliği (varsa) yeni sahibe taşı.
+                if (method_exists($source, 'subscriptions')) {
+                    $source->subscriptions()
+                        ->where('domain_id', $hostingDomain->id)
+                        ->update(['user_id' => $target->id]);
+                }
+            }
+        }
+
+        Cache::forget('panel:summary:'.$source->id);
+        Cache::forget('panel:domains:'.$source->id);
+        Cache::forget('panel:hosting:'.$source->id);
+
+        return [
+            'ok' => true,
+            'type' => $type,
+            'domain' => $domain,
+            'target_panel_user_id' => (int) $target->id,
+            'target_created' => (bool) ($target->wasRecentlyCreated ?? false),
+            'moved' => $moved,
+        ];
+    }
+
+    /**
+     * Hedef hesabı e-posta ile bulur; panelde yoksa pasif (şifre belirlemeli) bir müşteri hesabı oluşturur.
+     */
+    private function resolveOrCreateTargetUser(string $email): User
+    {
+        $email = strtolower(trim($email));
+
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user !== null) {
+            if ($user->isAdmin() || $user->isVendorOperator()) {
+                throw ValidationException::withMessages([
+                    'target_email' => 'Yönetici/operatör hesabına devir yapılamaz.',
+                ]);
+            }
+            if ($user->status !== 'active') {
+                $user->forceFill(['status' => 'active'])->save();
+            }
+
+            return $user;
+        }
+
+        $name = ucfirst(explode('@', $email)[0] ?? 'Müşteri');
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => bcrypt(\Illuminate\Support\Str::random(40)),
+            'status' => 'active',
+            'force_password_change' => true,
+            'locale' => 'tr',
+            'email_verified_at' => now(),
+        ]);
+
+        if (method_exists($user, 'assignRole')) {
+            try {
+                $user->assignRole('user');
+            } catch (\Throwable) {
+                // rol yoksa sessiz geç
+            }
+        }
+
+        return $user;
     }
 
     public function updateRegistration(User $user, DomainRegistration $registration, array $validated): DomainRegistration

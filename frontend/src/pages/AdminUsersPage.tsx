@@ -4,16 +4,19 @@ import { Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
-import { Users, Plus, UserX, UserCheck, KeyRound, LogIn } from 'lucide-react'
+import { Users, Plus, UserX, UserCheck, KeyRound, LogIn, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type Role = { name: string }
+type Pkg = { id: number; name: string; cpu_limit?: number | null; memory_limit_mb?: number | null }
 type AdminUser = {
   id: number
   name: string
   email: string
   status: string
   roles: Role[]
+  hosting_package?: Pkg | null
+  hosting_package_id?: number | null
 }
 
 function statusLabel(t: (key: string) => string, status: string): string {
@@ -33,6 +36,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [resetTarget, setResetTarget] = useState<AdminUser | null>(null)
+  const [pkgTarget, setPkgTarget] = useState<AdminUser | null>(null)
 
   const q = useQuery({
     queryKey: ['admin-users', search],
@@ -45,6 +49,28 @@ export default function AdminUsersPage() {
     queryKey: ['admin-roles-options'],
     queryFn: async () => (await api.get<{ id: number; name: string; display_name?: string | null }[]>('/admin/roles')).data,
     enabled: !!isAdmin,
+  })
+
+  const packagesQ = useQuery({
+    queryKey: ['admin-packages-options'],
+    queryFn: async () => (await api.get('/admin/packages')).data as { packages: Pkg[] },
+    enabled: !!isAdmin,
+  })
+  const packages: Pkg[] = packagesQ.data?.packages ?? []
+
+  const assignPackageM = useMutation({
+    mutationFn: async (payload: { id: number; hosting_package_id: number | null }) =>
+      api.put(`/admin/users/${payload.id}`, { hosting_package_id: payload.hosting_package_id }),
+    onSuccess: () => {
+      toast.success(t('users.package_assigned'))
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      setPkgTarget(null)
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
+      const first = ax.response?.data?.errors ? Object.values(ax.response.data.errors)[0]?.[0] : undefined
+      toast.error(first ?? ax.response?.data?.message ?? String(err))
+    },
   })
 
   const createM = useMutation({
@@ -175,6 +201,7 @@ export default function AdminUsersPage() {
               onSubmit={(ev) => {
                 ev.preventDefault()
                 const fd = new FormData(ev.currentTarget)
+                const pkgId = String(fd.get('hosting_package_id') || '')
                 createM.mutate({
                   name: String(fd.get('name')),
                   email: String(fd.get('email')),
@@ -182,6 +209,7 @@ export default function AdminUsersPage() {
                   password_confirmation: String(fd.get('password_confirmation')),
                   role: String(fd.get('role')),
                   locale: String(fd.get('locale') || defaultLocale),
+                  ...(pkgId ? { hosting_package_id: Number(pkgId) } : {}),
                 })
               }}
             >
@@ -208,12 +236,72 @@ export default function AdminUsersPage() {
                 <option value="tr">tr</option>
                 <option value="en">en</option>
               </select>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{t('users.hosting_package')}</span>
+                <select name="hosting_package_id" className="input w-full mt-1" defaultValue="">
+                  <option value="">{t('users.package_none')}</option>
+                  {packages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.cpu_limit || p.memory_limit_mb ? ` (CPU ${p.cpu_limit || '∞'}% / RAM ${p.memory_limit_mb || '∞'}MB)` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[11px] text-gray-400">{t('users.package_hint')}</span>
+              </label>
               <div className="flex justify-end gap-2">
                 <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>
                   {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn-primary" disabled={createM.isPending}>
                   {t('common.create')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {pkgTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card max-w-md w-full p-6 space-y-4 bg-white dark:bg-gray-900">
+            <h2 className="text-lg font-semibold">{t('users.assign_package')}</h2>
+            <p className="text-xs text-gray-500">{pkgTarget.email}</p>
+            <form
+              className="space-y-3"
+              onSubmit={(ev) => {
+                ev.preventDefault()
+                const fd = new FormData(ev.currentTarget)
+                const val = String(fd.get('hosting_package_id') || '')
+                assignPackageM.mutate({
+                  id: pkgTarget.id,
+                  hosting_package_id: val ? Number(val) : null,
+                })
+              }}
+            >
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{t('users.hosting_package')}</span>
+                <select
+                  name="hosting_package_id"
+                  className="input w-full mt-1"
+                  defaultValue={pkgTarget.hosting_package?.id ?? ''}
+                >
+                  <option value="">{t('users.package_none')}</option>
+                  {packages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.cpu_limit || p.memory_limit_mb ? ` (CPU ${p.cpu_limit || '∞'}% / RAM ${p.memory_limit_mb || '∞'}MB)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">{t('users.package_apply_note')}</p>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn-secondary" onClick={() => setPkgTarget(null)}>
+                  {t('common.cancel')}
+                </button>
+                <button type="submit" className="btn-primary" disabled={assignPackageM.isPending}>
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -270,6 +358,7 @@ export default function AdminUsersPage() {
                   <th className="text-left px-4 py-2">{t('users.col_name')}</th>
                   <th className="text-left px-4 py-2">{t('users.col_email')}</th>
                   <th className="text-left px-4 py-2">{t('roles.col_name')}</th>
+                  <th className="text-left px-4 py-2">{t('users.hosting_package')}</th>
                   <th className="text-left px-4 py-2">{t('common.status')}</th>
                   <th className="text-right px-4 py-2">{t('common.actions')}</th>
                 </tr>
@@ -280,6 +369,9 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-2">{u.name}</td>
                     <td className="px-4 py-2 font-mono text-xs">{u.email}</td>
                     <td className="px-4 py-2">{u.roles?.map((r) => r.name).join(', ') ?? '—'}</td>
+                    <td className="px-4 py-2">
+                      {u.hosting_package?.name ?? <span className="text-gray-400">{t('users.package_none')}</span>}
+                    </td>
                     <td className="px-4 py-2">{statusLabel(t, u.status)}</td>
                     <td className="px-4 py-2 text-right space-x-1">
                       {u.roles?.some((r) => r.name === 'user') && u.status === 'active' && (
@@ -295,6 +387,13 @@ export default function AdminUsersPage() {
                           <LogIn className="h-3 w-3 inline" /> {t('users.impersonate')}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs py-1"
+                        onClick={() => setPkgTarget(u)}
+                      >
+                        <Package className="h-3 w-3 inline" /> {t('users.assign_package')}
+                      </button>
                       <button
                         type="button"
                         className="btn-secondary text-xs py-1"

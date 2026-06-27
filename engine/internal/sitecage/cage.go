@@ -140,8 +140,22 @@ func (c Config) run(args ...string) (string, error) {
 	return msg, nil
 }
 
+// resolveLimits per-site cpu/mem değerlerini döndürür; <=0 ise global varsayılan kullanılır.
+func (c Config) resolveLimits(cpuPercent, memMB int) (string, string) {
+	cpu := c.DefaultCPUPercent
+	if cpuPercent > 0 {
+		cpu = cpuPercent
+	}
+	mem := c.DefaultMemoryMB
+	if memMB > 0 {
+		mem = memMB
+	}
+	return fmt.Sprintf("%d", cpu), fmt.Sprintf("%d", mem)
+}
+
 // Ensure site için Linux kullanıcısı + izinler + kaynak sınırları.
-func Ensure(c Config, webRoot, domain string) (string, error) {
+// cpuPercent/memMB <=0 ise engine global varsayılanı uygulanır.
+func Ensure(c Config, webRoot, domain string, cpuPercent, memMB int) (string, error) {
 	if !c.Enabled {
 		return "", nil
 	}
@@ -164,8 +178,7 @@ func Ensure(c Config, webRoot, domain string) (string, error) {
 	if _, err := c.run("apply", domain, webRoot); err != nil {
 		return "", err
 	}
-	cpu := fmt.Sprintf("%d", c.DefaultCPUPercent)
-	mem := fmt.Sprintf("%d", c.DefaultMemoryMB)
+	cpu, mem := c.resolveLimits(cpuPercent, memMB)
 	_, _ = c.run("limits", domain, cpu, mem)
 	return user, nil
 }
@@ -219,7 +232,8 @@ func ApplyAll(c Config, webRoot string) ([]ApplyResult, error) {
 // ApplyService site için ayrı PHP-FPM systemd servisi + kaynak slice'i kurar.
 // CPU/RAM limiti (CPUQuota/MemoryMax) kernel cgroup ile gerçekten enforce edilir.
 // WritePool ile pool.d'ye yazıldıktan SONRA çağrılmalıdır (pool'u kendi servisine taşır).
-func ApplyService(c Config, domain, phpVersion string) error {
+// cpuPercent/memMB <=0 ise engine global varsayılanı uygulanır.
+func ApplyService(c Config, domain, phpVersion string, cpuPercent, memMB int) error {
 	if !c.Enabled {
 		return nil
 	}
@@ -231,8 +245,7 @@ func ApplyService(c Config, domain, phpVersion string) error {
 	if phpVersion == "" {
 		phpVersion = "8.2"
 	}
-	cpu := fmt.Sprintf("%d", c.DefaultCPUPercent)
-	mem := fmt.Sprintf("%d", c.DefaultMemoryMB)
+	cpu, mem := c.resolveLimits(cpuPercent, memMB)
 	_, err := c.run("cage-service", domain, phpVersion, cpu, mem)
 	return err
 }

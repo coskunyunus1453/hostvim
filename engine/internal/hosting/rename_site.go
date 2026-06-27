@@ -157,7 +157,7 @@ func RenamePrimarySite(cfg *config.Config, from, to string) error {
 	cageCfg := sitecage.FromHosting(cfg)
 	if cageCfg.Enabled {
 		_ = sitecage.Remove(cageCfg, from)
-		if user, cerr := sitecage.Ensure(cageCfg, webRoot, to); cerr == nil {
+		if user, cerr := sitecage.Ensure(cageCfg, webRoot, to, meta.CPUPercent, meta.MemoryMB); cerr == nil {
 			meta.CageEnabled = true
 			meta.CageUser = user
 		}

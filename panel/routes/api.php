@@ -657,6 +657,7 @@ Route::prefix('integrations/store')
         Route::get('domains/check', [StoreIntegrationController::class, 'domainCheck']);
         Route::get('fulfill/status', [StoreIntegrationController::class, 'fulfillStatus']);
         Route::post('fulfill', [StoreIntegrationController::class, 'fulfill']);
+        Route::post('domains/registered', [StoreIntegrationController::class, 'markDomainRegistered']);
 
         Route::post('customer/link', [StoreCustomerController::class, 'linkByEmail']);
         Route::get('customer/summary', [StoreCustomerController::class, 'summary']);
@@ -670,6 +671,7 @@ Route::prefix('integrations/store')
         Route::post('customer/password', [StoreCustomerController::class, 'updatePassword']);
         Route::post('customer/domains/transfers', [StoreCustomerController::class, 'requestTransfer']);
         Route::patch('customer/domains/registrations/{registrationId}', [StoreCustomerController::class, 'updateRegistration']);
+        Route::post('customer/ownership/transfer', [StoreCustomerController::class, 'transferOwnership']);
         Route::post('customer/panel-sso', [StoreCustomerController::class, 'panelSso']);
 
         Route::post('settings/sync', [StoreSettingsSyncController::class, 'sync']);

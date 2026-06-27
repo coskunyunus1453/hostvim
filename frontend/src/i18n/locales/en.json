@@ -2415,7 +2415,13 @@
     "confirm_impersonate": "Open customer session for {{email}}?",
     "impersonation_started": "Customer session opened",
     "impersonation_banner": "Viewing as {{customer}} (admin: {{admin}})",
-    "impersonation_exit": "Return to admin"
+    "impersonation_exit": "Return to admin",
+    "hosting_package": "Hosting package",
+    "package_none": "No package",
+    "package_hint": "The package CPU/RAM limit applies to all of the user's sites.",
+    "assign_package": "Assign package",
+    "package_assigned": "Package assigned, applying to existing sites",
+    "package_apply_note": "When the package changes, the new CPU/RAM limit is applied to all the user's active sites in the background."
   },
   "domain_portfolio": {
     "title": "Domain Portfolio",

@@ -2023,7 +2023,11 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 					continue
 				}
 				// Gerçek CPU/RAM izolasyonu: pool'u kendi systemd servisi + slice'ine taşı.
-				svcErr := sitecage.ApplyService(cageCfg, domain, phpV)
+				cpuL, memL := 0, 0
+				if meta != nil {
+					cpuL, memL = meta.CPUPercent, meta.MemoryMB
+				}
+				svcErr := sitecage.ApplyService(cageCfg, domain, phpV, cpuL, memL)
 				okCount++
 				row := gin.H{"domain": domain, "ok": true, "socket": sock, "isolated": svcErr == nil}
 				if svcErr != nil {
@@ -2047,13 +2051,19 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
 			return
 		}
+		// Paket bazlı kaynak limiti (opsiyonel; 0 = global varsayılan / mevcut meta).
+		var req struct {
+			CPULimit      int `json:"cpu_limit"`
+			MemoryLimitMB int `json:"memory_limit_mb"`
+		}
+		_ = c.ShouldBindJSON(&req)
 		cageCfg := sitecage.FromHosting(cfg)
 		if !cageCfg.Enabled {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "panelkafes disabled"})
 			return
 		}
 		phpfpm.DefaultHelper = cageCfg.Helper
-		user, err := sitecage.Ensure(cageCfg, cfg.Paths.WebRoot, domain)
+		user, err := sitecage.Ensure(cageCfg, cfg.Paths.WebRoot, domain, req.CPULimit, req.MemoryLimitMB)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -2064,6 +2074,12 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 		meta.CageEnabled = true
 		meta.CageUser = user
+		if req.CPULimit > 0 {
+			meta.CPUPercent = req.CPULimit
+		}
+		if req.MemoryLimitMB > 0 {
+			meta.MemoryMB = req.MemoryLimitMB
+		}
 		_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, meta)
 		if sitecage.ManagePools(cfg) {
 			docRoot := safeDocRoot(cfg.Paths.WebRoot, domain, meta)
@@ -2085,7 +2101,7 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 				return
 			}
 			// Gerçek CPU/RAM izolasyonu: kendi systemd servisi + slice'i.
-			if svcErr := sitecage.ApplyService(cageCfg, domain, phpV); svcErr != nil {
+			if svcErr := sitecage.ApplyService(cageCfg, domain, phpV, meta.CPUPercent, meta.MemoryMB); svcErr != nil {
 				st, _ := sitecage.FetchStatus(cageCfg, cfg.Paths.WebRoot, domain)
 				c.JSON(http.StatusOK, gin.H{"message": "panelkafes applied (izolasyon uyarısı)", "cage_user": user, "status": st, "service_warning": svcErr.Error()})
 				return

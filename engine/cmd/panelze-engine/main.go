@@ -52,7 +52,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 		Handler:      router,
 		ReadTimeout:  time.Duration(readSec) * time.Second,
 		WriteTimeout: time.Duration(writeSec) * time.Second,

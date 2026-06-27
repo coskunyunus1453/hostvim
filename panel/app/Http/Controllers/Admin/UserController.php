@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ApplyUserPackageLimitsJob;
 use App\Models\HostingPackage;
 use App\Models\Role;
 use App\Models\User;
@@ -80,6 +81,11 @@ class UserController extends Controller
 
         $user->syncRoles([$roleModel->name]);
 
+        // Paket atandıysa kullanıcının (varsa) sitelerine CPU/RAM limitini uygula.
+        if (! empty($user->hosting_package_id)) {
+            ApplyUserPackageLimitsJob::dispatch($user->id);
+        }
+
         return response()->json([
             'message' => __('users.created'),
             'user' => $user->load('roles'),
@@ -141,6 +147,12 @@ class UserController extends Controller
                 $this->assertNotLastActiveAdminDemotion($user, $roleModel);
             }
             $user->syncRoles([$roleModel->name]);
+        }
+
+        // Paket değiştiyse (manuel atama veya billing senkronu) kullanıcının
+        // mevcut tüm aktif sitelerine yeni CPU/RAM limitini arka planda uygula.
+        if ($request->has('hosting_package_id') || $syncFromBilling) {
+            ApplyUserPackageLimitsJob::dispatch($user->id);
         }
 
         return response()->json([

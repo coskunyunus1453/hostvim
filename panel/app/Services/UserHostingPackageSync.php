@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\ApplyUserPackageLimitsJob;
 use App\Models\Subscription;
 use App\Models\User;
 
@@ -59,5 +60,10 @@ class UserHostingPackageSync
         $user->update([
             'hosting_package_id' => $subscription?->hosting_package_id,
         ]);
+
+        // Paket gerçekten değiştiyse kullanıcının aktif sitelerine yeni CPU/RAM limitini uygula.
+        if ($user->wasChanged('hosting_package_id')) {
+            ApplyUserPackageLimitsJob::dispatch($user->id);
+        }
     }
 }
