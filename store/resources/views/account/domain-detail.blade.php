@@ -134,6 +134,38 @@
     </div>
 </div>
 
+{{-- Başka hesaba devret --}}
+<div class="mt-6 rounded-2xl border border-hv-border bg-hv-surface p-5">
+    <h3 class="text-base font-semibold text-hv-text">Başka hesaba devret</h3>
+    @if(!empty($pendingTransfer))
+        <div class="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p><strong>{{ $pendingTransfer->target_email }}</strong> adresine alan adı devir talebiniz <strong>onay bekliyor</strong> (No: {{ $pendingTransfer->number }}).</p>
+            <form method="POST" action="{{ route('account.transfers.cancel', $pendingTransfer->id) }}" class="mt-2">
+                @csrf
+                <button class="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100">Talebi iptal et</button>
+            </form>
+        </div>
+    @else
+        <p class="mt-2 text-sm text-hv-muted">Bu alan adını başka bir HostVim hesabına devredebilirsiniz. Devralacak kişinin HostVim'de kayıtlı olması gerekir. Talebiniz <strong>admin onayından</strong> sonra tamamlanır.</p>
+        <form method="POST" action="{{ route('account.transfers.domain', $domain->id) }}" class="mt-3 grid gap-3 sm:max-w-lg">
+            @csrf
+            <label class="text-sm">
+                <span class="block text-hv-muted">Devralacak hesabın e-postası</span>
+                <input type="email" name="target_email" required placeholder="devralacak@eposta.com"
+                    class="mt-1 w-full rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm" value="{{ old('target_email') }}">
+            </label>
+            @error('target_email')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+            <label class="text-sm">
+                <span class="block text-hv-muted">Not (opsiyonel)</span>
+                <textarea name="note" rows="2" class="mt-1 w-full rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm">{{ old('note') }}</textarea>
+            </label>
+            <div>
+                <button class="btn-primary" onclick="return confirm('Bu alan adını {{ $domain->domain }} başka bir hesaba devretmek üzere talep oluşturulacak. Onaylıyor musunuz?')">Devir talebi gönder</button>
+            </div>
+        </form>
+    @endif
+</div>
+
 <script>
     let dnsIndex = {{ count($records) }};
     function addDnsRow() {

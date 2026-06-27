@@ -130,6 +130,21 @@ class StoreCustomerController extends Controller
         ]);
     }
 
+    public function transferOwnership(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'panel_user_id' => ['required', 'integer', 'min:1'],
+            'target_email' => ['required', 'email', 'max:255'],
+            'type' => ['required', Rule::in(['domain', 'hosting'])],
+            'domain' => ['required', 'string', 'max:253', 'regex:/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i'],
+        ]);
+
+        $source = $this->resolveUser($request);
+        $result = $this->customers->transferOwnership($source, $validated);
+
+        return response()->json($result);
+    }
+
     public function panelSso(Request $request): JsonResponse
     {
         $user = $this->resolveUser($request);

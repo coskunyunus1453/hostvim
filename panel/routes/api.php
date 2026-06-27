@@ -670,6 +670,7 @@ Route::prefix('integrations/store')
         Route::post('customer/password', [StoreCustomerController::class, 'updatePassword']);
         Route::post('customer/domains/transfers', [StoreCustomerController::class, 'requestTransfer']);
         Route::patch('customer/domains/registrations/{registrationId}', [StoreCustomerController::class, 'updateRegistration']);
+        Route::post('customer/ownership/transfer', [StoreCustomerController::class, 'transferOwnership']);
         Route::post('customer/panel-sso', [StoreCustomerController::class, 'panelSso']);
 
         Route::post('settings/sync', [StoreSettingsSyncController::class, 'sync']);

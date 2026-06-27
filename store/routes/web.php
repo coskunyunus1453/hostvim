@@ -130,6 +130,9 @@ Route::middleware(['auth', 'panel.sync'])->prefix('hesabim')->name('account.')->
     Route::post('/alan-adlarim/{id}/transfer-kodu', [\App\Http\Controllers\Account\DomainController::class, 'authCode'])->whereNumber('id')->name('domains.authcode');
     Route::get('/hostinglerim', [\App\Http\Controllers\Account\HostingController::class, 'index'])->name('hosting');
     Route::post('/hostinglerim/panel', [\App\Http\Controllers\Account\HostingController::class, 'panelLogin'])->name('hosting.panel');
+    Route::post('/devir/alan-adi/{id}', [\App\Http\Controllers\Account\TransferController::class, 'requestDomain'])->whereNumber('id')->name('transfers.domain');
+    Route::post('/devir/hosting/{orderId}', [\App\Http\Controllers\Account\TransferController::class, 'requestHosting'])->whereNumber('orderId')->name('transfers.hosting');
+    Route::post('/devir/{transfer}/iptal', [\App\Http\Controllers\Account\TransferController::class, 'cancel'])->name('transfers.cancel');
     Route::get('/faturalarim', [\App\Http\Controllers\Account\InvoiceController::class, 'index'])->name('invoices');
     Route::get('/faturalarim/{invoiceId}', [\App\Http\Controllers\Account\InvoiceController::class, 'show'])->name('invoices.show');
     Route::post('/faturalarim/{invoiceId}/ode', [\App\Http\Controllers\Account\InvoiceController::class, 'pay'])->name('invoices.pay');
