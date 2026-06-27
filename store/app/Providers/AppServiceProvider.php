@@ -6,6 +6,7 @@ use App\Models\HeroSection;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\View\Composers\LayoutComposer;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +31,13 @@ class AppServiceProvider extends ServiceProvider
         // ve mailler "log" surucusune dusup musteriye gitmiyordu (web/console/queue hepsinde).
         $this->app->booted(function (): void {
             \App\Services\OutboundMailConfigurator::apply();
+        });
+
+        // Queue worker uzun ömürlüdür; her job öncesi güncel DB mail ayarlarını
+        // yeniden uygula ki worker "stale"/eksik SMTP yapılandırmasıyla başlasa bile
+        // mailler doğru sunucu üzerinden gönderilsin.
+        Queue::before(function (): void {
+            \App\Services\OutboundMailConfigurator::apply(true);
         });
 
         View::composer(['layouts.*', 'home', 'products.*', 'landing.*', 'blog.*', 'pages.*', 'cart.*', 'checkout.*', 'contact.*', 'auth.*', 'account.*', 'domain.*'], LayoutComposer::class);

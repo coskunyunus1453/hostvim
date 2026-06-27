@@ -10,11 +10,13 @@ class OutboundMailConfigurator
     /**
      * site_settings içindeki outbound_mail.* değerlerini Laravel mail yapılandırmasına uygular.
      */
-    public static function apply(): void
+    public static function apply(bool $force = false): void
     {
         static $applied = false;
 
-        if ($applied) {
+        // Uzun ömürlü queue worker'larında ayarlar bir kez uygulanıp "stale" kalabiliyor.
+        // $force=true ile (her job öncesi) güncel DB ayarları yeniden uygulanır.
+        if ($applied && ! $force) {
             return;
         }
 
