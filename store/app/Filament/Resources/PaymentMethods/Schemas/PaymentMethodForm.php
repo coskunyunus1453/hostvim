@@ -39,12 +39,6 @@ class PaymentMethodForm
                     ->columnSpanFull(),
                 Toggle::make('is_active')->label('Aktif')->default(true),
                 TextInput::make('sort_order')->label('Sıralama')->numeric()->default(0),
-                TextInput::make('config.commission_rate')
-                    ->label('Komisyon oranı (%)')
-                    ->numeric()->minValue(0)->maxValue(100)->step(0.01)
-                    ->suffix('%')
-                    ->default(0)
-                    ->helperText('Sağlayıcının işlem başına kestiği komisyon. Kârlılık raporundaki tahmini komisyon hesabında kullanılır. Havale için 0 bırakın.'),
             ])->columns(2),
 
             Section::make('PayTR API')

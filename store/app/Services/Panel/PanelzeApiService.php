@@ -53,17 +53,6 @@ class PanelzeApiService
     }
 
     /**
-     * Spaceship tarafinda kayit tamamlanan domaini panelde de guncel duruma ceker.
-     *
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
-     */
-    public function markDomainRegistered(array $payload): array
-    {
-        return $this->request('post', '/api/integrations/store/domains/registered', $payload);
-    }
-
-    /**
      * @return array{enabled?:bool,currency?:string,tlds?:list<array{tld:string,register_price:float,renew_price:float}>}
      */
     public function domainTlds(): array

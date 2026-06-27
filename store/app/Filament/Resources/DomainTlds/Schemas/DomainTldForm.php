@@ -7,7 +7,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class DomainTldForm
@@ -31,72 +30,29 @@ class DomainTldForm
                 Select::make('registrar_api_name')
                     ->label('Domain API (kayıt sağlayıcısı)')
                     ->options($apiOptions)
-                    ->helperText('Kaydı hangi API üzerinden yapılacağı. Fiyatla ilgisi yok.'),
+                    ->helperText('Boş bırakılırsa senkron sonrası en ucuz aktif API seçilir.'),
                 Toggle::make('is_active')->label('Satışta')->default(true),
                 TextInput::make('sort_order')->label('Sıralama')->numeric()->default(0),
             ])->columns(2),
 
-            Section::make('Fiyatlandırma')
-                ->description('Otomatik mod açıkken maliyeti girin; satış fiyatı kur ve kar marjı ile otomatik hesaplanır.')
-                ->schema([
-                    Toggle::make('auto_price')
-                        ->label('Otomatik fiyat (maliyet + kur + kar marjı)')
-                        ->helperText('Kapatırsanız satış fiyatlarını elle girebilirsiniz.')
-                        ->default(true)
-                        ->live()
-                        ->columnSpanFull(),
+            Section::make('Satış Fiyatları (TRY)')->schema([
+                TextInput::make('register_price')->label('Kayıt fiyatı')->numeric()->required()->prefix('₺'),
+                TextInput::make('renew_price')->label('Yenileme fiyatı')->numeric()->required()->prefix('₺'),
+                TextInput::make('transfer_price')->label('Transfer fiyatı')->numeric()->prefix('₺'),
+                TextInput::make('markup_percent')
+                    ->label('Kar marjı (%)')
+                    ->numeric()
+                    ->helperText('Boş = genel ayarlardaki varsayılan marj kullanılır.'),
+            ])->columns(2),
 
-                    TextInput::make('wholesale_register')
-                        ->label('Maliyet — kayıt')
-                        ->numeric()
-                        ->minValue(0)
-                        ->helperText('Registrar maliyeti (seçtiğiniz para biriminde).')
-                        ->required(fn (Get $get): bool => (bool) $get('auto_price'))
-                        ->visible(fn (Get $get): bool => (bool) $get('auto_price')),
-                    TextInput::make('wholesale_renew')
-                        ->label('Maliyet — yenileme')
-                        ->numeric()
-                        ->minValue(0)
-                        ->helperText('Boş bırakılırsa kayıt maliyeti kullanılır.')
-                        ->visible(fn (Get $get): bool => (bool) $get('auto_price')),
-                    Select::make('wholesale_currency')
-                        ->label('Maliyet para birimi')
-                        ->options([
-                            'USD' => 'USD ($)',
-                            'TRY' => 'TRY (₺)',
-                            'EUR' => 'EUR (€)',
-                            'GBP' => 'GBP (£)',
-                        ])
-                        ->default('USD')
-                        ->required(fn (Get $get): bool => (bool) $get('auto_price'))
-                        ->visible(fn (Get $get): bool => (bool) $get('auto_price')),
-                    TextInput::make('markup_percent')
-                        ->label('Kar marjı (%)')
-                        ->numeric()
-                        ->minValue(0)
-                        ->helperText('Boş = genel ayarlardaki varsayılan marj.'),
-
-                    TextInput::make('register_price')
-                        ->label('Satış fiyatı — kayıt (₺)')
-                        ->numeric()
-                        ->prefix('₺')
-                        ->required(fn (Get $get): bool => ! $get('auto_price'))
-                        ->disabled(fn (Get $get): bool => (bool) $get('auto_price'))
-                        ->dehydrated()
-                        ->helperText(fn (Get $get): ?string => $get('auto_price') ? 'Kaydedince otomatik hesaplanır.' : null),
-                    TextInput::make('renew_price')
-                        ->label('Satış fiyatı — yenileme (₺)')
-                        ->numeric()
-                        ->prefix('₺')
-                        ->required(fn (Get $get): bool => ! $get('auto_price'))
-                        ->disabled(fn (Get $get): bool => (bool) $get('auto_price'))
-                        ->dehydrated()
-                        ->helperText(fn (Get $get): ?string => $get('auto_price') ? 'Kaydedince otomatik hesaplanır.' : null),
-                    TextInput::make('transfer_price')
-                        ->label('Transfer fiyatı (₺)')
-                        ->numeric()
-                        ->prefix('₺'),
-                ])->columns(2),
+            Section::make('Toptan (API senkron)')->schema([
+                TextInput::make('wholesale_register')->label('Toptan kayıt')->numeric()->disabled()->dehydrated(false)->prefix('₺'),
+                TextInput::make('wholesale_renew')->label('Toptan yenileme')->numeric()->disabled()->dehydrated(false)->prefix('₺'),
+                TextInput::make('wholesale_registrar_api')
+                    ->label('En ucuz API')
+                    ->disabled()
+                    ->dehydrated(false),
+            ])->columns(3)->collapsed(),
         ]);
     }
 }

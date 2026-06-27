@@ -127,25 +127,11 @@ class SeoService
         ]);
     }
 
-    /**
-     * /hosting ve /sunucu gibi yonetilebilir tanitim sayfalari icin meta.
-     *
-     * @param  array{title?: string, description?: string}  $seo
-     */
-    public function forLanding(string $routeName, array $seo): array
-    {
-        return $this->build(array_filter([
-            'title' => $seo['title'] ?? null,
-            'description' => $seo['description'] ?? null,
-            'canonical' => route($routeName),
-        ], fn ($v) => $v !== null && $v !== ''));
-    }
-
     public function forDomain(): array
     {
         return $this->build([
-            'title' => 'Alan Adı Sorgulama — Domain Kayıt, Transfer & Yenileme',
-            'description' => 'Alan adı müsaitlik sorgulama ve WHOIS kontrolü. .com, .net, .org, .tr ve yüzlerce uzantıda uygun fiyatlı domain kaydı, transferi ve yenilemesi. Müsaitse anında sepete ekleyin — HostVim.',
+            'title' => 'Alan Adı Sorgula & Domain Kayıt',
+            'description' => 'Domain müsaitlik kontrolü, .com, .com.tr ve yüzlerce uzantıda anında kayıt — HostVim.',
             'canonical' => route('domain.index'),
         ]);
     }

@@ -162,24 +162,8 @@ class DomainManagementService
 
         try {
             $driver = $this->managementDriver($account);
-
-            // Idempotency: domain saglayicida zaten kayitliysa TEKRAR register etme.
-            // (Job retry / timeout sonrasi mukerrer kayit ve cifte ucretlendirmeyi onler.)
-            try {
-                $existingInfo = $driver->getDomainInfo($account, $domain);
-            } catch (\Throwable) {
-                $existingInfo = null;
-            }
-            if (is_array($existingInfo) && ! empty($existingInfo['domain'])) {
-                $row->update($this->mapRemote($apiName, $existingInfo));
-                $this->refresh($row->fresh());
-
-                return ['ok' => true, 'message' => 'Alan adı sağlayıcıda zaten kayıtlı; bilgiler senkronlandı.'];
-            }
-
-            // Domain musteri adina kaydedilir (registrant = musteri bilgileri).
             // WHOIS gizliligi varsayilan acik, otomatik yenileme kapali.
-            $result = $driver->registerDomain($account, $domain, $years, false, true, $this->registrantFromOrder($order));
+            $result = $driver->registerDomain($account, $domain, $years, false, true);
         } catch (\Throwable $e) {
             Log::error('domain.register_failed', ['domain' => $domain, 'error' => $e->getMessage()]);
             $row->update(['status' => 'failed', 'meta' => ['register_error' => $e->getMessage()]]);
@@ -202,28 +186,6 @@ class DomainManagementService
         $this->refresh($row->fresh());
 
         return ['ok' => true, 'message' => $result['message']];
-    }
-
-    /**
-     * Domain kaydinda registrant olarak kullanilacak musteri bilgilerini hazirlar.
-     * Once musteri hesabi (User) profilini, eksik alanlar icin siparis bilgilerini kullanir.
-     *
-     * @return array<string, mixed>
-     */
-    private function registrantFromOrder(Order $order): array
-    {
-        $user = $order->user;
-
-        return [
-            'name' => $user?->name ?? $order->customer_name,
-            'email' => $user?->email ?? $order->customer_email,
-            'phone' => $user?->phone ?? $order->customer_phone,
-            'company' => $user?->company ?? $order->customer_company,
-            'address' => $user?->address ?? $order->customer_address,
-            'city' => $user?->city ?? null,
-            'postal_code' => $user?->postal_code ?? null,
-            'country' => $user?->country ?? 'TR',
-        ];
     }
 
     /** Tercih edilen otomatik-kayit sağlayicisi (ilk yonetilebilir API). */

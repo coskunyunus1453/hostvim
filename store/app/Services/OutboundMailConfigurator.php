@@ -10,13 +10,11 @@ class OutboundMailConfigurator
     /**
      * site_settings içindeki outbound_mail.* değerlerini Laravel mail yapılandırmasına uygular.
      */
-    public static function apply(bool $force = false): void
+    public static function apply(): void
     {
         static $applied = false;
 
-        // Uzun ömürlü queue worker'larında ayarlar bir kez uygulanıp "stale" kalabiliyor.
-        // $force=true ile (her job öncesi) güncel DB ayarları yeniden uygulanır.
-        if ($applied && ! $force) {
+        if ($applied) {
             return;
         }
 
@@ -94,17 +92,11 @@ class OutboundMailConfigurator
      */
     protected static function mailSettings(): Collection
     {
-        // SettingsService bir ServiceProvider'da explicit bind/singleton ile kaydedilmedigi
-        // icin app()->bound(...) HER ZAMAN false donerdi; bu da mail ayarlarinin hic
-        // uygulanmamasina (mail 'log' surucusunde kalip musteriye gitmemesine) yol aciyordu.
-        // Concrete sinif oldugu icin dogrudan resolve edip hatayi yakaliyoruz.
-        try {
-            $service = app(SettingsService::class);
-        } catch (\Throwable) {
+        if (! app()->bound(SettingsService::class)) {
             return collect();
         }
 
-        return collect($service->all())
+        return collect(app(SettingsService::class)->all())
             ->filter(fn (mixed $value, string $key): bool => str_starts_with($key, 'outbound_mail.'));
     }
 }

@@ -4,9 +4,9 @@
 <section class="py-16">
     <div class="mx-auto grid max-w-5xl gap-12 px-4 lg:grid-cols-2 lg:px-8">
         <div>
-            <h1 class="text-4xl font-extrabold text-hv-text">Bize Ulaşın</h1>
-            <p class="mt-4 text-hv-muted">Sorularınız için formu doldurun veya doğrudan arayın.</p>
-            <div class="mt-8 space-y-4 text-hv-muted">
+            <h1 class="text-4xl font-extrabold text-stone-900">Bize Ulaşın</h1>
+            <p class="mt-4 text-stone-600">Sorularınız için formu doldurun veya doğrudan arayın.</p>
+            <div class="mt-8 space-y-4 text-stone-600">
                 @if($siteSettings['contact_phone'] ?? null)<p>📞 {{ $siteSettings['contact_phone'] }}</p>@endif
                 @if($siteSettings['contact_email'] ?? null)<p>✉️ {{ $siteSettings['contact_email'] }}</p>@endif
             </div>
@@ -23,11 +23,11 @@
                     @endforeach
                 </div>
             @endif
-            <input type="text" name="name" placeholder="Ad Soyad *" required class="w-full rounded-xl border border-hv-border px-4 py-3">
-            <input type="email" name="email" placeholder="E-posta *" required class="w-full rounded-xl border border-hv-border px-4 py-3">
-            <input type="text" name="phone" placeholder="Telefon" class="w-full rounded-xl border border-hv-border px-4 py-3">
-            <input type="text" name="subject" placeholder="Konu" class="w-full rounded-xl border border-hv-border px-4 py-3">
-            <textarea name="message" placeholder="Mesajınız *" required rows="5" class="w-full rounded-xl border border-hv-border px-4 py-3"></textarea>
+            <input type="text" name="name" placeholder="Ad Soyad *" required class="w-full rounded-xl border border-stone-300 px-4 py-3">
+            <input type="email" name="email" placeholder="E-posta *" required class="w-full rounded-xl border border-stone-300 px-4 py-3">
+            <input type="text" name="phone" placeholder="Telefon" class="w-full rounded-xl border border-stone-300 px-4 py-3">
+            <input type="text" name="subject" placeholder="Konu" class="w-full rounded-xl border border-stone-300 px-4 py-3">
+            <textarea name="message" placeholder="Mesajınız *" required rows="5" class="w-full rounded-xl border border-stone-300 px-4 py-3"></textarea>
             <button type="submit" class="btn-primary w-full">Gönder</button>
         </form>
     </div>

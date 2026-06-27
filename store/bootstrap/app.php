@@ -21,13 +21,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'odeme/iyzico/callback',
             'odeme/stripe/webhook',
             'odeme/payoneer/webhook',
-            // Full-page cache, gomulu CSRF token'i bayatlatir. Asagidaki uclar
-            // public ve idempotent (throttle korumali) oldugundan token'dan muaftir.
-            'domain/ara',
-            'domain/check',
-            'domain/whois',
-            'domain/sepet',
-            'urunler/*/sepet',
         ]);
 
         $middleware->web(prepend: [

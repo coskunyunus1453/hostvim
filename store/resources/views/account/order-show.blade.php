@@ -21,15 +21,6 @@
             </li>
         @endforeach
     </ul>
-    <div class="mt-6 flex flex-wrap items-center gap-3">
-        <a href="{{ route('account.orders') }}" class="btn-ghost inline-flex text-sm">← Siparişlere dön</a>
-        @if($order->invoice)
-            <a href="{{ route('account.einvoice.pdf', $order->invoice) }}" target="_blank"
-               class="btn-primary inline-flex items-center gap-2 text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M4 6h16M4 6a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2"/></svg>
-                Faturayı indir (PDF)
-            </a>
-        @endif
-    </div>
+    <a href="{{ route('account.orders') }}" class="btn-ghost mt-6 inline-flex text-sm">← Siparişlere dön</a>
 </div>
 @endsection

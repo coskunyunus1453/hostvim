@@ -98,100 +98,15 @@ HTML,
                 'sort_order' => 5,
                 'content' => <<<HTML
 <h2>1. Kapsam</h2>
-<p>Bu şartlar {$site} web sitesi ve sunulan hosting, sunucu ve domain hizmetlerinin kullanımını düzenler. Hizmetleri kullanarak bu şartları kabul etmiş sayılırsınız.</p>
+<p>Bu şartlar {$site} web sitesi ve sunulan hosting, sunucu ve domain hizmetlerinin kullanımını düzenler.</p>
 <h2>2. Hizmet Kullanımı</h2>
-<p>Hizmetler yalnızca yasal amaçlarla kullanılabilir. Spam, zararlı yazılım barındırma, telif ihlali, yasa dışı içerik ve sunucu kaynaklarının kötüye kullanımı (aşırı CPU/RAM tüketimi, kötüye kullanım amaçlı script çalıştırma) yasaktır.</p>
-<h2>3. Ödeme ve Faturalandırma</h2>
-<p>Hizmet bedelleri seçilen dönem için peşin veya sözleşmede belirtilen şekilde tahsil edilir. Yenileme bedelleri, dönem sonunda geçerli liste fiyatları üzerinden faturalandırılır.</p>
-<h2>4. Sorumluluk Sınırı</h2>
-<p>Mücbir sebep halleri ve üçüncü taraf ağ kesintileri dışında makul teknik önlemler alınır; hizmet sürekliliği ve yedekleme detayları SLA metninde yer alır. Müşteri, kendi verilerinin yedeğini almakla da yükümlüdür.</p>
-<h2>5. Fesih</h2>
-<p>Taraflar sözleşme koşullarına uygun şekilde hizmeti sonlandırabilir. Bu şartların ihlali halinde hizmet, bildirim yapılarak askıya alınabilir veya sonlandırılabilir.</p>
-<p><em>Son güncelleme: {$year}</em></p>
-HTML,
-            ],
-            [
-                'slug' => 'mesafeli-satis-sozlesmesi',
-                'title' => 'Mesafeli Satış Sözleşmesi',
-                'meta_description' => '6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği kapsamında mesafeli satış sözleşmesi.',
-                'sort_order' => 6,
-                'content' => <<<HTML
-<h2>1. Taraflar</h2>
-<p><strong>SATICI</strong><br>
-Unvan: [[firma_unvan]]<br>
-Adres: [[firma_adres]]<br>
-Vergi Dairesi / No: [[firma_vergi_dairesi]] / [[firma_vergi_no]]<br>
-Telefon: [[firma_telefon]]<br>
-E-posta: [[firma_eposta]]</p>
-<p><strong>ALICI</strong><br>
-Sipariş sırasında belirtilen ad-soyad, adres, e-posta ve iletişim bilgilerine sahip müşteri.</p>
-<h2>2. Konu</h2>
-<p>İşbu sözleşmenin konusu, ALICI'nın SATICI'ya ait [[site_adi]] web sitesi üzerinden elektronik ortamda sipariş verdiği, aşağıda nitelik ve satış fiyatı belirtilen hizmetlerin (web hosting, sunucu, alan adı vb.) satışı ve ifası ile ilgili olarak 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri gereğince tarafların hak ve yükümlülüklerinin belirlenmesidir.</p>
-<h2>3. Sözleşme Konusu Hizmet Bilgileri</h2>
-<p>Hizmetin türü, adedi, vergiler dahil satış bedeli ve ödeme şekli, sipariş onayı ve fatura ekranında/e-postasında belirtildiği gibidir. Bu bilgiler işbu sözleşmenin ayrılmaz parçasıdır.</p>
-<h2>4. Genel Hükümler</h2>
-<ul>
-<li>ALICI, sipariş öncesi hizmetin temel nitelikleri, satış fiyatı ve ödeme şekli ile ifaya ilişkin ön bilgileri okuyup elektronik ortamda onayladığını kabul eder.</li>
-<li>Hizmet, ödemenin onaylanmasının ardından elektronik ortamda derhal veya belirtilen süre içinde sağlanmaya başlanır.</li>
-<li>Hizmetin sağlanması için gerekli kullanıcı bilgileri (panel adresi, kullanıcı adı, şifre) ALICI'nın sipariş sırasında verdiği e-posta adresine iletilir.</li>
-</ul>
-<h2>5. Cayma Hakkı</h2>
-<p>ALICI, hizmet sunumuna ilişkin mesafeli sözleşmelerde, sözleşmenin kurulduğu tarihten itibaren <strong>14 (on dört) gün</strong> içinde herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin cayma hakkına sahiptir. Cayma bildirimi [[firma_eposta]] adresine yazılı olarak iletilebilir.</p>
-<h2>6. Cayma Hakkının İstisnaları</h2>
-<p>Mesafeli Sözleşmeler Yönetmeliği m.15 uyarınca, ALICI'nın onayı ile <strong>ifasına başlanan ve elektronik ortamda anında ifa edilen hizmetler ile tüketiciye anında teslim edilen gayrimaddi mallar</strong> (örneğin alan adı tescili, anında kurulan hosting/sunucu hizmetleri) ile niteliği itibarıyla iade edilemeyecek hizmetlerde cayma hakkı kullanılamaz. Alan adı tescili, üçüncü taraf tescil kuruluşları nezdinde geri alınamaz şekilde gerçekleştiğinden iade kapsamı dışındadır.</p>
-<h2>7. Ödeme ve İfa</h2>
-<p>Ödeme, ALICI'nın seçtiği ödeme yöntemi (kredi kartı, banka havalesi/EFT veya desteklenen online ödeme yöntemleri) ile yapılır. Ödemenin onaylanmaması veya bankaca iade edilmesi halinde SATICI hizmeti ifa yükümlülüğünden kurtulur.</p>
-<h2>8. Temerrüt Hükümleri</h2>
-<p>ALICI'nın temerrüde düşmesi halinde, ALICI borcun gecikmeli ifasından doğan zararı ilgili mevzuat çerçevesinde ödemeyi kabul eder.</p>
-<h2>9. Uyuşmazlıkların Çözümü</h2>
-<p>İşbu sözleşmeden doğan uyuşmazlıklarda, Ticaret Bakanlığı'nca ilan edilen parasal sınırlar dahilinde ALICI'nın yerleşim yerindeki Tüketici Hakem Heyetleri ve Tüketici Mahkemeleri yetkilidir.</p>
-<h2>10. Yürürlük</h2>
-<p>ALICI'nın siparişi elektronik ortamda onaylaması ile işbu sözleşme yürürlüğe girer ve ALICI tüm koşulları kabul etmiş sayılır.</p>
-<p><em>Son güncelleme: {$year}</em></p>
-HTML,
-            ],
-            [
-                'slug' => 'iade-iptal-politikasi',
-                'title' => 'İade, İptal ve Cayma Politikası',
-                'meta_description' => 'Hizmet iadesi, iptali ve cayma hakkına ilişkin koşullar.',
-                'sort_order' => 7,
-                'content' => <<<HTML
-<h2>1. Cayma Hakkı</h2>
-<p>{$site} üzerinden satın alınan hizmetlerde, Mesafeli Sözleşmeler Yönetmeliği uyarınca sözleşmenin kurulduğu tarihten itibaren <strong>14 (on dört) gün</strong> içinde cayma hakkı bulunmaktadır. Cayma talepleri [[firma_eposta]] adresine veya müşteri paneli üzerinden iletilebilir.</p>
-<h2>2. Cayma Hakkının Kullanılamayacağı Durumlar</h2>
-<ul>
-<li><strong>Alan adı (domain) tescilleri:</strong> Tescil işlemi üçüncü taraf kuruluşlar nezdinde anında ve geri alınamaz şekilde gerçekleştiğinden iade edilemez.</li>
-<li><strong>İfasına başlanan anlık dijital hizmetler:</strong> ALICI'nın onayıyla kurulumu yapılan ve kullanıma açılan hosting/sunucu hizmetlerinde, tüketicinin onayı ile ifaya başlanması nedeniyle cayma hakkı sınırlanabilir.</li>
-<li>SSL sertifikaları, lisanslar ve üçüncü taraf yazılım/eklenti bedelleri.</li>
-</ul>
-<h2>3. İade Süreci ve Süresi</h2>
-<p>Cayma hakkının geçerli olduğu hallerde, onaylanan iade tutarı, ALICI'nın ödeme yaptığı yönteme uygun olarak <strong>en geç 14 gün</strong> içinde iade edilir. Kredi kartı iadelerinde bankaya bağlı olarak hesaba yansıma süresi değişebilir.</p>
-<h2>4. Hizmet İptali ve Yenileme</h2>
-<p>Periyodik (aylık/yıllık) hizmetler, yenileme tarihinden önce müşteri panelinden veya destek talebiyle iptal edilebilir. İptal edilmeyen hizmetler dönem sonunda otomatik yenilenebilir; yenileme sonrası kullanılmaya başlanan dönemler için iade yapılmayabilir.</p>
-<h2>5. İletişim</h2>
-<p>İade ve iptal talepleriniz için: [[firma_eposta]] — [[firma_telefon]]</p>
-<p><em>Son güncelleme: {$year}</em></p>
-HTML,
-            ],
-            [
-                'slug' => 'cerez-politikasi',
-                'title' => 'Çerez (Cookie) Politikası',
-                'meta_description' => 'Web sitemizde kullanılan çerezler ve yönetimi hakkında bilgilendirme.',
-                'sort_order' => 8,
-                'content' => <<<HTML
-<h2>1. Çerez Nedir?</h2>
-<p>Çerezler, ziyaret ettiğiniz web siteleri tarafından tarayıcınıza kaydedilen küçük metin dosyalarıdır. {$site} olarak deneyiminizi geliştirmek ve hizmetlerimizi sunmak için çerezlerden yararlanıyoruz.</p>
-<h2>2. Kullandığımız Çerez Türleri</h2>
-<ul>
-<li><strong>Zorunlu Çerezler:</strong> Oturum açma, sepet ve güvenlik gibi sitenin temel işlevleri için gereklidir; devre dışı bırakılamaz.</li>
-<li><strong>Performans / Analitik Çerezler:</strong> Ziyaretçi davranışını anonim olarak ölçerek siteyi iyileştirmemize yardımcı olur.</li>
-<li><strong>İşlevsel Çerezler:</strong> Dil, tema gibi tercihlerinizi hatırlar.</li>
-<li><strong>Pazarlama Çerezleri:</strong> İlgi alanlarınıza uygun içerik/kampanya sunmak için kullanılabilir.</li>
-</ul>
-<h2>3. Çerezlerin Yönetimi</h2>
-<p>Tarayıcınızın ayarlarından çerezleri silebilir veya engelleyebilirsiniz. Zorunlu çerezlerin engellenmesi durumunda sitenin bazı bölümleri düzgün çalışmayabilir.</p>
-<h2>4. Kişisel Veriler</h2>
-<p>Çerezler aracılığıyla işlenen kişisel verileriniz, <a href="/sayfa/kvkk">KVKK Aydınlatma Metni</a> ve <a href="/sayfa/gizlilik">Gizlilik Politikası</a> kapsamında işlenir.</p>
+<p>Hizmetler yalnızca yasal amaçlarla kullanılabilir. Spam, zararlı yazılım barındırma ve kaynak kötüye kullanımı yasaktır.</p>
+<h2>2. Ödeme ve Faturalandırma</h2>
+<p>Hizmet bedelleri seçilen dönem için peşin veya sözleşmede belirtilen şekilde tahsil edilir.</p>
+<h2>3. Sorumluluk Sınırı</h2>
+<p>Mücbir sebep halleri ve üçüncü taraf ağ kesintileri dışında makul teknik önlemler alınır; detaylar SLA metninde yer alır.</p>
+<h2>4. Fesih</h2>
+<p>Taraflar sözleşme koşullarına uygun şekilde hizmeti sonlandırabilir.</p>
 <p><em>Son güncelleme: {$year}</em></p>
 HTML,
             ],

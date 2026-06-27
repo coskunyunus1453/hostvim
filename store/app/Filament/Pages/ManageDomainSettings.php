@@ -38,14 +38,12 @@ class ManageDomainSettings extends Page
 
     public function mount(): void
     {
-        $keys = ['domain_register_enabled', 'domain_usd_try_rate', 'domain_eur_try_rate', 'domain_gbp_try_rate', 'domain_default_markup_percent', 'domain_auto_import_tlds'];
+        $keys = ['domain_register_enabled', 'domain_usd_try_rate', 'domain_default_markup_percent', 'domain_auto_import_tlds'];
         $settings = SiteSetting::whereIn('key', $keys)->pluck('value', 'key')->toArray();
 
         $this->form->fill([
             'domain_register_enabled' => filter_var($settings['domain_register_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'domain_usd_try_rate' => $settings['domain_usd_try_rate'] ?? config('domain_registrars.default_usd_try_rate', 35),
-            'domain_eur_try_rate' => $settings['domain_eur_try_rate'] ?? 0,
-            'domain_gbp_try_rate' => $settings['domain_gbp_try_rate'] ?? 0,
             'domain_default_markup_percent' => $settings['domain_default_markup_percent'] ?? config('domain_registrars.default_markup_percent', 15),
             'domain_auto_import_tlds' => filter_var($settings['domain_auto_import_tlds'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ]);
@@ -61,32 +59,19 @@ class ManageDomainSettings extends Page
         return $schema->components([
             Section::make('Genel')->schema([
                 Toggle::make('domain_register_enabled')->label('Domain satışı aktif'),
+                TextInput::make('domain_usd_try_rate')
+                    ->label('USD → TRY kuru')
+                    ->numeric()
+                    ->required()
+                    ->helperText('Spaceship, Porkbun ve Cloudflare fiyatları bu kurla TRY\'ye çevrilir.'),
                 TextInput::make('domain_default_markup_percent')
                     ->label('Varsayılan kar marjı (%)')
                     ->numeric()
-                    ->required()
-                    ->helperText('TLD bazında marj girilmezse bu oran kullanılır.'),
+                    ->required(),
                 Toggle::make('domain_auto_import_tlds')
                     ->label('API senkronunda yeni TLD otomatik ekle')
                     ->helperText('Açıksa API\'den gelen yeni uzantılar pasif olarak listeye eklenir.'),
             ])->columns(2),
-
-            Section::make('Döviz Kurları')
-                ->description('Maliyetler bu kurlarla TRY\'ye çevrilir. Kuru değiştirip kaydedince otomatik fiyatlı TLD\'lerin satış fiyatı yeniden hesaplanır.')
-                ->schema([
-                    TextInput::make('domain_usd_try_rate')
-                        ->label('USD → TRY kuru')
-                        ->numeric()
-                        ->required(),
-                    TextInput::make('domain_eur_try_rate')
-                        ->label('EUR → TRY kuru')
-                        ->numeric()
-                        ->helperText('0 = USD kuru üzerinden yaklaşık çevir.'),
-                    TextInput::make('domain_gbp_try_rate')
-                        ->label('GBP → TRY kuru')
-                        ->numeric()
-                        ->helperText('0 = USD kuru üzerinden yaklaşık çevir.'),
-                ])->columns(3),
         ]);
     }
 
@@ -102,24 +87,10 @@ class ManageDomainSettings extends Page
                             ->label('Kaydet')
                             ->submit('save')
                             ->keyBindings(['mod+s']),
-                        Action::make('recalcPrices')
-                            ->label('Tüm TLD fiyatlarını yeniden hesapla')
-                            ->color('warning')
-                            ->requiresConfirmation()
-                            ->modalDescription('Otomatik fiyatlı tüm uzantıların satış fiyatı, güncel kur ve kar marjı ile yeniden hesaplanır.')
-                            ->action(function (): void {
-                                $count = $this->recalculateAllPrices();
-                                Notification::make()
-                                    ->title('Fiyatlar güncellendi')
-                                    ->body("{$count} uzantının satış fiyatı yeniden hesaplandı.")
-                                    ->success()
-                                    ->send();
-                            }),
                         Action::make('syncPrices')
-                            ->label('API katalog fiyatlarını çek')
+                            ->label('Tüm API fiyatlarını senkronize et')
                             ->color('gray')
                             ->requiresConfirmation()
-                            ->modalDescription('Sadece toplu fiyat veren API\'ler (ör. Porkbun) için. Spaceship toplu TLD fiyatı vermez.')
                             ->action(function (DomainPricingSyncService $sync): void {
                                 $result = $sync->syncAll();
                                 Notification::make()
@@ -153,31 +124,6 @@ class ManageDomainSettings extends Page
         app(CacheService::class)->clearPageCacheForPaths(['domain']);
         app(\App\Services\Panel\PanelSettingsSyncService::class)->syncBillingSafe();
 
-        // Kur/marj degismis olabilir: otomatik fiyatli TLD'leri yeniden hesapla.
-        $recalculated = $this->recalculateAllPrices();
-
-        Notification::make()
-            ->title('Domain ayarları kaydedildi')
-            ->body($recalculated > 0 ? "{$recalculated} uzantının satış fiyatı güncellendi." : null)
-            ->success()
-            ->send();
-    }
-
-    /**
-     * Otomatik fiyatli (auto_price) tum TLD'lerin satis fiyatlarini guncel kur ve marj ile yeniden hesaplar.
-     */
-    protected function recalculateAllPrices(): int
-    {
-        $count = 0;
-        \App\Models\DomainTld::query()
-            ->where('auto_price', true)
-            ->whereNotNull('wholesale_register')
-            ->where('wholesale_register', '>', 0)
-            ->each(function (\App\Models\DomainTld $tld) use (&$count): void {
-                $tld->save(); // saving observer recalculatePrices() calistirir
-                $count++;
-            });
-
-        return $count;
+        Notification::make()->title('Domain ayarları kaydedildi')->success()->send();
     }
 }

@@ -3,28 +3,6 @@
 @section('content')
 @include('partials.hero.index', ['hero' => $hero])
 
-{{-- Domain arama bandı --}}
-<section class="relative z-10 -mt-px border-y border-hv-border bg-hv-gradient-r">
-    <div class="mx-auto max-w-5xl px-4 py-8 lg:px-8 lg:py-10">
-        <div class="flex flex-col items-center gap-4 text-center lg:flex-row lg:gap-8 lg:text-left">
-            <div class="shrink-0">
-                <h2 class="text-xl font-extrabold text-white lg:text-2xl">Alan adını hemen bul</h2>
-                <p class="mt-1 text-sm text-white/80">Yeni kayıt, transfer & yenileme fiyatlarıyla.</p>
-            </div>
-            <form action="{{ route('domain.index') }}" method="GET" class="flex w-full flex-1 flex-col gap-2 sm:flex-row">
-                <div class="relative flex-1">
-                    <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-hv-muted">🔍</span>
-                    <input type="text" name="q" placeholder="markanizi-yazin.com" required autocomplete="off"
-                        class="w-full rounded-2xl border-0 bg-white py-3.5 pl-11 pr-4 text-base text-hv-text shadow-lg outline-none ring-2 ring-transparent focus:ring-white/60">
-                </div>
-                <button type="submit" class="rounded-2xl bg-hv-text px-7 py-3.5 text-base font-bold text-white shadow-lg transition hover:opacity-90">
-                    Sorgula
-                </button>
-            </form>
-        </div>
-    </div>
-</section>
-
 {{-- Categories / Pricing preview --}}
 @foreach($categories as $category)
 <section class="{{ $loop->even ? 'bg-hv-surface' : 'bg-hv-bg' }} py-20">

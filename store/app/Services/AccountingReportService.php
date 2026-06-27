@@ -263,7 +263,6 @@ class AccountingReportService
         $labels = [
             'hosting' => 'Web Hosting',
             'domain_register' => 'Domain',
-            'cloud' => 'Bulut Sunucu',
             'manual' => 'VPS / VDS / Manuel',
             'product' => 'Diğer ürün',
         ];
@@ -291,43 +290,6 @@ class AccountingReportService
                 'margin' => $this->marginPercent($revenue, $cogs),
             ];
         })
-            ->sortByDesc('revenue')
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Ödeme yöntemine göre gelir ve tahmini komisyon (PaymentMethod.config.commission_rate).
-     *
-     * @return list<array{label: string, code: string, order_count: int, revenue: float, commission_rate: float, commission: float, net: float}>
-     */
-    public function revenueByPaymentMethod(?Carbon $from = null, ?Carbon $to = null): array
-    {
-        [$from, $to] = $this->normalizeRange($from, $to);
-
-        $orders = Order::query()
-            ->where('payment_status', 'paid')
-            ->whereBetween('created_at', [$from, $to])
-            ->with('paymentMethod')
-            ->get();
-
-        return $orders->groupBy(fn (Order $o) => $o->payment_method_id ?: 0)
-            ->map(function (Collection $group) {
-                $pm = $group->first()->paymentMethod;
-                $revenue = (float) $group->sum('total');
-                $rate = ($pm && is_array($pm->config)) ? (float) ($pm->config['commission_rate'] ?? 0) : 0.0;
-                $commission = round($revenue * $rate / 100, 2);
-
-                return [
-                    'label' => $pm?->name ?: 'Tanımsız / Manuel',
-                    'code' => (string) ($pm?->code ?: '—'),
-                    'order_count' => $group->count(),
-                    'revenue' => round($revenue, 2),
-                    'commission_rate' => $rate,
-                    'commission' => $commission,
-                    'net' => round($revenue - $commission, 2),
-                ];
-            })
             ->sortByDesc('revenue')
             ->values()
             ->all();

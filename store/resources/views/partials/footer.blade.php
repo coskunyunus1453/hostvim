@@ -1,41 +1,27 @@
 @php
     $footerStyle = $themeFooterStyle ?? 'default';
     $footerClass = 'border-t border-hv-border hv-footer-' . $footerStyle;
-    $legalLinks = [
-        'mesafeli-satis-sozlesmesi' => 'Mesafeli Satış Sözleşmesi',
-        'iade-iptal-politikasi' => 'İade & İptal',
-        'kvkk' => 'KVKK',
-        'gizlilik' => 'Gizlilik',
-        'kullanim-sartlari' => 'Kullanım Şartları',
-        'cerez-politikasi' => 'Çerez Politikası',
-    ];
 @endphp
 <footer class="{{ $footerClass }}">
     @if($footerStyle === 'minimal')
-        <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
-            <div class="flex flex-col items-center justify-between gap-4 text-center text-sm text-hv-muted md:flex-row">
-                <div class="flex items-center gap-2">
-                    @include('partials.site-logo', ['height' => $siteLogoFooterHeight ?? 32, 'nameClass' => 'text-sm font-bold'])
-                </div>
-                <p>&copy; {{ date('Y') }} {{ $siteName }}. Tüm hakları saklıdır.</p>
-                <div class="flex flex-wrap justify-center gap-4">
-                    <a href="{{ route('domain.index') }}" class="hover:text-hv-primary">Domain</a>
-                    @if($panelLoginUrl && $panelLoginUrl !== '/login')
-                        <a href="{{ $panelLoginUrl }}" class="hover:text-hv-primary" target="_blank" rel="noopener noreferrer">Müşteri Paneli</a>
-                    @endif
-                    <a href="{{ route('blog.index') }}" class="hover:text-hv-primary">Blog</a>
-                    <a href="{{ route('contact.index') }}" class="hover:text-hv-primary">İletişim</a>
-                    @if($footerMenu)
-                        @foreach($footerMenu->activeItems as $item)
-                            <a href="{{ $item->href }}" class="hover:text-hv-primary" target="{{ $item->safe_target }}">{{ $item->label }}</a>
-                        @endforeach
-                    @endif
-                </div>
+        <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-center text-sm text-hv-muted md:flex-row lg:px-8">
+            <div class="flex items-center gap-2">
+                @include('partials.site-logo', ['height' => $siteLogoFooterHeight ?? 32, 'nameClass' => 'text-sm font-bold'])
             </div>
-            <div class="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-hv-border pt-4 text-xs text-hv-muted">
-                @foreach($legalLinks as $slug => $label)
-                    <a href="{{ route('pages.show', $slug) }}" class="hover:text-hv-primary">{{ $label }}</a>
-                @endforeach
+            <p>&copy; {{ date('Y') }} {{ $siteName }}. Tüm hakları saklıdır.</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="{{ route('pages.show', 'gizlilik') }}" class="hover:text-hv-primary">Gizlilik</a>
+                <a href="{{ route('domain.index') }}" class="hover:text-hv-primary">Domain</a>
+                @if($panelLoginUrl && $panelLoginUrl !== '/login')
+                    <a href="{{ $panelLoginUrl }}" class="hover:text-hv-primary" target="_blank" rel="noopener noreferrer">Müşteri Paneli</a>
+                @endif
+                <a href="{{ route('blog.index') }}" class="hover:text-hv-primary">Blog</a>
+                <a href="{{ route('contact.index') }}" class="hover:text-hv-primary">İletişim</a>
+                @if($footerMenu)
+                    @foreach($footerMenu->activeItems as $item)
+                        <a href="{{ $item->href }}" class="hover:text-hv-primary" target="{{ $item->safe_target }}">{{ $item->label }}</a>
+                    @endforeach
+                @endif
             </div>
         </div>
     @else
@@ -100,12 +86,7 @@
                 </div>
             </div>
 
-            <div class="mt-12 flex flex-wrap justify-center gap-x-5 gap-y-2 border-t border-hv-border pt-8 text-sm text-hv-muted md:justify-start">
-                @foreach($legalLinks as $slug => $label)
-                    <a href="{{ route('pages.show', $slug) }}" class="hover:text-hv-primary">{{ $label }}</a>
-                @endforeach
-            </div>
-            <div class="mt-6 flex flex-col items-center justify-between gap-4 text-sm text-hv-muted md:flex-row">
+            <div class="mt-12 flex flex-col items-center justify-between gap-4 border-t border-hv-border pt-8 text-sm text-hv-muted md:flex-row">
                 <p>&copy; {{ date('Y') }} {{ $siteName }}. Tüm hakları saklıdır.</p>
                 @if($themeFooterShowStats ?? true)
                     <div class="flex gap-4">

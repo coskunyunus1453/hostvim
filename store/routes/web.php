@@ -7,7 +7,6 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DomainController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HostingConfigureController;
-use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
@@ -19,9 +18,6 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', [RobotsController::class, 'index'])->name('robots');
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
-
-Route::get('/hosting', [LandingController::class, 'hosting'])->name('hosting.index');
-Route::get('/sunucu', [LandingController::class, 'cloud'])->name('cloud.index');
 
 Route::get('/urunler', [ProductController::class, 'index'])->name('products.index');
 Route::get('/urunler/{categorySlug}/{slug}', [ProductController::class, 'show'])->name('products.show');
@@ -49,12 +45,6 @@ Route::get('/domain', [DomainController::class, 'index'])->name('domain.index');
 Route::post('/domain/check', [DomainController::class, 'check'])
     ->middleware('throttle:30,1')
     ->name('domain.check');
-Route::post('/domain/ara', [DomainController::class, 'search'])
-    ->middleware('throttle:30,1')
-    ->name('domain.search');
-Route::post('/domain/whois', [DomainController::class, 'whois'])
-    ->middleware('throttle:20,1')
-    ->name('domain.whois');
 Route::post('/domain/sepet', [DomainController::class, 'addToCart'])
     ->middleware('throttle:20,1')
     ->name('domain.cart.add');
@@ -130,13 +120,9 @@ Route::middleware(['auth', 'panel.sync'])->prefix('hesabim')->name('account.')->
     Route::post('/alan-adlarim/{id}/transfer-kodu', [\App\Http\Controllers\Account\DomainController::class, 'authCode'])->whereNumber('id')->name('domains.authcode');
     Route::get('/hostinglerim', [\App\Http\Controllers\Account\HostingController::class, 'index'])->name('hosting');
     Route::post('/hostinglerim/panel', [\App\Http\Controllers\Account\HostingController::class, 'panelLogin'])->name('hosting.panel');
-    Route::post('/devir/alan-adi/{id}', [\App\Http\Controllers\Account\TransferController::class, 'requestDomain'])->whereNumber('id')->name('transfers.domain');
-    Route::post('/devir/hosting/{orderId}', [\App\Http\Controllers\Account\TransferController::class, 'requestHosting'])->whereNumber('orderId')->name('transfers.hosting');
-    Route::post('/devir/{transfer}/iptal', [\App\Http\Controllers\Account\TransferController::class, 'cancel'])->name('transfers.cancel');
     Route::get('/faturalarim', [\App\Http\Controllers\Account\InvoiceController::class, 'index'])->name('invoices');
     Route::get('/faturalarim/{invoiceId}', [\App\Http\Controllers\Account\InvoiceController::class, 'show'])->name('invoices.show');
     Route::post('/faturalarim/{invoiceId}/ode', [\App\Http\Controllers\Account\InvoiceController::class, 'pay'])->name('invoices.pay');
-    Route::get('/efatura/{invoice}/pdf', [\App\Http\Controllers\InvoiceController::class, 'customerPdf'])->name('einvoice.pdf');
     Route::get('/siparislerim', [\App\Http\Controllers\Account\OrderController::class, 'index'])->name('orders');
     Route::get('/siparislerim/{orderId}', [\App\Http\Controllers\Account\OrderController::class, 'show'])->name('orders.show');
     Route::get('/destek', [\App\Http\Controllers\Account\SupportTicketController::class, 'index'])->name('support.index');
@@ -146,7 +132,3 @@ Route::middleware(['auth', 'panel.sync'])->prefix('hesabim')->name('account.')->
     Route::post('/destek/{ticket}/yanit', [\App\Http\Controllers\Account\SupportTicketController::class, 'reply'])->name('support.reply');
     Route::post('/destek/{ticket}/kapat', [\App\Http\Controllers\Account\SupportTicketController::class, 'close'])->name('support.close');
 });
-
-Route::get('/admin/faturalar/{invoice}/pdf', [\App\Http\Controllers\InvoiceController::class, 'adminPdf'])
-    ->middleware('auth')
-    ->name('admin.invoices.pdf');

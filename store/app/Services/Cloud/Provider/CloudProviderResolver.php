@@ -16,14 +16,12 @@ class CloudProviderResolver
         VultrDriver $vultr,
         DigitalOceanDriver $digitalocean,
         LinodeDriver $linode,
-        ContaboDriver $contabo,
     ) {
         $this->drivers = [
             $hetzner->apiName() => $hetzner,
             $vultr->apiName() => $vultr,
             $digitalocean->apiName() => $digitalocean,
             $linode->apiName() => $linode,
-            $contabo->apiName() => $contabo,
         ];
     }
 

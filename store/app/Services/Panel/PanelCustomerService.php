@@ -110,20 +110,6 @@ class PanelCustomerService
         return $this->forUser($user, 'patch', '/api/integrations/store/customer/domains/registrations/'.$registrationId, $payload);
     }
 
-    /**
-     * Hesaplar arası domain/hosting sahipliği devri (panel tarafında uygular).
-     *
-     * @param  array{type: string, domain: string, target_email: string}  $payload
-     * @return array<string, mixed>
-     */
-    public function transferOwnership(User $user, array $payload): array
-    {
-        $result = $this->forUser($user, 'post', '/api/integrations/store/customer/ownership/transfer', $payload);
-        self::forgetUserCache($user->id);
-
-        return $result;
-    }
-
     /** @return array{redirect_url: string, expires_in: int} */
     public function panelSso(User $user): array
     {

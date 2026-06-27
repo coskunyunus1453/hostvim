@@ -15,12 +15,9 @@ class FulfillCloudOrderJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 2;
+    public int $tries = 3;
 
-    // Sunucu hazir olana kadar polling yapildigindan is uzun surebilir.
-    public int $timeout = 900;
-
-    public int $uniqueFor = 1200;
+    public int $uniqueFor = 300;
 
     public function __construct(
         public int $orderId,

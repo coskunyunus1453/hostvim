@@ -52,7 +52,7 @@
                 @csrf
                 <label class="text-sm">
                     <span class="block text-hv-muted">Yıl</span>
-                    <select name="years" class="mt-1 rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm">
+                    <select name="years" class="mt-1 rounded-lg border border-hv-border bg-white px-3 py-2 text-sm">
                         @for($y = 1; $y <= 10; $y++)
                             <option value="{{ $y }}">{{ $y }} yıl</option>
                         @endfor
@@ -77,7 +77,7 @@
                     </label>
                 </div>
                 <div id="ns-custom" class="{{ $domain->ns_provider === 'custom' ? '' : 'hidden' }}">
-                    <textarea name="hosts" rows="3" placeholder="ns1.example.com&#10;ns2.example.com" class="w-full rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm font-mono">{{ collect($domain->nameservers ?? [])->implode("\n") }}</textarea>
+                    <textarea name="hosts" rows="3" placeholder="ns1.example.com&#10;ns2.example.com" class="w-full rounded-lg border border-hv-border bg-white px-3 py-2 text-sm font-mono">{{ collect($domain->nameservers ?? [])->implode("\n") }}</textarea>
                     <p class="mt-1 text-xs text-hv-muted">Her satıra bir nameserver (en az 2 adet).</p>
                 </div>
                 <button class="btn-primary">Kaydet</button>
@@ -111,16 +111,16 @@
                             @foreach($records as $i => $r)
                                 <tr>
                                     <td class="py-1 pr-2">
-                                        <select name="records[{{ $i }}][type]" class="rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5">
+                                        <select name="records[{{ $i }}][type]" class="rounded-lg border border-hv-border bg-white px-2 py-1.5">
                                             @foreach(['A','AAAA','CNAME','MX','TXT','NS','CAA','SRV','ALIAS'] as $t)
                                                 <option value="{{ $t }}" {{ ($r['type'] ?? '') === $t ? 'selected' : '' }}>{{ $t }}</option>
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][name]" value="{{ $r['name'] ?? '@' }}" class="w-24 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][value]" value="{{ $r['value'] ?? '' }}" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][ttl]" type="number" value="{{ $r['ttl'] ?? 3600 }}" class="w-20 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
-                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][priority]" type="number" value="{{ $r['priority'] ?? '' }}" class="w-16 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][name]" value="{{ $r['name'] ?? '@' }}" class="w-24 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][value]" value="{{ $r['value'] ?? '' }}" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][ttl]" type="number" value="{{ $r['ttl'] ?? 3600 }}" class="w-20 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+                                    <td class="py-1 pr-2"><input name="records[{{ $i }}][priority]" type="number" value="{{ $r['priority'] ?? '' }}" class="w-16 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
                                     <td class="py-1"><button type="button" onclick="this.closest('tr').remove()" class="text-red-600 hover:underline">Sil</button></td>
                                 </tr>
                             @endforeach
@@ -134,38 +134,6 @@
     </div>
 </div>
 
-{{-- Başka hesaba devret --}}
-<div class="mt-6 rounded-2xl border border-hv-border bg-hv-surface p-5">
-    <h3 class="text-base font-semibold text-hv-text">Başka hesaba devret</h3>
-    @if(!empty($pendingTransfer))
-        <div class="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <p><strong>{{ $pendingTransfer->target_email }}</strong> adresine alan adı devir talebiniz <strong>onay bekliyor</strong> (No: {{ $pendingTransfer->number }}).</p>
-            <form method="POST" action="{{ route('account.transfers.cancel', $pendingTransfer->id) }}" class="mt-2">
-                @csrf
-                <button class="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100">Talebi iptal et</button>
-            </form>
-        </div>
-    @else
-        <p class="mt-2 text-sm text-hv-muted">Bu alan adını başka bir HostVim hesabına devredebilirsiniz. Devralacak kişinin HostVim'de kayıtlı olması gerekir. Talebiniz <strong>admin onayından</strong> sonra tamamlanır.</p>
-        <form method="POST" action="{{ route('account.transfers.domain', $domain->id) }}" class="mt-3 grid gap-3 sm:max-w-lg">
-            @csrf
-            <label class="text-sm">
-                <span class="block text-hv-muted">Devralacak hesabın e-postası</span>
-                <input type="email" name="target_email" required placeholder="devralacak@eposta.com"
-                    class="mt-1 w-full rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm" value="{{ old('target_email') }}">
-            </label>
-            @error('target_email')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
-            <label class="text-sm">
-                <span class="block text-hv-muted">Not (opsiyonel)</span>
-                <textarea name="note" rows="2" class="mt-1 w-full rounded-lg border border-hv-border bg-hv-surface px-3 py-2 text-sm">{{ old('note') }}</textarea>
-            </label>
-            <div>
-                <button class="btn-primary" onclick="return confirm('Bu alan adını {{ $domain->domain }} başka bir hesaba devretmek üzere talep oluşturulacak. Onaylıyor musunuz?')">Devir talebi gönder</button>
-            </div>
-        </form>
-    @endif
-</div>
-
 <script>
     let dnsIndex = {{ count($records) }};
     function addDnsRow() {
@@ -173,11 +141,11 @@
         const i = dnsIndex++;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="py-1 pr-2"><select name="records[${i}][type]" class="rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5">${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select></td>
-            <td class="py-1 pr-2"><input name="records[${i}][name]" value="@" class="w-24 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
-            <td class="py-1 pr-2"><input name="records[${i}][value]" value="" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
-            <td class="py-1 pr-2"><input name="records[${i}][ttl]" type="number" value="3600" class="w-20 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
-            <td class="py-1 pr-2"><input name="records[${i}][priority]" type="number" value="" class="w-16 rounded-lg border border-hv-border bg-hv-surface px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><select name="records[${i}][type]" class="rounded-lg border border-hv-border bg-white px-2 py-1.5">${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select></td>
+            <td class="py-1 pr-2"><input name="records[${i}][name]" value="@" class="w-24 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><input name="records[${i}][value]" value="" class="w-full min-w-[180px] rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><input name="records[${i}][ttl]" type="number" value="3600" class="w-20 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
+            <td class="py-1 pr-2"><input name="records[${i}][priority]" type="number" value="" class="w-16 rounded-lg border border-hv-border bg-white px-2 py-1.5"></td>
             <td class="py-1"><button type="button" onclick="this.closest('tr').remove()" class="text-red-600 hover:underline">Sil</button></td>`;
         document.getElementById('dns-rows').appendChild(tr);
     }

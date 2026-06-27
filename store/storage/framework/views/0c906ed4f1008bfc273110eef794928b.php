@@ -1,0 +1,148 @@
+<?php $__env->startSection('content'); ?>
+<?php echo $__env->make('partials.hero.index', ['hero' => $hero], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+
+
+<section class="relative z-10 -mt-px border-y border-hv-border bg-hv-gradient-r">
+    <div class="mx-auto max-w-5xl px-4 py-8 lg:px-8 lg:py-10">
+        <div class="flex flex-col items-center gap-4 text-center lg:flex-row lg:gap-8 lg:text-left">
+            <div class="shrink-0">
+                <h2 class="text-xl font-extrabold text-white lg:text-2xl">Alan adını hemen bul</h2>
+                <p class="mt-1 text-sm text-white/80">Yeni kayıt, transfer & yenileme fiyatlarıyla.</p>
+            </div>
+            <form action="<?php echo e(route('domain.index')); ?>" method="GET" class="flex w-full flex-1 flex-col gap-2 sm:flex-row">
+                <div class="relative flex-1">
+                    <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-hv-muted">🔍</span>
+                    <input type="text" name="q" placeholder="markanizi-yazin.com" required autocomplete="off"
+                        class="w-full rounded-2xl border-0 bg-white py-3.5 pl-11 pr-4 text-base text-hv-text shadow-lg outline-none ring-2 ring-transparent focus:ring-white/60">
+                </div>
+                <button type="submit" class="rounded-2xl bg-hv-text px-7 py-3.5 text-base font-bold text-white shadow-lg transition hover:opacity-90">
+                    Sorgula
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+
+
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+<section class="<?php echo e($loop->even ? 'bg-hv-surface' : 'bg-hv-bg'); ?> py-20">
+    <div class="mx-auto max-w-7xl px-4 lg:px-8">
+        <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
+            <div>
+                <span class="text-sm font-bold uppercase tracking-wider text-hv-primary"><?php echo e($category->name); ?></span>
+                <h2 class="section-title mt-2"><?php echo e($category->description ? Str::limit($category->description, 60) : $category->name . ' Paketleri'); ?></h2>
+            </div>
+            <a href="<?php echo e(route('products.category', $category->slug)); ?>" class="btn-ghost font-semibold text-hv-secondary">
+                Tümünü Gör →
+            </a>
+        </div>
+        <div class="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $category->activeProducts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <?php echo $__env->make('partials.pricing-card', ['product' => $product, 'category' => $category], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+        </div>
+    </div>
+</section>
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+
+
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($features->isNotEmpty()): ?>
+<section class="bg-gradient-to-b from-hv-bg to-hv-surface py-20">
+    <div class="mx-auto max-w-7xl px-4 text-center lg:px-8">
+        <h2 class="section-title">Neden <?php echo e($siteName); ?>?</h2>
+        <p class="section-subtitle mx-auto">Kurumsal altyapı, şeffaf fiyatlandırma ve gerçek insan desteği.</p>
+        <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $features; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $feature): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <div class="card text-left">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-hv-primary/10 text-2xl">⚡</div>
+                    <h3 class="text-lg font-bold text-hv-text"><?php echo e($feature->title); ?></h3>
+                    <p class="mt-2 text-sm leading-relaxed text-hv-muted"><?php echo e($feature->description); ?></p>
+                </div>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($testimonials->isNotEmpty()): ?>
+<section class="py-20">
+    <div class="mx-auto max-w-7xl px-4 lg:px-8">
+        <h2 class="section-title text-center">Müşterilerimiz Ne Diyor?</h2>
+        <div class="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $testimonials; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $t): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <blockquote class="card">
+                    <div class="mb-3 flex text-hv-primary">
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php for($i = 0; $i < $t->rating; $i++): ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?> ★ <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endfor; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+                    </div>
+                    <p class="text-sm leading-relaxed text-hv-muted">"<?php echo e($t->content); ?>"</p>
+                    <footer class="mt-4 border-t border-hv-border pt-4">
+                        <cite class="not-italic font-semibold text-hv-text"><?php echo e($t->name); ?></cite>
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($t->company): ?><span class="block text-xs text-hv-muted"><?php echo e($t->role); ?> — <?php echo e($t->company); ?></span><?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                    </footer>
+                </blockquote>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($faqs->isNotEmpty()): ?>
+<section class="bg-hv-secondary/5 py-20">
+    <div class="mx-auto max-w-3xl px-4 lg:px-8">
+        <h2 class="section-title text-center">Sık Sorulan Sorular</h2>
+        <div class="mt-10 space-y-4">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $faqs; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $faq): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <details class="group rounded-xl border border-hv-border bg-hv-elevated">
+                    <summary class="cursor-pointer list-none px-6 py-4 font-semibold text-hv-text marker:content-none flex justify-between items-center">
+                        <?php echo e($faq->question); ?>
+
+                        <span class="text-hv-primary transition group-open:rotate-45">+</span>
+                    </summary>
+                    <div class="border-t border-hv-border px-6 pb-4 pt-2 text-sm leading-relaxed text-hv-muted"><?php echo nl2br(e($faq->answer)); ?></div>
+                </details>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($posts->isNotEmpty()): ?>
+<section class="py-20">
+    <div class="mx-auto max-w-7xl px-4 lg:px-8">
+        <div class="flex items-end justify-between">
+            <h2 class="section-title">Blog & Rehberler</h2>
+            <a href="<?php echo e(route('blog.index')); ?>" class="text-sm font-semibold text-hv-primary hover:underline">Tüm Yazılar →</a>
+        </div>
+        <div class="mt-10 grid gap-6 md:grid-cols-3">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $posts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $post): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <a href="<?php echo e(route('blog.show', $post->slug)); ?>" class="card group block overflow-hidden p-0">
+                    <div class="aspect-video bg-gradient-to-br from-hv-primary/20 to-hv-secondary/20"></div>
+                    <div class="p-6">
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($post->category): ?><span class="text-xs font-bold uppercase text-hv-secondary"><?php echo e($post->category->name); ?></span><?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <h3 class="mt-2 font-bold text-hv-text group-hover:text-hv-primary"><?php echo e($post->title); ?></h3>
+                        <p class="mt-2 text-sm text-hv-muted"><?php echo e(Str::limit($post->excerpt ?? strip_tags($post->content), 100)); ?></p>
+                    </div>
+                </a>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+
+<section class="mx-4 mb-20 lg:mx-8">
+    <div class="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-r from-hv-primary to-hv-secondary px-8 py-16 text-center text-white shadow-xl lg:px-16">
+        <h2 class="text-3xl font-bold md:text-4xl">Projenize bugün başlayın</h2>
+        <p class="mx-auto mt-4 max-w-xl text-white/80">Doğru paketi seçin, dakikalar içinde online olun. Taşıma ve kurulum desteği ücretsiz.</p>
+        <div class="mt-8 flex flex-wrap justify-center gap-4">
+            <a href="<?php echo e(route('products.index')); ?>" class="rounded-xl bg-white px-8 py-3 font-semibold text-hv-primary shadow-lg hover:bg-white/90">Paket Seç</a>
+            <a href="<?php echo e(route('contact.index')); ?>" class="rounded-xl border-2 border-white/40 px-8 py-3 font-semibold hover:bg-white/10">Destek Al</a>
+        </div>
+    </div>
+</section>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH /Applications/XAMPP/xamppfiles/htdocs/hostvim/store/resources/views/home.blade.php ENDPATH**/ ?>
