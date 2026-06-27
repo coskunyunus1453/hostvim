@@ -150,7 +150,49 @@ Olası `code` değerleri: `ok`, `grace`, `expired`, `domain_mismatch`,
 
 ---
 
-## 8. English Quick Reference
+## 8. Otomatik Satış + Hub Aktivasyonu (opak → imzalı)
+
+Manuel `license:issue` dışında, landing (hub) üzerinden **otomatik satış** akışı vardır.
+Burada müşteri kolay bir **opak anahtar** (`hv_...`) alır; panel kurulumda bunu **kendi
+host'una bağlı, imzalı `PLZ1` anahtara** dönüştürür. Böylece kolay satın alma + sağlam
+offline doğrulama + domaine bağlama + uzaktan iptal bir arada olur.
+
+### Akış
+
+1. **Satış:** Müşteri landing'de öder (Stripe/PayTR/havale). `LicenseRetailFulfillmentService`
+   bir `saas_licenses` kaydı oluşturur ve müşteriye e-posta ile `hv_...` anahtarını yollar.
+2. **Aktivasyon:** Müşteri anahtarı panele girer. Panel anahtarı **PLZ1 değil** (opak) görünce
+   hub'a `POST /api/v1/license/activate {key, host}` çağrısı yapar.
+3. **Hub imzalar:** Hub anahtarı doğrular (aktif/süre/iptal/aktivasyon limiti), geçerliyse
+   `host`'a bağlı bir `PLZ1` anahtarı **private key ile imzalar** ve `signed_key` olarak döner.
+   Aktivasyon `saas_license_activations` tablosuna işlenir (aynı host limit tüketmez).
+4. **Panel saklar:** Panel `signed_key`'i offline doğrular ve şifreli saklar. Bundan sonra
+   doğrulama **internet olmadan** yapılır; hub yalnızca iptal için arada sorulur.
+
+### Hub (landing) yapılandırması — `.env`
+
+| Değişken | Açıklama |
+|----------|----------|
+| `PANELZE_LICENSE_SIGNING_SECRET` | Satıcı **private key** (base64). **Yalnızca hub sunucusunda**. Boşsa hub imzalamaz, yalnızca opak/online doğrulama döner. |
+| `PANELZE_LICENSE_PUBLIC_KEY` | Panel/engine'e gömülü public key ile **aynı** olmalı. |
+| `PANELZE_LICENSE_OFFLINE_GRACE_DAYS` | İmzalı anahtara yazılan grace gün (varsayılan 14). |
+| `PANELZE_LICENSE_MAX_ACTIVATIONS` | Lisans başına izinli farklı host sayısı. `0` = sınırsız. Ürün/lisans `limits.max_activations` öncelikli. |
+| `PANELZE_LICENSE_API_SECRET` | Doluysa hem `validate` hem `activate` için `Authorization: Bearer` zorunlu (panelde `LICENSE_SERVER_API_SECRET` ile eşleşmeli). |
+
+> Güvenlik: imzalama private key'i artık **hem** offline `license:issue` makinende **hem de**
+> (otomatik satış istiyorsan) hub sunucusunda bulunur. Hub sunucusunu sıkılaştır; secret'ı
+> `.env` dışında bir gizli yönetimine taşımayı düşün.
+
+### Aktivasyon limiti
+
+- `saas_licenses.limits_override.max_activations` → o lisansa özel.
+- `saas_license_products.default_limits.max_activations` → ürün geneli.
+- yoksa `PANELZE_LICENSE_MAX_ACTIVATIONS` (varsayılan `0` = sınırsız).
+- Limit aşılırsa `activate` `code=activation_limit` döner; aynı host yeniden aktive olursa limit tüketmez.
+
+---
+
+## 9. English Quick Reference
 
 - **Model:** Offline Ed25519-signed license keys (primary) + optional online hub (revocation only).
 - **Vendor (one-time):** `php artisan license:keygen` → embed PUBLIC key in `config/panelze.php`

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SaasLicense extends Model
 {
@@ -42,5 +43,10 @@ class SaasLicense extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(SaasLicenseProduct::class, 'saas_license_product_id');
+    }
+
+    public function activations(): HasMany
+    {
+        return $this->hasMany(SaasLicenseActivation::class, 'saas_license_id');
     }
 }

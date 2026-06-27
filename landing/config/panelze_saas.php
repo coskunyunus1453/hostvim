@@ -14,6 +14,22 @@ return [
     'panel_updates_api_secret' => env('PANELZE_PANEL_UPDATES_API_SECRET', env('PANELZE_LICENSE_API_SECRET', '')),
 
     /**
+     * Çevrimdışı imzalı lisans (Ed25519) — hub aktivasyon sırasında domaine bağlı
+     * PLZ1 anahtarı imzalar; panel/engine bunu internet olmadan doğrular.
+     *
+     * - offline_signing_secret: SATICI private key (base64). YALNIZCA hub sunucusunda
+     *   .env'de tutulur, asla repoya/panele konmaz. Boşsa imzalama devre dışı kalır
+     *   ve aktivasyon yalnızca opak (online) anahtar döner.
+     * - offline_public_key: panel/engine'e gömülü public key ile AYNI olmalıdır.
+     * - default_max_activations: lisans başına izinli farklı host sayısı. 0 = sınırsız.
+     *   Ürün/lisans limits içinde 'max_activations' varsa o önceliklidir.
+     */
+    'offline_signing_secret' => env('PANELZE_LICENSE_SIGNING_SECRET', ''),
+    'offline_public_key' => env('PANELZE_LICENSE_PUBLIC_KEY', 'tiv72XAtO2krha6GBWryaXo+WGscEEbnbpo283xnLg8='),
+    'offline_grace_days' => (int) env('PANELZE_LICENSE_OFFLINE_GRACE_DAYS', 14),
+    'default_max_activations' => (int) env('PANELZE_LICENSE_MAX_ACTIVATIONS', 0),
+
+    /**
      * Ödeme: Türkiye → PayTR, diğer → Stripe (locale veya zorlama ile).
      */
     'billing' => [

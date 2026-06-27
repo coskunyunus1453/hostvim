@@ -61,4 +61,60 @@ class LicenseHubClient
 
         return [];
     }
+
+    /**
+     * Opak (hv_...) anahtarı bu panelin host'una bağlı, çevrimdışı imzalı (PLZ1)
+     * anahtara çevirmek için hub'a sorar. Yanıt 'signed_key' içerirse panel onu
+     * saklayıp bundan sonra internet olmadan doğrular.
+     *
+     * @return array<string, mixed> Boş dizi = hub yapılandırılmamış veya hata
+     */
+    public function activate(string $key, ?string $host = null): array
+    {
+        $key = trim($key);
+        if ($key === '') {
+            return [];
+        }
+
+        $base = rtrim((string) config('panelze.license_server', ''), '/');
+        if ($base === '') {
+            return [];
+        }
+
+        try {
+            $req = Http::timeout(10)->acceptJson()->asJson();
+            $secret = trim((string) config('panelze.license_server_api_secret', ''));
+            if ($secret !== '') {
+                $req = $req->withToken($secret);
+            }
+            $response = $req->post($base.'/api/v1/license/activate', [
+                'key' => $key,
+                'host' => $host,
+            ]);
+
+            if ($response->successful()) {
+                $json = $response->json();
+                if (is_array($json) && array_key_exists('valid', $json)) {
+                    return $json;
+                }
+
+                return [];
+            }
+
+            if (in_array($response->status(), [401, 403], true)) {
+                return [
+                    'valid' => false,
+                    'code' => 'hub_unauthorized',
+                    'message' => 'License hub rejected API token.',
+                    'http_status' => $response->status(),
+                ];
+            }
+
+            Log::warning('License hub activate HTTP '.$response->status(), ['url' => $base]);
+        } catch (\Throwable $e) {
+            Log::warning('License hub activate error: '.$e->getMessage());
+        }
+
+        return [];
+    }
 }

@@ -116,8 +116,35 @@ class LicenseController extends Controller
             }
         }
 
-        // 2) Online hub (offline imzası olmayan eski anahtarlar)
         $base = rtrim(trim((string) config('panelze.license_server', '')), '/');
+
+        // 2) Opak anahtarı hub'da bu host'a bağlı imzalı (PLZ1) anahtara çevir.
+        //    Başarılıysa imzalı anahtarı saklarız → bundan sonra çevrimdışı doğrulanır.
+        if ($base !== '') {
+            $act = $this->licenseHub->activate($key, $this->appHost());
+            if ($act !== []) {
+                $signed = trim((string) ($act['signed_key'] ?? ''));
+                if (($act['valid'] ?? false) === true && $signed !== '' && $this->offline->publicKey() !== '') {
+                    $verify = $this->offline->verify($signed, $this->appHost());
+                    if ($verify['valid'] ?? false) {
+                        return $this->persist($signed, ['offline' => $verify, 'activated' => true, 'hub' => $act]);
+                    }
+                }
+                if (($act['valid'] ?? false) === true) {
+                    // İmzalama kapalı/uyumsuz: opak anahtarı sakla (online doğrulama).
+                    return $this->persist($key, ['hub' => $act, 'activated' => true]);
+                }
+                // Aktivasyon reddedildi (iptal/limit/süre vb.) — auth hatası dışında net dön.
+                if (($act['code'] ?? '') !== 'hub_unauthorized') {
+                    return response()->json([
+                        'message' => (string) ($act['message'] ?? 'Lisans etkinleştirilemedi.'),
+                        'code' => (string) ($act['code'] ?? 'invalid'),
+                    ], 422);
+                }
+            }
+        }
+
+        // 3) Online hub doğrulama (eski yol / fallback)
         if ($base === '') {
             return response()->json([
                 'message' => 'Geçersiz lisans anahtarı ve lisans sunucusu (LICENSE_SERVER_URL) yapılandırılmamış.',
