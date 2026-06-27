@@ -24,7 +24,13 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        \App\Services\OutboundMailConfigurator::apply();
+        // Tum provider'lar (SettingsService dahil) yuklendikten SONRA uygula.
+        // boot() icinde dogrudan cagrildiginda saglayici sirasi nedeniyle
+        // SettingsService henuz hazir olmayabiliyor -> mail ayarlari uygulanmiyor
+        // ve mailler "log" surucusune dusup musteriye gitmiyordu (web/console/queue hepsinde).
+        $this->app->booted(function (): void {
+            \App\Services\OutboundMailConfigurator::apply();
+        });
 
         View::composer(['layouts.*', 'home', 'products.*', 'landing.*', 'blog.*', 'pages.*', 'cart.*', 'checkout.*', 'contact.*', 'auth.*', 'account.*', 'domain.*'], LayoutComposer::class);
 

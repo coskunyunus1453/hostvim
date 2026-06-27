@@ -92,11 +92,17 @@ class OutboundMailConfigurator
      */
     protected static function mailSettings(): Collection
     {
-        if (! app()->bound(SettingsService::class)) {
+        // SettingsService bir ServiceProvider'da explicit bind/singleton ile kaydedilmedigi
+        // icin app()->bound(...) HER ZAMAN false donerdi; bu da mail ayarlarinin hic
+        // uygulanmamasina (mail 'log' surucusunde kalip musteriye gitmemesine) yol aciyordu.
+        // Concrete sinif oldugu icin dogrudan resolve edip hatayi yakaliyoruz.
+        try {
+            $service = app(SettingsService::class);
+        } catch (\Throwable) {
             return collect();
         }
 
-        return collect(app(SettingsService::class)->all())
+        return collect($service->all())
             ->filter(fn (mixed $value, string $key): bool => str_starts_with($key, 'outbound_mail.'));
     }
 }
