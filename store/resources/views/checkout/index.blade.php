@@ -91,6 +91,15 @@
                     <div class="mt-2 flex justify-between text-lg font-bold">
                         <span>Toplam</span><span class="text-[#C2410C]">₺{{ number_format($total, 2, ',', '.') }}</span>
                     </div>
+                    <label class="mt-4 flex items-start gap-2 text-xs text-stone-600">
+                        <input type="checkbox" name="terms_accepted" value="1" @checked(old('terms_accepted')) class="mt-0.5">
+                        <span>
+                            <a href="{{ route('pages.show', 'mesafeli-satis-sozlesmesi') }}" target="_blank" class="text-hv-primary hover:underline">Mesafeli Satış Sözleşmesi</a>,
+                            <a href="{{ route('pages.show', 'iade-iptal-ve-cayma-politikasi') }}" target="_blank" class="text-hv-primary hover:underline">İade/İptal Politikası</a> ve
+                            <a href="{{ route('pages.show', 'gizlilik') }}" target="_blank" class="text-hv-primary hover:underline">Gizlilik Politikası</a>'nı okudum, onaylıyorum.
+                        </span>
+                    </label>
+                    @error('terms_accepted')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     <button type="submit" class="btn-primary mt-6 w-full">Siparişi Tamamla</button>
                     <p class="mt-4 text-center text-xs text-stone-500">256-bit SSL ile güvenli ödeme</p>
                 </div>

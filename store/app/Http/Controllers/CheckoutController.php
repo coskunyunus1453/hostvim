@@ -83,6 +83,9 @@ class CheckoutController extends Controller
                 'max:253',
                 'regex:/^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i',
             ],
+            'terms_accepted' => 'accepted',
+        ], [
+            'terms_accepted.accepted' => 'Devam etmek için sözleşmeleri onaylamanız gerekir.',
         ]);
 
         $paymentMethod = PaymentMethod::query()

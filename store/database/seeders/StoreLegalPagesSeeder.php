@@ -110,6 +110,70 @@ HTML,
 <p><em>Son güncelleme: {$year}</em></p>
 HTML,
             ],
+            [
+                'slug' => 'mesafeli-satis-sozlesmesi',
+                'title' => 'Mesafeli Satış Sözleşmesi',
+                'meta_description' => 'Mesafeli satış sözleşmesi — taraflar, hizmet konusu, ödeme ve teslim koşulları.',
+                'sort_order' => 6,
+                'content' => <<<HTML
+<h2>1. Taraflar</h2>
+<p><strong>SATICI:</strong> [[firma_unvan]]<br>Adres: [[firma_adres]]<br>Vergi Dairesi/No: [[firma_vergi_dairesi]] / [[firma_vergi_no]]<br>Telefon: [[firma_telefon]] — E-posta: [[firma_eposta]]</p>
+<p><strong>ALICI:</strong> Sipariş sırasında belirtilen ad, adres ve iletişim bilgilerine sahip müşteri.</p>
+<h2>2. Sözleşmenin Konusu</h2>
+<p>İşbu sözleşme, ALICI'nın {$site} web sitesi üzerinden elektronik ortamda sipariş verdiği, aşağıda nitelikleri ve satış fiyatı belirtilen dijital hizmetlerin (hosting, sunucu, domain vb.) satışı ve ifası ile ilgili 6502 sayılı Tüketicinin Korunması Hakkında Kanun hükümleri uyarınca tarafların hak ve yükümlülüklerini düzenler.</p>
+<h2>3. Hizmet ve Ödeme</h2>
+<p>Hizmetin türü, süresi ve toplam bedeli (KDV dahil) sipariş özeti ve faturada belirtilir. Ödeme, seçilen ödeme yöntemi ile peşin tahsil edilir.</p>
+<h2>4. İfa ve Teslim</h2>
+<p>Dijital hizmetler, ödeme onayının ardından makul süre içinde elektronik ortamda aktive edilerek ifa edilir.</p>
+<h2>5. Cayma Hakkı</h2>
+<p>Dijital içerik ve hizmetlerde, ifaya ALICI'nın onayı ile başlanması halinde cayma hakkı mevzuat çerçevesinde sınırlanabilir. Detaylar için <a href="/sayfa/iade-iptal-ve-cayma-politikasi">İade, İptal ve Cayma Politikası</a> sayfasına bakınız.</p>
+<h2>6. Uyuşmazlık</h2>
+<p>Uyuşmazlıklarda Tüketici Hakem Heyetleri ve Tüketici Mahkemeleri yetkilidir.</p>
+<p><em>Son güncelleme: {$year}</em></p>
+HTML,
+            ],
+            [
+                'slug' => 'iade-iptal-ve-cayma-politikasi',
+                'title' => 'İade, İptal ve Cayma Politikası',
+                'meta_description' => 'Hizmet iadesi, sipariş iptali ve cayma hakkına ilişkin koşullar.',
+                'sort_order' => 7,
+                'content' => <<<HTML
+<h2>1. Genel</h2>
+<p>{$site} tarafından sunulan hizmetlere ilişkin iade, iptal ve cayma koşulları aşağıda düzenlenmiştir.</p>
+<h2>2. Cayma Hakkı</h2>
+<p>Mevzuat gereği, elektronik ortamda anında ifa edilen dijital hizmetlerde ve ALICI'nın onayıyla ifasına başlanan hizmetlerde cayma hakkı kullanılamayabilir. Henüz ifasına başlanmamış hizmetlerde ALICI cayma hakkını kullanabilir.</p>
+<h2>3. İptal ve İade</h2>
+<ul>
+<li>Domain tescili gibi üçüncü taraf kurumlara devredilen ve geri alınamayan işlemlerde iade yapılamaz.</li>
+<li>Hosting/sunucu hizmetlerinde, kullanılmaya başlanmamış dönemler için talep değerlendirilir.</li>
+<li>Onaylı iadeler, ödeme yapılan yöntem üzerinden makul süre içinde gerçekleştirilir.</li>
+</ul>
+<h2>4. Başvuru</h2>
+<p>İptal/iade talepleri için [[firma_eposta]] adresinden veya destek talebi açarak bize ulaşabilirsiniz.</p>
+<p><em>Son güncelleme: {$year}</em></p>
+HTML,
+            ],
+            [
+                'slug' => 'cerez-politikasi',
+                'title' => 'Çerez (Cookie) Politikası',
+                'meta_description' => 'Web sitemizde kullanılan çerezler ve tercih yönetimi hakkında bilgilendirme.',
+                'sort_order' => 8,
+                'content' => <<<HTML
+<h2>1. Çerez Nedir?</h2>
+<p>Çerezler, web sitesini ziyaret ettiğinizde cihazınıza kaydedilen küçük metin dosyalarıdır.</p>
+<h2>2. Kullanılan Çerezler</h2>
+<ul>
+<li><strong>Zorunlu çerezler:</strong> Oturum ve güvenlik için gereklidir.</li>
+<li><strong>İşlevsel çerezler:</strong> Tercihlerinizi hatırlar.</li>
+<li><strong>Analitik çerezler:</strong> Site kullanımını anlamamıza yardımcı olur.</li>
+</ul>
+<h2>3. Tercih Yönetimi</h2>
+<p>Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; bu durumda bazı özellikler düzgün çalışmayabilir.</p>
+<h2>4. İletişim</h2>
+<p>Sorularınız için [[firma_eposta]] adresinden bize ulaşabilirsiniz.</p>
+<p><em>Son güncelleme: {$year}</em></p>
+HTML,
+            ],
         ];
 
         foreach ($pages as $page) {
