@@ -484,11 +484,10 @@ CLOUDINIT;
             return;
         }
 
-        $panelUrl = $this->settings->panelLoginUrl();
         // Panel yalnizca panel_install isaretli sunuculara kurulur.
         $anyPanel = $servers->contains(fn (CloudServer $s) => ($s->meta['panel_install'] ?? null) !== null);
 
-        $lines = $servers->map(function (CloudServer $s) use ($panelUrl): string {
+        $lines = $servers->map(function (CloudServer $s): string {
             $autoPanel = ($s->meta['panel_install'] ?? null) !== null;
             $provider = $this->providers->providerLabel($s->provider_api);
             $pass = $s->root_password ? '<br>Root şifre: <strong>'.e($s->root_password).'</strong>' : '';
@@ -496,7 +495,9 @@ CLOUDINIT;
 
             $panelLine = '';
             if ($autoPanel) {
-                $panelTarget = $panelUrl !== '' ? $panelUrl : ($s->ipv4 ? 'https://'.$s->ipv4 : '');
+                // Panel musterinin KENDI sunucusuna kurulur; adres sunucunun kendi IP'sidir
+                // (merkezi panel.hostvim.com degil).
+                $panelTarget = $s->ipv4 ? 'https://'.$s->ipv4 : ($s->ipv6 ? 'https://['.$s->ipv6.']' : '');
                 $panelLink = $panelTarget !== '' ? '<a href="'.e($panelTarget).'">'.e($panelTarget).'</a>' : 'sunucu IP adresiniz';
                 $panelLine = '<br>Panelze paneli: '.$panelLink.' <em>(kurulum birkaç dakika içinde tamamlanır)</em>';
             }
