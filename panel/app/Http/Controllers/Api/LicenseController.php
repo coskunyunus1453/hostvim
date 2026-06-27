@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\EngineApiService;
 use App\Services\LicenseHubClient;
+use App\Services\OfflineLicenseService;
 use App\Services\PanelLicenseService;
 use App\Services\PanelStoredLicenseService;
 use Illuminate\Http\JsonResponse;
@@ -13,8 +13,8 @@ use Illuminate\Http\Request;
 class LicenseController extends Controller
 {
     public function __construct(
-        private EngineApiService $engine,
         private LicenseHubClient $licenseHub,
+        private OfflineLicenseService $offline,
         private PanelStoredLicenseService $storedLicense,
         private PanelLicenseService $panelLicense,
     ) {}
@@ -27,28 +27,42 @@ class LicenseController extends Controller
         $hubBase = rtrim(trim((string) config('panelze.license_server', '')), '/');
         $hubConfigured = $hubBase !== '';
 
-        $hub = $key !== '' ? $this->licenseHub->validate($key) : [];
-        if ($hub !== []) {
-            return response()->json([
-                'local_key_set' => $key !== '',
-                'key_source' => $keySource,
-                'key_preview' => $key !== '' ? PanelStoredLicenseService::maskKey($key) : null,
-                'hub_configured' => $hubConfigured,
-                'source' => 'license_server',
-                'hub' => $hub,
-                'engine' => null,
-            ]);
-        }
-
-        return response()->json([
+        $base = [
             'local_key_set' => $key !== '',
             'key_source' => $keySource,
             'key_preview' => $key !== '' ? PanelStoredLicenseService::maskKey($key) : null,
             'hub_configured' => $hubConfigured,
-            'source' => 'engine',
+            'offline_enabled' => $this->offline->publicKey() !== '',
+        ];
+
+        // 1) Çevrimdışı imzalı anahtar (ana otorite)
+        $offline = ($key !== '' && $this->offline->publicKey() !== '')
+            ? $this->offline->verify($key, $this->appHost())
+            : null;
+        if ($offline !== null && ($offline['valid'] ?? false)) {
+            return response()->json(array_merge($base, [
+                'source' => 'offline',
+                'offline' => $offline,
+                'hub' => null,
+            ]));
+        }
+
+        // 2) Online hub
+        $hub = $key !== '' ? $this->licenseHub->validate($key) : [];
+        if ($hub !== []) {
+            return response()->json(array_merge($base, [
+                'source' => 'license_server',
+                'hub' => $hub,
+                'offline' => $offline,
+            ]));
+        }
+
+        // 3) Geçersiz / yok
+        return response()->json(array_merge($base, [
+            'source' => $offline !== null ? 'offline' : 'none',
             'hub' => null,
-            'engine' => $key !== '' ? $this->engine->validateLicense($key) : null,
-        ]);
+            'offline' => $offline,
+        ]));
     }
 
     /**
@@ -56,34 +70,64 @@ class LicenseController extends Controller
      */
     public function validateWithKey(Request $request): JsonResponse
     {
-        $validated = $request->validate(['key' => ['required', 'string', 'max:128']]);
+        $validated = $request->validate(['key' => ['required', 'string', 'max:512']]);
         $key = trim($validated['key']);
+
+        if ($this->offline->publicKey() !== '') {
+            $offline = $this->offline->verify($key, $this->appHost());
+            if (($offline['valid'] ?? false) || ($offline['code'] ?? '') !== 'malformed') {
+                return response()->json($offline);
+            }
+        }
+
         $hub = $this->licenseHub->validate($key);
         if ($hub !== []) {
             return response()->json($hub);
         }
 
-        return response()->json($this->engine->validateLicense($key));
+        return response()->json([
+            'valid' => false,
+            'code' => 'unverifiable',
+            'message' => 'Anahtar offline imza ile doğrulanamadı ve lisans sunucusu yapılandırılmamış/ulaşılamıyor.',
+        ]);
     }
 
     /**
-     * Merkezi hub ile doğrular ve geçerliyse anahtarı panel veritabanında şifreli saklar (.env gerekmez).
+     * Anahtarı doğrular ve geçerliyse panel veritabanında şifreli saklar (.env gerekmez).
+     * Önce çevrimdışı imza, sonra (yapılandırılmışsa) online hub denenir.
      */
     public function activate(Request $request): JsonResponse
     {
-        $validated = $request->validate(['key' => ['required', 'string', 'max:128']]);
+        $validated = $request->validate(['key' => ['required', 'string', 'max:512']]);
         $key = trim($validated['key']);
+
+        // 1) Çevrimdışı imzalı anahtar
+        if ($this->offline->publicKey() !== '') {
+            $offline = $this->offline->verify($key, $this->appHost());
+            if ($offline['valid'] ?? false) {
+                return $this->persist($key, ['offline' => $offline]);
+            }
+            // İmza geçerli ama süresi dolmuş/domain uyumsuz: net hata ver (hub'a düşme).
+            if (($offline['code'] ?? '') !== 'malformed') {
+                return response()->json([
+                    'message' => (string) ($offline['message'] ?? 'Lisans anahtarı geçersiz.'),
+                    'code' => (string) ($offline['code'] ?? 'invalid'),
+                ], 422);
+            }
+        }
+
+        // 2) Online hub (offline imzası olmayan eski anahtarlar)
         $base = rtrim(trim((string) config('panelze.license_server', '')), '/');
         if ($base === '') {
             return response()->json([
-                'message' => 'License hub URL is not configured on this server.',
+                'message' => 'Geçersiz lisans anahtarı ve lisans sunucusu (LICENSE_SERVER_URL) yapılandırılmamış.',
             ], 422);
         }
 
         $hub = $this->licenseHub->validate($key);
         if ($hub === []) {
             return response()->json([
-                'message' => 'Could not reach the license server. Check LICENSE_SERVER_URL, network, firewall, or try again later.',
+                'message' => 'Lisans sunucusuna ulaşılamadı. LICENSE_SERVER_URL, ağ/güvenlik duvarını kontrol edin.',
             ], 503);
         }
 
@@ -101,21 +145,35 @@ class LicenseController extends Controller
             ], 422);
         }
 
+        return $this->persist($key, ['hub' => $hub]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function persist(string $key, array $extra = []): JsonResponse
+    {
         try {
             $this->storedLicense->store($key);
             $this->panelLicense->forgetCache();
         } catch (\Throwable $e) {
             report($e);
 
-            return response()->json(['message' => 'Could not save license key.'], 500);
+            return response()->json(['message' => 'Lisans anahtarı kaydedilemedi.'], 500);
         }
 
-        return response()->json([
+        return response()->json(array_merge([
             'ok' => true,
-            'hub' => $hub,
             'key_source' => $this->storedLicense->keySource(),
             'key_preview' => PanelStoredLicenseService::maskKey($key),
-        ]);
+        ], $extra));
+    }
+
+    private function appHost(): ?string
+    {
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        return is_string($host) && $host !== '' ? $host : null;
     }
 
     public function clearStored(): JsonResponse

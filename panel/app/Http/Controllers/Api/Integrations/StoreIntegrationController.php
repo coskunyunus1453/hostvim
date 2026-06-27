@@ -91,6 +91,7 @@ class StoreIntegrationController extends Controller
             'customer.locale' => ['nullable', 'string', 'max:10'],
             'items' => ['required', 'array', 'min:1', 'max:20'],
             'items.*.item_type' => ['nullable', 'string', 'in:hosting,domain_register,manual'],
+            'items.*.product_name' => ['nullable', 'string', 'max:255'],
             'items.*.package_id' => ['nullable', 'integer', 'min:1'],
             'items.*.billing_cycle' => ['nullable', 'string', 'in:monthly,yearly,onetime'],
             'items.*.domain' => ['nullable', 'string', 'max:253'],

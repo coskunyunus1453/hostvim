@@ -46,7 +46,17 @@ php artisan panelze:install-check --ping
 | `MYSQL_PROVISION_ENABLED` | MySQL gerçek provizyon |
 | `POSTGRES_PROVISION_ENABLED` | PostgreSQL provizyon |
 | `PHPMYADMIN_URL` / `ADMINER_URL` | Veritabanları sayfası harici araç linkleri |
-| `LICENSE_KEY` | İsteğe bağlı lisans |
+| `LICENSE_KEY` | Offline imzalı lisans anahtarı (`PLZ1....`). Panel arayüzünden de girilebilir |
+| `PANELZE_LICENSE_PUBLIC_KEY` | Satıcının gömülü Ed25519 public key'i (override) |
+| `LICENSE_SERVER_URL` | (Opsiyonel) online iptal için license hub |
+
+## Lisanslama (önemli)
+
+Lisans doğrulaması artık **sıkıdır**: geçerli imzalı bir anahtar (veya hub onayı) olmadan
+kurulum **community/geçersiz** sayılır ve Pro modüller (phpMyAdmin SSO, Security Pro) kapanır.
+
+- Dağıtımdan **önce** geçerli bir `LICENSE_KEY` kurun (panel arayüzü → Lisans, ya da `.env`).
+- Satıcı iş akışı, anahtar üretme ve teşhis için bkz. **[LICENSING.md](./LICENSING.md)**.
 
 ## Paket limitleri (Plesk benzeri çekirdek)
 

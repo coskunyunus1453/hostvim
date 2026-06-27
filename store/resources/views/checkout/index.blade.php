@@ -91,7 +91,15 @@
                     <div class="mt-2 flex justify-between text-lg font-bold">
                         <span>Toplam</span><span class="text-hv-primary">₺{{ number_format($total, 2, ',', '.') }}</span>
                     </div>
-                    <button type="submit" class="btn-primary mt-6 w-full">Siparişi Tamamla</button>
+                    <label class="mt-6 flex items-start gap-2 text-xs text-hv-muted">
+                        <input type="checkbox" name="terms_accepted" value="1" required {{ old('terms_accepted') ? 'checked' : '' }} class="mt-0.5 shrink-0">
+                        <span>
+                            <a href="{{ route('pages.show', 'mesafeli-satis-sozlesmesi') }}" target="_blank" rel="noopener" class="text-hv-primary hover:underline">Mesafeli Satış Sözleşmesi</a>'ni,
+                            <a href="{{ route('pages.show', 'iade-iptal-politikasi') }}" target="_blank" rel="noopener" class="text-hv-primary hover:underline">İade &amp; İptal Politikası</a>'nı ve
+                            <a href="{{ route('pages.show', 'kvkk') }}" target="_blank" rel="noopener" class="text-hv-primary hover:underline">KVKK Aydınlatma Metni</a>'ni okudum, onaylıyorum.
+                        </span>
+                    </label>
+                    <button type="submit" class="btn-primary mt-4 w-full">Siparişi Tamamla</button>
                     <p class="mt-4 text-center text-xs text-hv-muted">256-bit SSL ile güvenli ödeme</p>
                 </div>
             </div>

@@ -646,6 +646,8 @@ if ((bool) config('panelze.vendor_enabled', false)) {
 
 Route::get('health', fn () => response()->json([
     'status' => 'ok',
+    'panel' => 'panelze',
+    'time' => now()->toIso8601String(),
 ]));
 
 Route::prefix('integrations/store')

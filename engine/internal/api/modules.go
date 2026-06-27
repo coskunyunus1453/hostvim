@@ -25,6 +25,7 @@ import (
 	"panelze/engine/internal/files"
 	"panelze/engine/internal/hosting"
 	"panelze/engine/internal/installer"
+	"panelze/engine/internal/license"
 	engmail "panelze/engine/internal/mail"
 	"panelze/engine/internal/middleware"
 	"panelze/engine/internal/monitoring"
@@ -1656,10 +1657,12 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 
 	api.POST("/license/validate", func(c *gin.Context) {
 		var req struct {
-			Key string `json:"key" binding:"required"`
+			Key  string `json:"key" binding:"required"`
+			Host string `json:"host"`
 		}
 		_ = c.ShouldBindJSON(&req)
-		c.JSON(http.StatusOK, gin.H{"valid": true, "plan": "enterprise", "expires_at": nil})
+		res := license.Verify(req.Key, cfg.License.PublicKey, strings.TrimSpace(req.Host), cfg.License.GraceDays)
+		c.JSON(http.StatusOK, res)
 	})
 
 	api.POST("/nginx/reload", func(c *gin.Context) {

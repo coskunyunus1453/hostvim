@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"panelze/engine/internal/license"
 )
 
 type Config struct {
@@ -18,6 +19,15 @@ type Config struct {
 	Paths     PathsConfig     `mapstructure:"paths"`
 	Hosting   HostingConfig   `mapstructure:"hosting"`
 	Files     FilesConfig     `mapstructure:"files"`
+	License   LicenseConfig   `mapstructure:"license"`
+}
+
+// LicenseConfig — offline imzalı lisans doğrulaması (Ed25519).
+type LicenseConfig struct {
+	// PublicKey: satıcının gömülü public key'i (base64). Panel ile aynı olmalı.
+	PublicKey string `mapstructure:"public_key"`
+	// GraceDays: bitiş sonrası ek gün (varsayılan 14).
+	GraceDays int `mapstructure:"grace_days"`
 }
 
 // FilesConfig — dosya yöneticisi zip/unzip güvenlik sınırları.
@@ -332,6 +342,9 @@ func setDefaults() {
 	viper.SetDefault("hosting.backup_tar_path", "tar")
 	viper.SetDefault("hosting.backup_max_seconds", 3600)
 	viper.SetDefault("hosting.execute_backup_restore", false)
+
+	viper.SetDefault("license.public_key", license.DefaultPublicKey)
+	viper.SetDefault("license.grace_days", 14)
 
 	viper.SetDefault("files.max_unzip_entries", 100_000)
 	viper.SetDefault("files.max_unzip_uncompressed_bytes", int64(5<<30))

@@ -104,6 +104,18 @@ return [
     'license' => [
         'force_valid' => env('PANELZE_LICENSE_FORCE_VALID', false),
         'force_pro' => env('PANELZE_LICENSE_FORCE_PRO', false),
+
+        /**
+         * Çevrimdışı (offline) imzalı lisans doğrulaması — Ed25519.
+         * public_key: satıcının (vendor) GÖMÜLÜ public key'i. Private key asla
+         * ürünle dağıtılmaz; lisans anahtarları `php artisan license:issue` ile
+         * satıcı tarafında imzalanır. Boşsa offline doğrulama devre dışıdır.
+         */
+        'public_key' => trim((string) env(
+            'PANELZE_LICENSE_PUBLIC_KEY',
+            'FXdTK/pw7dRW0UPabD3SuGKvjZOKdCEpMBAtyTucE4U='
+        )),
+        'offline_grace_days' => (int) env('PANELZE_LICENSE_OFFLINE_GRACE_DAYS', 14),
         'pro_plan_codes' => array_values(array_filter(array_map(
             'trim',
             explode(',', (string) env(

@@ -12,9 +12,18 @@ class PanelLicenseService
     public function __construct(
         private PanelStoredLicenseService $storedLicense,
         private LicenseHubClient $licenseHub,
-        private EngineApiService $engine,
+        private OfflineLicenseService $offline,
     ) {}
 
+    /**
+     * Lisans doğrulama (hibrit):
+     *  1. Offline imzalı anahtar (Ed25519, gömülü public key) = ANA otorite.
+     *  2. Online hub (yapılandırılmışsa) = yalnızca uzaktan İPTAL ve offline
+     *     imzası olmayan (eski hub-tabanlı) anahtarlar için yedek doğrulama.
+     *
+     * Not: Artık "her zaman geçerli" engine yedeği YOKTUR; geçerli imza ya da
+     * hub onayı olmadan lisans geçersizdir.
+     */
     public function hubPayload(): ?array
     {
         return Cache::remember('panelze.license.hub_payload', 300, function () {
@@ -22,21 +31,30 @@ class PanelLicenseService
             if ($key === '') {
                 return null;
             }
-            $hub = $this->licenseHub->validate($key);
-            if ($hub !== [] && array_key_exists('valid', $hub)) {
-                return $hub;
-            }
-            $engine = $this->engine->validateLicense($key);
-            if (is_array($engine) && ($engine['valid'] ?? false)) {
-                return [
-                    'valid' => true,
-                    'plan' => (string) ($engine['plan'] ?? 'enterprise'),
-                    'plan_name' => (string) ($engine['plan'] ?? 'enterprise'),
-                    'features' => [],
-                ];
+
+            $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: null;
+            $offline = $this->offline->publicKey() !== ''
+                ? $this->offline->verify($key, is_string($host) ? $host : null)
+                : null;
+
+            $hubBase = rtrim(trim((string) config('panelze.license_server', '')), '/');
+            if ($hubBase !== '') {
+                $hub = $this->licenseHub->validate($key);
+
+                // Online iptal: hub açıkça iptal/askı diyorsa offline geçerli olsa bile reddet.
+                if ($hub !== [] && ($hub['valid'] ?? null) === false
+                    && in_array((string) ($hub['code'] ?? ''), ['license_revoked', 'revoked', 'suspended', 'disabled'], true)) {
+                    return $hub;
+                }
+
+                // Offline geçerli değilse (ör. eski hub-tabanlı anahtar) hub onayını kullan.
+                if (($offline === null || ($offline['valid'] ?? false) !== true)
+                    && $hub !== [] && array_key_exists('valid', $hub)) {
+                    return $hub;
+                }
             }
 
-            return $hub !== [] ? $hub : null;
+            return $offline;
         });
     }
 

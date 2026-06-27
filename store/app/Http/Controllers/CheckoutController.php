@@ -88,6 +88,7 @@ class CheckoutController extends Controller
             'customer_company' => 'nullable|string|max:255',
             'customer_address' => 'nullable|string|max:500',
             'payment_method_id' => 'required|exists:payment_methods,id',
+            'terms_accepted' => 'accepted',
             'service_domain' => [
                 Rule::requiredIf(fn () => collect($items)->contains(fn ($i) => ($i['item_type'] ?? '') === 'hosting') && app(CartService::class)->hostingNeedsDomainInput()),
                 'nullable',
@@ -95,6 +96,8 @@ class CheckoutController extends Controller
                 'max:253',
                 'regex:/^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i',
             ],
+        ], [
+            'terms_accepted.accepted' => 'Siparişi tamamlamak için Mesafeli Satış Sözleşmesi, İade & İptal Politikası ve KVKK metnini onaylamanız gerekmektedir.',
         ]);
 
         $paymentMethod = PaymentMethod::query()
