@@ -21,6 +21,7 @@ class SystemController extends Controller
     public function __construct(
         private EngineApiService $engineApi,
         private PanelAdminSpaService $adminSpa,
+        private \App\Services\HostingQuotaService $quota,
     ) {}
 
     public function stats(Request $request): JsonResponse
@@ -257,6 +258,36 @@ class SystemController extends Controller
             $data['system_stats'] = Cache::remember('panelze:dashboard:stats:overview', 20, function () {
                 return $this->engineApi->getSystemStats('overview');
             });
+        }
+
+        // Müşteriye özel kaynak kullanımı / paket limitleri (admin hariç).
+        if (! $user->isAdmin()) {
+            $pkg = $this->quota->packageFor($user);
+            if ($pkg !== null) {
+                $diskLimitBytes = $this->quota->diskQuotaBytes($pkg);
+                $diskUsedBytes = $this->quota->sumAccountDiskBytes($user);
+                $subdomainsUsed = \App\Models\SiteSubdomain::query()
+                    ->whereIn('domain_id', $user->domains()->select('id'))
+                    ->count();
+
+                $norm = static function (?int $v): ?int {
+                    // null/negatif = sınırsız
+                    return ($v === null || $v < 0) ? null : $v;
+                };
+
+                $data['quota'] = [
+                    'package_name' => $pkg->name,
+                    'disk_used_mb' => (int) round($diskUsedBytes / 1048576),
+                    'disk_limit_mb' => $diskLimitBytes === null ? null : (int) round($diskLimitBytes / 1048576),
+                    'cpu_limit' => $norm((int) ($pkg->cpu_limit ?? -1)),
+                    'memory_limit_mb' => $norm((int) ($pkg->memory_limit_mb ?? -1)),
+                    'domains' => ['used' => $data['domains_count'], 'max' => $norm((int) ($pkg->max_domains ?? -1))],
+                    'databases' => ['used' => $data['databases_count'], 'max' => $norm((int) ($pkg->max_databases ?? -1))],
+                    'email' => ['used' => $data['email_accounts_count'], 'max' => $norm((int) ($pkg->max_email_accounts ?? -1))],
+                    'subdomains' => ['used' => $subdomainsUsed, 'max' => $norm((int) ($pkg->max_subdomains ?? -1))],
+                    'ftp' => ['used' => $user->ftpAccounts()->count(), 'max' => $norm((int) ($pkg->max_ftp_accounts ?? -1))],
+                ];
+            }
         }
 
         return response()->json(['dashboard' => $data]);

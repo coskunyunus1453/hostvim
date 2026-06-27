@@ -83,6 +83,9 @@ export interface HostingPackage {
   max_email_accounts: number
   max_ftp_accounts: number
   max_cron_jobs: number
+  max_subdomains?: number
+  cpu_limit?: number
+  memory_limit_mb?: number
   php_versions: string[]
   ssl_enabled: boolean
   backup_enabled: boolean
@@ -180,6 +183,28 @@ export interface ServiceInfo {
   enabled: boolean
 }
 
+export interface QuotaUsage {
+  used: number
+  /** null = sınırsız */
+  max: number | null
+}
+
+export interface DashboardQuota {
+  package_name: string
+  disk_used_mb: number
+  /** null = sınırsız */
+  disk_limit_mb: number | null
+  /** null = sınırsız */
+  cpu_limit: number | null
+  /** null = sınırsız */
+  memory_limit_mb: number | null
+  domains: QuotaUsage
+  databases: QuotaUsage
+  email: QuotaUsage
+  subdomains: QuotaUsage
+  ftp: QuotaUsage
+}
+
 export interface DashboardData {
   domains_count: number
   databases_count: number
@@ -188,6 +213,7 @@ export interface DashboardData {
   total_users?: number
   total_domains?: number
   system_stats?: SystemStats
+  quota?: DashboardQuota
 }
 
 export interface ApiResponse<T> {
