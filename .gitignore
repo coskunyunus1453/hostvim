@@ -75,3 +75,7 @@ dist-artifacts/
 .env.production
 .env.staging
 **/.env.production
+
+# Stray manuel yedek/arşiv ve debug dosyaları
+/landing/*.zip
+/error.txt
