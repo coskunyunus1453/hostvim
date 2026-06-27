@@ -15,7 +15,7 @@ import (
 
 // DefaultPublicKey — satıcının (vendor) gömülü Ed25519 public key'i (base64).
 // Panel config/panelze.php → license.public_key ile AYNI olmalıdır.
-const DefaultPublicKey = "FXdTK/pw7dRW0UPabD3SuGKvjZOKdCEpMBAtyTucE4U="
+const DefaultPublicKey = "tiv72XAtO2krha6GBWryaXo+WGscEEbnbpo283xnLg8="
 
 const prefix = "PLZ1"
 
