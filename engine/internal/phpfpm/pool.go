@@ -138,9 +138,14 @@ listen = %s
 listen.owner = %s
 listen.group = %s
 listen.mode = 0660
-pm = ondemand
+; Performans: kalıcı sıcak worker'lar — soğuk başlatma gecikmesini önler (her zaman hızlı ilk yanıt)
+pm = dynamic
 pm.max_children = %d
-pm.process_idle_timeout = 30s
+pm.start_servers = %d
+pm.min_spare_servers = %d
+pm.max_spare_servers = %d
+pm.max_requests = 500
+pm.process_idle_timeout = 60s
 chdir = %s
 php_admin_value[open_basedir] = %s
 php_admin_value[memory_limit] = %s
@@ -148,6 +153,10 @@ php_admin_value[session.save_path] = %s
 php_admin_value[upload_tmp_dir] = %s
 php_value[sys_temp_dir] = %s
 php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,pcntl_fork
+; Performans: OPcache (PHP uygulamaları için interned/dosya/revalidate ayarı)
+php_admin_value[opcache.interned_strings_buffer] = 16
+php_admin_value[opcache.max_accelerated_files] = 20000
+php_admin_value[opcache.revalidate_freq] = 60
 `
 
 // ReadPoolSnapshot mevcut pool dosyası varsa içeriğini döner (geri alma / sürüm değişimi yedeği).
@@ -223,6 +232,23 @@ func RenderPool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts 
 	if maxCh <= 0 {
 		maxCh = 30
 	}
+	// pm=dynamic için sıcak worker hesabı: site başına en az 1 idle worker hep
+	// hazır kalır (soğuk başlatma yok), yük altında max_spare'e kadar açılır.
+	startServers := 2
+	if startServers > maxCh {
+		startServers = maxCh
+	}
+	minSpare := 1
+	maxSpare := maxCh / 2
+	if maxSpare < 2 {
+		maxSpare = 2
+	}
+	if maxSpare > maxCh {
+		maxSpare = maxCh
+	}
+	if maxSpare < startServers {
+		maxSpare = startServers
+	}
 	memLim := strings.TrimSpace(o.MemoryLimit)
 	if memLim == "" {
 		memLim = "256M"
@@ -259,6 +285,9 @@ func RenderPool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts 
 		h.listenOwner(),
 		h.listenGroup(),
 		maxCh,
+		startServers,
+		minSpare,
+		maxSpare,
 		docRoot,
 		basedir,
 		memLim,
