@@ -34,8 +34,22 @@ class ThemeService
         return $preset['font_family'] ?? 'Plus Jakarta Sans';
     }
 
+    /**
+     * Uygulama içinde gömülü (self-host) yazı tipleri. Bunlar için Google Fonts
+     * dış bağlantısı yüklenmez; @font-face app.css içinde tanımlıdır. Performans
+     * (FCP/LCP) için tercih edilir.
+     *
+     * @var array<int, string>
+     */
+    protected const SELF_HOSTED_FONTS = ['Plus Jakarta Sans'];
+
     public function fontUrl(): string
     {
+        // Self-host edilen yazı tiplerinde dış font isteği yok.
+        if (in_array($this->fontFamily(), self::SELF_HOSTED_FONTS, true)) {
+            return '';
+        }
+
         $presetId = $this->presetId();
         if ($presetId !== 'custom') {
             $preset = ThemePresets::get($presetId);

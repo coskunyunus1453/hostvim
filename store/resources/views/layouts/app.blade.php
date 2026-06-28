@@ -11,11 +11,18 @@
         <link rel="shortcut icon" href="{{ $siteFaviconUrl }}">
     @endif
     @include('partials.theme-styles')
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    @php $fontHref = $themeFontUrl ?? 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap'; @endphp
-    <link rel="preload" as="style" href="{{ $fontHref }}" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="{{ $fontHref }}"></noscript>
+    @php $fontHref = $themeFontUrl ?? null; @endphp
+    @if($fontHref)
+        {{-- Tema dışı (Google Fonts) yazı tipi seçildiyse --}}
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="preload" as="style" href="{{ $fontHref }}" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="{{ $fontHref }}"></noscript>
+    @else
+        {{-- Self-host edilen Plus Jakarta Sans (dış bağlantı yok) — kritik ağırlıkları preload et --}}
+        <link rel="preload" as="font" type="font/woff2" href="{{ asset('fonts/plus-jakarta-sans/latin.woff2') }}" crossorigin>
+        <link rel="preload" as="font" type="font/woff2" href="{{ asset('fonts/plus-jakarta-sans/latin-ext.woff2') }}" crossorigin>
+    @endif
     @include('partials.schema-jsonld')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
