@@ -976,13 +976,87 @@ body.has-flash-bar main { scroll-margin-top: 2.5rem; }
     100% { transform: translate(260%, -300%) scale(1.15);    opacity: 0; }
 }
 
+/* Bağlantı ağı: sunucu/domain/bulut ikonlarından merkeze akan veri */
+.hv-speed-net {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    color: color-mix(in srgb, var(--hv-primary) 55%, transparent);
+}
+.hv-speed-link {
+    stroke: currentColor;
+    stroke-width: 1.4;
+    opacity: 0.28;
+    stroke-dasharray: 5 7;
+    animation: hv-speed-dash 1.6s linear infinite;
+}
+@keyframes hv-speed-dash { to { stroke-dashoffset: -24; } }
+.hv-speed-packet {
+    fill: var(--hv-secondary);
+    opacity: 0;
+    animation: hv-speed-packet 2.4s ease-in infinite;
+}
+@keyframes hv-speed-packet {
+    0%   { opacity: 0; transform: translate(0, 0); }
+    15%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--px, 0), var(--py, 0)); }
+}
+
+/* Hizmet ikonları (yazısız) — sunucu / domain / bulut / veritabanı */
+.hv-speed-icon {
+    position: absolute;
+    z-index: 4;
+    left: var(--x, 50%);
+    top: var(--y, 50%);
+    display: grid;
+    place-items: center;
+    width: clamp(2.1rem, 9%, 3rem);
+    aspect-ratio: 1;
+    border-radius: 9999px;
+    color: var(--hv-primary);
+    background: radial-gradient(circle, color-mix(in srgb, var(--hv-surface-elevated) 90%, transparent) 55%, transparent 74%);
+    transform: translate(-50%, -50%);
+    animation: hv-speed-bob 5s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+}
+.hv-speed-icon svg { width: 56%; height: 56%; }
+@keyframes hv-speed-bob {
+    0%, 100% { transform: translate(-50%, -50%); }
+    50%      { transform: translate(-50%, calc(-50% - 6px)); }
+}
+.hv-speed-ping {
+    position: absolute;
+    top: 6%;
+    right: 6%;
+    width: 26%;
+    max-width: 10px;
+    aspect-ratio: 1;
+    border-radius: 9999px;
+    background: var(--hv-secondary);
+    animation: hv-speed-ping 2s ease-out infinite;
+    animation-delay: var(--d, 0s);
+}
+@keyframes hv-speed-ping {
+    0%   { transform: scale(1); opacity: 0.85; }
+    100% { transform: scale(2.4); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .hv-speed-streaks span,
     .hv-speed-rocket-fly,
     .hv-speed-needle,
-    .hv-speed-arc { animation: none; }
+    .hv-speed-arc,
+    .hv-speed-link,
+    .hv-speed-packet,
+    .hv-speed-icon,
+    .hv-speed-ping { animation: none; }
     .hv-speed-arc { stroke-dashoffset: 10; }
     .hv-speed-needle { transform: translateX(-50%) rotate(72deg); }
     .hv-speed-streaks span { opacity: 0.5; }
     .hv-speed-rocket-fly { opacity: 1; transform: translate(120%, -150%); }
+    .hv-speed-packet { opacity: 0.6; }
 }

@@ -15,6 +15,52 @@
         <span style="--i:4; top:82%"></span>
     </div>
 
+    {{-- Bağlantı ağı: hizmetlerden merkeze akan veri (hosting/domain/bulut/db) --}}
+    <svg class="hv-speed-net" viewBox="0 0 400 400" fill="none" preserveAspectRatio="none">
+        <line class="hv-speed-link" x1="60" y1="80" x2="200" y2="200"/>
+        <line class="hv-speed-link" x1="340" y1="80" x2="200" y2="200"/>
+        <line class="hv-speed-link" x1="60" y1="320" x2="200" y2="200"/>
+        <line class="hv-speed-link" x1="340" y1="320" x2="200" y2="200"/>
+        <circle class="hv-speed-packet" cx="60" cy="80" r="4" style="--px:140px; --py:120px"/>
+        <circle class="hv-speed-packet" cx="340" cy="80" r="4" style="--px:-140px; --py:120px; animation-delay:.6s"/>
+        <circle class="hv-speed-packet" cx="60" cy="320" r="4" style="--px:140px; --py:-120px; animation-delay:1.2s"/>
+        <circle class="hv-speed-packet" cx="340" cy="320" r="4" style="--px:-140px; --py:-120px; animation-delay:1.8s"/>
+    </svg>
+
+    {{-- Hizmet ikonları (yazısız) --}}
+    {{-- Sunucu / Hosting --}}
+    <div class="hv-speed-icon" style="--x:15%; --y:20%; --d:0s">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3" y="4" width="18" height="7" rx="1.5"/>
+            <rect x="3" y="13" width="18" height="7" rx="1.5"/>
+            <circle cx="7" cy="7.5" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="7" cy="16.5" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="hv-speed-ping" style="--d:0s"></span>
+    </div>
+    {{-- Domain / Dünya --}}
+    <div class="hv-speed-icon" style="--x:85%; --y:20%; --d:.8s">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" stroke-linecap="round"/>
+        </svg>
+    </div>
+    {{-- Bulut --}}
+    <div class="hv-speed-icon" style="--x:15%; --y:80%; --d:1.4s">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M7 18a4 4 0 01-.88-7.9A5.5 5.5 0 0117.5 8.5 4.5 4.5 0 0119 17H7z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    {{-- Veritabanı / Depolama --}}
+    <div class="hv-speed-icon" style="--x:85%; --y:80%; --d:.4s">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <ellipse cx="12" cy="5" rx="8" ry="3"/>
+            <path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/>
+            <path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+        </svg>
+        <span class="hv-speed-ping" style="--d:1s"></span>
+    </div>
+
     {{-- Speedometer (çerçevesiz, sadece animasyon) --}}
     <div class="hv-speed-gauge">
         <svg viewBox="0 0 200 118" class="hv-speed-gauge-svg" fill="none">
