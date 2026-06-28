@@ -21,15 +21,15 @@ $steps = [
                 @if($clickable)
                     <a href="{{ route($info['route']) }}" class="flex items-center gap-2 rounded-lg px-2 py-1 text-[#166534] hover:bg-green-50">
                 @else
-                    <span class="flex items-center gap-2 px-2 py-1 {{ $active ? 'text-[#C2410C]' : ($done ? 'text-[#166534]' : 'text-stone-400') }}">
+                    <span class="flex items-center gap-2 px-2 py-1 {{ $active ? 'text-hv-primary' : ($done ? 'text-[#166534]' : 'text-hv-muted') }}">
                 @endif
-                    <span class="flex h-8 w-8 items-center justify-center rounded-full text-xs {{ $active ? 'bg-[#C2410C] text-white' : ($done ? 'bg-[#166534] text-white' : 'bg-stone-200 text-stone-500') }}">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-full text-xs {{ $active ? 'bg-hv-primary text-white' : ($done ? 'bg-[#166534] text-white' : 'bg-stone-200 text-stone-500') }}">
                         {{ $num }}
                     </span>
                     <span class="hidden sm:inline">{{ $info['label'] }}</span>
                 @if($clickable)</a>@else</span>@endif
                 @if($num < count($steps))
-                    <span class="mx-2 hidden text-stone-300 sm:inline">›</span>
+                    <span class="mx-2 hidden text-hv-muted sm:inline">›</span>
                 @endif
             </li>
         @endforeach

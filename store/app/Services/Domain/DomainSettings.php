@@ -18,6 +18,16 @@ class DomainSettings
         return max(0.01, $rate);
     }
 
+    public function eurTryRate(): float
+    {
+        return max(0.0, (float) $this->get('domain_eur_try_rate', 0));
+    }
+
+    public function gbpTryRate(): float
+    {
+        return max(0.0, (float) $this->get('domain_gbp_try_rate', 0));
+    }
+
     public function defaultMarkupPercent(): float
     {
         return max(0, (float) $this->get('domain_default_markup_percent', config('domain_registrars.default_markup_percent', 15)));

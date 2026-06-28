@@ -60,6 +60,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Order::class);
     }
 
+    public function domainNames(): HasMany
+    {
+        return $this->hasMany(DomainName::class, 'customer_email', 'email');
+    }
+
     public function supportTickets(): HasMany
     {
         return $this->hasMany(SupportTicket::class);

@@ -17,7 +17,7 @@
 @else
     <div class="overflow-hidden rounded-2xl border border-hv-border bg-hv-surface">
         <table class="w-full text-sm">
-            <thead class="bg-stone-50 text-left text-xs uppercase tracking-wide text-hv-muted">
+            <thead class="bg-hv-surface text-left text-xs uppercase tracking-wide text-hv-muted">
                 <tr>
                     <th class="px-4 py-3">Alan Adı</th>
                     <th class="px-4 py-3">Durum</th>
@@ -44,7 +44,7 @@
                         <td class="px-4 py-3 text-hv-muted">{{ $d->expires_at?->format('d.m.Y') ?? '—' }}</td>
                         <td class="px-4 py-3 text-right">
                             @if(in_array($d->status, ['registered', 'active'], true))
-                                <a href="{{ route('account.domains.show', $d->id) }}" class="text-[#C2410C] font-medium hover:underline">Yönet</a>
+                                <a href="{{ route('account.domains.show', $d->id) }}" class="text-hv-primary font-medium hover:underline">Yönet</a>
                             @else
                                 <span class="text-xs text-hv-muted">{{ $d->status === 'failed' ? 'Destek ile iletişime geçin' : 'Hazırlanıyor…' }}</span>
                             @endif

@@ -30,7 +30,7 @@ class CartService
         return session($this->sessionKey, []);
     }
 
-    public function add(Product $product, string $billingCycle = 'monthly', int $quantity = 1): void
+    public function add(Product $product, string $billingCycle = 'monthly', int $quantity = 1, bool $installPanel = false): void
     {
         if ($product->isDomain()) {
             throw new InvalidArgumentException('Alan adları /domain sayfasından eklenir.');
@@ -51,6 +51,9 @@ class CartService
 
         if (isset($items[$key])) {
             $items[$key]['quantity'] = min(99, $items[$key]['quantity'] + $quantity);
+            if ($product->isCloudProvision()) {
+                $items[$key]['install_panel'] = $installPanel;
+            }
         } else {
             $items[$key] = [
                 'item_type' => match (true) {
@@ -65,6 +68,7 @@ class CartService
                 'original_price' => (float) $pricing['original'],
                 'quantity' => $quantity,
                 'provision_type' => $product->resolvedProvisionType(),
+                'install_panel' => $product->isCloudProvision() ? $installPanel : false,
             ];
         }
 
@@ -289,7 +293,12 @@ class CartService
                 if ($this->domainSettings->registerEnabled()) {
                     $check = $this->domains->check($domain);
                     if (! ($check['available'] ?? false)) {
-                        throw new InvalidArgumentException('Alan adı artık müsait değil: '.$domain);
+                        // Musait olmayan domaini sepette tutma; kullaniciyi bilgilendir.
+                        // (Onceden exception firlatiyordu ve checkout/sepet 500 veriyordu.)
+                        $this->remove($key);
+                        session()->flash('error', 'Sepetinizdeki "'.$domain.'" alan adı artık müsait olmadığı için sepetten çıkarıldı.');
+
+                        continue;
                     }
                     $years = max(1, (int) ($item['domain_years'] ?? 1));
                     $price = round((float) ($check['register_price'] ?? 0) * $years, 2);
@@ -359,6 +368,7 @@ class CartService
                 'domain_years' => $item['domain_years'] ?? null,
                 'addons' => $item['addons'] ?? [],
                 'hosting_base_price' => $item['hosting_base_price'] ?? null,
+                'install_panel' => $product->isCloudProvision() ? (bool) ($item['install_panel'] ?? false) : false,
             ]);
         }
 

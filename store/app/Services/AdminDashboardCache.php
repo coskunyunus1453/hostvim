@@ -17,6 +17,7 @@ class AdminDashboardCache
     {
         foreach ([
             'stats_overview',
+            'provisioning_health',
             'profit_overview',
             'revenue_chart',
             'orders_trend',

@@ -4,6 +4,7 @@ namespace App\Services\Domain\Registrar;
 
 use App\Models\DomainRegistrar;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class SpaceshipRegistrarDriver implements DomainManagementInterface, DomainRegistrarDriverInterface
@@ -77,30 +78,72 @@ class SpaceshipRegistrarDriver implements DomainManagementInterface, DomainRegis
         return $out;
     }
 
+    /**
+     * Birden fazla alan adini tek istekte kontrol eder.
+     *
+     * @param  list<string>  $domains
+     * @return array<string, array{available: bool, reason: ?string}>
+     */
+    public function checkAvailabilityBulk(DomainRegistrar $account, array $domains): array
+    {
+        if (! $this->isConfigured($account) || $domains === []) {
+            return [];
+        }
+
+        $domains = array_values(array_unique(array_map(
+            fn ($d) => strtolower(trim((string) $d)),
+            $domains
+        )));
+
+        $response = $this->request($account, 'post', self::BASE.'/v1/domains/available', [
+            'domains' => $domains,
+        ]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($response->json('domains') ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $domain = strtolower((string) ($row['domain'] ?? ''));
+            if ($domain === '') {
+                continue;
+            }
+            $result = strtolower((string) ($row['result'] ?? ''));
+            $available = in_array($result, ['available', 'premium'], true);
+            $out[$domain] = [
+                'available' => $available,
+                'reason' => $available ? null : ($result ?: 'unavailable'),
+            ];
+        }
+
+        return $out;
+    }
+
     public function checkAvailability(DomainRegistrar $account, string $domain): array
     {
         if (! $this->isConfigured($account)) {
             return ['available' => false, 'currency' => 'USD', 'reason' => 'not_configured'];
         }
 
-        $response = $this->request($account, 'get', self::BASE.'/v1/domains/'.urlencode($domain).'/available');
+        // Tekil GET /available ucu domain basina 5 istek/300sn ile cok kisitli
+        // (429 doner). Bulk POST /available ucu daha cömert oldugundan tekil
+        // sorgu da bulk uzerinden yapilir.
+        $key = strtolower(trim($domain));
+        $bulk = $this->checkAvailabilityBulk($account, [$key]);
 
-        if (! $response->successful()) {
-            return ['available' => false, 'currency' => 'USD', 'reason' => 'api_error'];
+        if (isset($bulk[$key])) {
+            return [
+                'available' => $bulk[$key]['available'],
+                'currency' => 'USD',
+                'reason' => $bulk[$key]['reason'],
+            ];
         }
 
-        $row = $response->json() ?? [];
-        $result = strtolower((string) ($row['result'] ?? ''));
-        $available = in_array($result, ['available', 'premium'], true);
-        $pricing = $this->extractPricing($row);
-
-        return [
-            'available' => $available,
-            'register_price' => $pricing['register'] ?? null,
-            'renew_price' => $pricing['renew'] ?? null,
-            'currency' => $pricing['currency'] ?? 'USD',
-            'reason' => $available ? null : ($result ?: 'unavailable'),
-        ];
+        return ['available' => false, 'currency' => 'USD', 'reason' => 'api_error'];
     }
 
  
@@ -300,9 +343,17 @@ class SpaceshipRegistrarDriver implements DomainManagementInterface, DomainRegis
         return ['ok' => true, 'message' => 'DNS kayıtları güncellendi.'];
     }
 
-    public function registerDomain(DomainRegistrar $account, string $domain, int $years, bool $autoRenew, bool $privacyHigh): array
+    public function registerDomain(DomainRegistrar $account, string $domain, int $years, bool $autoRenew, bool $privacyHigh, ?array $registrant = null): array
     {
-        $contacts = $this->defaultContacts($account);
+        // Once domaini musteri adina kaydetmeyi dene; veri eksik/gecersizse hesabin
+        // varsayilan contact'ina dusulur (domain yine de kaydedilir).
+        $contacts = null;
+        if ($registrant !== null) {
+            $contacts = $this->customerContacts($account, $registrant);
+        }
+        if ($contacts === null) {
+            $contacts = $this->defaultContacts($account);
+        }
         if ($contacts === null) {
             return ['ok' => false, 'message' => 'Spaceship hesabınızda kayıtlı bir iletişim (contact) bulunamadı. Otomatik kayıt için hesabınızda en az bir domain/iletişim tanımlı olmalı.'];
         }
@@ -325,6 +376,147 @@ class SpaceshipRegistrarDriver implements DomainManagementInterface, DomainRegis
             'expires_at' => $info['expires_at'] ?? null,
             'status' => $info['status'] ?? 'registered',
         ];
+    }
+
+    /**
+     * Musteri bilgileriyle yeni bir Spaceship contact'i olusturur ve domain icin
+     * contact setini doner. Zorunlu alan eksik veya API hatasi olursa null doner.
+     *
+     * @param  array<string, mixed>  $registrant
+     * @return array{registrant: string, admin: string, tech: string, billing: string, attributes: list<string>}|null
+     */
+    private function customerContacts(DomainRegistrar $account, array $registrant): ?array
+    {
+        $payload = $this->mapRegistrant($registrant);
+        if ($payload === null) {
+            return null;
+        }
+
+        $contactId = $this->createContact($account, $payload);
+        if ($contactId === null) {
+            return null;
+        }
+
+        // Bazi TLD'ler register sirasinda attribute bekler; mevcut domainden devral.
+        $attributes = $this->defaultContacts($account)['attributes'] ?? [];
+
+        return [
+            'registrant' => $contactId,
+            'admin' => $contactId,
+            'tech' => $contactId,
+            'billing' => $contactId,
+            'attributes' => $attributes,
+        ];
+    }
+
+    /**
+     * Spaceship'te contact olusturur, contactId doner.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function createContact(DomainRegistrar $account, array $payload): ?string
+    {
+        $response = $this->request($account, 'put', self::BASE.'/v1/contacts', $payload);
+        if (! $response->successful()) {
+            Log::warning('spaceship.contact_create_failed', [
+                'status' => $response->status(),
+                'body' => $response->json() ?? $response->body(),
+            ]);
+
+            return null;
+        }
+
+        $id = $response->json('contactId');
+
+        return is_string($id) && $id !== '' ? $id : null;
+    }
+
+    /**
+     * Musteri verisini Spaceship contact body'sine cevirir. Zorunlu alan eksikse null.
+     *
+     * @param  array<string, mixed>  $r
+     * @return array<string, mixed>|null
+     */
+    private function mapRegistrant(array $r): ?array
+    {
+        [$first, $last] = $this->splitName((string) ($r['name'] ?? ''));
+        $email = trim((string) ($r['email'] ?? ''));
+        $address = trim((string) ($r['address'] ?? ''));
+        $city = trim((string) ($r['city'] ?? ''));
+        $country = $this->normalizeCountry($r['country'] ?? null);
+        $phone = $this->normalizePhone($r['phone'] ?? null);
+
+        if ($first === '' || $last === '' || $email === '' || $address === '' || $city === '' || $phone === null) {
+            return null;
+        }
+        // Spaceship ad/soyad deseni yalnizca ASCII harf kabul eder.
+        if (! preg_match('/^[A-Za-z][A-Za-z\s\'-]*$/', $first) || ! preg_match('/^[A-Za-z][A-Za-z\s\'-]*$/', $last)) {
+            return null;
+        }
+
+        $payload = [
+            'firstName' => mb_substr($first, 0, 125),
+            'lastName' => mb_substr($last, 0, 125),
+            'email' => $email,
+            'address1' => mb_substr($address, 0, 255),
+            'city' => mb_substr($city, 0, 255),
+            'country' => $country,
+            'phone' => $phone,
+        ];
+        if (! empty($r['postal_code'])) {
+            $payload['postalCode'] = mb_substr((string) $r['postal_code'], 0, 16);
+        }
+        if (! empty($r['company'])) {
+            $payload['organization'] = mb_substr((string) $r['company'], 0, 255);
+        }
+
+        return $payload;
+    }
+
+    /** @return array{0: string, 1: string} [firstName, lastName] */
+    private function splitName(string $name): array
+    {
+        $name = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+        if ($name === '') {
+            return ['', ''];
+        }
+        $parts = explode(' ', $name);
+        if (count($parts) === 1) {
+            return [$parts[0], $parts[0]];
+        }
+        $last = array_pop($parts);
+
+        return [implode(' ', $parts), $last];
+    }
+
+    private function normalizeCountry(mixed $country): string
+    {
+        $c = strtoupper(trim((string) $country));
+        if (preg_match('/^[A-Z]{2}$/', $c)) {
+            return $c;
+        }
+        $map = ['TÜRKIYE' => 'TR', 'TURKIYE' => 'TR', 'TURKEY' => 'TR', 'TÜRKİYE' => 'TR'];
+
+        return $map[$c] ?? 'TR';
+    }
+
+    private function normalizePhone(mixed $phone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone) ?? '';
+        if ($digits === '') {
+            return null;
+        }
+        $digits = ltrim($digits, '0');
+        if (str_starts_with($digits, '90') && strlen($digits) > 10) {
+            $rest = substr($digits, 2);
+        } else {
+            $rest = $digits;
+        }
+        if (strlen($rest) < 4) {
+            return null;
+        }
+
+        return '+90.'.$rest;
     }
 
     /**

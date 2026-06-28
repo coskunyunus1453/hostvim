@@ -86,6 +86,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'billing_cycle' => 'required|in:'.implode(',', BillingCycle::all()),
+            'install_panel' => 'sometimes|boolean',
         ]);
 
         $category = ProductCategory::where('slug', $categorySlug)->where('is_active', true)->firstOrFail();
@@ -95,7 +96,7 @@ class ProductController extends Controller
             ->firstOrFail();
 
         try {
-            $cart->add($product, $validated['billing_cycle']);
+            $cart->add($product, $validated['billing_cycle'], 1, (bool) ($validated['install_panel'] ?? false));
         } catch (InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Account;
 
 use App\Http\Controllers\Controller;
 use App\Models\DomainName;
+use App\Models\OwnershipTransferRequest;
 use App\Services\Domain\DomainManagementService;
 use Illuminate\Http\Request;
 use Throwable;
@@ -38,10 +39,17 @@ class DomainController extends Controller
             }
         }
 
+        $pendingTransfer = OwnershipTransferRequest::query()
+            ->where('domain_name_id', $domain->id)
+            ->where('status', OwnershipTransferRequest::STATUS_PENDING)
+            ->latest()
+            ->first();
+
         return view('account.domain-detail', [
             'domain' => $domain,
             'records' => $records,
             'dnsError' => $dnsError,
+            'pendingTransfer' => $pendingTransfer,
         ]);
     }
 

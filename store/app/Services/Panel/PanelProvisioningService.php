@@ -351,6 +351,40 @@ class PanelProvisioningService
             'panel_provision_error' => $message,
             'status' => 'processing',
         ]);
+
+        $this->sendProvisionDelayedEmail($order);
+    }
+
+    /**
+     * Hosting kurulumu otomatik tamamlanamadiginda musteriye bilgilendirme gonderir.
+     * (Admin'e bildirim OrderObserver -> AdminNotificationService uzerinden ayrica gider.)
+     */
+    private function sendProvisionDelayedEmail(Order $order): void
+    {
+        if (empty($order->customer_email)) {
+            return;
+        }
+
+        $body = '<p>Sayın '.e($order->customer_name).',</p>'
+            .'<p><strong>'.e($order->order_number).'</strong> numaralı siparişiniz alındı ve ödemeniz onaylandı. '
+            .'Hosting hesabınızın kurulumu otomatik olarak tamamlanamadı; ekibimiz bilgilendirildi ve kurulumu en kısa sürede tamamlayacaktır.</p>'
+            .'<p>Herhangi bir işlem yapmanıza gerek yoktur. Hesabınız hazır olduğunda giriş bilgileriniz e-posta ile iletilecektir.</p>';
+
+        try {
+            $template = EmailTemplate::query()->where('slug', 'order-confirmation')->where('is_active', true)->first();
+            $subject = 'Siparişiniz işleniyor — '.$order->order_number;
+            if ($template !== null) {
+                Mail::to($order->customer_email)->queue(new TemplatedMail($subject, $body));
+
+                return;
+            }
+
+            Mail::raw(strip_tags(str_replace(['</p>', '<br>'], ["\n\n", "\n"], $body)), function ($message) use ($order, $subject): void {
+                $message->to($order->customer_email)->subject($subject);
+            });
+        } catch (Throwable $e) {
+            Log::warning('panel.delayed_email_failed', ['order' => $order->order_number, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

@@ -37,13 +37,16 @@ class ManageCloudSettings extends Page
 
     public function mount(): void
     {
-        $keys = ['cloud_provision_enabled', 'cloud_usd_try_rate', 'cloud_eur_try_rate'];
+        $keys = ['cloud_provision_enabled', 'cloud_usd_try_rate', 'cloud_eur_try_rate', 'cloud_auto_install_panel', 'cloud_panelze_install_url', 'cloud_panelze_panel_url'];
         $settings = SiteSetting::whereIn('key', $keys)->pluck('value', 'key')->toArray();
 
         $this->form->fill([
             'cloud_provision_enabled' => filter_var($settings['cloud_provision_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'cloud_usd_try_rate' => $settings['cloud_usd_try_rate'] ?? 35,
             'cloud_eur_try_rate' => $settings['cloud_eur_try_rate'] ?? 38,
+            'cloud_auto_install_panel' => filter_var($settings['cloud_auto_install_panel'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'cloud_panelze_install_url' => $settings['cloud_panelze_install_url'] ?? '',
+            'cloud_panelze_panel_url' => $settings['cloud_panelze_panel_url'] ?? '',
         ]);
     }
 
@@ -62,6 +65,25 @@ class ManageCloudSettings extends Page
                 TextInput::make('cloud_usd_try_rate')->label('USD → TRY')->numeric()->required(),
                 TextInput::make('cloud_eur_try_rate')->label('EUR → TRY (Hetzner)')->numeric()->required(),
             ])->columns(2),
+
+            Section::make('Panelze Otomatik Kurulumu (cloud-init)')
+                ->description('Açıkken yeni VPS oluşturulurken cloud-init ile sunucuya otomatik Panelze paneli kurulur ve müşteriye panel bilgisi mail atılır.')
+                ->schema([
+                    Toggle::make('cloud_auto_install_panel')
+                        ->label('VPS\'e otomatik Panelze paneli kur')
+                        ->helperText('Çalışması için aşağıdaki kurulum betiği URL\'i dolu olmalı.')
+                        ->columnSpanFull(),
+                    TextInput::make('cloud_panelze_install_url')
+                        ->label('Kurulum betiği URL (remote-install.sh)')
+                        ->placeholder('https://install.panelze.com/remote-install.sh')
+                        ->url()
+                        ->helperText('VPS\'te root olarak çalıştırılacak kurulum betiğinin erişilebilir adresi.')
+                        ->columnSpanFull(),
+                    TextInput::make('cloud_panelze_panel_url')
+                        ->label('Panel adresi (mailde gösterilir, opsiyonel)')
+                        ->placeholder('https://panel.alanadiniz.com')
+                        ->columnSpanFull(),
+                ])->columns(1),
         ]);
     }
 
@@ -83,12 +105,17 @@ class ManageCloudSettings extends Page
     {
         $data = $this->form->getState();
         foreach ($data as $key => $value) {
+            $type = match (true) {
+                is_bool($value) => 'boolean',
+                is_numeric($value) => 'number',
+                default => 'text',
+            };
             SiteSetting::updateOrCreate(
                 ['key' => $key],
                 [
                     'group' => 'cloud',
                     'value' => is_bool($value) ? ($value ? '1' : '0') : (string) $value,
-                    'type' => is_bool($value) ? 'boolean' : 'number',
+                    'type' => $type,
                     'label' => $key,
                 ]
             );

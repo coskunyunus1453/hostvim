@@ -5,13 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PaymentMethod;
+use App\Models\User;
 use App\Services\CampaignService;
 use App\Services\CartService;
 use App\Services\Payment\PaymentManager;
+use App\Services\SettingsService;
 use App\Services\TemplatedMailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 
@@ -19,7 +23,11 @@ class CheckoutController extends Controller
 {
     public function index(CartService $cart, CampaignService $campaigns)
     {
-        $items = $cart->validatedItems();
+        try {
+            $items = $cart->validatedItems();
+        } catch (InvalidArgumentException $e) {
+            return redirect()->route('cart.index')->with('error', $e->getMessage());
+        }
 
         if (empty($items)) {
             return redirect()->route('products.index')->with('error', 'Sepetiniz boş.');
@@ -63,7 +71,11 @@ class CheckoutController extends Controller
 
     public function process(Request $request, CartService $cart, CampaignService $campaigns, PaymentManager $payments)
     {
-        $items = $cart->validatedItems();
+        try {
+            $items = $cart->validatedItems();
+        } catch (InvalidArgumentException $e) {
+            return redirect()->route('cart.index')->with('error', $e->getMessage());
+        }
 
         if (empty($items)) {
             return redirect()->route('products.index')->with('error', 'Sepetiniz boş veya geçersiz ürünler içeriyor.');
@@ -76,6 +88,7 @@ class CheckoutController extends Controller
             'customer_company' => 'nullable|string|max:255',
             'customer_address' => 'nullable|string|max:500',
             'payment_method_id' => 'required|exists:payment_methods,id',
+            'terms_accepted' => 'accepted',
             'service_domain' => [
                 Rule::requiredIf(fn () => collect($items)->contains(fn ($i) => ($i['item_type'] ?? '') === 'hosting') && app(CartService::class)->hostingNeedsDomainInput()),
                 'nullable',
@@ -83,9 +96,8 @@ class CheckoutController extends Controller
                 'max:253',
                 'regex:/^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i',
             ],
-            'terms_accepted' => 'accepted',
         ], [
-            'terms_accepted.accepted' => 'Devam etmek için sözleşmeleri onaylamanız gerekir.',
+            'terms_accepted.accepted' => 'Siparişi tamamlamak için Mesafeli Satış Sözleşmesi, İade & İptal Politikası ve KVKK metnini onaylamanız gerekmektedir.',
         ]);
 
         $paymentMethod = PaymentMethod::query()
@@ -107,16 +119,37 @@ class CheckoutController extends Controller
         }
 
         $order = null;
+        $createdAccount = null;
 
         try {
-            $order = DB::transaction(function () use ($items, $validated, $paymentMethod, $subtotal, $discount, $total, $appliedCoupon) {
+            // Misafir siparisi: mevcut hesaba bagla, yoksa otomatik hesap olustur.
+            $accountUserId = auth()->id();
+            if ($accountUserId === null) {
+                $existing = User::query()->where('email', $validated['customer_email'])->first();
+                if ($existing !== null) {
+                    $accountUserId = $existing->id;
+                } else {
+                    $createdAccount = User::create([
+                        'name' => $validated['customer_name'],
+                        'email' => $validated['customer_email'],
+                        'phone' => $validated['customer_phone'] ?? null,
+                        'company' => $validated['customer_company'] ?? null,
+                        'address' => $validated['customer_address'] ?? null,
+                        'password' => Str::random(40),
+                        'is_admin' => false,
+                    ]);
+                    $accountUserId = $createdAccount->id;
+                }
+            }
+
+            $order = DB::transaction(function () use ($items, $validated, $paymentMethod, $subtotal, $discount, $total, $appliedCoupon, $accountUserId) {
                 $serviceDomain = isset($validated['service_domain'])
                     ? strtolower(trim((string) $validated['service_domain']))
                     : '';
 
                 $order = Order::create([
                     'order_number' => Order::generateOrderNumber(),
-                    'user_id' => auth()->id(),
+                    'user_id' => $accountUserId,
                     'payment_method_id' => $paymentMethod->id,
                     'status' => 'pending',
                     'payment_status' => 'pending',
@@ -147,6 +180,9 @@ class CheckoutController extends Controller
                     }
                     if (! empty($item['registrar_api'])) {
                         $meta['registrar_api'] = $item['registrar_api'];
+                    }
+                    if ($itemType === 'cloud' && ! empty($item['install_panel'])) {
+                        $meta['install_panel'] = true;
                     }
 
                     OrderItem::create([
@@ -183,6 +219,10 @@ class CheckoutController extends Controller
                 $campaigns->incrementUsage($appliedCoupon);
             }
 
+            if ($createdAccount !== null) {
+                $this->sendAccountCreatedMail($createdAccount);
+            }
+
             $cart->clear();
 
             if (($result['type'] ?? '') === 'bank_transfer') {
@@ -216,6 +256,31 @@ class CheckoutController extends Controller
     public function fail(Order $order)
     {
         return view('checkout.fail', compact('order'));
+    }
+
+    /**
+     * Misafir checkout'ta otomatik olusturulan hesap icin sifre belirleme
+     * (Laravel password broker token'i) e-postasi gonderir.
+     */
+    private function sendAccountCreatedMail(User $user): void
+    {
+        try {
+            $token = Password::broker()->createToken($user);
+            $url = route('password.reset', ['token' => $token, 'email' => $user->email]);
+            $expireMinutes = (int) (config('auth.passwords.users.expire') ?? 60);
+
+            app(TemplatedMailService::class)->send('account-created', $user->email, [
+                'customer_name' => $user->name,
+                'customer_email' => $user->email,
+                'set_password_url' => $url,
+                'login_url' => route('login'),
+                'account_url' => route('account.dashboard'),
+                'expire_minutes' => (string) $expireMinutes,
+                'site_name' => (string) app(SettingsService::class)->get('site_name', config('app.name')),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Otomatik hesap maili gönderilemedi', ['email' => $user->email, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

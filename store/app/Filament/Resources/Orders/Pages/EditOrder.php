@@ -3,10 +3,13 @@
 namespace App\Filament\Resources\Orders\Pages;
 
 use App\Filament\Resources\Orders\OrderResource;
+use App\Models\DomainName;
+use App\Services\Domain\DomainProvisioningService;
 use App\Services\Panel\PanelProvisioningService;
 use App\Services\TemplatedMailService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 
 class EditOrder extends EditRecord
@@ -50,7 +53,43 @@ class EditOrder extends EditRecord
                     $panel->retry($this->record);
                     $this->refreshFormData(['panel_provision_status', 'panel_order_number', 'panel_provision_error']);
                 }),
+            Action::make('retryDomainProvision')
+                ->label('Domain kaydını yeniden dene')
+                ->icon('heroicon-o-globe-alt')
+                ->color('info')
+                ->visible(fn () => $this->record->payment_status === 'paid' && $this->hasPendingDomains())
+                ->requiresConfirmation()
+                ->modalHeading('Alan adı kaydını yeniden dene')
+                ->modalDescription('Siparişteki alan adları sağlayıcıda (Spaceship) yeniden kaydedilmeye çalışılır. Zaten kayıtlı olanlar atlanır. Kayıt ücreti Spaceship bakiyenizden düşer.')
+                ->action(function (DomainProvisioningService $domains): void {
+                    $domains->process($this->record);
+                    Notification::make()
+                        ->title('Domain kaydı tetiklendi')
+                        ->body('Sonucu "Alan Adları" ekranından kontrol edebilirsiniz. Başarısızsa Spaceship bakiyenizi kontrol edin.')
+                        ->success()
+                        ->send();
+                }),
             DeleteAction::make(),
         ];
+    }
+
+    private function hasPendingDomains(): bool
+    {
+        $domains = $this->record->items()
+            ->where('item_type', 'domain_register')
+            ->pluck('domain_name')
+            ->filter()
+            ->map(fn ($d) => strtolower(trim((string) $d)));
+
+        if ($domains->isEmpty()) {
+            return false;
+        }
+
+        $registered = DomainName::query()
+            ->whereIn('domain', $domains->all())
+            ->whereIn('status', ['registered', 'active'])
+            ->count();
+
+        return $registered < $domains->count();
     }
 }

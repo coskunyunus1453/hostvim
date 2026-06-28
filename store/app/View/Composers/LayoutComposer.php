@@ -36,49 +36,9 @@ class LayoutComposer
     protected function buildPayload($view): array
     {
         $viewName = (string) $view->getName();
-        $minimalShell = str_starts_with($viewName, 'account.')
-            || str_starts_with($viewName, 'auth.')
-            || request()->routeIs('login', 'register', 'account.*');
-        $accountShell = str_starts_with($viewName, 'account.')
-            || request()->routeIs('account.*');
-
-        if ($accountShell) {
-            return [
-                'siteSettings' => [],
-                'seo' => $this->resolveSeo($view),
-                'siteName' => $this->settings->get('site_name', 'HostVim'),
-                'siteLogoUrl' => $this->branding->logoUrl(),
-                'siteLogoDarkUrl' => $this->branding->logoUrl(true),
-                'siteFaviconUrl' => $this->branding->faviconUrl(),
-                'siteLogoHeight' => $this->branding->logoHeight('header'),
-                'siteLogoMobileHeight' => $this->branding->logoHeight('mobile'),
-                'siteLogoShowName' => $this->branding->showSiteName(),
-                'headerMenu' => null,
-                'footerMenu' => null,
-                'navCategories' => collect(),
-                'cartCount' => 0,
-                'themeDefaultMode' => $this->theme->defaultMode(),
-                'themeToggleEnabled' => $this->theme->isToggleEnabled(),
-                'themeHeaderStyle' => 'default',
-                'themeFooterStyle' => 'minimal',
-                'themeHeaderSticky' => false,
-                'themeHeaderBlur' => false,
-                'themeHeaderBorder' => true,
-                'themeFooterShowStats' => false,
-                'themePresetId' => $this->theme->presetId(),
-                'themeShell' => $this->theme->shell(),
-                'themeFontUrl' => null,
-                'themeCssVariables' => $this->theme->cssVariables(),
-                'campaignService' => $this->campaigns,
-                'flashCampaign' => null,
-                'popupCampaign' => null,
-                'panelLoginUrl' => null,
-                'accountUrl' => route('account.dashboard'),
-                'isCustomerLoggedIn' => true,
-                'minimalLayoutShell' => true,
-                'accountLayoutShell' => true,
-            ];
-        }
+        // Giriş/kayıt: kampanya şeridi ve popup kapalı; header/footer site ile aynı kalır.
+        $minimalShell = str_starts_with($viewName, 'auth.')
+            || request()->routeIs('login', 'register');
 
         return [
             'siteSettings' => $this->settings->all(),
@@ -114,7 +74,6 @@ class LayoutComposer
             'accountUrl' => route('account.dashboard'),
             'isCustomerLoggedIn' => auth()->check() && ! auth()->user()?->is_admin,
             'minimalLayoutShell' => $minimalShell,
-            'accountLayoutShell' => false,
         ];
     }
 
