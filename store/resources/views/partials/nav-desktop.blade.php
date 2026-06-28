@@ -5,6 +5,7 @@
 
             <a href="{{ route('domain.index') }}" class="nav-link {{ request()->routeIs('domain.*') ? 'nav-link-active' : '' }}">Domain</a>
             <a href="{{ route('blog.index') }}" class="nav-link {{ request()->routeIs('blog.*') ? 'nav-link-active' : '' }}">Blog</a>
+            <a href="{{ route('pages.show', 'hakkimizda') }}" class="nav-link {{ request()->is('sayfa/hakkimizda') ? 'nav-link-active' : '' }}">Hakkımızda</a>
             <a href="{{ route('contact.index') }}" class="nav-link {{ request()->routeIs('contact.*') ? 'nav-link-active' : '' }}">İletişim</a>
 
             @if($isCustomerLoggedIn ?? false)

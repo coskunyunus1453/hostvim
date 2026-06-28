@@ -66,10 +66,34 @@
                 Blog
             </a>
 
+            <a href="{{ route('pages.show', 'hakkimizda') }}" class="hv-sidebar-link {{ request()->is('sayfa/hakkimizda') ? 'hv-sidebar-link-active' : '' }}">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Hakkımızda
+            </a>
+
             <a href="{{ route('contact.index') }}" class="hv-sidebar-link {{ request()->routeIs('contact.*') ? 'hv-sidebar-link-active' : '' }}">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 İletişim
             </a>
+
+            <details class="hv-sidebar-group">
+                <summary class="hv-sidebar-link hv-sidebar-summary">
+                    <span class="flex items-center gap-3">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Yasal
+                    </span>
+                    <svg class="hv-sidebar-chevron h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="hv-sidebar-sub">
+                    <a href="{{ route('pages.show', 'sss') }}" class="hv-sidebar-sublink">Sıkça Sorulan Sorular</a>
+                    <a href="{{ route('pages.show', 'gizlilik') }}" class="hv-sidebar-sublink">Gizlilik Politikası</a>
+                    <a href="{{ route('pages.show', 'kvkk') }}" class="hv-sidebar-sublink">KVKK Aydınlatma Metni</a>
+                    <a href="{{ route('pages.show', 'cerez-politikasi') }}" class="hv-sidebar-sublink">Çerez Politikası</a>
+                    <a href="{{ route('pages.show', 'kullanim-sartlari') }}" class="hv-sidebar-sublink">Kullanım Şartları</a>
+                    <a href="{{ route('pages.show', 'mesafeli-satis-sozlesmesi') }}" class="hv-sidebar-sublink">Mesafeli Satış Sözleşmesi</a>
+                    <a href="{{ route('pages.show', 'iade-iptal-ve-cayma-politikasi') }}" class="hv-sidebar-sublink">İade, İptal ve Cayma</a>
+                </div>
+            </details>
 
             @if($headerMenu)
                 @foreach($headerMenu->activeRootItems as $item)
