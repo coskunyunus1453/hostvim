@@ -50,6 +50,12 @@ Route::get('/domain', [DomainController::class, 'index'])->name('domain.index');
 Route::post('/domain/check', [DomainController::class, 'check'])
     ->middleware('throttle:30,1')
     ->name('domain.check');
+Route::post('/domain/search', [DomainController::class, 'search'])
+    ->middleware('throttle:30,1')
+    ->name('domain.search');
+Route::post('/domain/whois', [DomainController::class, 'whois'])
+    ->middleware('throttle:30,1')
+    ->name('domain.whois');
 Route::post('/domain/sepet', [DomainController::class, 'addToCart'])
     ->middleware('throttle:20,1')
     ->name('domain.cart.add');
