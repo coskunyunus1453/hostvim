@@ -24,14 +24,12 @@
                     <svg class="hv-sidebar-chevron h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
                 <div class="hv-sidebar-sub">
-                    @foreach($navCategories as $cat)
-                        <a href="{{ route('products.category', $cat->slug) }}" class="hv-sidebar-sublink {{ request()->is('urunler/' . $cat->slug) ? 'hv-sidebar-sublink-active' : '' }}">
-                            {{ $cat->name }}
-                        </a>
-                    @endforeach
-                    <a href="{{ route('products.index') }}" class="hv-sidebar-sublink font-semibold text-hv-secondary">
-                        Tüm Paketler →
-                    </a>
+                    <a href="{{ route('hosting.index') }}" class="hv-sidebar-sublink {{ request()->is('web-hosting') ? 'hv-sidebar-sublink-active' : '' }}">Web Hosting</a>
+                    <a href="{{ route('cloud.index') }}" class="hv-sidebar-sublink {{ request()->is('bulut-sunucu') ? 'hv-sidebar-sublink-active' : '' }}">Bulut Sunucu (VPS)</a>
+                    <a href="{{ route('products.category', 'vds') }}" class="hv-sidebar-sublink {{ request()->is('urunler/vds') ? 'hv-sidebar-sublink-active' : '' }}">VDS Sunucu</a>
+                    <a href="{{ route('products.category', 'dedicated') }}" class="hv-sidebar-sublink {{ request()->is('urunler/dedicated') ? 'hv-sidebar-sublink-active' : '' }}">Dedicated Sunucu</a>
+                    <a href="{{ route('domain.index') }}" class="hv-sidebar-sublink {{ request()->routeIs('domain.*') ? 'hv-sidebar-sublink-active' : '' }}">Domain</a>
+                    <a href="{{ route('products.index') }}" class="hv-sidebar-sublink font-semibold text-hv-secondary">Tüm Paketler →</a>
                 </div>
             </details>
 

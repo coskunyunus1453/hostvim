@@ -72,11 +72,12 @@
                 {{-- Hizmetler --}}
                 <div class="lg:col-span-2">
                     <h4 class="font-semibold text-hv-text">Hizmetler</h4>
-                    <ul class="mt-4 space-y-2.5">
-                        @foreach($navCategories->take(6) as $cat)
-                            <li><a href="{{ route('products.category', $cat->slug) }}" class="text-sm text-hv-muted hover:text-hv-primary">{{ $cat->name }}</a></li>
-                        @endforeach
-                        <li><a href="{{ route('domain.index') }}" class="text-sm text-hv-muted hover:text-hv-primary">Domain Sorgulama</a></li>
+                    <ul class="mt-4 space-y-2.5 text-sm text-hv-muted">
+                        <li><a href="{{ route('hosting.index') }}" class="hover:text-hv-primary">Web Hosting</a></li>
+                        <li><a href="{{ route('cloud.index') }}" class="hover:text-hv-primary">Bulut Sunucu (VPS)</a></li>
+                        <li><a href="{{ route('products.category', 'vds') }}" class="hover:text-hv-primary">VDS Sunucu</a></li>
+                        <li><a href="{{ route('products.category', 'dedicated') }}" class="hover:text-hv-primary">Dedicated Sunucu</a></li>
+                        <li><a href="{{ route('domain.index') }}" class="hover:text-hv-primary">Domain Sorgulama</a></li>
                     </ul>
                 </div>
 

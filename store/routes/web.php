@@ -7,6 +7,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DomainController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HostingConfigureController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
@@ -18,6 +19,10 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', [RobotsController::class, 'index'])->name('robots');
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// Modern tanıtım / satış sayfaları (yönetimden düzenlenebilir içerik)
+Route::get('/web-hosting', [LandingController::class, 'hosting'])->name('hosting.index');
+Route::get('/bulut-sunucu', [LandingController::class, 'cloud'])->name('cloud.index');
 
 Route::get('/urunler', [ProductController::class, 'index'])->name('products.index');
 Route::get('/urunler/{categorySlug}/{slug}', [ProductController::class, 'show'])->name('products.show');

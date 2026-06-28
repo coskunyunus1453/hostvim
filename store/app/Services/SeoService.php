@@ -136,6 +136,28 @@ class SeoService
         ]);
     }
 
+    /**
+     * Hosting / Bulut Sunucu gibi tanıtım (landing) sayfaları için SEO.
+     *
+     * @param  array<string, mixed>  $seo
+     * @return array<string, mixed>
+     */
+    public function forLanding(string $routeName, array $seo = []): array
+    {
+        $canonical = \Illuminate\Support\Facades\Route::has($routeName)
+            ? route($routeName)
+            : url()->current();
+
+        return $this->build(array_filter([
+            'title' => $seo['title'] ?? null,
+            'description' => $seo['description'] ?? null,
+            'keywords' => $seo['keywords'] ?? null,
+            'og_image' => $seo['og_image'] ?? null,
+            'canonical' => $canonical,
+            'robots' => 'index,follow',
+        ], fn ($v) => $v !== null && $v !== ''));
+    }
+
     /** Özel / oturum sayfaları — arama motorlarından gizle */
     public function forPrivate(string $title, ?string $description = null): array
     {
