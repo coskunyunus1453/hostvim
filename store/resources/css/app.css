@@ -877,167 +877,112 @@ body.has-flash-bar main { scroll-margin-top: 2.5rem; }
 }
 
 /* ===================================================================
-   HIZ TEMALI HERO İLLÜSTRASYONU
+   HIZ TEMALI HERO İLLÜSTRASYONU (çerçevesiz / yazısız — sadece animasyon)
    Plain CSS (bilerek @layer dışında) — Tailwind v4 tree-shake etmesin.
    Amaç: ziyaretçide anında "hız" algısı (speedometer + hız çizgileri).
    =================================================================== */
-.hv-speed-scene { color: var(--hv-primary); }
+.hv-speed-scene { position: relative; color: var(--hv-primary); }
 
 /* Arka plan hız çizgileri */
 .hv-speed-streaks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
 .hv-speed-streaks span {
     position: absolute;
-    left: -32%;
-    height: 3px;
-    width: 30%;
+    left: -34%;
+    height: clamp(3px, 0.8vw, 5px);
+    width: 32%;
     border-radius: 9999px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--hv-primary) 75%, transparent));
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--hv-primary) 80%, transparent));
     opacity: 0;
-    animation: hv-speed-streak 2.4s linear infinite;
-    animation-delay: calc(var(--i, 0) * 0.42s);
+    animation: hv-speed-streak 2.2s linear infinite;
+    animation-delay: calc(var(--i, 0) * 0.4s);
 }
 @keyframes hv-speed-streak {
     0%   { transform: translateX(0);     opacity: 0; }
-    12%  { opacity: 0.9; }
-    70%  { opacity: 0.9; }
-    100% { transform: translateX(560%);  opacity: 0; }
+    12%  { opacity: 0.95; }
+    70%  { opacity: 0.95; }
+    100% { transform: translateX(580%);  opacity: 0; }
 }
 
-/* Merkez kart */
-.hv-speed-card {
+/* Gösterge (speedometer) — çerçevesiz, ortalanmış */
+.hv-speed-gauge {
     position: absolute;
-    z-index: 3;
     left: 50%;
     top: 50%;
-    width: min(80%, 19rem);
     transform: translate(-50%, -50%);
-    border-radius: calc(var(--hv-radius-lg) + 6px);
-    border: 1px solid color-mix(in srgb, var(--hv-border) 85%, transparent);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--hv-surface-elevated) 96%, transparent), color-mix(in srgb, var(--hv-surface) 92%, transparent));
-    padding: clamp(0.8rem, 2.6vw, 1.15rem);
-    box-shadow:
-        0 24px 60px color-mix(in srgb, #000 14%, transparent),
-        inset 0 1px 0 color-mix(in srgb, #fff 25%, transparent);
-    backdrop-filter: blur(8px);
+    width: min(86%, 24rem);
+    aspect-ratio: 200 / 118;
+    z-index: 3;
+    filter: drop-shadow(0 18px 36px color-mix(in srgb, var(--hv-primary) 22%, transparent));
 }
-.hv-speed-card-head,
-.hv-speed-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.hv-speed-card-title { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; color: var(--hv-text-muted); }
-.hv-speed-rocket { font-size: 1rem; animation: hv-speed-rocket 1.8s ease-in-out infinite; }
-@keyframes hv-speed-rocket {
-    0%, 100% { transform: translate(0, 0) rotate(0); }
-    50%      { transform: translate(2px, -3px) rotate(10deg); }
-}
-
-/* Gösterge (speedometer) */
-.hv-speed-gauge { position: relative; width: 100%; aspect-ratio: 200 / 118; margin-top: 0.4rem; }
-.hv-speed-gauge-svg { width: 100%; height: 100%; color: color-mix(in srgb, var(--hv-text-muted) 55%, transparent); }
+.hv-speed-gauge-svg { width: 100%; height: 100%; }
+.hv-speed-track { stroke: color-mix(in srgb, var(--hv-text-muted) 40%, transparent); }
+.hv-speed-tick { stroke: color-mix(in srgb, var(--hv-text-muted) 55%, transparent); }
 .hv-speed-arc {
     stroke-dasharray: 100;
     stroke-dashoffset: 100;
-    animation: hv-speed-fill 3.2s cubic-bezier(.2, .8, .2, 1) infinite;
+    animation: hv-speed-fill 3s cubic-bezier(.22, .9, .25, 1) infinite;
 }
 @keyframes hv-speed-fill {
     0%   { stroke-dashoffset: 100; }
-    35%  { stroke-dashoffset: 13; }
-    80%  { stroke-dashoffset: 13; }
+    40%  { stroke-dashoffset: 10; }
+    82%  { stroke-dashoffset: 10; }
     100% { stroke-dashoffset: 100; }
 }
 .hv-speed-needle {
     position: absolute;
     left: 50%;
     bottom: 15.3%;
-    width: 4px;
-    height: 42%;
+    width: clamp(4px, 1vw, 6px);
+    height: 44%;
     border-radius: 9999px;
     background: linear-gradient(to top, var(--hv-text), var(--hv-primary));
     transform-origin: 50% 100%;
-    transform: translateX(-50%) rotate(-78deg);
-    animation: hv-speed-needle 3.2s cubic-bezier(.2, .8, .2, 1) infinite;
+    transform: translateX(-50%) rotate(-80deg);
+    animation: hv-speed-needle 3s cubic-bezier(.22, .9, .25, 1) infinite;
 }
 @keyframes hv-speed-needle {
-    0%   { transform: translateX(-50%) rotate(-78deg); }
-    35%  { transform: translateX(-50%) rotate(66deg); }
-    80%  { transform: translateX(-50%) rotate(66deg); }
-    100% { transform: translateX(-50%) rotate(-78deg); }
+    0%   { transform: translateX(-50%) rotate(-80deg); }
+    40%  { transform: translateX(-50%) rotate(72deg); }
+    82%  { transform: translateX(-50%) rotate(72deg); }
+    100% { transform: translateX(-50%) rotate(-80deg); }
 }
 .hv-speed-hub {
     position: absolute;
     left: 50%;
     bottom: 15.3%;
-    width: 14px;
-    height: 14px;
+    width: clamp(14px, 4%, 20px);
+    aspect-ratio: 1;
     transform: translate(-50%, 50%);
     border-radius: 9999px;
     background: var(--hv-text);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--hv-primary) 25%, transparent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--hv-primary) 22%, transparent);
 }
-.hv-speed-readout {
-    position: absolute;
-    left: 50%;
-    bottom: -4%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1;
-}
-.hv-speed-value { font-size: clamp(1.4rem, 4.6vw, 1.9rem); font-weight: 900; color: var(--hv-text); }
-.hv-speed-value small { font-size: 0.5em; font-weight: 800; color: var(--hv-primary); }
-.hv-speed-label { margin-top: 0.2rem; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em; color: var(--hv-text-muted); }
 
-/* Hız barı */
-.hv-speed-bar { margin-top: 1.4rem; height: 6px; border-radius: 9999px; background: color-mix(in srgb, var(--hv-text-muted) 22%, transparent); overflow: hidden; }
-.hv-speed-bar-fill {
-    height: 100%;
-    width: 0;
-    border-radius: 9999px;
-    background: linear-gradient(90deg, var(--hv-primary), var(--hv-secondary));
-    animation: hv-speed-bar 3.2s cubic-bezier(.2, .8, .2, 1) infinite;
-}
-@keyframes hv-speed-bar {
-    0%   { width: 0; }
-    35%  { width: 92%; }
-    80%  { width: 92%; }
-    100% { width: 0; }
-}
-.hv-speed-card-foot { margin-top: 0.55rem; font-size: 0.6rem; font-weight: 700; color: var(--hv-text-muted); }
-
-/* Uçan performans rozetleri */
-.hv-speed-chip {
+/* Uçan roket (sadece animasyon, yazısız) */
+.hv-speed-rocket-fly {
     position: absolute;
+    left: 6%;
+    bottom: 8%;
     z-index: 4;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1.05;
-    border-radius: var(--hv-radius-lg);
-    border: 1px solid color-mix(in srgb, var(--hv-border) 80%, transparent);
-    background: color-mix(in srgb, var(--hv-surface-elevated) 94%, transparent);
-    padding: 0.5rem 0.7rem;
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--hv-primary) 14%, transparent);
-    backdrop-filter: blur(8px);
+    font-size: clamp(1.6rem, 6vw, 2.4rem);
+    line-height: 1;
+    opacity: 0;
+    animation: hv-speed-fly 3s ease-in-out infinite;
 }
-.hv-speed-chip span:last-child { font-size: 0.58rem; font-weight: 700; color: var(--hv-text-muted); }
-.hv-speed-chip-num { font-size: 1rem; font-weight: 900; color: var(--hv-secondary); }
-.hv-speed-chip-num small { font-size: 0.55em; font-weight: 800; }
-.hv-speed-chip-a { top: 1%; right: 1%; }
-.hv-speed-chip-b { top: 5%; left: 0; }
-.hv-speed-chip-c { bottom: 5%; right: 3%; }
-
-@media (max-width: 400px) {
-    .hv-speed-chip { padding: 0.35rem 0.5rem; }
-    .hv-speed-chip-num { font-size: 0.85rem; }
+@keyframes hv-speed-fly {
+    0%   { transform: translate(0, 0) scale(0.7);            opacity: 0; }
+    18%  { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { transform: translate(260%, -300%) scale(1.15);    opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .hv-speed-streaks span,
-    .hv-speed-rocket,
+    .hv-speed-rocket-fly,
     .hv-speed-needle,
-    .hv-speed-arc,
-    .hv-speed-bar-fill { animation: none; }
-    .hv-speed-arc { stroke-dashoffset: 13; }
-    .hv-speed-needle { transform: translateX(-50%) rotate(66deg); }
-    .hv-speed-bar-fill { width: 92%; }
+    .hv-speed-arc { animation: none; }
+    .hv-speed-arc { stroke-dashoffset: 10; }
+    .hv-speed-needle { transform: translateX(-50%) rotate(72deg); }
     .hv-speed-streaks span { opacity: 0.5; }
+    .hv-speed-rocket-fly { opacity: 1; transform: translate(120%, -150%); }
 }

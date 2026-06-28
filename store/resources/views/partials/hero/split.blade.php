@@ -27,7 +27,7 @@
         </div>
 
         <div class="order-1 lg:order-2">
-            <div class="hv-hero-visual-panel hv-hero-slide-in rounded-3xl border border-hv-border bg-hv-elevated/80 p-4 shadow-2xl shadow-black/10 backdrop-blur-sm dark:shadow-black/40 sm:p-6">
+            <div class="hv-hero-slide-in">
                 @include('partials.hero.visual', ['hero' => $hero, 'illustrationClass' => 'max-w-none'])
             </div>
         </div>
