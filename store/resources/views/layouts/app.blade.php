@@ -9,6 +9,10 @@
     @if(!empty($siteFaviconUrl))
         <link rel="icon" href="{{ $siteFaviconUrl }}" type="image/png">
         <link rel="shortcut icon" href="{{ $siteFaviconUrl }}">
+    @else
+        <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+        <link rel="icon" type="image/png" href="{{ asset('favicon-32.png') }}" sizes="32x32">
+        <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
     @endif
     @include('partials.theme-styles')
     @php $fontHref = $themeFontUrl ?? null; @endphp

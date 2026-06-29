@@ -31,6 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->brandName('HostVim Yönetim')
+            ->favicon(asset('favicon-32.png'))
             ->font('ui-sans-serif', provider: SystemFontProvider::class)
             ->spa()
             ->colors([
