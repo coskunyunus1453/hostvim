@@ -68,6 +68,18 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-site-cage" ]]; then
   echo "==> /usr/local/sbin/panelze-site-cage (PanelKafes)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-site-cage" /usr/local/sbin/panelze-site-cage
 fi
+if [[ -f "$REPO_ROOT/deploy/host/zz-panelze-perf.ini" ]]; then
+  echo "==> PHP global performans ini (realpath cache) — tüm FPM sürümleri"
+  for _phpdir in /etc/php/*/fpm/conf.d; do
+    [[ -d "$_phpdir" ]] || continue
+    _phpver="$(basename "$(dirname "$(dirname "$_phpdir")")")"
+    sudo install -m 644 "$REPO_ROOT/deploy/host/zz-panelze-perf.ini" "$_phpdir/zz-panelze-perf.ini"
+    if command -v "php-fpm$_phpver" >/dev/null 2>&1 && ! sudo "php-fpm$_phpver" -t >/dev/null 2>&1; then
+      echo "   ! php$_phpver -t başarısız, ini geri alınıyor"
+      sudo rm -f "$_phpdir/zz-panelze-perf.ini"
+    fi
+  done
+fi
 for helper in panelze-post-install.sh repair-mysql-users.sh fix-hosting-permissions.sh; do
   if [[ -f "$DEPLOY_SCRIPTS/$helper" ]]; then
     base="${helper%.sh}"

@@ -23,6 +23,7 @@ usage() {
   echo "       panelze-site-cage cage-service <domain> <version> [cpu%] [mem_mb]" >&2
   echo "       panelze-site-cage cage-service-remove <domain> <version>" >&2
   echo "       panelze-site-cage reload-fpm <version>" >&2
+  echo "       panelze-site-cage reconcile" >&2
   exit 2
 }
 
@@ -330,6 +331,41 @@ cmd_cage_service_remove() {
   echo "OK cage-service-remove $svc"
 }
 
+# reconcile — tüm sitelerin PanelKafes tutarlılığını denetler ve onarır:
+#  1) per-site servisi olan sitelerin paylaşımlı pool.d kopyalarını temizler (çakışma önleme)
+#  2) her per-site servisi enable + aktif olduğundan emin olur (gerekirse başlatır)
+#  3) eksik per-site config'leri raporlar
+# Çekirdek düzeltmenin güvenlik ağı; periyodik veya kurtarma sonrası elle çalıştırılabilir.
+cmd_reconcile() {
+  ensure_group
+  local d ver unit svc slug conf okc=0 warnc=0
+  shopt -s nullglob
+  # 1) paylaşımlı pool.d temizliği + ilgili master reload (pipefail'e takılmadan glob ile say)
+  for d in /etc/php/*/; do
+    ver="$(basename "$d")"
+    [[ "$ver" =~ ^[0-9]+\.[0-9]+$ ]] || continue
+    local before=( "/etc/php/${ver}/fpm/pool.d/"panelze-*.conf )
+    prune_caged_pool_dups "$ver"
+    local after=( "/etc/php/${ver}/fpm/pool.d/"panelze-*.conf )
+    if [[ "${#before[@]}" != "${#after[@]}" ]] && systemctl is-active --quiet "php${ver}-fpm" 2>/dev/null; then
+      systemctl reload "php${ver}-fpm" 2>/dev/null || true
+    fi
+  done
+  # 2) per-site servisler
+  for unit in /etc/systemd/system/panelze-fpm-*.service; do
+    svc="$(basename "$unit" .service)"
+    slug="${svc#panelze-fpm-}"
+    conf="/etc/panelze/fpm/${slug}.conf"
+    if [[ ! -f "$conf" ]]; then echo "WARN $svc: per-site conf yok ($conf)"; warnc=$((warnc+1)); continue; fi
+    systemctl enable "$svc" >/dev/null 2>&1 || true
+    systemctl is-active --quiet "$svc" 2>/dev/null || systemctl restart "$svc" 2>/dev/null || true
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then okc=$((okc+1)); else echo "WARN $svc: aktif degil"; warnc=$((warnc+1)); fi
+  done
+  shopt -u nullglob
+  systemctl daemon-reload 2>/dev/null || true
+  echo "OK reconcile aktif=${okc} uyari=${warnc}"
+}
+
 # reload-fpm <version> — root olarak servisi yeniden yükle (engine www-data yapamaz).
 cmd_reload_fpm() {
   local ver="${1:-}"
@@ -485,6 +521,7 @@ case "$cmd" in
   cage-service) cmd_cage_service "${1:-}" "${2:-}" "${3:-}" "${4:-}" ;;
   cage-service-remove) cmd_cage_service_remove "${1:-}" "${2:-}" ;;
   reload-fpm) cmd_reload_fpm "${1:-}" ;;
+  reconcile) cmd_reconcile ;;
   ensure-user) cmd_ensure_user "${1:-}" "${2:-}" ;;
   apply) cmd_apply "${1:-}" "${2:-}" ;;
   limits) cmd_limits "${1:-}" "${2:-}" "${3:-}" ;;
