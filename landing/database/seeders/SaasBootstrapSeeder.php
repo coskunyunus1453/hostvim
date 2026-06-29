@@ -48,31 +48,58 @@ class SaasBootstrapSeeder extends Seeder
         );
 
         $proModules = $allOn;
-        foreach (['pro', 'pro-monthly', 'pro-yearly', 'pro-lifetime'] as $i => $code) {
+
+        /*
+         * Panelze Pro fiyatlandırması — 2026 (TR yerelleştirilmiş + global USD/EUR).
+         * Sunucu başına lisans; tüm Pro modüller dahil, 500 siteye kadar.
+         * minor = kuruş/cent (× 100). TR fiyatları PPP gereği global USD'den ucuzdur.
+         */
+        $proPricing = [
+            'pro-monthly' => [
+                'name' => 'Panelze Pro — Aylık',
+                'try' => 49_900,   // ₺499,00 / ay
+                'usd' => 1_499,    // $14.99 / mo
+                'eur' => 1_399,    // €13.99 / mo
+                'interval' => 'month',
+                'sort_order' => 11,
+            ],
+            'pro-yearly' => [
+                'name' => 'Panelze Pro — Yıllık',
+                'try' => 499_000,  // ₺4.990,00 / yıl (~2 ay bedava)
+                'usd' => 14_900,   // $149 / yr
+                'eur' => 13_900,   // €139 / yr
+                'interval' => 'year',
+                'sort_order' => 12,
+            ],
+            'pro-lifetime' => [
+                'name' => 'Panelze Pro — Ömür Boyu',
+                'try' => 1_199_000, // ₺11.990,00 tek seferlik
+                'usd' => 34_900,    // $349 one-time
+                'eur' => 32_900,    // €329 one-time
+                'interval' => null,
+                'sort_order' => 13,
+            ],
+        ];
+
+        foreach ($proPricing as $code => $p) {
             SaasLicenseProduct::query()->updateOrCreate(
                 ['code' => $code],
                 [
-                    'name' => match ($code) {
-                        'pro-monthly' => 'Panelze Pro (Aylık)',
-                        'pro-yearly' => 'Panelze Pro (Yıllık)',
-                        'pro-lifetime' => 'Panelze Pro (Sınırsız)',
-                        default => 'Panelze Pro',
-                    },
-                    'description' => 'Panelze v'.PanelFeatureCatalog::PANEL_VERSION.' — tüm Pro modüller dahil',
+                    'name' => $p['name'],
+                    'description' => 'Panelze v'.PanelFeatureCatalog::PANEL_VERSION.' — tüm Pro modüller dahil, sunucu başına 500 siteye kadar.',
                     'default_limits' => ['max_sites' => 500],
                     'default_modules' => $proModules,
                     'is_active' => true,
-                    'sort_order' => 10 + $i,
-                    'price_try_minor' => $code === 'pro-yearly' ? 1_999_000 : ($code === 'pro-lifetime' ? 4_999_000 : 199_900),
-                    'price_usd_minor' => $code === 'pro-yearly' ? 199_000 : ($code === 'pro-lifetime' ? 499_000 : 19_900),
-                    'price_eur_minor' => $code === 'pro-yearly' ? 185_000 : ($code === 'pro-lifetime' ? 459_000 : 18_500),
-                    'billing_interval' => match ($code) {
-                        'pro-monthly' => 'month',
-                        'pro-yearly' => 'year',
-                        default => null,
-                    },
+                    'sort_order' => $p['sort_order'],
+                    'price_try_minor' => $p['try'],
+                    'price_usd_minor' => $p['usd'],
+                    'price_eur_minor' => $p['eur'],
+                    'billing_interval' => $p['interval'],
                 ]
             );
         }
+
+        // Eski tek tip "pro" ürünü artık vitrinde gösterilmesin (aylık/yıllık/ömür boyu ile değiştirildi).
+        SaasLicenseProduct::query()->where('code', 'pro')->update(['is_active' => false]);
     }
 }

@@ -14,6 +14,13 @@ class SalesCurrencyService
     {
         $c = strtoupper(trim($this->setting('billing.sales.display_currency', 'TRY')));
 
+        // auto: Türkçe locale → TRY (PayTR), diğer tüm diller → USD (Stripe) — global satış için.
+        if ($c === 'AUTO') {
+            $turkishLocales = (array) config('panelze_saas.billing.turkish_locales', ['tr']);
+
+            return in_array(app()->getLocale(), $turkishLocales, true) ? 'TRY' : 'USD';
+        }
+
         return in_array($c, ['TRY', 'USD', 'EUR'], true) ? $c : 'TRY';
     }
 

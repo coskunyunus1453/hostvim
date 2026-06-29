@@ -81,7 +81,7 @@ Route::permanentRedirect('/docs/baslangic', '/docs/getting-started');
 Route::permanentRedirect('/docs/sunucu-kurulumu', '/docs/server-setup');
 Route::permanentRedirect('/docs/panelze-mimarisi', '/docs/architecture');
 
-Route::get('/', function () {
+Route::get('/', function (\App\Services\Licensing\PricingPresenter $pricing) {
     $latestPosts = BlogPost::query()
         ->published()
         ->forLocale(app()->getLocale())
@@ -91,6 +91,7 @@ Route::get('/', function () {
 
     return view('landing.home', [
         'latestPosts' => $latestPosts,
+        'pricing' => $pricing->build(app()->getLocale()),
     ]);
 })->name('landing.home');
 
