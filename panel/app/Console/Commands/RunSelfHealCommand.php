@@ -7,6 +7,7 @@ use App\Services\EngineApiService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 
 class RunSelfHealCommand extends Command
 {
@@ -138,8 +139,49 @@ class RunSelfHealCommand extends Command
             if ($status === 'running') {
                 continue;
             }
+            // Operatör tarafından bilinçli olarak kapatılmış (systemd disabled/masked)
+            // servisleri otomatik restart etme. Örn. apache emekliye ayrılıp nginx+PHP-FPM
+            // mimarisine geçilmiş bir sunucuda apache2 disabled'dır; aksi halde her dakika
+            // başarısız restart denenir ve log "apache2/restart 500" ile dolar.
+            if (! $this->isAutoRestartAllowed($critical)) {
+                continue;
+            }
             $this->tryGuardedRestart($engine, $critical, $status);
         }
+    }
+
+    /**
+     * systemd'de disabled/masked olan servis için otomatik restart denenmemeli.
+     * Tespit edilemezse (boş/unknown) mevcut davranış korunur (true döner).
+     */
+    private function isAutoRestartAllowed(string $service): bool
+    {
+        $unit = preg_replace('/[^A-Za-z0-9@._-]/', '', $service);
+        if ($unit === '') {
+            return true;
+        }
+
+        try {
+            $p = Process::fromShellCommandline(
+                'systemctl is-enabled '.escapeshellarg($unit).' 2>/dev/null',
+                null,
+                null,
+                null,
+                10
+            );
+            $p->run();
+            $state = strtolower(trim($p->getOutput()));
+        } catch (\Throwable $e) {
+            return true;
+        }
+
+        foreach (['disabled', 'masked'] as $skip) {
+            if (str_starts_with($state, $skip)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function tryGuardedRestart(EngineApiService $engine, string $service, string $status): void

@@ -296,10 +296,14 @@ cmd_apply() {
   find "$site_root" -type f -exec chmod 664 {} +
   chmod 1777 "$site_root/tmp" 2>/dev/null || chmod 2777 "$site_root/tmp" 2>/dev/null || true
 
+  # Özel meta dizini (.panelze) Engine (www-data) tarafından yönetilir: alt alan adı
+  # ekleme, site.json güncelleme vb. yazımlar için Engine'in SAHİP olması şarttır.
+  # Kiracı (pk-*) kullanıcısı yalnızca okuyabilir (grup r-x), yazamaz; "diğerleri"
+  # hiç erişemez. setgid (2xxx) ile yeni alt dizin/dosyalar panelze-hosting grubunu miras alır.
   for priv in .panelze .panelsar .hostvim; do
     if [[ -d "$site_root/$priv" ]]; then
-      chown -R "$user:$GROUP" "$site_root/$priv"
-      chmod 750 "$site_root/$priv"
+      chown -R "$ENGINE_USER:$GROUP" "$site_root/$priv"
+      find "$site_root/$priv" -type d -exec chmod 2750 {} +
       find "$site_root/$priv" -type f -exec chmod 640 {} +
     fi
   done

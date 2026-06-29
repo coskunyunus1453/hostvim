@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 
 class MonitoringController extends Controller
 {
@@ -299,6 +300,11 @@ class MonitoringController extends Controller
         if ($canServer) {
             $serviceBy = collect($services)->keyBy(fn ($s) => strtolower((string) ($s['name'] ?? '')));
             foreach (['nginx', 'apache2'] as $svcName) {
+                // Operatörün bilinçli kapattığı (systemd disabled/masked) web sunucusunu
+                // "down" sayma; örn. apache emekliye ayrılıp nginx+PHP-FPM'e geçilmiş sunucu.
+                if (! $this->isServiceExpectedRunning($svcName)) {
+                    continue;
+                }
                 if ($serviceBy->has($svcName) && strtolower((string) ($serviceBy[$svcName]['status'] ?? '')) !== 'running') {
                     $score -= 8.0;
                     $reasons[] = [
@@ -349,6 +355,36 @@ class MonitoringController extends Controller
             'reasons' => array_slice($reasons, 0, 8),
             'server_metrics_visible' => $canServer,
         ];
+    }
+
+    /**
+     * systemd'de disabled/masked olan servis bilinçli kapatılmıştır; sağlık skorunda
+     * "down" sayılmamalı. Sonuç kısa süreli cache'lenir (her istekte süreç açmamak için).
+     */
+    private function isServiceExpectedRunning(string $service): bool
+    {
+        $unit = preg_replace('/[^A-Za-z0-9@._-]/', '', $service);
+        if ($unit === '') {
+            return true;
+        }
+
+        return (bool) Cache::remember('monitoring:svc_enabled:'.$unit, 300, function () use ($unit): bool {
+            try {
+                $p = Process::fromShellCommandline(
+                    'systemctl is-enabled '.escapeshellarg($unit).' 2>/dev/null',
+                    null,
+                    null,
+                    null,
+                    10
+                );
+                $p->run();
+                $state = strtolower(trim($p->getOutput()));
+            } catch (\Throwable $e) {
+                return true;
+            }
+
+            return ! str_starts_with($state, 'disabled') && ! str_starts_with($state, 'masked');
+        });
     }
 
     public function healthSites(Request $request): JsonResponse
