@@ -44,8 +44,19 @@ class DnsRecordController extends Controller
             $enginePreview = $this->engine->dnsList($domain->name);
         }
 
+        $subdomains = $domain->siteSubdomains()
+            ->orderBy('hostname')
+            ->get(['id', 'hostname', 'path_segment'])
+            ->map(static fn ($s) => [
+                'id' => $s->id,
+                'hostname' => $s->hostname,
+                'path_segment' => $s->path_segment,
+            ]);
+
         return response()->json([
+            'domain' => $domain->name,
             'records' => $domain->dnsRecords,
+            'subdomains' => $subdomains,
             'engine_preview' => $enginePreview,
             'bind' => [
                 'enabled' => $this->dnsSettings->bindEnabled(),

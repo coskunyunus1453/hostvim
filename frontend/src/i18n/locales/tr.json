@@ -1595,7 +1595,14 @@
     "value_required": "Değer alanı zorunludur.",
     "ttl_range_hint": "TTL 60 ile 604800 saniye arasında olmalıdır.",
     "priority_required_hint": "MX ve SRV kayıtları için öncelik zorunludur.",
-    "priority_range_hint": "Öncelik 0 ile 65535 arasında olmalıdır."
+    "priority_range_hint": "Öncelik 0 ile 65535 arasında olmalıdır.",
+    "col_hostname": "Alt alan adı",
+    "col_status": "DNS durumu",
+    "subdomains_title": "Alt alan adları (DNS)",
+    "subdomains_hint": "Bu sitenin alt alan adları parent zone içinde A kaydı olarak yönetilir. Yeni alt alan adı oluşturulduğunda kayıt otomatik eklenir; eksikse aşağıdan tek tıkla ekleyin.",
+    "subdomain_dns_ok": "Yayında → {{value}}",
+    "subdomain_dns_missing": "DNS kaydı yok",
+    "subdomain_ensure": "DNS kaydı ekle"
   },
   "ssl": {
     "subtitle": "Let's Encrypt ve özel sertifikalar",

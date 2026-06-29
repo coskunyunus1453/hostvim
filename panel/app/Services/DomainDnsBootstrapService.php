@@ -80,6 +80,88 @@ class DomainDnsBootstrapService
     }
 
     /**
+     * Tek bir alt alan adı için parent zone'da A kaydını garanti eder.
+     *
+     * @return array{created: int, skipped: int, error?: string}
+     */
+    public function ensureSubdomainDnsRecord(Domain $domain, string $hostname): array
+    {
+        if (! $this->dnsSettings->hasServerIp()) {
+            return ['created' => 0, 'skipped' => 0, 'error' => 'server_ip_not_configured'];
+        }
+
+        $ip = $this->bindDns->serverIp();
+        if ($ip === '') {
+            return ['created' => 0, 'skipped' => 0, 'error' => 'server_ip_not_configured'];
+        }
+
+        $label = $this->subdomainLabel($domain->name, $hostname);
+        if ($label === null || $label === '' || $label === '@') {
+            return ['created' => 0, 'skipped' => 0];
+        }
+
+        [$created, $skipped] = $this->applyPlannedRecord($domain, [
+            'type' => 'A',
+            'name' => $label,
+            'value' => $ip,
+            'ttl' => 3600,
+        ]);
+
+        if ($created > 0 && $this->dnsSettings->bindEnabled()) {
+            $this->bindDns->syncViaSudo();
+        }
+
+        return ['created' => $created, 'skipped' => $skipped];
+    }
+
+    /**
+     * Alt alan adı silinince parent zone'daki A kaydını/kayıtlarını temizler.
+     */
+    public function removeSubdomainDnsRecord(Domain $domain, string $hostname): void
+    {
+        $label = $this->subdomainLabel($domain->name, $hostname);
+        if ($label === null || $label === '' || $label === '@') {
+            return;
+        }
+
+        $removed = 0;
+        foreach ($domain->dnsRecords()->where('type', 'A')->where('name', $label)->get() as $record) {
+            $this->deleteRecord($domain, $record);
+            $removed++;
+        }
+
+        if ($removed > 0 && $this->dnsSettings->bindEnabled()) {
+            $this->bindDns->syncViaSudo();
+        }
+    }
+
+    /**
+     * Hostname'in parent zone'a göre etiketini döndürür (yardim.example.com → "yardim").
+     */
+    private function subdomainLabel(string $zone, string $hostname): ?string
+    {
+        $zone = strtolower(rtrim(trim($zone), '.'));
+        $host = strtolower(rtrim(trim($hostname), '.'));
+
+        if ($zone === '' || $host === '') {
+            return null;
+        }
+
+        if ($host === $zone) {
+            return '@';
+        }
+
+        $suffix = '.'.$zone;
+        if (! str_ends_with($host, $suffix)) {
+            return null;
+        }
+
+        $label = substr($host, 0, -strlen($suffix));
+
+        return $label !== '' ? $label : null;
+    }
+
+    /**
      * @return array{created: int, skipped: int, error?: string}
      */
     public function ensureDefaults(Domain $domain, bool $syncBind = true): array
@@ -155,6 +237,14 @@ class DomainDnsBootstrapService
             ['type' => 'A', 'name' => 'mail', 'value' => $ip, 'ttl' => 3600],
             ['type' => 'A', 'name' => 'webmail', 'value' => $ip, 'ttl' => 3600],
         ];
+
+        $domain->loadMissing('siteSubdomains');
+        foreach ($domain->siteSubdomains as $sub) {
+            $label = $this->subdomainLabel($zone, (string) $sub->hostname);
+            if ($label !== null && $label !== '' && $label !== '@') {
+                $records[] = ['type' => 'A', 'name' => $label, 'value' => $ip, 'ttl' => 3600];
+            }
+        }
 
         if ($this->dnsSettings->isConfigured()) {
             [$ns1, $ns2] = $this->bindDns->nameServers();

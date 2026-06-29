@@ -1594,7 +1594,14 @@
     "value_required": "Value is required.",
     "ttl_range_hint": "TTL must be between 60 and 604800 seconds.",
     "priority_required_hint": "Priority is required for MX and SRV records.",
-    "priority_range_hint": "Priority must be between 0 and 65535."
+    "priority_range_hint": "Priority must be between 0 and 65535.",
+    "col_hostname": "Subdomain",
+    "col_status": "DNS status",
+    "subdomains_title": "Subdomains (DNS)",
+    "subdomains_hint": "Subdomains of this site are managed as A records inside the parent zone. A record is created automatically when a subdomain is added; if missing, add it below in one click.",
+    "subdomain_dns_ok": "Live → {{value}}",
+    "subdomain_dns_missing": "No DNS record",
+    "subdomain_ensure": "Add DNS record"
   },
   "ssl": {
     "subtitle": "Let's Encrypt and custom certificates",

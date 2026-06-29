@@ -24,8 +24,20 @@ const DNS_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'CAA', 'SRV'] as con
 const TTL_MIN = 60
 const TTL_MAX = 604800
 
+type SubRow = { id: number; hostname: string; path_segment: string }
+
 function needsPriority(type: string): boolean {
   return type === 'MX' || type === 'SRV'
+}
+
+/** Hostname'i parent zone etiketine indirger: yardim.example.com → "yardim". */
+function subdomainLabel(hostname: string, domainName: string): string {
+  const h = (hostname || '').toLowerCase().replace(/\.$/, '')
+  const z = (domainName || '').toLowerCase().replace(/\.$/, '')
+  if (!h || !z) return h
+  if (h === z) return '@'
+  const suffix = `.${z}`
+  return h.endsWith(suffix) ? h.slice(0, -suffix.length) : h
 }
 
 function warnBindSync(bind: BindSyncResult | undefined, t: (k: string) => string) {
@@ -126,10 +138,23 @@ export default function DnsPage() {
   }
 
   const records: DnsRow[] = recordsQ.data?.records ?? []
+  const subdomains: SubRow[] = recordsQ.data?.subdomains ?? []
+  const domainName: string = recordsQ.data?.domain ?? ''
   const bindInfo = recordsQ.data?.bind as
     | { enabled?: boolean; ns?: [string, string]; server_ip?: string }
     | undefined
+  const serverIp = bindInfo?.server_ip ?? ''
   const nsList = Array.isArray(bindInfo?.ns) ? bindInfo.ns.filter(Boolean) : []
+
+  const ensureSubdomainDns = (hostname: string) => {
+    const label = subdomainLabel(hostname, domainName)
+    if (!label || label === '@') return
+    if (!serverIp) {
+      toast.error(t('dns.bootstrap_error_server_ip'))
+      return
+    }
+    createM.mutate({ type: 'A', name: label, value: serverIp, ttl: 3600 })
+  }
 
   const handleBootstrap = () => {
     if (!window.confirm(t('dns.bootstrap_confirm'))) return
@@ -452,6 +477,73 @@ export default function DnsPage() {
           <p className="p-6 text-center text-gray-500">{t('common.no_data')}</p>
         )}
       </div>
+
+      {domainId && !recordsQ.isLoading && !recordsQ.isError && subdomains.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {t('dns.subdomains_title')}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {t('dns.subdomains_hint')}
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800/80">
+              <tr>
+                <th className="text-left px-4 py-2">{t('dns.col_hostname')}</th>
+                <th className="text-left px-4 py-2">{t('dns.col_name')}</th>
+                <th className="text-left px-4 py-2">{t('dns.col_status')}</th>
+                {canWrite && <th className="text-right px-4 py-2">{t('common.actions')}</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {subdomains.map((s) => {
+                const label = subdomainLabel(s.hostname, domainName)
+                const rec = records.find((r) => r.type === 'A' && r.name === label)
+                return (
+                  <tr key={s.id} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="px-4 py-2 font-mono break-all">{s.hostname}</td>
+                    <td className="px-4 py-2 font-mono">{label}</td>
+                    <td className="px-4 py-2">
+                      {rec ? (
+                        <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400">
+                          <span className="h-2 w-2 rounded-full bg-green-500" />
+                          {t('dns.subdomain_dns_ok', { value: rec.value })}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                          <span className="h-2 w-2 rounded-full bg-amber-500" />
+                          {t('dns.subdomain_dns_missing')}
+                        </span>
+                      )}
+                    </td>
+                    {canWrite && (
+                      <td className="px-4 py-2 text-right">
+                        {!rec && (
+                          <button
+                            type="button"
+                            className="btn-secondary text-xs inline-flex items-center gap-1"
+                            disabled={createM.isPending}
+                            onClick={() => ensureSubdomainDns(s.hostname)}
+                          >
+                            {createM.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Plus className="h-3.5 w-3.5" />
+                            )}
+                            {t('dns.subdomain_ensure')}
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {isAdmin &&
         domainId &&

@@ -12,6 +12,7 @@ class SubdomainService
         private EngineApiService $engine,
         private HostnameReservationService $hostnames,
         private HostingQuotaService $quota,
+        private DomainDnsBootstrapService $dnsBootstrap,
     ) {}
 
     /**
@@ -57,7 +58,7 @@ class SubdomainService
         }
 
         try {
-            return SiteSubdomain::create([
+            $subdomain = SiteSubdomain::create([
                 'domain_id' => $site->id,
                 'hostname' => $hostname,
                 'path_segment' => $pathSegment,
@@ -73,6 +74,15 @@ class SubdomainService
                 'hostname' => [__('sites.subdomain_db_rollback')],
             ]);
         }
+
+        // DNS A kaydını parent zone'a ekle (best-effort; BIND/IP yoksa subdomain yine kurulur).
+        try {
+            $this->dnsBootstrap->ensureSubdomainDnsRecord($site, $hostname);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $subdomain;
     }
 
     public function remove(Domain $site, string $pathSegment): void
@@ -92,7 +102,15 @@ class SubdomainService
             ]);
         }
 
+        $hostname = (string) $sub->hostname;
         $sub->delete();
+
+        // Parent zone'daki A kaydını temizle (best-effort).
+        try {
+            $this->dnsBootstrap->removeSubdomainDnsRecord($site, $hostname);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**
