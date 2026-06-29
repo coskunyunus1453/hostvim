@@ -90,6 +90,6 @@ class PanelStoredLicenseService
             return str_repeat('*', strlen($key));
         }
 
-        return substr($key, 0, 4).str_repeat('*', max(4, strlen($key) - 8)).substr($key, -4);
+        return substr($key, 0, 4).'****'.substr($key, -4);
     }
 }

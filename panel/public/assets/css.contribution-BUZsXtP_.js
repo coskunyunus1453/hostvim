@@ -1,1 +1,0 @@
-import{$ as s}from"./index-ZeDNK-Zy.js";import{r as e}from"./_.contribution-B157lprA.js";e({id:"css",extensions:[".css"],aliases:["CSS","css"],mimetypes:["text/css"],loader:()=>s(()=>import("./css-B2GD-5ap.js"),[])});

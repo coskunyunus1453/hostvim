@@ -107,7 +107,7 @@ export default function AdminLicensePage() {
             {statusQ.data?.key_preview ? (
               <li>
                 <strong className="text-gray-900 dark:text-white">{t('license.key_preview')}:</strong>{' '}
-                <span className="font-mono">{statusQ.data.key_preview}</span>
+                <span className="font-mono break-all">{statusQ.data.key_preview}</span>
               </li>
             ) : null}
             <li>
