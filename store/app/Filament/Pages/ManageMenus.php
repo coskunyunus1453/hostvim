@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\Models\Page;
-use App\Models\SiteSetting;
 use App\Services\CacheService;
 use App\Support\NavIcons;
 use BackedEnum;
@@ -50,10 +49,7 @@ class ManageMenus extends FilamentPage
         $this->form->fill([
             'header_items' => $this->loadMenuItems('header'),
             'footer_items' => $this->loadMenuItems('footer'),
-            'nav_services_mega_title' => SiteSetting::where('key', 'nav_services_mega_title')->value('value') ?? '',
-            'nav_services_mega_text' => SiteSetting::where('key', 'nav_services_mega_text')->value('value') ?? '',
-            'nav_services_mega_cta_label' => SiteSetting::where('key', 'nav_services_mega_cta_label')->value('value') ?? '',
-            'nav_services_mega_cta_url' => SiteSetting::where('key', 'nav_services_mega_cta_url')->value('value') ?? '/urunler',
+            'footer_bottom_items' => $this->loadMenuItems('footer_bottom'),
         ]);
     }
 
@@ -71,16 +67,8 @@ class ManageMenus extends FilamentPage
                         ->label('Üst Menü (Header)')
                         ->icon(Heroicon::OutlinedArrowUp)
                         ->schema([
-                            Section::make('Hizmetler mega menü (sabit)')
-                                ->description('Üst menüdeki "Hizmetler" açılır menüsünün sağ bilgi paneli. Kategoriler otomatik listelenir.')
-                                ->schema([
-                                    TextInput::make('nav_services_mega_title')->label('Bilgi paneli başlık')->maxLength(120),
-                                    Textarea::make('nav_services_mega_text')->label('Bilgi paneli metin')->rows(3)->columnSpanFull(),
-                                    TextInput::make('nav_services_mega_cta_label')->label('CTA buton metni')->maxLength(80),
-                                    TextInput::make('nav_services_mega_cta_url')->label('CTA URL')->placeholder('/urunler'),
-                                ])->columns(2)->collapsed(),
                             Section::make('Üst menü öğeleri')
-                                ->description('Alt menü, mega menü veya geniş mega menü ekleyebilirsiniz. Sürükleyerek sıralayın.')
+                                ->description('Üst menüde görünen tüm bağlantılar. Tek bağlantı, klasik alt menü, mega menü veya geniş mega menü ekleyebilirsiniz. Sürükleyerek sıralayın.')
                                 ->schema([
                                     $this->menuRepeater('header_items'),
                                 ]),
@@ -89,10 +77,20 @@ class ManageMenus extends FilamentPage
                         ->label('Alt Menü (Footer)')
                         ->icon(Heroicon::OutlinedArrowDown)
                         ->schema([
-                            Section::make('Alt menü öğeleri')
-                                ->description('Footer bölümündeki "Kurumsal" alanında listelenir. Sürükleyerek sıralayın.')
+                            Section::make('Footer sütunları')
+                                ->description('Her sütun bir başlık ve altındaki bağlantılardan oluşur (ör. Hizmetler, Kurumsal, Yasal). Marka/iletişim sütunu ayarlardan gelir. Sürükleyerek sıralayın.')
                                 ->schema([
-                                    $this->menuRepeater('footer_items'),
+                                    $this->footerColumnRepeater('footer_items'),
+                                ]),
+                        ]),
+                    Tab::make('footer_bottom')
+                        ->label('Alt Bilgi Şeridi')
+                        ->icon(Heroicon::OutlinedMinus)
+                        ->schema([
+                            Section::make('Footer alt şerit bağlantıları')
+                                ->description('Footer en altında, telif hakkı satırının yanında görünen kısa bağlantılar (ör. Gizlilik, KVKK, Çerez).')
+                                ->schema([
+                                    $this->flatLinkRepeater('footer_bottom_items'),
                                 ]),
                         ]),
                 ])
@@ -123,18 +121,7 @@ class ManageMenus extends FilamentPage
 
         $this->syncMenu('header', 'Üst Menü', $data['header_items'] ?? []);
         $this->syncMenu('footer', 'Alt Menü', $data['footer_items'] ?? []);
-
-        foreach ([
-            'nav_services_mega_title' => $data['nav_services_mega_title'] ?? '',
-            'nav_services_mega_text' => $data['nav_services_mega_text'] ?? '',
-            'nav_services_mega_cta_label' => $data['nav_services_mega_cta_label'] ?? '',
-            'nav_services_mega_cta_url' => $data['nav_services_mega_cta_url'] ?? '/urunler',
-        ] as $key => $value) {
-            SiteSetting::updateOrCreate(
-                ['key' => $key],
-                ['group' => 'nav', 'value' => (string) $value, 'type' => 'text', 'label' => $key]
-            );
-        }
+        $this->syncMenu('footer_bottom', 'Alt Bilgi Şeridi', $data['footer_bottom_items'] ?? []);
 
         $cache = app(\App\Services\CacheInvalidator::class);
         $cache->forMenusSaved();
@@ -155,6 +142,56 @@ class ManageMenus extends FilamentPage
             ->cloneable()
             ->itemLabel(fn (array $state): ?string => $state['label'] ?? 'Yeni menü öğesi')
             ->addActionLabel('Menü öğesi ekle')
+            ->defaultItems(0)
+            ->columnSpanFull();
+    }
+
+    protected function footerColumnRepeater(string $name): Repeater
+    {
+        return Repeater::make($name)
+            ->label('Sütunlar')
+            ->schema([
+                Hidden::make('id'),
+                TextInput::make('label')
+                    ->label('Sütun başlığı')
+                    ->required()
+                    ->maxLength(120)
+                    ->columnSpan(3),
+                Toggle::make('is_active')
+                    ->label('Aktif')
+                    ->default(true)
+                    ->columnSpan(1),
+                Repeater::make('children')
+                    ->label('Bağlantılar')
+                    ->schema($this->menuItemFields(false))
+                    ->reorderableWithDragAndDrop()
+                    ->collapsible()
+                    ->cloneable()
+                    ->itemLabel(fn (array $state): ?string => $state['label'] ?? 'Bağlantı')
+                    ->addActionLabel('Bağlantı ekle')
+                    ->defaultItems(0)
+                    ->columnSpanFull(),
+            ])
+            ->columns(4)
+            ->reorderableWithDragAndDrop()
+            ->collapsible()
+            ->cloneable()
+            ->itemLabel(fn (array $state): ?string => $state['label'] ?? 'Yeni sütun')
+            ->addActionLabel('Sütun ekle')
+            ->defaultItems(0)
+            ->columnSpanFull();
+    }
+
+    protected function flatLinkRepeater(string $name): Repeater
+    {
+        return Repeater::make($name)
+            ->label('Bağlantılar')
+            ->schema($this->menuItemFields(false))
+            ->reorderableWithDragAndDrop()
+            ->collapsible()
+            ->cloneable()
+            ->itemLabel(fn (array $state): ?string => $state['label'] ?? 'Bağlantı')
+            ->addActionLabel('Bağlantı ekle')
             ->defaultItems(0)
             ->columnSpanFull();
     }

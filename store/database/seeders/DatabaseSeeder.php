@@ -8,7 +8,6 @@ use App\Models\Campaign;
 use App\Models\Faq;
 use App\Models\Feature;
 use App\Models\HeroSection;
-use App\Models\Menu;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -105,28 +104,6 @@ class DatabaseSeeder extends Seeder
 
         foreach ($settings as $setting) {
             SiteSetting::updateOrCreate(['key' => $setting['key']], $setting);
-        }
-
-        Menu::updateOrCreate(['location' => 'header'], ['name' => 'Üst Menü']);
-        Menu::updateOrCreate(['location' => 'footer'], ['name' => 'Alt Menü']);
-
-        $headerMenu = Menu::where('location', 'header')->first();
-        $footerMenu = Menu::where('location', 'footer')->first();
-
-        if ($headerMenu && $headerMenu->items()->count() === 0) {
-            $headerMenu->items()->createMany([
-                ['label' => 'Domain', 'url' => '/domain', 'sort_order' => 0, 'is_active' => true],
-                ['label' => 'SSS', 'url' => '/sayfa/sss', 'sort_order' => 1, 'is_active' => true],
-                ['label' => 'Hakkımızda', 'url' => '/sayfa/hakkimizda', 'sort_order' => 2, 'is_active' => true],
-            ]);
-        }
-
-        if ($footerMenu && $footerMenu->items()->count() === 0) {
-            $footerMenu->items()->createMany([
-                ['label' => 'Gizlilik Politikası', 'url' => '/sayfa/gizlilik', 'sort_order' => 0, 'is_active' => true],
-                ['label' => 'Kullanım Şartları', 'url' => '/sayfa/kullanim-sartlari', 'sort_order' => 1, 'is_active' => true],
-                ['label' => 'KVKK', 'url' => '/sayfa/kvkk', 'sort_order' => 2, 'is_active' => true],
-            ]);
         }
 
         HeroSection::updateOrCreate(['page' => 'home'], [
@@ -345,5 +322,9 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(StoreLegalPagesSeeder::class);
+
+        // Menüler yasal/kurumsal sayfalar oluşturulduktan sonra seed edilir
+        // (sayfa bağlantıları page_id ile çözülebilsin diye).
+        $this->call(MenuSeeder::class);
     }
 }

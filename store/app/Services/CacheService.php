@@ -106,6 +106,7 @@ class CacheService
     {
         Cache::forget('layout:header_menu');
         Cache::forget('layout:footer_menu');
+        Cache::forget('layout:footer_bottom_menu');
     }
 
     public function clearLayoutCategories(): void

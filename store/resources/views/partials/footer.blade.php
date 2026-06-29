@@ -1,23 +1,8 @@
 @php
     $footerStyle = $themeFooterStyle ?? 'default';
     $footerClass = 'border-t border-hv-border hv-footer-' . $footerStyle;
-
-    // Gerçek yasal sayfalar (StoreLegalPagesSeeder ile senkron)
-    $legalLinks = [
-        ['slug' => 'gizlilik', 'label' => 'Gizlilik Politikası'],
-        ['slug' => 'kvkk', 'label' => 'KVKK Aydınlatma Metni'],
-        ['slug' => 'cerez-politikasi', 'label' => 'Çerez Politikası'],
-        ['slug' => 'kullanim-sartlari', 'label' => 'Kullanım Şartları'],
-        ['slug' => 'mesafeli-satis-sozlesmesi', 'label' => 'Mesafeli Satış Sözleşmesi'],
-        ['slug' => 'iade-iptal-ve-cayma-politikasi', 'label' => 'İade, İptal ve Cayma'],
-    ];
-    $bottomLegal = [
-        ['slug' => 'gizlilik', 'label' => 'Gizlilik'],
-        ['slug' => 'kvkk', 'label' => 'KVKK'],
-        ['slug' => 'cerez-politikasi', 'label' => 'Çerez'],
-        ['slug' => 'kullanim-sartlari', 'label' => 'Kullanım Şartları'],
-        ['slug' => 'mesafeli-satis-sozlesmesi', 'label' => 'Mesafeli Satış'],
-    ];
+    $footerColumns = $footerMenu ? $footerMenu->activeRootItems : collect();
+    $footerBottomItems = $footerBottomMenu ? $footerBottomMenu->activeItems : collect();
 @endphp
 <footer class="{{ $footerClass }}">
     @if($footerStyle === 'minimal')
@@ -25,15 +10,13 @@
             <div class="flex items-center gap-2">
                 @include('partials.site-logo', ['height' => $siteLogoFooterHeight ?? 32, 'nameClass' => 'text-sm font-bold'])
             </div>
-            <div class="flex flex-wrap justify-center gap-x-5 gap-y-2">
-                <a href="{{ route('pages.show', 'hakkimizda') }}" class="hover:text-hv-primary">Hakkımızda</a>
-                <a href="{{ route('domain.index') }}" class="hover:text-hv-primary">Domain</a>
-                <a href="{{ route('blog.index') }}" class="hover:text-hv-primary">Blog</a>
-                <a href="{{ route('contact.index') }}" class="hover:text-hv-primary">İletişim</a>
-                @foreach($bottomLegal as $l)
-                    <a href="{{ route('pages.show', $l['slug']) }}" class="hover:text-hv-primary">{{ $l['label'] }}</a>
-                @endforeach
-            </div>
+            @if($footerBottomItems->isNotEmpty())
+                <div class="flex flex-wrap justify-center gap-x-5 gap-y-2">
+                    @foreach($footerBottomItems as $l)
+                        <a href="{{ $l->href }}" class="hover:text-hv-primary" target="{{ $l->safe_target }}" @if($l->safe_target === '_blank') rel="noopener noreferrer" @endif>{{ $l->label }}</a>
+                    @endforeach
+                </div>
+            @endif
             <p>&copy; {{ date('Y') }} {{ $siteName }}. Tüm hakları saklıdır.</p>
         </div>
     @else
@@ -69,55 +52,42 @@
                     </div>
                 </div>
 
-                {{-- Hizmetler --}}
-                <div class="lg:col-span-2">
-                    <h4 class="font-semibold text-hv-text">Hizmetler</h4>
-                    <ul class="mt-4 space-y-2.5 text-sm text-hv-muted">
-                        <li><a href="{{ route('hosting.index') }}" class="hover:text-hv-primary">Web Hosting</a></li>
-                        <li><a href="{{ route('cloud.index') }}" class="hover:text-hv-primary">Bulut Sunucu (VPS)</a></li>
-                        <li><a href="{{ route('products.category', 'vds') }}" class="hover:text-hv-primary">VDS Sunucu</a></li>
-                        <li><a href="{{ route('products.category', 'dedicated') }}" class="hover:text-hv-primary">Dedicated Sunucu</a></li>
-                        <li><a href="{{ route('domain.index') }}" class="hover:text-hv-primary">Domain Sorgulama</a></li>
-                    </ul>
-                </div>
-
-                {{-- Kurumsal --}}
-                <div class="lg:col-span-3">
-                    <h4 class="font-semibold text-hv-text">Kurumsal</h4>
-                    <ul class="mt-4 space-y-2.5 text-sm text-hv-muted">
-                        <li><a href="{{ route('pages.show', 'hakkimizda') }}" class="hover:text-hv-primary">Hakkımızda</a></li>
-                        <li><a href="{{ route('blog.index') }}" class="hover:text-hv-primary">Blog</a></li>
-                        <li><a href="{{ route('pages.show', 'sss') }}" class="hover:text-hv-primary">Sıkça Sorulan Sorular</a></li>
-                        <li><a href="{{ route('contact.index') }}" class="hover:text-hv-primary">İletişim & Destek</a></li>
-                        @if($panelLoginUrl && $panelLoginUrl !== '/login')
-                            <li><a href="{{ $panelLoginUrl }}" class="hover:text-hv-primary" target="_blank" rel="noopener noreferrer">Müşteri Paneli</a></li>
-                        @endif
-                        @if($footerMenu)
-                            @foreach($footerMenu->activeItems as $item)
-                                <li><a href="{{ $item->href }}" class="hover:text-hv-primary" target="{{ $item->safe_target }}" @if($item->safe_target === '_blank') rel="noopener noreferrer" @endif>{{ $item->label }}</a></li>
+                {{-- Admin'den yönetilen footer sütunları --}}
+                @if($footerColumns->isNotEmpty())
+                    <div class="lg:col-span-8">
+                        <div class="grid grid-cols-2 gap-8 sm:grid-cols-3">
+                            @foreach($footerColumns as $column)
+                                <div>
+                                    <h4 class="font-semibold text-hv-text">
+                                        @if($column->href !== '#')
+                                            <a href="{{ $column->href }}" class="hover:text-hv-primary" target="{{ $column->safe_target }}" @if($column->safe_target === '_blank') rel="noopener noreferrer" @endif>{{ $column->label }}</a>
+                                        @else
+                                            {{ $column->label }}
+                                        @endif
+                                    </h4>
+                                    @if($column->activeChildren->isNotEmpty())
+                                        <ul class="mt-4 space-y-2.5 text-sm text-hv-muted">
+                                            @foreach($column->activeChildren as $link)
+                                                <li><a href="{{ $link->href }}" class="hover:text-hv-primary" target="{{ $link->safe_target }}" @if($link->safe_target === '_blank') rel="noopener noreferrer" @endif>{{ $link->label }}</a></li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </div>
                             @endforeach
-                        @endif
-                    </ul>
-                </div>
-
-                {{-- Yasal --}}
-                <div class="lg:col-span-3">
-                    <h4 class="font-semibold text-hv-text">Yasal</h4>
-                    <ul class="mt-4 space-y-2.5 text-sm text-hv-muted">
-                        @foreach($legalLinks as $l)
-                            <li><a href="{{ route('pages.show', $l['slug']) }}" class="hover:text-hv-primary">{{ $l['label'] }}</a></li>
-                        @endforeach
-                    </ul>
-                </div>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="mt-12 flex flex-col gap-4 border-t border-hv-border pt-8 text-sm text-hv-muted md:flex-row md:items-center md:justify-between">
                 <p>&copy; {{ date('Y') }} {{ $siteName }}. Tüm hakları saklıdır.</p>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    @foreach($bottomLegal as $l)
-                        <a href="{{ route('pages.show', $l['slug']) }}" class="hover:text-hv-primary">{{ $l['label'] }}</a>
-                    @endforeach
-                </div>
+                @if($footerBottomItems->isNotEmpty())
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        @foreach($footerBottomItems as $l)
+                            <a href="{{ $l->href }}" class="hover:text-hv-primary" target="{{ $l->safe_target }}" @if($l->safe_target === '_blank') rel="noopener noreferrer" @endif>{{ $l->label }}</a>
+                        @endforeach
+                    </div>
+                @endif
                 @if($themeFooterShowStats ?? true)
                     <div class="flex gap-4">
                         <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-hv-secondary"></span> 7/24 Destek</span>
