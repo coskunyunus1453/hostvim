@@ -17,7 +17,33 @@ class SitePageController extends Controller
             ->where('slug', 'setup')
             ->firstOrFail();
 
-        return $this->renderPage($page);
+        $brand = landing_p('brand.name');
+        $locale = (string) $page->locale;
+        $canonical = $page->seoCanonicalAbsoluteUrl();
+        $ogImage = $page->ogImageAbsolute();
+
+        $schema = SchemaBuilder::graph([
+            SchemaBuilder::webPageSimple(
+                $page->effectiveMetaTitle(),
+                $canonical,
+                $page->effectiveMetaDescription(),
+                $brand,
+                $ogImage
+            ),
+            SchemaBuilder::breadcrumbList([
+                ['name' => $brand, 'url' => landing_home_localized_url($locale)],
+                ['name' => $page->title, 'url' => $canonical],
+            ]),
+        ]);
+
+        return view('site.setup', [
+            'page' => $page,
+            'seoCanonical' => $canonical,
+            'seoDescription' => $page->effectiveMetaDescription(),
+            'seoOgImage' => $ogImage,
+            'seoRobots' => $page->robots,
+            'seoSchema' => SchemaBuilder::encode($schema),
+        ]);
     }
 
     public function show(string $slug): View
