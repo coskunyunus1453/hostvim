@@ -108,11 +108,11 @@
             <div class="grid gap-5 sm:grid-cols-3">
                 @php
                     $speed = $tr ? [
-                        ['rocket', 'Dakikalar içinde yayında', 'Tek satır kurulum (get.panelze.sh) ile boş Debian/Ubuntu sunucuya web sunucusu, PHP, veritabanı ve panel tek seferde gelir.'],
+                        ['rocket', 'Dakikalar içinde yayında', 'Tek satır kurulum (get.panelze.com) ile boş Debian/Ubuntu sunucuya web sunucusu, PHP, veritabanı ve panel tek seferde gelir.'],
                         ['cpu', 'Go tabanlı motor', 'Vhost, TLS, DNS ve dosya işlemleri düşük RAM ve gecikmeyle uygulanır; panel Laravel 11 + React, motor loopback üzerinde çalışır.'],
                         ['layers', 'Performans için optimize', 'Nginx / Apache / OpenLiteSpeed + LiteSpeed cache, PHP-FPM havuzları, OPcache ve HTTP/2 ile hızlı sayfa yanıtları.'],
                     ] : [
-                        ['rocket', 'Live in minutes', 'A single-line install (get.panelze.sh) brings the web server, PHP, database and panel to a fresh Debian/Ubuntu box in one go.'],
+                        ['rocket', 'Live in minutes', 'A single-line install (get.panelze.com) brings the web server, PHP, database and panel to a fresh Debian/Ubuntu box in one go.'],
                         ['cpu', 'Go-based engine', 'Vhosts, TLS, DNS and file ops apply with low RAM and latency; the panel is Laravel 11 + React, the engine runs on loopback.'],
                         ['layers', 'Tuned for performance', 'Nginx / Apache / OpenLiteSpeed + LiteSpeed cache, PHP-FPM pools, OPcache and HTTP/2 for fast page responses.'],
                     ];

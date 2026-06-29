@@ -136,7 +136,7 @@ BASH;
                 [
                     'label' => 'One-liner (recommended)',
                     'command' => self::oneLiner(),
-                    'note' => 'Runs on Debian/Ubuntu as root or sudo. Equivalent to the Community installer via get.panelze.sh.',
+                    'note' => 'Runs on Debian/Ubuntu as root or sudo. Equivalent to the Community installer via get.panelze.com.',
                 ],
                 [
                     'label' => 'Community (Freemium hosting panel)',
@@ -205,7 +205,7 @@ BASH,
             [
                 'label' => 'Tek satır (önerilen)',
                 'command' => self::oneLiner(),
-                'note' => 'Debian/Ubuntu sunucuda root veya sudo ile çalıştırın. get.panelze.sh → Community kurulum betiğini çağırır.',
+                'note' => 'Debian/Ubuntu sunucuda root veya sudo ile çalıştırın. get.panelze.com → Community kurulum betiğini çağırır.',
             ],
             [
                 'label' => 'Community (Freemium barındırma paneli)',

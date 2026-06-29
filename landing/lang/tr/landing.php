@@ -127,7 +127,7 @@ return [
         'faq2_q' => 'Pro lisans nasıl doğrulanır?',
         'faq2_a' => 'Panel, Panelze lisans hub’ına (panelze.com) güvenli API ile bağlanır. Anahtarınızı Yönetim → Lisans ekranından girin; plandaki modüller validate yanıtında döner.',
         'faq3_q' => 'Community ve Pro aynı kurulum mu?',
-        'faq3_a' => 'Evet. İkisi de get.panelze.sh üzerinden aynı paketi kurar. Pro yalnızca lisans anahtarı ve hub’ın açtığı modüllerle farklılaşır (varsayılan Pro: phpMyAdmin SSO + security_pro).',
+        'faq3_a' => 'Evet. İkisi de get.panelze.com üzerinden aynı paketi kurar. Pro yalnızca lisans anahtarı ve hub’ın açtığı modüllerle farklılaşır (varsayılan Pro: phpMyAdmin SSO + security_pro).',
     ],
 
     'docs' => [

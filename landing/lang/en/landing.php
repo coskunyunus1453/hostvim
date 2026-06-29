@@ -127,7 +127,7 @@ return [
         'faq2_q' => 'How is the Pro license verified?',
         'faq2_a' => 'The panel calls the Panelze license hub (panelze.com) over a secure API. Enter your key in Admin → License; modules in your plan are returned in the validate response.',
         'faq3_q' => 'Community and Pro — same installer?',
-        'faq3_a' => 'Yes. Both use the same package via get.panelze.sh. Pro only differs by license key and which modules the hub enables (phpMyAdmin SSO and security_pro are default Pro modules).',
+        'faq3_a' => 'Yes. Both use the same package via get.panelze.com. Pro only differs by license key and which modules the hub enables (phpMyAdmin SSO and security_pro are default Pro modules).',
     ],
 
     'docs' => [
