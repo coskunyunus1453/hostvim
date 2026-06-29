@@ -73,33 +73,117 @@ ensure_fpm_writable() {
   done
 }
 
-# write-pool <version> <domain> — stdin'den PHP-FPM pool içeriğini alır; root olarak
-# yazar, `php-fpm -t` test eder, reload eder ve soketin oluştuğunu doğrular.
+# prune_caged_pool_dups <version>
+# Paylaşımlı master'ı reload etmeden ÖNCE: per-site cage-service'i olan sitelerin
+# paylaşımlı pool.d kopyalarını kaldırır. Aksi halde paylaşımlı master, per-site
+# servisin zaten dinlediği soketi bağlamaya çalışır, "Another FPM instance ..." ile
+# çöker (exit 78) ve TÜM paylaşımlı siteler (ör. panel landing) 502 olur.
+# Bu, tek-yöntem garantisinin güvenlik ağıdır: bir site ya per-site servis ya paylaşımlı.
+prune_caged_pool_dups() {
+  local ver="${1:-}" dir f base slug svc removed=0
+  [[ -n "$ver" ]] || return 0
+  dir="/etc/php/${ver}/fpm/pool.d"
+  [[ -d "$dir" ]] || return 0
+  shopt -s nullglob
+  for f in "$dir"/panelze-*.conf; do
+    base="$(basename "$f" .conf)"   # panelze-<slug>
+    slug="${base#panelze-}"
+    svc="panelze-fpm-${slug}.service"
+    if [[ -f "/etc/systemd/system/${svc}" ]] || systemctl is-active --quiet "$svc" 2>/dev/null; then
+      rm -f "$f" && removed=1
+    fi
+  done
+  shopt -u nullglob
+  return 0
+}
+
+# write-pool <version> <domain> — stdin'den PHP-FPM pool içeriğini alır.
+# TEK-YÖNTEM kuralı: bir site ya per-site cage-service ile ya paylaşımlı master ile sunulur.
+#  - Site zaten per-site cage-service ise (panelze-fpm-<slug>.service / per-site conf var):
+#    pool /etc/panelze/fpm/<slug>.conf'a yazılır, o servis reload edilir; paylaşımlı pool.d'ye
+#    KOPYA bırakılmaz (varsa silinir). Böylece paylaşımlı master soket çakışmasıyla çökmez.
+#  - Aksi halde (yeni site, henüz cage-service yok): paylaşımlı pool.d'ye yazılır, test edilir,
+#    paylaşımlı master reload edilir (sonradan engine cage-service ile per-site'a taşır).
 # Başarıda son satırda "OK <socket>" döner; başarısızlıkta eski içeriği geri yükler.
 cmd_write_pool() {
   local ver="${1:-}" domain="${2:-}"
   [[ -n "$ver" && -n "$domain" ]] || usage
   ensure_fpm_writable
-  local slug pool_dir conf sock prev had_prev
+  local slug sock body
   slug="$(slug_from_domain "$domain")"
+  sock="/run/php/panelze-${slug}.sock"
+  # stdin tek seferde okunur (her iki yolda da kullanılacak)
+  body="$(cat)"
+  if [[ -z "${body//[[:space:]]/}" ]]; then echo "bos pool icerigi" >&2; exit 1; fi
+
+  local svc="panelze-fpm-${slug}"
+  local unit="/etc/systemd/system/${svc}.service"
+  local persite_conf="/etc/panelze/fpm/${slug}.conf"
+
+  # ---- CASE A: per-site cage-service var → per-site config + per-site reload ----
+  if [[ -f "$unit" || -f "$persite_conf" ]]; then
+    local pidfile="/run/php/panelze-fpm-${slug}.pid"
+    local logfile="/var/log/panelze-fpm-${slug}.log"
+    local prev="" had_prev="0" pool_body
+    # gelen body sadece [pool] bölümüdür; olası [global] satırlarını ayıkla, taze [global] ekle
+    pool_body="$(printf '%s\n' "$body" | sed '/^\[global\]/,/^\[/{/^\[global\]/d;/^pid =/d;/^error_log =/d;/^daemonize =/d;}')"
+    mkdir -p /etc/panelze/fpm
+    if [[ -f "$persite_conf" ]]; then prev="$(cat "$persite_conf")"; had_prev="1"; fi
+    {
+      echo "[global]"
+      echo "pid = ${pidfile}"
+      echo "error_log = ${logfile}"
+      echo "daemonize = no"
+      echo ""
+      printf '%s\n' "$pool_body"
+    } > "${persite_conf}.tmp"
+    mv "${persite_conf}.tmp" "$persite_conf"
+    if ! php-fpm${ver} -t -y "$persite_conf" >/dev/null 2>&1; then
+      if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$persite_conf"; fi
+      echo "per-site fpm config testi basarisiz: $persite_conf" >&2; exit 1
+    fi
+    # Paylaşımlı pool.d'de bu site için kopya varsa TÜM sürümlerden kaldır (çakışma önlenir)
+    local d ov
+    shopt -s nullglob
+    for d in /etc/php/*/fpm/pool.d/panelze-${slug}.conf; do
+      ov="$(echo "$d" | sed -E 's#/etc/php/([0-9.]+)/.*#\1#')"
+      rm -f "$d"
+      systemctl reload "php${ov}-fpm" 2>/dev/null || true
+    done
+    shopt -u nullglob
+    systemctl daemon-reload 2>/dev/null || true
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+      systemctl reload "$svc" 2>/dev/null || systemctl restart "$svc" 2>/dev/null || { echo "per-site reload basarisiz: $svc" >&2; exit 1; }
+    else
+      systemctl enable "$svc" >/dev/null 2>&1 || true
+      systemctl restart "$svc" 2>/dev/null || { echo "per-site servis baslatilamadi: $svc" >&2; exit 1; }
+    fi
+    local i
+    for i in $(seq 1 24); do [[ -S "$sock" ]] && break; sleep 0.25; done
+    if [[ ! -S "$sock" ]]; then echo "per-site soket olusmadi: $sock" >&2; exit 1; fi
+    echo "OK $sock"
+    return 0
+  fi
+
+  # ---- CASE B: paylaşımlı pool.d (henüz per-site servis yok) ----
+  local pool_dir conf prev had_prev
   pool_dir="/etc/php/${ver}/fpm/pool.d"
   [[ -d "$pool_dir" ]] || { echo "pool.d yok: $pool_dir" >&2; exit 1; }
   conf="${pool_dir}/panelze-${slug}.conf"
-  sock="/run/php/panelze-${slug}.sock"
   prev=""
   had_prev="0"
   if [[ -f "$conf" ]]; then prev="$(cat "$conf")"; had_prev="1"; fi
-  # stdin -> pool dosyası
-  cat > "$conf"
+  printf '%s\n' "$body" > "$conf"
   if [[ ! -s "$conf" ]]; then
     if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$conf"; else rm -f "$conf"; fi
     echo "bos pool icerigi" >&2; exit 1
   fi
+  # Reload öncesi güvenlik ağı: caged sitelerin paylaşımlı kopyalarını temizle
+  prune_caged_pool_dups "$ver"
   # Yapılandırma testi (root: master error_log sorunu olmaz)
   local terr
   if ! terr="$(php-fpm${ver} -t 2>&1)"; then
     if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$conf"; else rm -f "$conf"; fi
-    # Hatanın son anlamlı satırını döndür (chdir/open_basedir vb. teşhis için).
     local detail
     detail="$(printf '%s\n' "$terr" | grep -iE 'ERROR|does not exist' | tail -1)"
     echo "php-fpm${ver} -t basarisiz: ${detail:-bkz fpm log}" >&2; exit 1
@@ -107,7 +191,6 @@ cmd_write_pool() {
   if ! systemctl reload "php${ver}-fpm" 2>/dev/null; then
     systemctl restart "php${ver}-fpm" 2>/dev/null || { echo "reload/restart basarisiz php${ver}-fpm" >&2; exit 1; }
   fi
-  # Soketin oluşmasını bekle (master listen soketini reload'da açar)
   local i
   for i in $(seq 1 20); do [[ -S "$sock" ]] && break; sleep 0.25; done
   if [[ ! -S "$sock" ]]; then
@@ -252,6 +335,9 @@ cmd_reload_fpm() {
   local ver="${1:-}"
   [[ -n "$ver" ]] || usage
   local svc="php${ver}-fpm"
+  # Güvenlik ağı: per-site servisi olan sitelerin paylaşımlı pool.d kopyalarını
+  # reload'dan önce temizle; aksi halde soket çakışması paylaşımlı master'ı çökertir.
+  prune_caged_pool_dups "$ver"
   if systemctl reload "$svc" 2>/dev/null; then
     echo "OK reload $svc"
   elif systemctl restart "$svc" 2>/dev/null; then
