@@ -20,7 +20,9 @@
         </a>
     @else
         <a href="{{ route('login') }}" class="btn-ghost hidden px-3 py-2 text-xs sm:inline-flex sm:text-sm">Giriş</a>
-        <a href="{{ route('register') }}" class="btn-primary hidden px-3 py-2 text-xs sm:inline-flex sm:text-sm">Kayıt Ol</a>
+        @if(filter_var(app(\App\Services\SettingsService::class)->get('registration_enabled', '0'), FILTER_VALIDATE_BOOLEAN))
+            <a href="{{ route('register') }}" class="btn-primary hidden px-3 py-2 text-xs sm:inline-flex sm:text-sm">Kayıt Ol</a>
+        @endif
         <a href="{{ route('login') }}" class="btn-ghost inline-flex px-2.5 py-2 text-xs sm:hidden" aria-label="Giriş">Giriş</a>
     @endif
 </div>

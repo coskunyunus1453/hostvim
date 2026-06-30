@@ -83,6 +83,21 @@ class PanelLicenseService
         return in_array($plan, $proPlans, true);
     }
 
+    /**
+     * "Tam erişim" planı mı (enterprise/vendor gibi)? Bu planlar, lisans
+     * payload'ında kısmi bir özellik listesi olsa bile tüm modülleri açar.
+     */
+    public function isFullAccessPlan(): bool
+    {
+        if (! $this->isProPlan()) {
+            return false;
+        }
+        $plan = strtolower(trim((string) ($this->hubPayload()['plan'] ?? '')));
+        $full = config('panelze.license.full_access_plan_codes', ['enterprise', 'vendor']);
+
+        return is_array($full) && in_array($plan, $full, true);
+    }
+
     public function hasFeature(string $moduleKey): bool
     {
         if (filter_var(config('panelze.features.'.$moduleKey, false), FILTER_VALIDATE_BOOLEAN)) {
@@ -93,15 +108,19 @@ class PanelLicenseService
         }
         $features = $this->hubPayload()['features'] ?? [];
         if (! is_array($features) || $features === []) {
-            if (! $this->isProPlan()) {
-                return false;
-            }
-            $defaultOnPro = config('panelze.license.pro_default_modules', ['phpmyadmin_sso']);
-
-            return in_array($moduleKey, $defaultOnPro, true);
+            // Lisans payload'ı açık bir özellik listesi taşımıyorsa: geçerli bir
+            // Pro/Enterprise plan TÜM pro modüllerini açar (paket = tam pro).
+            // Pro olmayan (community vb.) planlarda kapalı kalır.
+            return $this->isProPlan();
         }
         if (! isset($features[$moduleKey])) {
+            // Payload özellik listesi taşıyor ancak bu modülü içermiyor.
+            // Enterprise/vendor gibi "tam paket" planlar yine de tüm modülleri açar;
+            // diğer pro planlarda yalnızca paketlenmiş varsayılan modüller açılır.
             if ($this->isProPlan()) {
+                if ($this->isFullAccessPlan()) {
+                    return true;
+                }
                 $bundled = config('panelze.license.pro_default_modules', []);
 
                 return is_array($bundled) && in_array($moduleKey, $bundled, true);

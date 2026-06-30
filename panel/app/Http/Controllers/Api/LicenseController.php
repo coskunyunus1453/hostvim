@@ -44,6 +44,7 @@ class LicenseController extends Controller
                 'source' => 'offline',
                 'offline' => $offline,
                 'hub' => null,
+                'summary' => $this->buildSummary($offline),
             ]));
         }
 
@@ -54,6 +55,7 @@ class LicenseController extends Controller
                 'source' => 'license_server',
                 'hub' => $hub,
                 'offline' => $offline,
+                'summary' => $this->buildSummary($hub),
             ]));
         }
 
@@ -62,7 +64,46 @@ class LicenseController extends Controller
             'source' => $offline !== null ? 'offline' : 'none',
             'hub' => null,
             'offline' => $offline,
+            'summary' => $this->buildSummary($offline),
         ]));
+    }
+
+    /**
+     * Müşteriye yönelik, teknik olmayan lisans özeti (plan, durum, bitiş vb.).
+     *
+     * @param  array<string, mixed>|null  $payload
+     * @return array<string, mixed>
+     */
+    private function buildSummary(?array $payload): array
+    {
+        if (! is_array($payload)) {
+            return ['valid' => false, 'plan' => null, 'plan_name' => null, 'status' => null, 'expires_at' => null, 'owner' => null, 'license_id' => null];
+        }
+
+        $valid = ($payload['valid'] ?? false) === true;
+        $plan = isset($payload['plan']) ? (string) $payload['plan'] : null;
+        $planName = isset($payload['plan_name']) && (string) $payload['plan_name'] !== ''
+            ? (string) $payload['plan_name']
+            : $plan;
+
+        $tenant = is_array($payload['tenant'] ?? null) ? $payload['tenant'] : [];
+        $customer = is_array($payload['customer'] ?? null) ? $payload['customer'] : [];
+        $owner = (string) ($tenant['name'] ?? $customer['name'] ?? $payload['to'] ?? '') ?: null;
+        $licenseId = (string) ($payload['license_id'] ?? $tenant['license_id'] ?? $payload['lid'] ?? '') ?: null;
+
+        $status = isset($payload['status']) && (string) $payload['status'] !== ''
+            ? (string) $payload['status']
+            : ($valid ? 'active' : (($payload['code'] ?? null) === 'expired' ? 'expired' : 'invalid'));
+
+        return [
+            'valid' => $valid,
+            'plan' => $plan,
+            'plan_name' => $planName,
+            'status' => $status,
+            'expires_at' => $payload['expires_at'] ?? null,
+            'owner' => $owner,
+            'license_id' => $licenseId,
+        ];
     }
 
     /**

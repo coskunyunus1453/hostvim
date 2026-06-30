@@ -128,6 +128,14 @@ return [
             explode(',', (string) env('PANELZE_COMMUNITY_PLAN_CODES', 'community'))
         ))),
         'pro_default_modules' => ['phpmyadmin_sso', 'security_pro'],
+        /**
+         * Tam erişim planları: lisans payload'ı kısmi özellik listesi taşısa bile
+         * bu planlar tüm pro modüllerini açar.
+         */
+        'full_access_plan_codes' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('PANELZE_FULL_ACCESS_PLAN_CODES', 'enterprise,vendor'))
+        ))),
     ],
 
     'features' => [

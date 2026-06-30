@@ -32,12 +32,15 @@
                 </label>
                 <a href="{{ route('password.request') }}" class="font-semibold text-hv-primary hover:underline">Şifremi unuttum</a>
             </div>
+            <x-captcha context="login" />
             <button type="submit" class="btn-primary w-full">Giriş</button>
         </form>
 
-        <p class="auth-footer-text">
-            Hesabınız yok mu? <a href="{{ route('register') }}" class="font-semibold text-hv-primary hover:underline">Kayıt olun</a>
-        </p>
+        @if (filter_var(app(\App\Services\SettingsService::class)->get('registration_enabled', '0'), FILTER_VALIDATE_BOOLEAN))
+            <p class="auth-footer-text">
+                Hesabınız yok mu? <a href="{{ route('register') }}" class="font-semibold text-hv-primary hover:underline">Kayıt olun</a>
+            </p>
+        @endif
     </div>
 </section>
 @endsection

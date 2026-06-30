@@ -41,6 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'panel.sync' => \App\Http\Middleware\SyncPanelUserAfterResponse::class,
+            'captcha' => \App\Http\Middleware\VerifyCaptcha::class,
+            'registration' => \App\Http\Middleware\EnsureRegistrationEnabled::class,
         ]);
 
         $middleware->redirectUsersTo(function (Request $request) {

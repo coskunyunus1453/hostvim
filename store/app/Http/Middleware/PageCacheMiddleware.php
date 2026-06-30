@@ -16,7 +16,7 @@ class PageCacheMiddleware
         'checkout.index', 'checkout.process',
         'payment.success', 'payment.fail',
         'payment.paytr.callback', 'payment.iyzico.callback',
-        'contact.store', 'products.cart.add',
+        'contact.index', 'contact.store', 'products.cart.add',
         'login', 'register', 'logout',
         'password.request', 'password.email', 'password.reset', 'password.update',
     ];

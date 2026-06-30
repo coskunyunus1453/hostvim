@@ -41,6 +41,7 @@
                 <label for="password_confirmation" class="auth-label">Şifre (tekrar)</label>
                 <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password" class="auth-input">
             </div>
+            <x-captcha context="register" />
             <button type="submit" class="btn-primary w-full">Kayıt ol</button>
         </form>
 

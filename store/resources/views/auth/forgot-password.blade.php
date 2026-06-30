@@ -32,6 +32,7 @@
                 <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" class="auth-input">
                 @error('email')<p class="auth-error">{{ $message }}</p>@enderror
             </div>
+            <x-captcha context="password" />
             <button type="submit" class="btn-primary w-full" id="forgot-password-submit">
                 <span data-submit-label>Sıfırlama Bağlantısı Gönder</span>
                 <span data-submit-loading class="hidden">Gönderiliyor…</span>

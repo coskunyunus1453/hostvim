@@ -99,6 +99,9 @@
                             <a href="{{ route('pages.show', 'kvkk') }}" target="_blank" rel="noopener" class="text-hv-primary hover:underline">KVKK Aydınlatma Metni</a>'ni okudum, onaylıyorum.
                         </span>
                     </label>
+                    <div class="mt-4">
+                        <x-captcha context="checkout" />
+                    </div>
                     <button type="submit" class="btn-primary mt-4 w-full">Siparişi Tamamla</button>
                     <p class="mt-4 text-center text-xs text-hv-muted">256-bit SSL ile güvenli ödeme</p>
                 </div>

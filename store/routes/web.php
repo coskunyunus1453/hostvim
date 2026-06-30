@@ -69,7 +69,7 @@ Route::get('/odeme', [CheckoutController::class, 'index'])->name('checkout.index
 Route::post('/odeme/kupon', [\App\Http\Controllers\CouponController::class, 'apply'])->name('checkout.coupon.apply');
 Route::delete('/odeme/kupon', [\App\Http\Controllers\CouponController::class, 'remove'])->name('checkout.coupon.remove');
 Route::post('/odeme', [CheckoutController::class, 'process'])
-    ->middleware('throttle:10,1')
+    ->middleware(['throttle:10,1', 'captcha:checkout'])
     ->name('checkout.process');
 
 Route::middleware('signed')->group(function () {
@@ -98,16 +98,16 @@ Route::post('/odeme/payoneer/webhook', [PaymentController::class, 'payoneerWebho
 
 Route::get('/iletisim', [ContactController::class, 'index'])->name('contact.index');
 Route::post('/iletisim', [ContactController::class, 'store'])
-    ->middleware('throttle:5,1')
+    ->middleware(['throttle:5,1', 'captcha:contact'])
     ->name('contact.store');
 
 Route::middleware('guest')->group(function () {
     Route::get('/giris', [\App\Http\Controllers\Auth\AuthController::class, 'showLogin'])->name('login');
-    Route::post('/giris', [\App\Http\Controllers\Auth\AuthController::class, 'login'])->middleware('throttle:20,1');
-    Route::get('/kayit', [\App\Http\Controllers\Auth\AuthController::class, 'showRegister'])->name('register');
-    Route::post('/kayit', [\App\Http\Controllers\Auth\AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/giris', [\App\Http\Controllers\Auth\AuthController::class, 'login'])->middleware(['throttle:20,1', 'captcha:login']);
+    Route::get('/kayit', [\App\Http\Controllers\Auth\AuthController::class, 'showRegister'])->middleware('registration')->name('register');
+    Route::post('/kayit', [\App\Http\Controllers\Auth\AuthController::class, 'register'])->middleware(['throttle:10,1', 'registration', 'captcha:register']);
     Route::get('/sifremi-unuttum', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('/sifremi-unuttum', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store'])->middleware('throttle:5,1')->name('password.email');
+    Route::post('/sifremi-unuttum', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store'])->middleware(['throttle:5,1', 'captcha:password'])->name('password.email');
     Route::get('/sifre-sifirla/{token}', [\App\Http\Controllers\Auth\NewPasswordController::class, 'create'])->name('password.reset');
     Route::post('/sifre-sifirla', [\App\Http\Controllers\Auth\NewPasswordController::class, 'store'])->middleware('throttle:10,1')->name('password.update');
 });

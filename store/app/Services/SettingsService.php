@@ -46,7 +46,7 @@ class SettingsService
     {
         self::$memory = null;
         Cache::forget('site_settings');
-        foreach (['general', 'design', 'contact', 'seo', 'social', 'mail', 'cache'] as $group) {
+        foreach (['general', 'design', 'contact', 'seo', 'social', 'mail', 'cache', 'security'] as $group) {
             Cache::forget("site_settings.{$group}");
         }
     }

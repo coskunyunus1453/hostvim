@@ -7,14 +7,22 @@ import api from '../services/api'
 import { KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+type LicenseSummary = {
+  valid?: boolean
+  plan?: string | null
+  plan_name?: string | null
+  status?: string | null
+  expires_at?: string | null
+  owner?: string | null
+  license_id?: string | null
+}
+
 type LicenseStatus = {
   local_key_set?: boolean
   key_source?: 'env' | 'database' | 'none'
   key_preview?: string | null
-  hub_configured?: boolean
   source?: string
-  hub?: Record<string, unknown> | null
-  engine?: Record<string, unknown> | null
+  summary?: LicenseSummary
 }
 
 export default function AdminLicensePage() {
@@ -80,7 +88,47 @@ export default function AdminLicensePage() {
   }
 
   const source = statusQ.data?.key_source ?? 'none'
-  const hubOk = statusQ.data?.hub && (statusQ.data.hub as { valid?: boolean }).valid === true
+  const summary = statusQ.data?.summary
+  const hasKey = Boolean(statusQ.data?.local_key_set)
+  const valid = Boolean(summary?.valid)
+  const state = summary?.status ?? (valid ? 'active' : 'invalid')
+  const planLabel = summary?.plan_name || summary?.plan || null
+
+  const formatDate = (iso?: string | null): string | null => {
+    if (!iso) return null
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString()
+  }
+  const daysLeft = (iso?: string | null): number | null => {
+    if (!iso) return null
+    const d = new Date(iso).getTime()
+    if (Number.isNaN(d)) return null
+    return Math.ceil((d - Date.now()) / 86_400_000)
+  }
+  const expiry = formatDate(summary?.expires_at)
+  const remaining = daysLeft(summary?.expires_at)
+
+  const stateLabel =
+    state === 'active'
+      ? t('license.state_active')
+      : state === 'grace'
+        ? t('license.state_grace')
+        : state === 'expired'
+          ? t('license.state_expired')
+          : t('license.state_invalid')
+  const stateClass =
+    state === 'active'
+      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+      : state === 'grace'
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+
+  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 py-2 border-b border-gray-100 last:border-0 dark:border-gray-800">
+      <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-white">{children}</span>
+    </div>
+  )
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -96,36 +144,48 @@ export default function AdminLicensePage() {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('license.status')}</h2>
         {statusQ.isLoading ? (
           <p className="text-gray-500">{t('common.loading')}</p>
+        ) : !hasKey ? (
+          <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
+            <p className="font-medium text-gray-900 dark:text-white">{t('license.none_title')}</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('license.none_hint')}</p>
+          </div>
         ) : (
-          <ul className="text-sm space-y-2 text-gray-600 dark:text-gray-400">
-            <li>
-              <strong className="text-gray-900 dark:text-white">{t('license.key_storage')}:</strong>{' '}
-              {source === 'env' && t('license.source_env')}
-              {source === 'database' && t('license.source_database')}
-              {source === 'none' && t('license.source_none')}
-            </li>
-            {statusQ.data?.key_preview ? (
-              <li>
-                <strong className="text-gray-900 dark:text-white">{t('license.key_preview')}:</strong>{' '}
-                <span className="font-mono break-all">{statusQ.data.key_preview}</span>
-              </li>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <Row label={t('license.plan')}>
+              {planLabel ? <span className="capitalize">{planLabel}</span> : '—'}
+            </Row>
+            <Row label={t('license.state')}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${stateClass}`}>
+                {stateLabel}
+              </span>
+            </Row>
+            <Row label={t('license.expires')}>
+              {expiry ? (
+                <span>
+                  {expiry}
+                  {typeof remaining === 'number' && remaining >= 0 && (
+                    <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                      ({t('license.days_left', { days: remaining })})
+                    </span>
+                  )}
+                </span>
+              ) : (
+                t('license.expires_never')
+              )}
+            </Row>
+            {summary?.owner ? <Row label={t('license.owner')}>{summary.owner}</Row> : null}
+            {summary?.license_id ? (
+              <Row label={t('license.ref')}>
+                <span className="font-mono text-xs">{summary.license_id}</span>
+              </Row>
             ) : null}
-            <li>
-              <strong className="text-gray-900 dark:text-white">{t('license.hub_label')}:</strong>{' '}
-              {statusQ.data?.hub_configured ? t('license.hub_yes') : t('license.hub_no')}
-            </li>
-            <li>
-              <strong className="text-gray-900 dark:text-white">{t('license.validation_label')}:</strong>{' '}
-              {statusQ.data?.source === 'license_server' &&
-                (hubOk ? t('license.valid_yes') : JSON.stringify(statusQ.data.hub))}
-              {statusQ.data?.source === 'engine' &&
-                (statusQ.data.engine != null
-                  ? JSON.stringify(statusQ.data.engine)
-                  : t('license.engine_skip'))}
-            </li>
-          </ul>
+            {statusQ.data?.key_preview ? (
+              <Row label={t('license.key_preview')}>
+                <span className="font-mono text-xs break-all">{statusQ.data.key_preview}</span>
+              </Row>
+            ) : null}
+          </div>
         )}
-        <p className="text-xs text-gray-500">{t('license.ui_hint')}</p>
       </div>
 
       <div className="card p-6 space-y-4">
