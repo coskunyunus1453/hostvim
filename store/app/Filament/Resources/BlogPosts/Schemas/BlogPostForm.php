@@ -22,16 +22,23 @@ class BlogPostForm
                 TextInput::make('title')->label('Başlık')->required()
                     ->live(onBlur: true)
                     ->afterStateUpdated(fn ($set, ?string $state) => $set('slug', Str::slug($state ?? ''))),
-                TextInput::make('slug')->label('URL Slug')->required()->unique(ignoreRecord: true),
+                TextInput::make('slug')->label('URL Slug')
+                    ->helperText('Boş bırakırsanız başlıktan otomatik üretilir. Aynı slug varsa otomatik benzersizleştirilir.')
+                    ->maxLength(255),
                 Select::make('blog_category_id')->label('Kategori')->relationship('category', 'name')->searchable()->preload(),
                 Select::make('user_id')->label('Yazar')->relationship('author', 'name')->default(fn () => auth()->id()),
                 Textarea::make('excerpt')->label('Özet')->rows(3)->columnSpanFull(),
                 RichEditor::make('content')->label('İçerik')->columnSpanFull(),
-                FileUpload::make('featured_image')->label('Kapak Görseli')->image()->directory('blog')->columnSpanFull(),
+                FileUpload::make('featured_image')->label('Kapak Görseli')
+                    ->image()->disk('public')->directory('blog')->visibility('public')
+                    ->imageEditor()->maxSize(5120)
+                    ->helperText('Önerilen oran 16:9. En fazla 5 MB (jpg, png, webp).')
+                    ->columnSpanFull(),
             ])->columns(2),
 
             Section::make('Yayın & SEO')->schema([
-                Toggle::make('is_published')->label('Yayında')->default(false),
+                Toggle::make('is_published')->label('Yayında')->default(false)
+                    ->helperText('Açık değilse yazı sitede görünmez. Yayınlarsanız tarih boşsa otomatik bugüne ayarlanır.'),
                 Toggle::make('no_index')->label('Arama motorlarında gizle (noindex)'),
                 DateTimePicker::make('published_at')->label('Yayın Tarihi'),
                 TextInput::make('meta_title')->label('Meta Başlık'),

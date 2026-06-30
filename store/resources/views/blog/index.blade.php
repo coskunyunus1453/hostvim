@@ -11,7 +11,15 @@
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             @forelse($posts as $post)
                 <a href="{{ route('blog.show', $post->slug) }}" class="card group block overflow-hidden p-0">
-                    <div class="aspect-video bg-gradient-to-br from-orange-100 to-green-100"></div>
+                    @if($post->featured_image)
+                        <div class="aspect-video overflow-hidden">
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($post->featured_image) }}"
+                                 alt="{{ $post->title }}" loading="lazy"
+                                 class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                        </div>
+                    @else
+                        <div class="aspect-video bg-gradient-to-br from-orange-100 to-green-100"></div>
+                    @endif
                     <div class="p-6">
                         <h2 class="font-bold text-stone-900 group-hover:text-[#C2410C]">{{ $post->title }}</h2>
                         <p class="mt-2 text-sm text-stone-600">{{ Str::limit($post->excerpt ?? strip_tags($post->content), 120) }}</p>
