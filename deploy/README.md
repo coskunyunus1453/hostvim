@@ -1,5 +1,7 @@
 # Panelze — canlı sunucu kurulumu
 
+> **HostVim (hostvim.com satış sitesi + panel):** Önce [HOSTVIM-OPERATIONS.md](HOSTVIM-OPERATIONS.md) dosyasını okuyun. Store deploy, izinler ve 500 hata önleme orada anlatılır.
+
 Bu klasör, paneli **tek sunucuda** güvenli ve tekrarlanabilir şekilde ayağa kaldırmak için dosyalar içerir.
 
 **Yayın öncesi:** [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) — ortam değişkenleri, engine hizalama, TLS ve duman testi maddeleri.

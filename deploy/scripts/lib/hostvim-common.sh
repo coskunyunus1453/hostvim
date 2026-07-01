@@ -490,6 +490,27 @@ hostvim_fix_permissions() {
   hostvim_fix_store_permissions
 }
 
+hostvim_finalize_store() {
+  hostvim_resolve_paths
+  hostvim_fix_store_permissions
+  if [[ "$(id -u)" -eq 0 ]]; then
+    hostvim_install_store_scheduler
+    hostvim_install_store_queue
+  fi
+  if [[ -f "$STORE_ROOT/artisan" ]]; then
+    cd "$STORE_ROOT"
+    hostvim_run_as_store php artisan optimize:clear --no-interaction 2>/dev/null || true
+  fi
+  local code
+  code="$(curl -sk -o /dev/null -w '%{http_code}' "${STORE_URL:-https://${STORE_DOMAIN:-hostvim.com}}/" 2>/dev/null || echo 000)"
+  echo "==> Store HTTP: $code"
+  if [[ "$code" != "200" ]]; then
+    echo "UYARI: Store HTTP $code — storage izinlerini ve PHP-FPM kullanıcısını kontrol edin." >&2
+    return 1
+  fi
+  return 0
+}
+
 hostvim_install_store_scheduler() {
   hostvim_resolve_paths
   local user
@@ -586,9 +607,8 @@ hostvim_full_setup() {
   if [[ "${HOSTVIM_SKIP_STORE:-0}" != "1" ]]; then
     hostvim_store_post_deploy || return 1
     hostvim_fix_permissions
-    if [[ "${HOSTVIM_SKIP_QUEUE:-0}" != "1" ]] && [[ "$(id -u)" -eq 0 ]]; then
-      hostvim_install_store_scheduler
-      hostvim_install_store_queue
+    if [[ "$(id -u)" -eq 0 ]] && [[ "${HOSTVIM_SKIP_QUEUE:-0}" != "1" ]]; then
+      hostvim_finalize_store
     fi
   fi
 

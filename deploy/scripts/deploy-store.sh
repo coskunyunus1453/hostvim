@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # HostVim satış sitesi (store) — sunucuya rsync + kurulum.
-# Mac'ten: bash deploy/scripts/deploy-store.sh
+#
+# Mac'ten:  bash deploy/scripts/deploy-store.sh
 # Sunucuda: bash deploy/scripts/deploy-store.sh --local
 #
-# Tam kurulum (panel + store): bash deploy/scripts/install-hostvim-full.sh
+# Tam kurulum: bash deploy/scripts/install-hostvim-full.sh
+# Rehber:     deploy/HOSTVIM-OPERATIONS.md
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,3 +53,4 @@ fi
 
 echo ""
 echo "Tamam. ${STORE_URL}/ — admin: ${STORE_URL}/admin"
+echo "Rehber: deploy/HOSTVIM-OPERATIONS.md"

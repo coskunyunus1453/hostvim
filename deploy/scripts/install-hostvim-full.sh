@@ -2,6 +2,8 @@
 #
 # HostVim — tek komut: Panelze panel + satış sitesi (store) + entegrasyon
 #
+# Rehber: deploy/HOSTVIM-OPERATIONS.md
+#
 # Mac'ten (önerilen):
 #   bash deploy/scripts/install-hostvim-full.sh
 #
