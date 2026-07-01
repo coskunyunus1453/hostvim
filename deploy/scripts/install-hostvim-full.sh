@@ -99,6 +99,15 @@ bash deploy/bootstrap/install-production.sh
 
   if [[ "${HOSTVIM_SKIP_STORE:-0}" != "1" ]]; then
     hostvim_rsync_store "$REPO_ROOT" "${SSH_HOST}:${STORE_ROOT}/" "$SSH_E"
+    hostvim_rsync_store_assets "$REPO_ROOT" "${SSH_HOST}:${STORE_ROOT}/" "$SSH_E"
+    run_remote "
+set -euo pipefail
+export HOSTVIM_REPO_ROOT='${PANELZE_HOME}'
+export PANELZE_HOME='${PANELZE_HOME}'
+export STORE_ROOT='${STORE_ROOT}'
+source '${PANELZE_HOME}/deploy/scripts/lib/hostvim-common.sh'
+hostvim_post_rsync_store
+"
   fi
 
   if [[ "${HOSTVIM_SKIP_PANEL:-0}" != "1" ]]; then

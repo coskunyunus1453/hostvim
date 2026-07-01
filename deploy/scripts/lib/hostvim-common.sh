@@ -82,17 +82,45 @@ hostvim_detect_web_user() {
   printf '%s\n' "$(id -un)"
 }
 
+hostvim_resolve_store_owner() {
+  local owner="${1:-}"
+  if [[ -n "$owner" ]] && [[ ! "$owner" =~ ^[0-9]+$ ]] && id "$owner" &>/dev/null; then
+    printf '%s\n' "$owner"
+    return 0
+  fi
+  if id pk-hostvim-com &>/dev/null; then
+    printf '%s\n' pk-hostvim-com
+    return 0
+  fi
+  hostvim_detect_web_user
+}
+
+hostvim_resolve_store_group() {
+  local group="${1:-}"
+  local user
+  user="$(hostvim_resolve_store_owner)"
+  if [[ -n "$group" ]] && getent group "$group" &>/dev/null; then
+    printf '%s\n' "$group"
+    return 0
+  fi
+  if getent group panelze-hosting &>/dev/null; then
+    printf '%s\n' panelze-hosting
+    return 0
+  fi
+  printf '%s\n' "$user"
+}
+
 hostvim_detect_store_user() {
   if [[ -n "${HOSTVIM_STORE_USER:-}" ]]; then
     printf '%s\n' "$HOSTVIM_STORE_USER"
     return 0
   fi
   hostvim_resolve_paths
+  local owner=""
   if [[ -f "${STORE_ROOT}/artisan" ]]; then
-    stat -c '%U' "${STORE_ROOT}/artisan" 2>/dev/null || stat -f '%Su' "${STORE_ROOT}/artisan" 2>/dev/null || true
-    return 0
+    owner="$(stat -c '%U' "${STORE_ROOT}/artisan" 2>/dev/null || stat -f '%Su' "${STORE_ROOT}/artisan" 2>/dev/null || true)"
   fi
-  hostvim_detect_web_user
+  hostvim_resolve_store_owner "$owner"
 }
 
 hostvim_detect_store_group() {
@@ -101,11 +129,11 @@ hostvim_detect_store_group() {
     return 0
   fi
   hostvim_resolve_paths
+  local group=""
   if [[ -f "${STORE_ROOT}/artisan" ]]; then
-    stat -c '%G' "${STORE_ROOT}/artisan" 2>/dev/null || stat -f '%Sg' "${STORE_ROOT}/artisan" 2>/dev/null || true
-    return 0
+    group="$(stat -c '%G' "${STORE_ROOT}/artisan" 2>/dev/null || stat -f '%Sg' "${STORE_ROOT}/artisan" 2>/dev/null || true)"
   fi
-  printf '%s\n' "$(hostvim_detect_store_user)"
+  hostvim_resolve_store_group "$group"
 }
 
 hostvim_run_as_web() {
@@ -173,6 +201,34 @@ hostvim_rsync_store() {
       --exclude .git \
       "$repo/store/" "$dst"
   fi
+}
+
+hostvim_rsync_store_assets() {
+  local repo="$1"
+  local dst="$2"
+  local ssh_cmd="${3:-}"
+  local blog_src="$repo/store/storage/app/public/blog"
+  [[ -d "$blog_src" ]] || return 0
+  echo "==> Store blog görselleri rsync"
+  if [[ -n "$ssh_cmd" ]]; then
+    rsync -az -e "$ssh_cmd" "$blog_src/" "${dst}storage/app/public/blog/"
+  else
+    mkdir -p "${dst}storage/app/public/blog"
+    rsync -az "$blog_src/" "${dst}storage/app/public/blog/"
+  fi
+}
+
+hostvim_post_rsync_store() {
+  hostvim_resolve_paths
+  local user group
+  user="$(hostvim_detect_store_user)"
+  group="$(hostvim_detect_store_group)"
+  if [[ "$(id -u)" -eq 0 ]] && [[ -d "$STORE_ROOT" ]]; then
+    echo "==> Store kod sahipliği: $user:$group (rsync sonrası)"
+    find "$STORE_ROOT" \( -path "$STORE_ROOT/vendor" -o -path "$STORE_ROOT/.env" \) -prune \
+      -o -exec chown "$user:$group" {} + 2>/dev/null || true
+  fi
+  hostvim_fix_store_permissions
 }
 
 hostvim_rsync_panel_integration() {
