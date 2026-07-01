@@ -24,7 +24,11 @@ class HomeController extends Controller
         $features = $cache->remember('home:features', fn () => Feature::where('is_active', true)->orderBy('sort_order')->limit(6)->get());
         $testimonials = $cache->remember('home:testimonials', fn () => Testimonial::where('is_active', true)->orderBy('sort_order')->limit(6)->get());
         $faqs = $cache->remember('home:faqs', fn () => Faq::where('is_active', true)->orderBy('sort_order')->limit(8)->get());
-        $posts = $cache->remember('home:posts', fn () => BlogPost::where('is_published', true)->orderByDesc('published_at')->limit(3)->get());
+        $posts = $cache->remember('home:posts', fn () => BlogPost::where('is_published', true)
+            ->with('category')
+            ->orderByDesc('published_at')
+            ->limit(3)
+            ->get());
 
         $breadcrumbs = [
             ['label' => 'Ana Sayfa', 'url' => null],

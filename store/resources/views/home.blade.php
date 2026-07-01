@@ -120,7 +120,15 @@
         <div class="mt-10 grid gap-6 md:grid-cols-3">
             @foreach($posts as $post)
                 <a href="{{ route('blog.show', $post->slug) }}" class="card group block overflow-hidden p-0">
-                    <div class="aspect-video bg-gradient-to-br from-hv-primary/20 to-hv-secondary/20"></div>
+                    @if($post->featured_image)
+                        <div class="aspect-video overflow-hidden">
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($post->featured_image) }}"
+                                 alt="{{ $post->title }}" loading="lazy"
+                                 class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                        </div>
+                    @else
+                        <div class="aspect-video bg-gradient-to-br from-hv-primary/20 to-hv-secondary/20"></div>
+                    @endif
                     <div class="p-6">
                         @if($post->category)<span class="text-xs font-bold uppercase text-hv-secondary">{{ $post->category->name }}</span>@endif
                         <h3 class="mt-2 font-bold text-hv-text group-hover:text-hv-primary">{{ $post->title }}</h3>
