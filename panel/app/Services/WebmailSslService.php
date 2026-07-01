@@ -155,11 +155,16 @@ class WebmailSslService
             return rtrim($configured, '/');
         }
 
+        $dataSsl = trim((string) config('panelze.ssl_data_root', ''));
+        if ($dataSsl !== '') {
+            return rtrim(str_replace('\\', '/', $dataSsl), '/');
+        }
+
         $home = trim((string) env('PANELZE_HOME', ''));
         if ($home !== '') {
             return rtrim($home, '/').'/data/ssl';
         }
 
-        return '/var/www/hostvim/data/ssl';
+        return rtrim(str_replace('\\', '/', dirname(base_path())), '/').'/data/ssl';
     }
 }

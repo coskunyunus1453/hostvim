@@ -42,7 +42,9 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-nginx-vhost" ]]; then
   sudo ln -sfn /usr/local/sbin/panelze-nginx-vhost /usr/local/sbin/panelsar-nginx-vhost
 fi
 
-if [[ "$(id -u)" -eq 0 ]] && [[ -f "$DEPLOY_SCRIPTS/lib/hostvim-common.sh" ]]; then
+if [[ "$(id -u)" -eq 0 ]] && [[ -f "$DEPLOY_SCRIPTS/lib/hostvim-common.sh" ]] \
+  && { [[ "${PANELZE_HOSTVIM_OPS:-0}" == "1" ]] || [[ -d /var/www/hostvim/data/www/hostvim.com/public_html ]]; }; then
+  # HostVim üretim (panel + hostvim.com store). Müşteri Panelze kurulumunda bu blok çalışmaz.
   # shellcheck source=lib/hostvim-common.sh
   source "$DEPLOY_SCRIPTS/lib/hostvim-common.sh"
   hostvim_ensure_nginx_vhosts || true

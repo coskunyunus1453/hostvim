@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HostVim üretim ortamı SSL onarımı (ops — müşteri Panelze kurulumunda kullanılmaz).
 # Panelze SSL onarımı:
 #  - renewal webroot'u nginx acme-challenge root'uyla uyuşmayan sertifikaları düzeltir
 #    (yenileme ~60 günde patlamasın diye). LE çağrısı YOK; renewal .conf yerinde güncellenir.

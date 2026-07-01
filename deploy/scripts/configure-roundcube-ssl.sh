@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESOLVE_LIB="${SCRIPT_DIR}/lib/resolve-paths.sh"
 if [[ ! -f "$RESOLVE_LIB" ]]; then
   for candidate in \
-    /var/www/hostvim/deploy/scripts/lib/resolve-paths.sh \
-    /var/www/panelze/deploy/scripts/lib/resolve-paths.sh; do
+    /var/www/panelze/deploy/scripts/lib/resolve-paths.sh \
+    /var/www/hostvim/deploy/scripts/lib/resolve-paths.sh; do
     if [[ -f "$candidate" ]]; then
       RESOLVE_LIB="$candidate"
       break

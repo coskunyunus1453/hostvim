@@ -274,7 +274,7 @@ class InvoiceService
             'Fiyat: ₺'.number_format((float) $item->unit_price, 2, ',', '.'),
             '',
             'Ödeme alındı. VPS/VDS/dedicated kurulumu için manuel işlem gerekiyor.',
-            'Destek talepleri hostvim.com satış sitesi admin panelinden yönetilir.',
+            'Destek ve manuel kurulum talepleri panel yöneticisi tarafından işlenir.',
         ]);
 
         $this->dispatchMail(static fn () => Mail::raw($body, static function ($message) use ($to, $subject): void {

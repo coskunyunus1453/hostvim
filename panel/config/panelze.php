@@ -22,6 +22,9 @@ return [
     'customer_profile' => env('APP_PROFILE', 'customer') === 'customer',
     'vendor_profile' => env('APP_PROFILE', 'customer') === 'vendor',
 
+    /** Engine `paths.ssl_dir` ile aynı olmalı; boşsa proje kökü/data/ssl */
+    'ssl_data_root' => env('PANELZE_SSL_DATA_ROOT', dirname($panelRoot).DIRECTORY_SEPARATOR.'data'.DIRECTORY_SEPARATOR.'ssl'),
+
     /** Hosting dosya kökü (engine `paths.web_root` ile aynı olmalı; boşsa proje kökü/data/www) */
     'hosting_web_root' => env('PANELZE_HOSTING_WEB_ROOT', env('PANELSAR_HOSTING_WEB_ROOT', dirname($panelRoot).DIRECTORY_SEPARATOR.'data'.DIRECTORY_SEPARATOR.'www')),
 

@@ -25,27 +25,31 @@ hostvim_repo_root() {
 
 hostvim_resolve_paths() {
   if [[ -z "${PANELZE_HOME:-}" ]]; then
-    if [[ -d /var/www/hostvim/panel ]]; then
-      PANELZE_HOME=/var/www/hostvim
-    elif [[ -d /var/www/panelze/panel ]]; then
+    if [[ -d /var/www/panelze/panel ]]; then
       PANELZE_HOME=/var/www/panelze
-    else
+    elif [[ -d /var/www/hostvim/panel ]]; then
       PANELZE_HOME=/var/www/hostvim
+    else
+      PANELZE_HOME=/var/www/panelze
     fi
   fi
   export PANELZE_HOME
   PANEL_ROOT="${PANEL_ROOT:-$PANELZE_HOME/panel}"
-  STORE_ROOT="${STORE_ROOT:-/var/www/hostvim/data/www/hostvim.com/public_html}"
-  STORE_DOMAIN="${STORE_DOMAIN:-hostvim.com}"
-  STORE_URL="${STORE_URL:-https://${STORE_DOMAIN}}"
+  STORE_ROOT="${STORE_ROOT:-}"
+  STORE_DOMAIN="${STORE_DOMAIN:-}"
+  STORE_URL="${STORE_URL:-}"
   PANEL_PUBLIC_HOST="${PANEL_PUBLIC_HOST:-}"
   if [[ -z "$PANEL_PUBLIC_HOST" ]]; then
     if [[ -f "$PANEL_ROOT/.env" ]]; then
       PANEL_PUBLIC_HOST="$(hostvim_read_env_value "$PANEL_ROOT/.env" APP_URL | sed -E 's#^https?://##; s#/$##')"
     fi
-    PANEL_PUBLIC_HOST="${PANEL_PUBLIC_HOST:-207.180.237.13}"
   fi
-  PANEL_URL="${PANEL_URL:-https://${PANEL_PUBLIC_HOST}}"
+  if [[ -z "$STORE_ROOT" && -d "$PANELZE_HOME/data/www/hostvim.com/public_html" ]]; then
+    STORE_ROOT="$PANELZE_HOME/data/www/hostvim.com/public_html"
+    STORE_DOMAIN="${STORE_DOMAIN:-hostvim.com}"
+  fi
+  STORE_URL="${STORE_URL:-${STORE_DOMAIN:+https://${STORE_DOMAIN}}}"
+  PANEL_URL="${PANEL_URL:-${PANEL_PUBLIC_HOST:+https://${PANEL_PUBLIC_HOST}}}"
   export PANEL_ROOT STORE_ROOT STORE_DOMAIN STORE_URL PANEL_URL PANEL_PUBLIC_HOST
 }
 

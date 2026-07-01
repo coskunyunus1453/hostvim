@@ -3,7 +3,7 @@
 set -euo pipefail
 PZ_HOME="${PANELZE_HOME:-}"
 if [[ -z "$PZ_HOME" ]]; then
-  for d in /var/www/hostvim /var/www/panelze; do
+  for d in /var/www/panelze /var/www/hostvim; do
     if [[ -f "$d/deploy/scripts/configure-roundcube-ssl.sh" ]]; then
       PZ_HOME="$d"
       break

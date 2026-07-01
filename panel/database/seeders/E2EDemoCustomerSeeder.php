@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
  */
 class E2EDemoCustomerSeeder extends Seeder
 {
-    public const DEMO_EMAIL = 'demo@hostvim.com';
+    public const DEMO_EMAIL = 'e2e-demo@panelze.local';
 
     public const DEMO_PASSWORD = 'DemoHostvim2026!Aa';
 
@@ -117,7 +117,7 @@ class E2EDemoCustomerSeeder extends Seeder
                 'years' => 1,
                 'status' => DomainRegistration::STATUS_ACTIVE,
                 'registrar' => 'manual',
-                'source_registrar' => 'hostvim',
+                'source_registrar' => 'panelze',
                 'expires_at' => Carbon::now()->addYear(),
                 'auto_renew' => true,
                 'locked' => false,

@@ -24,7 +24,7 @@ class PurgeE2ETestDataCommand extends Command
     private array $domainPatterns = ['demo-%', 'testhost%', 'e2e-%'];
 
     /** @var list<string> */
-    private array $userEmails = ['demo@hostvim.com'];
+    private array $userEmails = ['e2e-demo@panelze.local'];
 
     public function handle(DomainService $domainService): int
     {
