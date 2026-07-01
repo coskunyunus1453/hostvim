@@ -39,16 +39,16 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-200">
+<body class="admin-shell min-h-screen bg-slate-50 font-sans text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
     <div class="pointer-events-none fixed inset-0 overflow-hidden">
         <div class="pointer-events-none absolute -top-32 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-orange-400/15 blur-3xl dark:bg-orange-500/10"></div>
     </div>
 
     <div class="relative z-10 flex min-h-screen">
-        <aside class="hidden w-56 shrink-0 flex-col border-r border-slate-200/90 bg-white/95 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/95 lg:flex">
+        <aside class="hidden w-60 shrink-0 flex-col border-r border-slate-200/90 bg-white/95 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/95 lg:flex">
             <x-admin.sidebar-brand />
             <x-admin.sidebar-nav />
-            <div class="truncate border-t border-slate-200/90 p-2.5 text-[11px] text-slate-500 dark:border-slate-800/80">
+            <div class="truncate border-t border-slate-200/90 p-3 text-sm text-slate-500 dark:border-slate-800/80">
                 {{ auth()->user()->email ?? '' }}
             </div>
         </aside>
@@ -114,7 +114,7 @@
            x-show="open"
            x-transition.opacity.duration.200>
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm dark:bg-slate-950/70" @click="open = false"></div>
-        <div class="absolute inset-y-0 left-0 flex w-full max-w-[15rem] flex-col border-r border-slate-200/90 bg-white shadow-2xl dark:border-slate-800/80 dark:bg-slate-950/98"
+        <div class="absolute inset-y-0 left-0 flex w-full max-w-[17rem] flex-col border-r border-slate-200/90 bg-white shadow-2xl dark:border-slate-800/80 dark:bg-slate-950/98"
              x-show="open"
              x-transition.duration.220.origin-left>
             <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/90 px-3 dark:border-slate-800/80">

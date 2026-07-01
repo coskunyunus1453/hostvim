@@ -1056,10 +1056,24 @@ a.hv-muted-nav:hover {
 	@apply !border-orange-500 !text-orange-700 dark:!text-orange-200;
 }
 
-/* Admin — kompakt sidebar navigasyon */
+/* Admin — sidebar navigasyon (Plus Jakarta Sans, okunaklı boyut) */
+.admin-shell {
+	font-family: var(--font-sans);
+	font-feature-settings: 'kern' 1, 'liga' 1;
+}
 .admin-sidebar-nav {
+	font-size: 1.0625rem; /* 17px — önceki text-xs (12px) + ~4pt */
+	line-height: 1.45;
+	letter-spacing: -0.012em;
 	scrollbar-width: thin;
 	scrollbar-color: rgb(203 213 225 / 0.6) transparent;
+}
+.admin-sidebar-nav .admin-nav-group-label {
+	font-size: 0.9375rem; /* 15px — önceki 10px + ~4pt */
+	line-height: 1.3;
+}
+.admin-sidebar-nav .admin-nav-link-top {
+	font-size: 1.0625rem;
 }
 .dark .admin-sidebar-nav {
 	scrollbar-color: rgb(71 85 105 / 0.6) transparent;
