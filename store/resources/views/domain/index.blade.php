@@ -14,7 +14,7 @@
          style="background-image:radial-gradient(circle at 20% 20%, #fff 1px, transparent 1px);background-size:32px 32px;"></div>
     <div class="relative mx-auto max-w-4xl px-4 py-16 text-center lg:px-8 lg:py-20">
         <span class="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur">
-            ⚡ Saniyeler içinde müsaitlik & fiyat
+            Panelze · DNS · Anında tescil
         </span>
         <h1 class="mt-5 text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
             Alan adını hemen bul
@@ -134,6 +134,30 @@
 </section>
 @endif
 
+{{-- ===== PANELZE ENTEGRASYONU ===== --}}
+<section class="border-b border-hv-border bg-hv-surface py-10">
+    <div class="mx-auto max-w-5xl px-4 lg:px-8">
+        <p class="text-center text-xs font-bold uppercase tracking-widest text-hv-muted">Hostvim ekosistemi</p>
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            @php
+                $platform = [
+                    ['🎛️', 'Panelze Panel', 'Alan adınızı ve DNS kayıtlarınızı müşteri panelinden yönetin; hosting paketinizle otomatik entegre.'],
+                    ['🔗', 'Tek tıkla bağla', 'Domain + hosting birlikte aldığınızda site ve SSL otomatik yapılandırılır.'],
+                    ['🛡️', 'WHOIS gizliliği', 'Desteklenen uzantılarda kişisel bilgileriniz gizli tutulur.'],
+                    ['⚡', 'Anında aktif', 'Kartla ödemede alan adınız saniyeler içinde adınıza kaydedilir.'],
+                ];
+            @endphp
+            @foreach($platform as $p)
+                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-5 text-center transition hover:border-hv-primary/40 hover:shadow-md">
+                    <div class="text-2xl">{{ $p[0] }}</div>
+                    <h3 class="mt-2 text-sm font-bold text-hv-text">{{ $p[1] }}</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-hv-muted">{{ $p[2] }}</p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+
 {{-- ===== NEDEN HOSTVIM ===== --}}
 <section class="border-t border-hv-border bg-hv-bg py-14">
     <div class="mx-auto max-w-5xl px-4 lg:px-8">
@@ -149,8 +173,8 @@
                 ];
             @endphp
             @foreach($features as $f)
-                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-5">
-                    <div class="text-2xl">{{ $f[0] }}</div>
+                <div class="group rounded-2xl border border-hv-border bg-hv-elevated p-5 transition hover:-translate-y-0.5 hover:border-hv-primary/30 hover:shadow-lg">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-hv-primary/10 text-xl transition group-hover:bg-hv-primary/20">{{ $f[0] }}</div>
                     <h3 class="mt-3 font-bold text-hv-text">{{ $f[1] }}</h3>
                     <p class="mt-1 text-sm text-hv-muted">{{ $f[2] }}</p>
                 </div>
@@ -298,8 +322,13 @@
             disabled: 'Alan adı kaydı şu an kapalı.',
             unverified: 'Müsaitlik şu an doğrulanamadı, lütfen tekrar deneyin.',
         };
-        const reason = reasonMap[d.reason] || 'Bu alan adı kayıtlı. Sahibiyseniz bize transfer edebilirsiniz.';
+        const reason = reasonMap[d.reason] || 'Bu alan adı kayıtlı. Transfer için destek ekibimizle iletişime geçin.';
         const isRegistered = !['tld_not_supported', 'tldnotsupported', 'disabled', 'unverified'].includes(d.reason);
+        const transferBtn = isRegistered
+            ? `<a href="/iletisim?konu=domain-transfer&domain=${encodeURIComponent(d.domain)}" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-hv-primary bg-hv-primary/10 px-5 py-3 text-sm font-bold text-hv-primary transition hover:bg-hv-primary/15 sm:w-auto">
+                    Transfer talebi oluştur
+                </a>`
+            : '';
         const whoisBtn = isRegistered
             ? `<button type="button" class="whois-btn mt-4 inline-flex items-center gap-2 rounded-xl border border-hv-border bg-hv-surface px-4 py-2 text-sm font-semibold text-hv-text transition hover:border-hv-primary" data-domain="${esc(d.domain)}">
                     <span>🔎</span> Sahiplik bilgisi (WHOIS)
@@ -315,6 +344,7 @@
                     </div>
                     <p class="mt-2 text-2xl font-extrabold text-hv-text">${esc(d.domain)}</p>
                     <p class="mt-1 text-sm text-hv-muted">${reason}</p>
+                    ${transferBtn}
                     ${whoisBtn}
                 </div>
             </div>

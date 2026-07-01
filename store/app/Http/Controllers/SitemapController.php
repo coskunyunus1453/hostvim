@@ -70,6 +70,7 @@ class SitemapController extends Controller
             if ($this->sectionEnabled($settings, 'domain')) {
                 [, $freq, $pri] = $this->section($settings, 'domain');
                 $urls[] = $this->entry(route('domain.index'), now(), $freq, $pri);
+                $urls[] = $this->entry(route('domain.value.index'), now(), $freq, $pri);
             }
 
             if ($this->sectionEnabled($settings, 'blog')) {

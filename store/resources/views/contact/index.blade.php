@@ -26,8 +26,8 @@
             <input type="text" name="name" placeholder="Ad Soyad *" required class="w-full rounded-xl border border-hv-border px-4 py-3">
             <input type="email" name="email" placeholder="E-posta *" required class="w-full rounded-xl border border-hv-border px-4 py-3">
             <input type="text" name="phone" placeholder="Telefon" class="w-full rounded-xl border border-hv-border px-4 py-3">
-            <input type="text" name="subject" placeholder="Konu" class="w-full rounded-xl border border-hv-border px-4 py-3">
-            <textarea name="message" placeholder="Mesajınız *" required rows="5" class="w-full rounded-xl border border-hv-border px-4 py-3"></textarea>
+            <input type="text" name="subject" placeholder="Konu" value="{{ old('subject', $prefillSubject ?? '') }}" class="w-full rounded-xl border border-hv-border px-4 py-3">
+            <textarea name="message" placeholder="Mesajınız *" required rows="5" class="w-full rounded-xl border border-hv-border px-4 py-3">{{ old('message', $prefillMessage ?? '') }}</textarea>
             <x-captcha context="contact" />
             <button type="submit" class="btn-primary w-full">Gönder</button>
         </form>

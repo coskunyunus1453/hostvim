@@ -51,6 +51,10 @@ class DomainFaq
                 'a' => 'Domain tescili ve yenilemesi, kayıt operatörü nezdinde anında işleme alındığından iade edilemez. Bu nedenle satın alma öncesinde alan adınızı dikkatlice kontrol etmeniz ve onay adımlarını gözden geçirmeniz önemlidir.',
             ],
             [
+                'q' => 'Domainimi Hostvim hosting ile nasıl kullanırım?',
+                'a' => 'Alan adınızı Hostvim\'den aldığınızda hosting paketiyle birlikte Panelze altyapısı otomatik devreye girer. Mevcut bir domaini de NS kayıtlarını Hostvim\'e yönlendirerek Panelze panel üzerinden yönetebilirsiniz. DNS, SSL ve site kurulumu tek ekosistemde tamamlanır.',
+            ],
+            [
                 'q' => 'Domainimi başka bir hosting ile kullanabilir miyim?',
                 'a' => 'Evet. HostVim\'den aldığınız alan adının ad sunucularını (NS) ve DNS kayıtlarını müşteri panelinizden dilediğiniz gibi yönetebilir, alan adınızı istediğiniz hosting sağlayıcısına yönlendirebilirsiniz. Alan adınız tamamen sizin kontrolünüzdedir.',
             ],

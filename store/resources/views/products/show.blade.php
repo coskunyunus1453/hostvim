@@ -68,7 +68,7 @@
                                 <input type="checkbox" name="install_panel" value="1" class="mt-1 rounded border-hv-border text-hv-primary focus:ring-[#C2410C]">
                                 <span class="text-sm text-hv-text">
                                     <span class="font-semibold">Panelze hosting paneli kurulsun</span>
-                                    <span class="block text-xs text-hv-muted">Sunucunuz teslim edilirken cPanel benzeri Panelze paneli otomatik kurulur. İşaretlemezseniz sunucu boş (yalnızca işletim sistemi) teslim edilir.</span>
+                                    <span class="block text-xs text-hv-muted">Sunucunuz teslim edilirken Panelze hosting paneli otomatik kurulur — site, SSL, veritabanı ve dosya yönetimi hazır gelir. İşaretlemezseniz sunucu yalnızca işletim sistemi ile teslim edilir.</span>
                                 </span>
                             </label>
                         @endif

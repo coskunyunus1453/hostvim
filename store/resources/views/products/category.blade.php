@@ -14,7 +14,20 @@
             @forelse($category->activeProducts as $product)
                 @include('partials.pricing-card', ['product' => $product, 'category' => $category])
             @empty
-                <p class="col-span-full text-center text-hv-muted">Paketler yakında eklenecek.</p>
+                <div class="col-span-full mx-auto max-w-xl rounded-2xl border border-hv-border bg-hv-elevated p-10 text-center">
+                    @if(in_array($category->slug, ['vds', 'dedicated'], true))
+                        <p class="text-lg font-bold text-hv-text">{{ $category->name }} — özel teklif</p>
+                        <p class="mt-3 text-sm leading-relaxed text-hv-muted">
+                            VDS ve dedicated sunucular projenize göre yapılandırılır. Online paket listesi yerine size özel kaynak ve fiyat teklifi hazırlıyoruz.
+                        </p>
+                        <a href="{{ url('/iletisim') }}?konu={{ $category->slug }}" class="mt-6 inline-flex rounded-xl bg-hv-primary px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
+                            Teklif Al
+                        </a>
+                    @else
+                        <p class="text-hv-muted">Paketler yakında eklenecek.</p>
+                        <a href="{{ url('/iletisim') }}" class="mt-4 inline-flex text-sm font-semibold text-hv-primary hover:underline">Bilgi alın →</a>
+                    @endif
+                </div>
             @endforelse
         </div>
     </div>

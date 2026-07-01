@@ -136,6 +136,16 @@ class SeoService
         ]);
     }
 
+    public function forDomainValue(): array
+    {
+        return $this->build([
+            'title' => 'Domain Değer Sorgulama — Alan Adı Tahmini Piyasa Değeri',
+            'description' => 'Ücretsiz domain değer sorgulama: uzantı, uzunluk, marka potansiyeli ve kayıt yaşına göre tahmini alan adı değeri. Anında sonuç — HostVim.',
+            'keywords' => 'domain değer sorgulama, alan adı değeri, domain appraisal, domain fiyat tahmini, domain değeri hesaplama',
+            'canonical' => route('domain.value.index'),
+        ]);
+    }
+
     /**
      * Hosting / Bulut Sunucu gibi tanıtım (landing) sayfaları için SEO.
      *

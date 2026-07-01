@@ -8,12 +8,22 @@ use Illuminate\Http\Request;
 
 class ContactController extends Controller
 {
-    public function index(SeoService $seo)
+    public function index(Request $request, SeoService $seo)
     {
         $breadcrumbs = [
             ['label' => 'Ana Sayfa', 'url' => route('home')],
             ['label' => 'İletişim', 'url' => null],
         ];
+
+        $konu = (string) $request->query('konu', '');
+        $domain = trim((string) $request->query('domain', ''));
+        $subjectLabels = [
+            'vds' => 'VDS Sunucu — Teklif Talebi',
+            'dedicated' => 'Dedicated Sunucu — Teklif Talebi',
+            'domain-transfer' => 'Domain Transfer Talebi',
+        ];
+        $prefillSubject = $subjectLabels[$konu] ?? ($konu !== '' ? ucfirst(str_replace('-', ' ', $konu)) : '');
+        $prefillMessage = $domain !== '' ? "Transfer etmek istediğim alan adı: {$domain}\n\n" : '';
 
         return view('contact.index', [
             'seo' => $seo->build([
@@ -23,6 +33,8 @@ class ContactController extends Controller
             ]),
             'breadcrumbs' => $breadcrumbs,
             'schemas' => [$seo->breadcrumbSchema($breadcrumbs)],
+            'prefillSubject' => $prefillSubject,
+            'prefillMessage' => $prefillMessage,
         ]);
     }
 

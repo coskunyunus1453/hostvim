@@ -3,9 +3,8 @@
 namespace App\Support;
 
 /**
- * /hosting sayfasinin varsayilan, SEO odakli icerigi.
- * Admin panelinden (Sayfa Icerikleri) duzenlenince site_settings.hosting_page
- * JSON kaydi bu varsayilanlarin yerine gecer.
+ * /web-hosting sayfasının varsayılan, SEO odaklı içeriği.
+ * Hostvim altyapısı: Panelze panel + PanelKafes + Nginx + PHP-FPM.
  */
 class HostingPageContent
 {
@@ -16,68 +15,74 @@ class HostingPageContent
     {
         return [
             'hero' => [
-                'badge' => 'cPanel · LiteSpeed · NVMe',
+                'badge' => 'Panelze · PanelKafes · Nginx · NVMe',
                 'title' => 'Hızlı ve Güvenli Web Hosting',
-                'subtitle' => 'Yüksek performanslı LiteSpeed sunucular, NVMe diskler ve ücretsiz SSL ile web sitenizi saniyeler içinde yayına alın. cPanel kontrol paneli ve 7/24 Türkçe destek standarttır.',
+                'subtitle' => 'Kendi geliştirdiğimiz Panelze kontrol paneli ve PanelKafes izolasyonu ile sitenizi güvenle barındırın. Nginx, PHP 8.x, NVMe disk ve otomatik Let\'s Encrypt SSL standarttır.',
                 'primary_label' => 'Paketleri İncele',
                 'primary_url' => '#paketler',
                 'secondary_label' => 'Alan Adı Sorgula',
                 'secondary_url' => '/domain',
             ],
             'seo' => [
-                'title' => 'Web Hosting — cPanel, LiteSpeed & NVMe Linux Hosting',
-                'description' => 'HostVim web hosting paketleri: LiteSpeed web sunucusu, NVMe diskler, CloudLinux, cPanel ve ücretsiz SSL. WordPress ve PHP siteleri için hızlı, güvenli ve uygun fiyatlı Linux hosting. Ücretsiz taşıma ve 7/24 destek.',
+                'title' => 'Web Hosting — Panelze Panel & PanelKafes Altyapısı',
+                'description' => 'Hostvim web hosting: Panelze panel, PanelKafes site izolasyonu, Nginx, PHP 8.x FPM, NVMe SSD ve ücretsiz SSL. WordPress ve PHP siteleri için hızlı, güvenli Linux hosting.',
+            ],
+            'platform' => [
+                ['icon' => '🎛️', 'title' => 'Panelze Panel', 'text' => 'Kendi hosting kontrol panelimiz — site, domain, SSL, veritabanı ve dosya yönetimi tek arayüzde.'],
+                ['icon' => '🔐', 'title' => 'PanelKafes', 'text' => 'Her site ayrı Linux kullanıcısı ve PHP-FPM havuzu ile izole; paket bazlı CPU/RAM limiti.'],
+                ['icon' => '⚡', 'title' => 'Nginx + PHP-FPM', 'text' => 'Yüksek performanslı web sunucusu ve site başına optimize PHP-FPM yapılandırması.'],
+                ['icon' => '💾', 'title' => 'NVMe SSD', 'text' => 'Kurumsal NVMe diskler ile düşük gecikme ve hızlı dosya erişimi.'],
             ],
             'intro' => [
                 'title' => 'İhtiyacınıza uygun hosting paketi',
-                'text' => 'Kişisel bloglardan kurumsal e-ticarete kadar her ölçekte web sitesi için optimize edilmiş paketler. Tüm paketlerde cPanel, LiteSpeed, ücretsiz SSL ve günlük yedekleme.',
+                'text' => 'Kişisel blogdan kurumsal e-ticarete kadar her ölçek için Panelze altyapısıyla optimize paketler. Tüm paketlerde Panelze panel, PanelKafes izolasyon, ücretsiz SSL ve otomatik yedekleme.',
             ],
             'features' => [
-                ['icon' => '🔒', 'title' => 'Ücretsiz SSL', 'text' => "Let's Encrypt ile tüm web siteleriniz için otomatik yenilenen ücretsiz SSL sertifikası."],
-                ['icon' => '🚚', 'title' => 'Ücretsiz Taşıma', 'text' => 'cPanel kullanan mevcut hosting firmanızdan sitenizi ücretsiz ve sorunsuz taşıyoruz.'],
-                ['icon' => '💾', 'title' => 'Otomatik Yedekleme', 'text' => 'Web sitenizi düzenli olarak yedekleyerek olası veri kayıplarına karşı koruyoruz.'],
-                ['icon' => '⚡', 'title' => '%99.9 Uptime', 'text' => 'Kurumsal altyapı ve yedekli sistemlerle web siteniz kesintisiz çalışır.'],
-                ['icon' => '🚀', 'title' => 'LiteSpeed + LSCache', 'text' => 'Apache ve Nginx’e göre çok daha hızlı LiteSpeed web sunucusu ve WordPress için LSCache.'],
-                ['icon' => '🧩', 'title' => 'Tek Tıkla Kurulum', 'text' => 'WordPress, Opencart, Joomla ve onlarca yazılımı tek tıkla saniyeler içinde kurun.'],
-                ['icon' => '🎧', 'title' => '7/24 Destek', 'text' => 'Gerçek insanlardan oluşan teknik destek ekibimiz haftanın her günü yanınızda.'],
-                ['icon' => '↩️', 'title' => 'İade Garantisi', 'text' => 'Hosting hizmetinden memnun kalmazsanız ilk 7 gün içinde koşulsuz iade.'],
+                ['icon' => '🎛️', 'title' => 'Panelze Panel', 'text' => 'Dosya yöneticisi, veritabanı, e-posta, SSL ve domain yönetimi — hepsi kendi panelimizde, Türkçe arayüz.'],
+                ['icon' => '🔐', 'title' => 'PanelKafes İzolasyon', 'text' => 'Site başına ayrı sistem kullanıcısı ve kaynak limiti; komşu sitelerden etkilenmezsiniz.'],
+                ['icon' => '🔒', 'title' => 'Ücretsiz SSL', 'text' => "Let's Encrypt ile otomatik kurulum ve yenileme; HTTPS her zaman aktif."],
+                ['icon' => '🚚', 'title' => 'Ücretsiz Taşıma', 'text' => 'Mevcut hosting firmanızdan sitenizi ve e-postalarınızı ücretsiz taşıyoruz.'],
+                ['icon' => '💾', 'title' => 'Otomatik Yedekleme', 'text' => 'Düzenli sunucu yedekleri; kritik verileriniz için panelden manuel yedek de alabilirsiniz.'],
+                ['icon' => '⚡', 'title' => '%99.9 Uptime', 'text' => 'Yedekli altyapı ve izleme ile siteniz kesintisiz çalışır.'],
+                ['icon' => '🧩', 'title' => 'Hızlı Kurulum', 'text' => 'WordPress ve popüler CMS\'leri Panelze üzerinden dakikalar içinde kurun.'],
+                ['icon' => '🎧', 'title' => '7/24 Destek', 'text' => 'Türkçe teknik destek ekibimiz haftanın her günü yanınızda.'],
             ],
             'tech' => [
-                ['title' => 'cPanel Kontrol Paneli', 'text' => 'Dünyada en çok tercih edilen hosting kontrol paneli cPanel ile dosya, veritabanı, e-posta ve alan adı yönetimini Türkçe arayüzden kolayca yapın.'],
-                ['title' => 'LiteSpeed Web Server', 'text' => 'LSAPI ve LSCache desteğiyle PHP tabanlı sitelerde Apache ve Nginx’e göre belirgin biçimde daha yüksek hız ve daha düşük kaynak tüketimi.'],
-                ['title' => 'CloudLinux & CageFS', 'text' => 'Her hesap CloudLinux ile izole edilir; CageFS sayesinde diğer kullanıcıların sitelerinden etkilenmezsiniz. Kaynaklar adil paylaştırılır.'],
-                ['title' => 'PHP 5.6 – 8.3', 'text' => 'Eski yazılımlardan en güncel sürümlere kadar geniş PHP desteği. Her alan adı için ayrı PHP sürümü seçebilirsiniz.'],
-                ['title' => 'Imunify360 Güvenlik', 'text' => 'WAF, antivirüs ve proaktif koruma sağlayan Imunify360 ile siteleriniz zararlı yazılımlara ve saldırılara karşı korunur.'],
-                ['title' => 'Ücretsiz SSL Sertifikası', 'text' => "Let's Encrypt SSL sertifikaları otomatik kurulur ve 90 günde bir otomatik yenilenir; siteleriniz her zaman HTTPS ile korunur."],
+                ['title' => 'Panelze Hosting Paneli', 'text' => 'Hostvim ve Panelze ekosisteminin parçası olan özel kontrol paneli. Site oluşturma, dosya yönetimi, MySQL veritabanları, e-posta hesapları, SSL ve DNS işlemlerini tek panelden yönetin.'],
+                ['title' => 'PanelKafes (Site Kafesi)', 'text' => 'Her domain ayrı Linux kullanıcısında ve ayrı PHP-FPM soketinde çalışır. Hosting paketinizdeki CPU ve RAM limitleri cgroup ile uygulanır; komşu sitelerden tam izolasyon.'],
+                ['title' => 'Nginx Web Sunucusu', 'text' => 'Üretim ortamlarımızda Nginx reverse proxy ve statik dosya sunumu. HTTP/2, gzip/brotli sıkıştırma ve güvenli TLS yapılandırması.'],
+                ['title' => 'PHP 8.x FPM', 'text' => 'Güncel PHP sürümleri (8.2/8.3), OPcache açık. Site başına PHP-FPM pool ile stabil performans.'],
+                ['title' => 'MariaDB / MySQL', 'text' => 'Her hosting hesabı için ayrı veritabanı oluşturma; phpMyAdmin SSO ile güvenli erişim.'],
+                ['title' => 'Let\'s Encrypt SSL', 'text' => 'Yeni site açıldığında SSL otomatik tanımlanır ve yenilenir; manuel işlem gerekmez.'],
             ],
             'details' => [
                 [
-                    'title' => 'LiteSpeed ile Yüksek PHP Performansı',
-                    'body' => "HostVim, web hosting sunucularında Apache + PHP-FPM veya Nginx + PHP-FPM ikilileri yerine LiteSpeed Web Server’ı tercih eder. LSAPI ve LSCache desteğiyle PHP işlemleri çok daha optimize biçimde işlenir, işlemci ve RAM kaynakları verimli kullanılır.\n\nÖzellikle WordPress, Opencart ve diğer PHP tabanlı sitelerde LiteSpeed; daha hızlı yükleme süreleri, daha yüksek PageSpeed skorları ve daha iyi kullanıcı deneyimi sağlar. LSCache eklentisiyle WordPress siteleriniz ek bir maliyet olmadan ciddi şekilde hızlanır.",
+                    'title' => 'Panelze ile site yönetimi',
+                    'body' => "Panelze, Hostvim'in kendi geliştirdiği modern hosting kontrol panelidir. Altyapıyı uçtan uca kendimiz yönetiyoruz; üçüncü parti panel lisansına ihtiyaç duymazsınız.\n\nPanelze üzerinden yeni site oluşturabilir, dosyalarınızı yönetebilir, MySQL veritabanı açabilir, e-posta hesabı tanımlayabilir ve SSL sertifikanızı tek tıkla aktif edebilirsiniz. Müşteri paneliniz (hostvim.com) ile hosting paneliniz entegre çalışır.",
                 ],
                 [
-                    'title' => 'cPanel ile Kontrol Sizde',
-                    'body' => "Web hosting paketlerinde dünyanın en yaygın kontrol paneli cPanel’i kullanıyoruz. Dosya yöneticisi, veritabanları, e-posta hesapları, yedekleme ve alan adı yönetimi gibi tüm işlemleri tek bir Türkçe arayüzden kolayca gerçekleştirebilirsiniz.\n\nDerin Linux sunucu bilgisine ihtiyaç duymadan sitenizi yönetebilir, FTP ve Git ile dosyalarınızı yükleyebilir, PhpMyAdmin üzerinden veritabanlarınızı düzenleyebilirsiniz.",
+                    'title' => 'PanelKafes: gerçek site izolasyonu',
+                    'body' => "PanelKafes, paylaşımlı hostingde her müşteri sitesini ayrı bir \"kafes\" içinde çalıştıran izolasyon sistemimizdir. Her site kendi Linux kullanıcısına, kendi web kök dizinine ve kendi PHP-FPM havuzuna sahiptir.\n\nHosting paketinizde tanımlı CPU ve RAM limitleri cgroup ile uygulanır; bir sitenin kaynak tüketimi diğer müşterileri etkilemez. Bu mimari güvenlik ve performans açısından klasik paylaşımlı hostingden belirgin şekilde daha güvenlidir.",
                 ],
                 [
-                    'title' => 'Birkaç Tıkla Hızlı Kurulum',
-                    'body' => "cPanel üzerindeki tek tıkla kurulum aracıyla WordPress, Opencart, Joomla, PrestaShop ve onlarca popüler yazılımı bir dakikadan kısa sürede kurabilirsiniz.\n\nHerhangi bir teknik bilgiye ihtiyaç duymadan, yalnızca kullanıcı adı ve şifre belirleyerek sitenizi yönetime hazır hale getirir, zamandan tasarruf edersiniz.",
+                    'title' => 'Nginx ve PHP performansı',
+                    'body' => "Web hosting sunucularımızda Nginx ve PHP-FPM kombinasyonu kullanıyoruz. OPcache ile PHP bytecode önbellekleme, NVMe SSD ile düşük disk gecikmesi ve site başına optimize edilmiş FPM pool ayarları sayesinde WordPress ve PHP uygulamaları hızlı yanıt verir.\n\nStatik dosyalar doğrudan Nginx üzerinden sunulur; dinamik istekler izole PHP-FPM süreçlerine yönlendirilir.",
                 ],
                 [
-                    'title' => 'Ücretsiz ve Sorunsuz Website Taşıma',
-                    'body' => "HostVim teknik ekibi, mevcut hosting firmanızdaki web sitenizi ve e-postalarınızı ücretsiz olarak taşır. cPanel kullanıyorsanız, tüm konfigürasyonlarınızla birlikte eksiksiz biçimde aktarım yapılır.\n\nFarklı bir kontrol paneli kullanıyorsanız, destek ekibimizle iletişime geçerek taşıma süreci hakkında net bilgi alabilirsiniz. Geçiş sürecinde sitenizin kesintiye uğramaması için planlı çalışırız.",
+                    'title' => 'Ücretsiz site taşıma',
+                    'body' => "Mevcut hosting sağlayıcınızdaki web sitenizi ve e-postalarınızı Hostvim'e ücretsiz taşıyoruz. Dosya ve veritabanı aktarımını teknik ekibimiz planlı şekilde gerçekleştirir.\n\nTaşıma sonrası Panelze panelinizde site aktif olur, SSL otomatik tanımlanır ve DNS yönlendirmesiyle yayına geçersiniz.",
                 ],
             ],
             'faqs' => [
-                ['q' => 'Web hosting nedir?', 'a' => 'Web hosting, web sitenizi oluşturan dosyaların (HTML, CSS, görseller, veritabanı vb.) depolandığı ve ziyaretçilerin 7/24 erişebilmesini sağlayan barındırma hizmetidir. Sitenizin internette yayında ve erişilebilir olmasını sağlar.'],
-                ['q' => 'Hangi hosting paketini seçmeliyim?', 'a' => 'Paket seçimi; barındıracağınız site sayısı, disk alanı, beklenen ziyaretçi trafiği ile yazılımınızın ihtiyaç duyduğu işlemci ve RAM miktarına göre değişir. Başlangıç ve orta ölçekli WordPress/PHP siteleri için giriş paketleri yeterlidir; e-ticaret ve yoğun trafikli siteler için üst paketleri öneririz. Emin değilseniz destek ekibimiz size yardımcı olur.'],
-                ['q' => 'Sitemi HostVim’e nasıl taşırım?', 'a' => 'Mevcut firmanızda cPanel kullanıyorsanız, web sitenizi ve e-postalarınızı ücretsiz olarak biz taşırız. Farklı bir panel kullanıyorsanız manuel taşıma için destek ekibimizle iletişime geçebilirsiniz. Çoğu durumda taşıma süreci kesintisiz tamamlanır.'],
-                ['q' => 'Hosting paketim yetersiz gelirse ne olur?', 'a' => 'Paketiniz yetersiz kalırsa, daha önce ödediğiniz ücret yanmaz. Kalan süre hesaplanarak yalnızca fark ücretini ödeyip dilediğiniz üst pakete kolayca yükseltebilirsiniz.'],
-                ['q' => 'Ücretsiz SSL sertifikası veriyor musunuz?', 'a' => "Evet. Tüm hosting paketlerinde Let's Encrypt ücretsiz SSL sertifikası sunuyoruz. Sertifikalar otomatik kurulur ve 90 günde bir otomatik yenilenir; siteleriniz her zaman HTTPS ile güvende olur."],
-                ['q' => 'Hangi PHP sürümlerini destekliyorsunuz?', 'a' => 'PHP 5.6’dan en güncel PHP sürümlerine kadar geniş bir destek sunuyoruz. cPanel üzerinden her alan adı veya alt alan adı için ayrı PHP sürümü seçebilir, eski ve yeni yazılımları aynı pakette barındırabilirsiniz.'],
-                ['q' => 'Web sitemi yedekliyor musunuz?', 'a' => 'Hosting sunucularımız düzenli olarak yedeklenir. Yine de en iyi uygulama olarak, kritik verileriniz için kendi yedeğinizi de almanızı öneririz. cPanel üzerinden dilediğiniz zaman manuel yedek alabilirsiniz.'],
-                ['q' => 'SSH (komut satırı) erişimi var mı?', 'a' => 'Paylaşımlı web hosting hizmetlerinde güvenlik nedeniyle SSH erişimi sınırlıdır. Tam root erişimi ve komut satırına ihtiyacınız varsa bulut sunucu (VPS) hizmetlerimizi tercih etmenizi öneririz.'],
-                ['q' => 'İade garantiniz var mı?', 'a' => 'Hosting hizmetlerinde 7 gün koşulsuz iade garantisi sunuyoruz. Hizmetten memnun kalmazsanız ilk 7 gün içinde ücret iadenizi alabilirsiniz. Alan adı kayıtları iade kapsamı dışındadır.'],
+                ['q' => 'Web hosting nedir?', 'a' => 'Web hosting, sitenizin dosyalarının 7/24 erişilebilir bir sunucuda barındırılmasıdır. Hostvim\'de bu hizmet Panelze panel ve PanelKafes izolasyonu ile sunulur.'],
+                ['q' => 'Panelze panel nedir?', 'a' => 'Panelze, Hostvim\'in kendi geliştirdiği hosting kontrol panelidir. Site, domain, SSL, veritabanı ve e-posta yönetimini tek arayüzden yaparsınız.'],
+                ['q' => 'PanelKafes ne işe yarar?', 'a' => 'PanelKafes, her sitenin ayrı Linux kullanıcısı ve PHP-FPM havuzunda çalışmasını sağlar. Paketinizdeki CPU/RAM limiti uygulanır; komşu sitelerden izole olursunuz.'],
+                ['q' => 'Hangi hosting paketini seçmeliyim?', 'a' => 'Site sayısı, disk ihtiyacı ve trafiğe göre Başlangıç, Profesyonel veya Kurumsal paketi seçin. Emin değilseniz destek ekibimiz yardımcı olur.'],
+                ['q' => 'Sitemi Hostvim\'e nasıl taşırım?', 'a' => 'Destek talebi açmanız yeterli. Dosya ve veritabanı aktarımını biz yaparız; çoğu taşıma kesintisiz tamamlanır.'],
+                ['q' => 'Ücretsiz SSL var mı?', 'a' => "Evet. Tüm paketlerde Let's Encrypt SSL otomatik kurulur ve yenilenir."],
+                ['q' => 'Hangi PHP sürümlerini destekliyorsunuz?', 'a' => 'PHP 8.2 ve 8.3 aktif olarak desteklenir. OPcache varsayılan olarak açıktır.'],
+                ['q' => 'SSH erişimi var mı?', 'a' => 'Paylaşımlı hostingde güvenlik nedeniyle SSH sınırlıdır. Tam root erişim için bulut sunucu (VPS) paketlerimizi tercih edin.'],
+                ['q' => 'İade garantiniz var mı?', 'a' => 'Hosting hizmetlerinde 7 gün koşulsuz iade garantisi sunuyoruz. Alan adı kayıtları iade kapsamı dışındadır.'],
             ],
         ];
     }

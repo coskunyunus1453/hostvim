@@ -3,6 +3,7 @@
 @section('content')
 @php
     $hero = $content['hero'] ?? [];
+    $platform = $content['platform'] ?? [];
     $intro = $content['intro'] ?? [];
     $features = $content['features'] ?? [];
     $tech = $content['tech'] ?? [];
@@ -14,6 +15,8 @@
 <section class="relative overflow-hidden bg-hv-gradient">
     <div class="pointer-events-none absolute inset-0 opacity-20"
          style="background-image:radial-gradient(circle at 20% 20%, #fff 1px, transparent 1px);background-size:32px 32px;"></div>
+    <div class="pointer-events-none absolute -right-24 top-10 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
+    <div class="pointer-events-none absolute -left-16 bottom-0 h-48 w-48 rounded-full bg-white/5 blur-2xl"></div>
     <div class="relative mx-auto max-w-4xl px-4 py-16 text-center lg:px-8 lg:py-24">
         @if(!empty($hero['badge']))
             <span class="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur">
@@ -42,6 +45,24 @@
         </div>
     </div>
 </section>
+
+{{-- ===== PLATFORM / ALTYAPI ===== --}}
+@if(!empty($platform))
+<section class="border-b border-hv-border bg-hv-surface py-10">
+    <div class="mx-auto max-w-6xl px-4 lg:px-8">
+        <p class="text-center text-xs font-bold uppercase tracking-widest text-hv-muted">Kendi altyapımız</p>
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            @foreach($platform as $p)
+                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-5 text-center transition hover:border-hv-primary/40 hover:shadow-md">
+                    <div class="text-2xl">{{ $p['icon'] ?? '✓' }}</div>
+                    <h3 class="mt-2 text-sm font-bold text-hv-text">{{ $p['title'] ?? '' }}</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-hv-muted">{{ $p['text'] ?? '' }}</p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+@endif
 
 {{-- ===== PAKETLER ===== --}}
 <section id="paketler" class="bg-hv-bg py-16 lg:py-20">
@@ -76,9 +97,9 @@
         <p class="section-subtitle mx-auto text-center">İhtiyacınız olan her şey tek panelde; şeffaf fiyat, kurumsal altyapı ve gerçek insan desteği.</p>
         <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             @foreach($features as $f)
-                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6">
-                    <div class="text-2xl">{{ $f['icon'] ?? '✅' }}</div>
-                    <h3 class="mt-3 font-bold text-hv-text">{{ $f['title'] ?? '' }}</h3>
+                <div class="group rounded-2xl border border-hv-border bg-hv-elevated p-6 transition hover:-translate-y-0.5 hover:border-hv-primary/30 hover:shadow-lg">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-hv-primary/10 text-xl transition group-hover:bg-hv-primary/20">{{ $f['icon'] ?? '✅' }}</div>
+                    <h3 class="mt-4 font-bold text-hv-text">{{ $f['title'] ?? '' }}</h3>
                     <p class="mt-1.5 text-sm leading-relaxed text-hv-muted">{{ $f['text'] ?? '' }}</p>
                 </div>
             @endforeach
@@ -97,7 +118,7 @@
         </div>
         <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             @foreach($tech as $t)
-                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6">
+                <div class="rounded-2xl border border-hv-border border-l-4 border-l-hv-primary bg-hv-elevated p-6">
                     <h3 class="font-bold text-hv-text">{{ $t['title'] ?? '' }}</h3>
                     <p class="mt-2 text-sm leading-relaxed text-hv-muted">{{ $t['text'] ?? '' }}</p>
                 </div>

@@ -48,6 +48,7 @@ class PageContentService
         return [
             'hero' => array_merge($defaults['hero'], $this->filled($saved['hero'] ?? null)),
             'seo' => array_merge($defaults['seo'], $this->filled($saved['seo'] ?? null)),
+            'platform' => $this->list($saved['platform'] ?? null, $defaults['platform'] ?? []),
             'intro' => array_merge($defaults['intro'], $this->filled($saved['intro'] ?? null)),
             'features' => $this->list($saved['features'] ?? null, $defaults['features']),
             'tech' => $this->list($saved['tech'] ?? null, $defaults['tech']),

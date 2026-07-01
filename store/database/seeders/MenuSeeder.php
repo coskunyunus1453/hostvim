@@ -105,9 +105,9 @@ class MenuSeeder extends Seeder
                 'children' => [
                     ['label' => 'Web Hosting', 'url' => '/web-hosting', 'icon' => 'server', 'description' => 'NVMe SSD, kolay yönetim paneli, ücretsiz SSL'],
                     ['label' => 'Bulut Sunucu (VPS)', 'url' => '/bulut-sunucu', 'icon' => 'cloud', 'description' => 'Tam yetkili, anında ölçeklenebilir kaynaklar'],
-                    ['label' => 'VDS Sunucu', 'url' => '/urunler/vds', 'icon' => 'cpu', 'description' => 'Garantili işlemci ve RAM performansı'],
-                    ['label' => 'Dedicated Sunucu', 'url' => '/urunler/dedicated', 'icon' => 'shield', 'description' => 'Size özel, paylaşımsız fiziksel sunucu'],
-                    ['label' => 'Domain / Alan Adı', 'url' => '/domain', 'icon' => 'globe', 'description' => 'Sorgula, transfer et, saniyeler içinde tescil et'],
+                    ['label' => 'VDS Sunucu', 'url' => '/iletisim?konu=vds', 'icon' => 'cpu', 'description' => 'Özel kaynak — teklif alın, anında kurulum'],
+                    ['label' => 'Dedicated Sunucu', 'url' => '/iletisim?konu=dedicated', 'icon' => 'shield', 'description' => 'Fiziksel sunucu — size özel yapılandırma'],
+                    ['label' => 'Domain / Alan Adı', 'url' => '/domain', 'icon' => 'globe', 'description' => 'Sorgula, kaydet, yönet'],
                 ],
             ],
             ['label' => 'Domain', 'url' => '/domain', 'icon' => 'globe'],
@@ -126,9 +126,10 @@ class MenuSeeder extends Seeder
                 'children' => [
                     ['label' => 'Web Hosting', 'url' => '/web-hosting'],
                     ['label' => 'Bulut Sunucu (VPS)', 'url' => '/bulut-sunucu'],
-                    ['label' => 'VDS Sunucu', 'url' => '/urunler/vds'],
-                    ['label' => 'Dedicated Sunucu', 'url' => '/urunler/dedicated'],
+                    ['label' => 'VDS Sunucu', 'url' => '/iletisim?konu=vds'],
+                    ['label' => 'Dedicated Sunucu', 'url' => '/iletisim?konu=dedicated'],
                     ['label' => 'Domain Sorgulama', 'url' => '/domain'],
+                    ['label' => 'Domain Değer Sorgulama', 'url' => '/domain-deger-sorgulama'],
                 ],
             ],
             [

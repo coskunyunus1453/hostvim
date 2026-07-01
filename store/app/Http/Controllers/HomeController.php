@@ -16,7 +16,11 @@ class HomeController extends Controller
     public function index(SeoService $seo, CacheService $cache)
     {
         $hero = $cache->remember('home:hero', fn () => HeroSection::where('page', 'home')->where('is_active', true)->orderBy('sort_order')->first());
-        $categories = $cache->remember('home:categories', fn () => ProductCategory::where('is_active', true)->with(['activeProducts' => fn ($q) => $q->limit(3)])->orderBy('sort_order')->get());
+        $categories = $cache->remember('home:categories', fn () => ProductCategory::where('is_active', true)
+            ->whereHas('activeProducts')
+            ->with(['activeProducts' => fn ($q) => $q->limit(3)])
+            ->orderBy('sort_order')
+            ->get());
         $features = $cache->remember('home:features', fn () => Feature::where('is_active', true)->orderBy('sort_order')->limit(6)->get());
         $testimonials = $cache->remember('home:testimonials', fn () => Testimonial::where('is_active', true)->orderBy('sort_order')->limit(6)->get());
         $faqs = $cache->remember('home:faqs', fn () => Faq::where('is_active', true)->orderBy('sort_order')->limit(8)->get());

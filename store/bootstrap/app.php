@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'domain/check',
             'domain/whois',
             'domain/sepet',
+            'domain-deger-sorgulama',
             'urunler/*/sepet',
         ]);
 

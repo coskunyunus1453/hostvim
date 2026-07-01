@@ -3,9 +3,8 @@
 namespace App\Support;
 
 /**
- * /sunucu (bulut sunucu) sayfasinin varsayilan, SEO odakli icerigi.
- * Admin panelinden (Sayfa Icerikleri) duzenlenince site_settings.cloud_page
- * JSON kaydi bu varsayilanlarin yerine gecer.
+ * /bulut-sunucu sayfasının varsayılan, SEO odaklı içeriği.
+ * Panelze engine ile VPS/VDS provizyon; isteğe bağlı Panelze panel.
  */
 class CloudPageContent
 {
@@ -16,65 +15,71 @@ class CloudPageContent
     {
         return [
             'hero' => [
-                'badge' => 'NVMe · Tam Root · Anlık Kurulum',
+                'badge' => 'NVMe · Root Erişim · Panelze Engine',
                 'title' => 'Yüksek Performanslı Bulut Sunucu',
-                'subtitle' => 'Paylaşımsız işlemci, ayrılmış RAM ve kurumsal NVMe disklerle tam root erişimli bulut sunucular. İhtiyacınıza göre ölçeklenen, hızlı kurulan VPS/VDS çözümleri.',
+                'subtitle' => 'Paylaşımsız işlemci, ayrılmış RAM ve kurumsal NVMe disklerle tam root erişimli VPS/VDS. İsteğe bağlı Panelze hosting paneli ile dakikalar içinde yayına alın.',
                 'primary_label' => 'Sunucuları İncele',
                 'primary_url' => '#paketler',
                 'secondary_label' => 'Bize Ulaşın',
                 'secondary_url' => '/iletisim',
             ],
             'seo' => [
-                'title' => 'Bulut Sunucu (VPS/VDS) — NVMe, Tam Root Erişim',
-                'description' => 'HostVim bulut sunucu hizmetleri: paylaşımsız işlemci, ayrılmış RAM, kurumsal NVMe diskler ve tam root erişim. AlmaLinux, Ubuntu, Debian ve Windows Server desteği, hızlı kurulum ve ölçeklenebilir VPS/VDS paketleri.',
+                'title' => 'Bulut Sunucu (VPS/VDS) — NVMe, Root, Panelze',
+                'description' => 'Hostvim bulut sunucu: paylaşımsız kaynaklar, NVMe SSD, tam root erişim, AlmaLinux/Ubuntu/Debian. İsteğe bağlı Panelze panel kurulumu ve ölçeklenebilir VPS paketleri.',
+            ],
+            'platform' => [
+                ['icon' => '🔑', 'title' => 'Tam Root', 'text' => 'Sunucunuzun tam yönetimi sizde; dilediğiniz yazılımı kurun.'],
+                ['icon' => '🎛️', 'title' => 'Panelze Panel', 'text' => 'Siparişte isteğe bağlı — hosting paneli otomatik kurulur.'],
+                ['icon' => '💽', 'title' => 'NVMe SSD', 'text' => 'Yüksek IOPS ile veritabanı ve uygulama performansı.'],
+                ['icon' => '🛡️', 'title' => 'DDoS Koruması', 'text' => 'Ağ katmanında temel saldırı filtreleme.'],
             ],
             'intro' => [
                 'title' => 'İhtiyacınıza göre ölçeklenen sunucular',
-                'text' => 'Geliştirme ortamlarından yüksek trafikli uygulamalara kadar her ihtiyaca uygun bulut sunucu paketleri. Tam root erişim, hızlı kurulum ve dilediğiniz an yükseltme imkânı.',
+                'text' => 'Geliştirme ortamından yüksek trafikli uygulamalara kadar esnek VPS/VDS paketleri. Root erişim, hızlı kurulum ve dilediğiniz an kaynak yükseltme.',
             ],
             'features' => [
-                ['icon' => '🎧', 'title' => 'Teknik Destek', 'text' => '7/24 temel seviye teknik destek. Dilediğiniz zaman SLA paketiyle destek seviyenizi artırabilirsiniz.'],
-                ['icon' => '📈', 'title' => 'Ölçeklenebilir', 'text' => 'İşiniz büyüdükçe CPU, RAM ve disk kaynaklarınızı kolayca yükseltin; ihtiyacınıza göre büyüyün.'],
-                ['icon' => '🚚', 'title' => 'Sunucu Transfer', 'text' => 'Mevcut sunucunuzu HostVim’e taşıyalım. cPanel ve DirectAdmin panellerinde taşıma desteği sunuyoruz.'],
-                ['icon' => '⚡', 'title' => '%99.9 Uptime', 'text' => 'Yedekli kurumsal altyapı ile bulut sunucunuz kesintisiz çalışır, iş sürekliliğiniz korunur.'],
-                ['icon' => '🔑', 'title' => 'Tam Root Erişim', 'text' => 'Sunucunuzun tam yönetimi sizde. Dilediğiniz yazılımı kurun, dilediğiniz gibi yapılandırın.'],
-                ['icon' => '💽', 'title' => 'Kurumsal NVMe Disk', 'text' => 'Yüksek hızlı NVMe SSD diskler ile uygulamalarınız verilere çok daha hızlı erişir.'],
-                ['icon' => '⏱️', 'title' => 'Hızlı Kurulum', 'text' => 'Siparişinizin ardından sunucunuz kısa sürede hazırlanır ve erişim bilgileri size iletilir.'],
-                ['icon' => '🛡️', 'title' => 'DDoS Koruması', 'text' => 'Layer 3/4 saldırı koruması ile sunucularınız ağ tabanlı saldırılara karşı korunur.'],
+                ['icon' => '🔑', 'title' => 'Tam Root Erişim', 'text' => 'SSH ile tam kontrol; Docker, Node.js, özel API — özgürce yapılandırın.'],
+                ['icon' => '🎛️', 'title' => 'Opsiyonel Panelze', 'text' => 'Sipariş sırasında Panelze hosting paneli kurulumunu seçebilirsiniz.'],
+                ['icon' => '💽', 'title' => 'Kurumsal NVMe', 'text' => 'NVMe SSD diskler ile yüksek okuma/yazma hızı.'],
+                ['icon' => '📈', 'title' => 'Ölçeklenebilir', 'text' => 'CPU, RAM ve disk kaynaklarını ihtiyaç halinde yükseltin.'],
+                ['icon' => '⚡', 'title' => '%99.9 Uptime', 'text' => 'Yedekli veri merkezi altyapısı.'],
+                ['icon' => '🛡️', 'title' => 'DDoS Koruması', 'text' => 'Layer 3/4 ağ koruması ile temel saldırı filtreleme.'],
+                ['icon' => '⏱️', 'title' => 'Hızlı Kurulum', 'text' => 'Sipariş onayından kısa süre sonra sunucu erişiminiz hazır.'],
+                ['icon' => '🎧', 'title' => 'Teknik Destek', 'text' => '7/24 temel destek; SLA paketleriyle yönetim desteği.'],
             ],
             'tech' => [
-                ['title' => 'İşletim Sistemleri', 'text' => 'AlmaLinux, Rocky Linux, Ubuntu, Debian, CloudLinux ve Windows Server işletim sistemlerini destekliyoruz. Kurulumda dilediğinizi seçebilirsiniz.'],
-                ['title' => 'Kontrol Panelleri', 'text' => 'cPanel ve DirectAdmin kontrol panellerini kurabilir veya panelsiz olarak da kullanabilirsiniz. Lisansını temin ettiğiniz dilediğiniz paneli de kurabilirsiniz.'],
-                ['title' => 'Yazılımlar & Diller', 'text' => 'PHP, Python, Node.js gibi diller; Laravel, Symfony, React, Vue gibi framework’ler ve WordPress’ten Opencart’a birçok yazılımı özgürce barındırabilirsiniz.'],
+                ['title' => 'Panelze Engine', 'text' => 'Sunucu provizyon, nginx vhost, SSL ve PanelKafes yapılandırması Panelze engine ile otomatik yönetilir.'],
+                ['title' => 'İşletim Sistemleri', 'text' => 'AlmaLinux, Rocky Linux, Ubuntu ve Debian. Kurulum sırasında seçim yapılır.'],
+                ['title' => 'Panelze Panel (Opsiyonel)', 'text' => 'Siparişte "Panelze hosting paneli kurulsun" seçeneği ile sunucuya panel otomatik kurulur; panelsiz root sunucu da tercih edilebilir.'],
+                ['title' => 'Ağ ve Güvenlik', 'text' => 'Dedicated IPv4, opsiyonel ek IP, firewall yapılandırması ve DDoS filtreleme.'],
             ],
             'details' => [
                 [
-                    'title' => 'Fiziksel Sunucuya Yakın Performans',
-                    'body' => "HostVim bulut sunucu altyapısında paylaşımsız işlemci ve ayrılmış RAM modeli kullanır. Kaynaklarınız size özeldir; başka kullanıcıların yoğunluğundan etkilenmezsiniz.\n\nKurumsal NVMe SSD diskler sayesinde disk okuma/yazma performansı yüksektir; veritabanı ağırlıklı uygulamalar ve yoğun trafikli web siteleri için ideal bir ortam sunar.",
+                    'title' => 'Paylaşımsız kaynak modeli',
+                    'body' => "Bulut sunucularımızda CPU ve RAM size ayrılmıştır; paylaşımlı hostingdeki komşu etkisi yaşanmaz. NVMe SSD diskler veritabanı ve yoğun I/O gerektiren uygulamalar için idealdir.\n\nVPS esnek ve ekonomik; VDS tamamen ayrılmış kaynaklarla sabit performans sunar.",
                 ],
                 [
-                    'title' => 'Tam Root Erişim ve Özgürlük',
-                    'body' => "Bulut sunucularınızda tam root (yönetici) erişimine sahip olursunuz. Dilediğiniz işletim sistemini, kontrol panelini ve yazılımları kurabilir, sunucunuzu ihtiyaçlarınıza göre uçtan uca yapılandırabilirsiniz.\n\nGeliştirme ortamları, uygulama sunucuları, oyun sunucuları veya özel web barındırma gibi paylaşımlı hostingin yetmediği tüm senaryolar için esnek bir altyapı elde edersiniz.",
+                    'title' => 'Panelze ile yönetim kolaylığı',
+                    'body' => "Root sunucu yönetimi teknik bilgi gerektirir. Sipariş sırasında Panelze hosting paneli kurulumunu seçerseniz, sunucunuz teslim edildiğinde site oluşturma, SSL, veritabanı ve dosya yönetimi hazır olur.\n\nPanelsiz tercih ederseniz sunucu yalnızca işletim sistemi ile gelir; tam özgürlük sizde kalır.",
                 ],
                 [
-                    'title' => 'İhtiyacınıza Göre Ölçeklenin',
-                    'body' => "Bulut sunucularınızın CPU, RAM ve disk kaynaklarını ihtiyaç duydukça yükseltebilirsiniz. İşiniz büyüdükçe altyapınız da sizinle birlikte büyür; baştan büyük bir yatırım yapmak zorunda kalmazsınız.\n\nYükseltme talebinizde, kaynaklarınız kısa bir bakım penceresinin ardından artırılır ve sunucunuz yeni kapasitesiyle çalışmaya devam eder.",
+                    'title' => 'Ölçekleme ve yükseltme',
+                    'body' => "Trafik ve iş yükünüz arttıkça CPU, RAM ve disk kapasitesini üst pakete geçerek yükseltebilirsiniz. Yükseltme kısa bir bakım penceresinin ardından tamamlanır.\n\nBüyüme planınızı önceden paylaşırsanız doğru paket önerisi sunarız.",
                 ],
                 [
-                    'title' => 'Otomatik Panel Kurulumu',
-                    'body' => "İsteğe bağlı olarak yeni sunucunuz kurulurken otomatik kontrol paneli kurulumu yapılabilir. Böylece sunucunuza erişir erişmez yönetim paneliniz hazır olur ve siteler oluşturmaya hemen başlayabilirsiniz.\n\nKurulum ve panel bilgileri e-posta ile iletilir; teknik kurulumla uğraşmadan üretime odaklanırsınız.",
+                    'title' => 'Sunucu taşıma desteği',
+                    'body' => "Mevcut VPS veya dedicated sunucunuzu Hostvim'e taşımak için destek ekibimizle iletişime geçin. Dosya rsync, veritabanı dump ve DNS geçişi planlı şekilde yapılır.\n\nPanelze panel kullanan sunuculardan geçiş süreci hızlandırılabilir.",
                 ],
             ],
             'faqs' => [
-                ['q' => 'Bulut sunucu nedir?', 'a' => 'Bulut sunucu (VPS/VDS), bir fiziksel sunucunun kaynaklarının (işlemci, RAM, disk) sanallaştırma teknolojisiyle bölümlendirilerek size özel ayrılmış bir sunucu olarak sunulmasıdır. Paylaşımlı hostinge göre çok daha fazla kontrol ve performans sağlar.'],
-                ['q' => 'VPS ile VDS arasındaki fark nedir?', 'a' => 'VPS’te kaynaklar genellikle paylaşımlı bir model üzerinden tahsis edilirken, VDS’te işlemci ve RAM gibi kaynaklar tamamen size ayrılır (paylaşımsız). Yüksek ve sabit performans gerektiren projeler için VDS, esnek ve ekonomik çözümler için VPS uygundur.'],
-                ['q' => 'Sunucu kurulumu ne kadar sürer?', 'a' => 'Siparişiniz onaylandıktan sonra sunucunuz kısa süre içinde hazırlanır. Ek konfigürasyon gerektirmeyen standart kurulumlar genellikle çok hızlı tamamlanır; özel ihtiyaçlarda süre değişebilir.'],
-                ['q' => 'Sunucu yönetimi bana mı ait?', 'a' => 'Bulut sunucular tam root erişimiyle sizin yönetiminizdedir. Yönetimsel destek için SLA paketi alabilirsiniz; bu durumda paket seviyenize göre teknik ekibimiz yönetim desteği sağlar.'],
-                ['q' => 'Hangi işletim sistemlerini kurabilirim?', 'a' => 'AlmaLinux, Rocky Linux, CloudLinux, Ubuntu, Debian ve Windows Server gibi yaygın işletim sistemlerini destekliyoruz. Kurulum sırasında ihtiyacınıza uygun olanı seçebilirsiniz.'],
-                ['q' => 'Hangi kontrol panellerini kullanabilirim?', 'a' => 'cPanel ve DirectAdmin kurulumlarını destekliyoruz. Bunların dışında lisansını kendiniz temin ettiğiniz dilediğiniz kontrol panelini de kurabilir veya panelsiz çalışabilirsiniz.'],
-                ['q' => 'Sunucumu yedekliyor musunuz?', 'a' => 'Olası teknik sorunlara karşı sunucuları düzenli olarak yedekliyoruz. Yine de kendi verileriniz için ek snapshot/yedek hizmeti almanızı veya kendi yedeğinizi almanızı öneririz.'],
-                ['q' => 'Ek IP adresi alabilir miyim?', 'a' => 'Evet. Sunucunuzun standart IP adresinin yanında, ihtiyaçlarınıza göre ek IP adresleri talep edebilirsiniz. Detaylar için destek ekibimizle iletişime geçebilirsiniz.'],
-                ['q' => 'Sunucu özelliklerimi sonradan yükseltebilir miyim?', 'a' => 'Evet. CPU, RAM ve disk kaynaklarınızı dilediğiniz zaman üst bir pakete geçerek yükseltebilirsiniz. Yükseltme işlemi kısa bir bakım penceresinin ardından tamamlanır.'],
+                ['q' => 'Bulut sunucu nedir?', 'a' => 'Fiziksel sunucu kaynaklarının sanallaştırılarak size özel ayrılmasıdır. Paylaşımlı hostinge göre tam root erişim ve daha yüksek performans sağlar.'],
+                ['q' => 'VPS ile VDS farkı nedir?', 'a' => 'VPS esnek kaynak tahsisi sunar; VDS\'te CPU ve RAM tamamen size ayrılır. Sabit yük için VDS, esnek bütçe için VPS uygundur.'],
+                ['q' => 'Panelze panel kurulur mu?', 'a' => 'Evet, sipariş sırasında isteğe bağlı olarak Panelze hosting paneli otomatik kurulabilir. Panelsiz sunucu da tercih edilebilir.'],
+                ['q' => 'Hangi kontrol paneli kullanılıyor?', 'a' => 'Hostvim kendi Panelze altyapısını kullanır. Site, SSL, veritabanı ve dosya yönetimi Panelze panel üzerinden yapılır; üçüncü parti panel lisansı gerekmez.'],
+                ['q' => 'Hangi işletim sistemleri desteklenir?', 'a' => 'AlmaLinux, Rocky Linux, Ubuntu ve Debian. Windows Server için destek ekibimize danışın.'],
+                ['q' => 'Sunucu yönetimi bana mı ait?', 'a' => 'Evet, tam root erişim sizdedir. Yönetim desteği için SLA paketi alabilirsiniz.'],
+                ['q' => 'Kaynakları sonradan yükseltebilir miyim?', 'a' => 'Evet. CPU, RAM ve disk paket yükseltmesi ile artırılabilir.'],
+                ['q' => 'Yedekleme var mı?', 'a' => 'Sunucu düzeyinde düzenli yedekleme yapılır. Kritik veriler için ek snapshot veya kendi yedek stratejinizi öneririz.'],
             ],
         ];
     }

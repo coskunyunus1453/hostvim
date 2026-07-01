@@ -38,7 +38,7 @@ class ManageDomainSettings extends Page
 
     public function mount(): void
     {
-        $keys = ['domain_register_enabled', 'domain_usd_try_rate', 'domain_eur_try_rate', 'domain_gbp_try_rate', 'domain_default_markup_percent', 'domain_auto_import_tlds'];
+        $keys = ['domain_register_enabled', 'domain_usd_try_rate', 'domain_eur_try_rate', 'domain_gbp_try_rate', 'domain_default_markup_percent', 'domain_auto_import_tlds', 'domain_value_gemini_api_key'];
         $settings = SiteSetting::whereIn('key', $keys)->pluck('value', 'key')->toArray();
 
         $this->form->fill([
@@ -48,6 +48,7 @@ class ManageDomainSettings extends Page
             'domain_gbp_try_rate' => $settings['domain_gbp_try_rate'] ?? 0,
             'domain_default_markup_percent' => $settings['domain_default_markup_percent'] ?? config('domain_registrars.default_markup_percent', 15),
             'domain_auto_import_tlds' => filter_var($settings['domain_auto_import_tlds'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'domain_value_gemini_api_key' => $settings['domain_value_gemini_api_key'] ?? '',
         ]);
     }
 
@@ -87,6 +88,16 @@ class ManageDomainSettings extends Page
                         ->numeric()
                         ->helperText('0 = USD kuru üzerinden yaklaşık çevir.'),
                 ])->columns(3),
+
+            Section::make('Domain Değer Sorgulama (AI)')
+                ->description('Gemini API anahtarı ile yapay zeka destekli değerleme aktif olur. Anahtar yoksa premium sözlük ve kural motoru kullanılır.')
+                ->schema([
+                    TextInput::make('domain_value_gemini_api_key')
+                        ->label('Gemini API anahtarı')
+                        ->password()
+                        ->revealable()
+                        ->helperText('Google AI Studio\'dan alınır. .env GEMINI_API_KEY de kullanılabilir.'),
+                ]),
         ]);
     }
 
@@ -138,12 +149,17 @@ class ManageDomainSettings extends Page
         $data = $this->form->getState();
 
         foreach ($data as $key => $value) {
+            $type = match (true) {
+                is_bool($value) => 'boolean',
+                $key === 'domain_value_gemini_api_key' => 'password',
+                default => 'number',
+            };
             SiteSetting::updateOrCreate(
                 ['key' => $key],
                 [
                     'group' => 'domain',
                     'value' => is_bool($value) ? ($value ? '1' : '0') : (string) $value,
-                    'type' => is_bool($value) ? 'boolean' : 'number',
+                    'type' => $type,
                     'label' => $key,
                 ]
             );

@@ -5,6 +5,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DomainController;
+use App\Http\Controllers\DomainValueController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HostingConfigureController;
 use App\Http\Controllers\LandingController;
@@ -59,6 +60,11 @@ Route::post('/domain/whois', [DomainController::class, 'whois'])
 Route::post('/domain/sepet', [DomainController::class, 'addToCart'])
     ->middleware('throttle:20,1')
     ->name('domain.cart.add');
+
+Route::get('/domain-deger-sorgulama', [DomainValueController::class, 'index'])->name('domain.value.index');
+Route::post('/domain-deger-sorgulama', [DomainValueController::class, 'estimate'])
+    ->middleware('throttle:20,1')
+    ->name('domain.value.estimate');
 
 Route::get('/sepet', [CartController::class, 'index'])->name('cart.index');
 Route::get('/sepet/sayac', [CartController::class, 'count'])->name('cart.count');

@@ -139,9 +139,9 @@ class DatabaseSeeder extends Seeder
 
         $hosting = ProductCategory::where('slug', 'web-hosting')->first();
         $products = [
-            ['name' => 'Başlangıç', 'slug' => 'baslangic', 'short_description' => 'Kişisel blog ve küçük siteler için', 'price_monthly' => 49.90, 'price_yearly' => 499.00, 'features' => ['10 GB NVMe SSD', '1 Web Sitesi', 'Ücretsiz SSL', 'Haftalık Yedek'], 'specs' => ['RAM' => '1 GB', 'CPU' => '1 Core', 'Trafik' => 'Sınırsız'], 'is_popular' => false, 'sort_order' => 1],
-            ['name' => 'Profesyonel', 'slug' => 'profesyonel', 'short_description' => 'Büyüyen işletmeler için ideal', 'price_monthly' => 99.90, 'price_yearly' => 999.00, 'features' => ['50 GB NVMe SSD', '5 Web Sitesi', 'Ücretsiz SSL', 'Günlük Yedek', 'LiteSpeed Cache'], 'specs' => ['RAM' => '2 GB', 'CPU' => '2 Core', 'Trafik' => 'Sınırsız'], 'is_popular' => true, 'sort_order' => 2],
-            ['name' => 'Kurumsal', 'slug' => 'kurumsal', 'short_description' => 'Yüksek trafikli projeler için', 'price_monthly' => 199.90, 'price_yearly' => 1999.00, 'features' => ['100 GB NVMe SSD', 'Sınırsız Site', 'Ücretsiz SSL', 'Saatlik Yedek', 'Öncelikli Destek'], 'specs' => ['RAM' => '4 GB', 'CPU' => '4 Core', 'Trafik' => 'Sınırsız'], 'is_popular' => false, 'sort_order' => 3],
+            ['name' => 'Başlangıç', 'slug' => 'baslangic', 'short_description' => 'Kişisel blog ve küçük siteler için', 'price_monthly' => 49.90, 'price_yearly' => 499.00, 'features' => ['10 GB NVMe SSD', '1 Web Sitesi', 'Panelze Panel', 'PanelKafes İzolasyon', 'Ücretsiz SSL', 'PHP 8.3', 'Haftalık Yedek'], 'specs' => ['RAM' => '1 GB', 'CPU' => '1 Core', 'Trafik' => 'Sınırsız'], 'is_popular' => false, 'sort_order' => 1],
+            ['name' => 'Profesyonel', 'slug' => 'profesyonel', 'short_description' => 'Büyüyen işletmeler için ideal', 'price_monthly' => 99.90, 'price_yearly' => 999.00, 'features' => ['50 GB NVMe SSD', '5 Web Sitesi', 'Panelze Panel', 'PanelKafes İzolasyon', 'Ücretsiz SSL', 'PHP 8.3', 'Günlük Yedek', 'Nginx + OPcache'], 'specs' => ['RAM' => '2 GB', 'CPU' => '2 Core', 'Trafik' => 'Sınırsız'], 'is_popular' => true, 'sort_order' => 2],
+            ['name' => 'Kurumsal', 'slug' => 'kurumsal', 'short_description' => 'Yüksek trafikli projeler için', 'price_monthly' => 199.90, 'price_yearly' => 1999.00, 'features' => ['100 GB NVMe SSD', 'Sınırsız Site', 'Panelze Panel', 'PanelKafes İzolasyon', 'Ücretsiz SSL', 'PHP 8.3', 'Saatlik Yedek', 'Öncelikli Destek'], 'specs' => ['RAM' => '4 GB', 'CPU' => '4 Core', 'Trafik' => 'Sınırsız'], 'is_popular' => false, 'sort_order' => 3],
         ];
 
         foreach ($products as $p) {
@@ -168,8 +168,8 @@ class DatabaseSeeder extends Seeder
             'short_description' => 'Giriş seviye VPS',
             'price_monthly' => 149.90,
             'price_yearly' => 1499.00,
-            'features' => ['2 vCPU', '4 GB RAM', '60 GB NVMe', '1 Gbps Port'],
-            'specs' => ['OS' => 'Linux/Windows', 'Panel' => 'Opsiyonel'],
+            'features' => ['2 vCPU', '4 GB RAM', '60 GB NVMe', '1 Gbps Port', 'Tam Root', 'Opsiyonel Panelze'],
+            'specs' => ['OS' => 'AlmaLinux / Ubuntu', 'Panel' => 'Panelze (Opsiyonel)'],
             'currency' => 'TRY', 'is_active' => true, 'is_popular' => true, 'sort_order' => 1,
         ]);
 
