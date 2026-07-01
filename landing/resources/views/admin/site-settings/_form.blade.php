@@ -1,6 +1,6 @@
 @php($embedded = $embedded ?? false)
 
-<div class="mx-auto max-w-3xl space-y-8">
+<div class="admin-form admin-form--wide">
     @if (! $embedded)
         <div>
             <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Site ayarları</h1>

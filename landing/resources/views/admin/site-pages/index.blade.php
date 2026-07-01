@@ -1,10 +1,9 @@
 <x-admin.layout title="Site sayfaları">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Zengin metin ile yeni sayfa ekleyin; SEO alanları düzenleme ekranında. Genel adres: <span class="font-mono">/p/slug</span> (slug <span class="font-mono">setup</span> → <span class="font-mono">/setup</span>). URL yolları İngilizce; içerik dili kayıttaki <span class="font-mono">locale</span> ile eşleşir.</p>
-        <a href="{{ route('admin.site-pages.create') }}" class="admin-btn-emerald">
-            Yeni sayfa
-        </a>
-    </div>
+    <x-admin.toolbar description="Zengin metin ile sayfa ekleyin. Genel adres /p/slug (setup → /setup). URL yolları İngilizce; içerik dili locale ile eşleşir.">
+        <x-slot:actions>
+            <a href="{{ route('admin.site-pages.create') }}" class="admin-btn-emerald">Yeni sayfa</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
 
     <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
         <span>Dil:</span>

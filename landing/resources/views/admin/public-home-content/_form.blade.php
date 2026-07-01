@@ -1,6 +1,6 @@
 @php($embedded = $embedded ?? false)
 
-<div class="mx-auto max-w-4xl space-y-10">
+<div class="admin-form admin-form--wide">
     @if (! $embedded)
         <p class="admin-muted">
             Alanları doldurduğunuzda çeviri dosyası ve veritabanı çevirilerinin üzerine yazılır; boş bıraktığınız alanlar mevcut çeviriye döner.

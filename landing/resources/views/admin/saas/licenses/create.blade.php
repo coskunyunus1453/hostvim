@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni lisans">
-    <form method="POST" action="{{ route('admin.saas.licenses.store') }}" class="max-w-2xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.licenses.store') }}" class="admin-form">
         @csrf
         <div>
             <label class="block text-sm font-medium">Müşteri *</label>

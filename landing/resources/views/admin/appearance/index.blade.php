@@ -12,13 +12,7 @@
     ];
 @endphp
 <x-admin.layout title="Görünüm">
-    <div class="mx-auto max-w-6xl space-y-6">
-        <div>
-            <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Görünüm</h1>
-            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Site ayarları, tema, ana sayfa içeriği ve kurulum komutlarını tek ekranda sekmelerle düzenleyin.
-            </p>
-        </div>
+    <x-admin.toolbar description="Site ayarları, tema, ana sayfa içeriği ve kurulum komutlarını tek ekranda sekmelerle düzenleyin." />
 
         <div class="admin-form-panel hv-appearance-tabs !shadow-none space-y-4">
             @foreach ($tabKeys as $key)
@@ -99,5 +93,4 @@
                 ])
             </div>
         </div>
-    </div>
 </x-admin.layout>

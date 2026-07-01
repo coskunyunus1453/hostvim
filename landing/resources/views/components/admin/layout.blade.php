@@ -78,7 +78,8 @@
                 </div>
             </header>
 
-            <main class="flex-1 px-5 py-8 lg:px-12 lg:py-10">
+            <main class="admin-main">
+                <div class="admin-page px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
                 @if (session('status'))
                     <div class="mb-4 rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-sm text-orange-900 dark:text-orange-100">
                         {{ session('status') }}
@@ -101,6 +102,7 @@
                 @endif
 
                 {{ $slot }}
+                </div>
             </main>
         </div>
     </div>

@@ -1,5 +1,5 @@
 <x-admin.layout title="Site sayfası düzenle">
-    <form method="POST" action="{{ route('admin.site-pages.update', $page) }}" class="mx-auto max-w-2xl space-y-5">
+    <form method="POST" action="{{ route('admin.site-pages.update', $page) }}" class="admin-form">
         @csrf
         @method('PUT')
 

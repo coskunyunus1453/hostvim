@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni topluluk kategorisi">
-    <form method="post" action="{{ route('admin.community.categories.store') }}" class="max-w-xl space-y-4">
+    <form method="post" action="{{ route('admin.community.categories.store') }}" class="admin-form admin-form--narrow">
         @csrf
         <div>
             <label class="block text-sm font-medium">Ad (TR) *</label>

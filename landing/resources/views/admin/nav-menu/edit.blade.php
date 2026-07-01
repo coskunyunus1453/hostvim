@@ -2,7 +2,7 @@
     use App\Models\NavMenuItem;
 @endphp
 <x-admin.layout title="Menü — düzenle">
-    <form method="post" action="{{ route('admin.nav-menu.update', $item) }}" class="mx-auto max-w-xl space-y-5">
+    <form method="post" action="{{ route('admin.nav-menu.update', $item) }}" class="admin-form admin-form--narrow">
         @csrf
         @method('PUT')
 

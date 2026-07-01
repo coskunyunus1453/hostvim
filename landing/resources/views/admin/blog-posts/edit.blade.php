@@ -1,5 +1,5 @@
 <x-admin.layout title="Blog yazısı düzenle">
-    <form method="POST" action="{{ route('admin.blog-posts.update', $post) }}" class="mx-auto max-w-2xl space-y-5">
+    <form method="POST" action="{{ route('admin.blog-posts.update', $post) }}" class="admin-form">
         @csrf
         @method('PUT')
 

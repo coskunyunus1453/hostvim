@@ -1,5 +1,5 @@
 <x-admin.layout title="Modül düzenle">
-    <form method="POST" action="{{ route('admin.saas.modules.update', $module) }}" class="max-w-xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.modules.update', $module) }}" class="admin-form admin-form--narrow">
         @csrf @method('PUT')
         <div>
             <label class="block text-sm font-medium">Anahtar *</label>

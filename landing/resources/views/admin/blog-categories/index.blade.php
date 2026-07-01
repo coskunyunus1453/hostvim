@@ -1,8 +1,9 @@
 <x-admin.layout title="Blog kategorileri">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Kategori slug’ları URL’de <code class="text-xs">/blog/category/slug</code> olarak kullanılır (İngilizce yol). İçerik dili kayıttaki locale ile seçilir.</p>
-        <a href="{{ route('admin.blog-categories.create') }}" class="admin-btn-emerald">Yeni kategori</a>
-    </div>
+    <x-admin.toolbar description="Kategori slug'ları URL'de /blog/category/slug olarak kullanılır. İçerik dili kayıttaki locale ile seçilir.">
+        <x-slot:actions>
+            <a href="{{ route('admin.blog-categories.create') }}" class="admin-btn-emerald">Yeni kategori</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
 
     <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
         <span>Dil:</span>

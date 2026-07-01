@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni müşteri">
-    <form method="POST" action="{{ route('admin.saas.customers.store') }}" class="max-w-xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.customers.store') }}" class="admin-form admin-form--narrow">
         @csrf
         <div>
             <label class="block text-sm font-medium">Ad *</label>

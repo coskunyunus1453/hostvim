@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni blog kategorisi">
-    <form method="post" action="{{ route('admin.blog-categories.store') }}" class="mx-auto max-w-xl space-y-5">
+    <form method="post" action="{{ route('admin.blog-categories.store') }}" class="admin-form admin-form--narrow">
         @csrf
 
         <div>

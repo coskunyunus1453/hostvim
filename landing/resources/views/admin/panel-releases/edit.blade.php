@@ -1,5 +1,5 @@
 <x-admin.layout title="Panel sürümü — {{ $release->version }}">
-    <form method="POST" action="{{ route('admin.panel-releases.update', $release) }}" class="max-w-3xl space-y-4">
+    <form method="POST" action="{{ route('admin.panel-releases.update', $release) }}" class="admin-form">
         @csrf
         @method('PUT')
         @include('admin.panel-releases._form', ['release' => $release])

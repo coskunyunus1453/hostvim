@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni plan">
-    <form method="POST" action="{{ route('admin.plans.store') }}" class="mx-auto max-w-2xl space-y-5">
+    <form method="POST" action="{{ route('admin.plans.store') }}" class="admin-form">
         @csrf
 
         <div>

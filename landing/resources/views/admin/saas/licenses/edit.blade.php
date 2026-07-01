@@ -7,7 +7,7 @@
         </form>
     </div>
 
-    <form method="POST" action="{{ route('admin.saas.licenses.update', $license) }}" class="max-w-2xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.licenses.update', $license) }}" class="admin-form">
         @csrf @method('PUT')
         <div>
             <label class="block text-sm font-medium">Müşteri *</label>

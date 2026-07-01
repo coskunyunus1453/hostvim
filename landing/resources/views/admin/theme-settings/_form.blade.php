@@ -7,7 +7,7 @@
 @endphp
 @php($embedded = $embedded ?? false)
 
-<div class="mx-auto max-w-3xl space-y-8">
+<div class="admin-form admin-form--wide">
     @if (! $embedded)
         <p class="admin-muted">
             Temaları gerçek kullanım alanına göre ayırdık: genel görünüm ayarları tüm temalara, Neon içerik alanları ise yalnızca Neon tema aktifken uygulanır.

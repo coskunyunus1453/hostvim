@@ -1,15 +1,5 @@
 <x-admin.layout title="Topluluk moderasyon kuyruğu">
-    @if (session('status'))
-        <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100">{{ session('status') }}</div>
-    @endif
-    @if (session('error'))
-        <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-100">{{ session('error') }}</div>
-    @endif
-
-    <p class="mb-8 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-        Yeni konu ve yanıtlar site ayarında “her zaman moderasyon” veya üzerinde <strong>gölge yasak</strong> olan üyeler için burada birikir.
-        Onaylanan konularla birlikte bekleyen yanıtlar da otomatik onaylanır.
-    </p>
+    <x-admin.toolbar description="Yeni konu ve yanıtlar moderasyon ayarına veya gölge yasaklı üyelere göre burada birikir. Onaylanan konularla bekleyen yanıtlar da otomatik onaylanır." />
 
     <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-50">Bekleyen konular ({{ $pendingTopics->count() }})</h2>
     <div class="admin-table-wrap mt-3">

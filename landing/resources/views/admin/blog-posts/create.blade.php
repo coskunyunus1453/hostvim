@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni blog yazısı">
-    <form method="POST" action="{{ route('admin.blog-posts.store') }}" class="mx-auto max-w-2xl space-y-5">
+    <form method="POST" action="{{ route('admin.blog-posts.store') }}" class="admin-form">
         @csrf
 
         <div>

@@ -1,5 +1,5 @@
 <x-admin.layout title="Dil ayarları">
-    <div class="max-w-2xl space-y-6">
+    <div class="admin-form">
         <div>
             <h1 class="admin-page-title">Site dilleri</h1>
             <p class="admin-muted mt-1">Ziyaretçiler için varsayılan dili ve hangi dillerin menüde sunulacağını belirleyin.</p>

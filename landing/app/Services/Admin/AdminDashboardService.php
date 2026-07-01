@@ -7,6 +7,7 @@ use App\Models\CommunityPost;
 use App\Models\CommunityTopic;
 use App\Models\DocPage;
 use App\Models\NavMenuItem;
+use App\Models\PanelRelease;
 use App\Models\Plan;
 use App\Models\SaasCustomer;
 use App\Models\SaasLicense;
@@ -41,6 +42,9 @@ final class AdminDashboardService
                 : 0,
             'plans' => Schema::hasTable('plans') ? Plan::query()->count() : 0,
             'nav_items' => Schema::hasTable('nav_menu_items') ? NavMenuItem::query()->count() : 0,
+            'panel_releases' => Schema::hasTable('panel_releases')
+                ? PanelRelease::query()->where('is_published', true)->count()
+                : 0,
             'community_topics' => $hasCommunity
                 ? CommunityTopic::query()->where('status', CommunityTopic::STATUS_PUBLISHED)->count()
                 : 0,

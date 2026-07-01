@@ -1,10 +1,9 @@
 <x-admin.layout title="Doküman sayfaları">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Hiyerarşi için üst sayfa seçilebilir.</p>
-        <a href="{{ route('admin.doc-pages.create') }}" class="admin-btn-emerald">
-            Yeni doküman
-        </a>
-    </div>
+    <x-admin.toolbar description="Hiyerarşi için üst sayfa seçilebilir.">
+        <x-slot:actions>
+            <a href="{{ route('admin.doc-pages.create') }}" class="admin-btn-emerald">Yeni doküman</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
 
     <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
         <span>Dil:</span>

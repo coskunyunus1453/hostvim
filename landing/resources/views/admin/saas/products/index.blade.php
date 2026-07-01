@@ -1,8 +1,9 @@
 <x-admin.layout title="SaaS — lisans ürünleri">
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Community / Pro gibi tier kodları; API’de <code class="text-xs">plan</code> alanı.</p>
-        <a href="{{ route('admin.saas.products.create') }}" class="admin-btn-emerald">Yeni ürün</a>
-    </div>
+    <x-admin.toolbar description="Community / Pro gibi tier kodları; API'de plan alanı.">
+        <x-slot:actions>
+            <a href="{{ route('admin.saas.products.create') }}" class="admin-btn-emerald">Yeni ürün</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">
             <thead class="admin-table-head">

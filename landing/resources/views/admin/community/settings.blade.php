@@ -1,9 +1,7 @@
 <x-admin.layout title="Topluluk — SEO">
-    @if (session('status'))
-        <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100">{{ session('status') }}</div>
-    @endif
+    <x-admin.toolbar description="Forum ana sayfası ve kategori sayfaları için meta başlık ve açıklama ayarları." />
 
-    <form method="post" action="{{ route('admin.community.settings.update') }}" class="max-w-2xl space-y-4">
+    <form method="post" action="{{ route('admin.community.settings.update') }}" class="admin-form">
         @csrf
         @method('PUT')
         <div>

@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni lisans ürünü">
-    <form method="POST" action="{{ route('admin.saas.products.store') }}" class="max-w-2xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.products.store') }}" class="admin-form">
         @csrf
         <div>
             <label class="block text-sm font-medium">Kod * <span class="text-slate-500">(ör. community, pro)</span></label>

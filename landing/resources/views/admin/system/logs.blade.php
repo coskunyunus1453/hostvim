@@ -5,14 +5,13 @@
 @endphp
 <x-admin.layout title="Sistem Logları">
     <div class="space-y-6">
-        <section class="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-900/60">
-            <div class="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-400/15 blur-3xl"></div>
+        <section class="admin-hero">
             <div class="relative flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <p class="admin-kicker text-orange-700/90 dark:text-orange-300/90">Operasyon merkezi</p>
-                    <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Sistem Logları</h1>
+                    <p class="admin-kicker text-orange-700/90 dark:text-orange-300/90">Operasyon</p>
+                    <h1 class="admin-hero__title mt-1">Sistem logları</h1>
                     <p class="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-                        Nginx, Apache, OpenLiteSpeed, PHP, Laravel ve sistem loglarını tek ekranda izle. Satırlar performans için kuyruktan sınırlı okunur.
+                        Nginx, Apache, OpenLiteSpeed, PHP, Laravel ve sistem loglarını tek ekranda izleyin.
                     </p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-right dark:border-slate-700 dark:bg-slate-900/70">

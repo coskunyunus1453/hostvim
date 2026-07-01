@@ -2,7 +2,7 @@
 @php($settings = $installSettings ?? \App\Services\InstallGuide::settings())
 @php($sections = \App\Services\InstallGuide::sectionsForLocale(app()->getLocale()))
 
-<div class="mx-auto max-w-4xl space-y-8">
+<div class="admin-form admin-form--wide">
     @if ($embedded)
         <p class="text-sm text-slate-600 dark:text-slate-400">
             Müşteriye gösterilen kurulum URL’lerini düzenleyin. Boş alanlar <code class="text-xs">config/panelze.php</code> varsayılanlarını kullanır.

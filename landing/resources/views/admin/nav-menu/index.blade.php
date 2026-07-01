@@ -2,10 +2,7 @@
     use App\Models\NavMenuItem;
 @endphp
 <x-admin.layout title="Ön yüz menüleri">
-    <p class="admin-muted max-w-2xl">
-        Üst başlık ve alt bilgi bağlantıları. Site içi adresler <code class="rounded bg-slate-200 px-1 text-xs dark:bg-slate-800">/</code> ile başlamalı (ör. <code class="rounded bg-slate-200 px-1 text-xs dark:bg-slate-800">/blog</code>, <code class="rounded bg-slate-200 px-1 text-xs dark:bg-slate-800">/#faq</code>). Harici sayfa için tam <code class="text-xs">https://</code> adresi kullanın.
-        İngilizce arayüz için <strong>İngilizce etiket</strong> (ve isteğe bağlı ayrı yol) alanlarını doldurun; boşsa Türkçe metin ve yol kullanılır.
-    </p>
+    <x-admin.toolbar description="Üst başlık ve alt bilgi bağlantıları. Site içi adresler / ile başlamalı. Harici sayfa için tam https:// adresi kullanın." />
 
     <div class="mt-8 space-y-10">
         <section>

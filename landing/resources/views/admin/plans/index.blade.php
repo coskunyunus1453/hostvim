@@ -1,10 +1,9 @@
 <x-admin.layout title="Fiyat planları">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Fiyatlandırma sayfasında gösterilen kartlar.</p>
-        <a href="{{ route('admin.plans.create') }}" class="admin-btn-emerald">
-            Yeni plan
-        </a>
-    </div>
+    <x-admin.toolbar description="Fiyatlandırma sayfasında gösterilen kartlar.">
+        <x-slot:actions>
+            <a href="{{ route('admin.plans.create') }}" class="admin-btn-emerald">Yeni plan</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
 
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">

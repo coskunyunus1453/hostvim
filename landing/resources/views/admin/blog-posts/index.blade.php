@@ -1,11 +1,10 @@
 <x-admin.layout title="Blog yazıları">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Yayın tarihi ve slug ile listelenir. SEO ve kategori alanları yazı düzenlemede.</p>
-        <div class="flex flex-wrap gap-2">
-            <a href="{{ route('admin.blog-categories.index') }}" class="admin-btn-outline text-xs">Kategoriler</a>
+    <x-admin.toolbar description="Yayın tarihi ve slug ile listelenir. SEO ve kategori alanları yazı düzenlemede.">
+        <x-slot:actions>
+            <a href="{{ route('admin.blog-categories.index') }}" class="admin-btn-outline text-sm">Kategoriler</a>
             <a href="{{ route('admin.blog-posts.create') }}" class="admin-btn-emerald">Yeni yazı</a>
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-admin.toolbar>
 
     <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
         <span>Dil:</span>

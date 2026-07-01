@@ -1,5 +1,5 @@
 <x-admin.layout title="Kategori düzenle">
-    <form method="post" action="{{ route('admin.community.categories.update', $category) }}" class="max-w-xl space-y-4">
+    <form method="post" action="{{ route('admin.community.categories.update', $category) }}" class="admin-form admin-form--narrow">
         @csrf
         @method('PUT')
         <div>

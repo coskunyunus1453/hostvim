@@ -1,12 +1,14 @@
 <x-admin.layout title="Topluluk üyeleri">
-    <form method="get" class="mb-6 flex flex-wrap items-end gap-3">
+    <x-admin.toolbar description="Forum üyelerini ad, e-posta ve aktiviteye göre filtreleyin." />
+
+    <form method="get" class="admin-toolbar flex flex-wrap items-end gap-2">
         <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">Ara</label>
-            <input type="search" name="q" value="{{ request('q') }}" placeholder="Ad veya e-posta…" class="min-w-[200px] rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <label class="admin-label">Ara</label>
+            <input type="search" name="q" value="{{ request('q') }}" placeholder="Ad veya e-posta…" class="admin-field mt-1 min-w-[200px] w-auto" />
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">Aktivite</label>
-            <select name="activity" class="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+            <label class="admin-label">Aktivite</label>
+            <select name="activity" class="admin-field mt-1 w-auto">
                 <option value="" @selected(request('activity') === null || request('activity') === '')>Tümü</option>
                 <option value="active" @selected(request('activity') === 'active')>Konu veya yanıtı olanlar</option>
             </select>
@@ -19,7 +21,7 @@
                 <option value="0" @selected(request('banned') === '0')>Serbest</option>
             </select>
         </div>
-        <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm text-white dark:bg-slate-100 dark:text-slate-900">Filtrele</button>
+        <button type="submit" class="admin-btn-primary">Filtrele</button>
     </form>
 
     @if (session('status'))

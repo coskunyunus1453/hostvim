@@ -1,5 +1,5 @@
 <x-admin.layout title="Müşteri düzenle">
-    <form method="POST" action="{{ route('admin.saas.customers.update', $customer) }}" class="max-w-xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.customers.update', $customer) }}" class="admin-form admin-form--narrow">
         @csrf @method('PUT')
         <div>
             <label class="block text-sm font-medium">Ad *</label>

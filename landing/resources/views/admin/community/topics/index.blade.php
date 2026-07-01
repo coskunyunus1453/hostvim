@@ -1,23 +1,21 @@
 <x-admin.layout title="Topluluk konuları">
-    <form method="get" class="mb-6 flex flex-wrap gap-3">
-        <input type="search" name="q" value="{{ request('q') }}" placeholder="Ara…" class="min-w-[200px] rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
-        <select name="status" class="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-            <option value="">Tüm durumlar</option>
-            <option value="published" @selected(request('status') === 'published')>published</option>
-            <option value="hidden" @selected(request('status') === 'hidden')>hidden</option>
-        </select>
-        <select name="moderation" class="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-            <option value="">Tüm moderasyon</option>
-            <option value="approved" @selected(request('moderation') === 'approved')>approved</option>
-            <option value="pending" @selected(request('moderation') === 'pending')>pending</option>
-            <option value="rejected" @selected(request('moderation') === 'rejected')>rejected</option>
-        </select>
-        <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm text-white dark:bg-slate-100 dark:text-slate-900">Filtrele</button>
-    </form>
+    <x-admin.toolbar description="Forum konularını durum ve moderasyon filtresiyle arayın." />
 
-    @if (session('status'))
-        <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100">{{ session('status') }}</div>
-    @endif
+    <form method="get" class="admin-toolbar flex flex-wrap gap-2">
+        <input type="search" name="q" value="{{ request('q') }}" placeholder="Ara…" class="admin-field min-w-[200px] w-auto" />
+        <select name="status" class="admin-field w-auto">
+            <option value="">Tüm durumlar</option>
+            <option value="published" @selected(request('status') === 'published')>Yayında</option>
+            <option value="hidden" @selected(request('status') === 'hidden')>Gizli</option>
+        </select>
+        <select name="moderation" class="admin-field w-auto">
+            <option value="">Tüm moderasyon</option>
+            <option value="approved" @selected(request('moderation') === 'approved')>Onaylı</option>
+            <option value="pending" @selected(request('moderation') === 'pending')>Bekleyen</option>
+            <option value="rejected" @selected(request('moderation') === 'rejected')>Reddedilen</option>
+        </select>
+        <button type="submit" class="admin-btn-primary">Filtrele</button>
+    </form>
 
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">

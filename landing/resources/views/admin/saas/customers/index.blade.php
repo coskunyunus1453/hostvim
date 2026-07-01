@@ -1,8 +1,9 @@
 <x-admin.layout title="SaaS — müşteriler">
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Lisans satın alan kurum / kişi kayıtları.</p>
-        <a href="{{ route('admin.saas.customers.create') }}" class="admin-btn-emerald">Yeni müşteri</a>
-    </div>
+    <x-admin.toolbar description="Lisans satın alan kurum / kişi kayıtları.">
+        <x-slot:actions>
+            <a href="{{ route('admin.saas.customers.create') }}" class="admin-btn-emerald">Yeni müşteri</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">
             <thead class="admin-table-head">

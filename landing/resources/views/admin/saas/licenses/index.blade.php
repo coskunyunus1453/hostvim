@@ -1,8 +1,9 @@
 <x-admin.layout title="SaaS — lisanslar">
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Anahtarlar müşteri panelinde <code class="text-xs">LICENSE_KEY</code> olarak girilir.</p>
-        <a href="{{ route('admin.saas.licenses.create') }}" class="admin-btn-emerald">Yeni lisans</a>
-    </div>
+    <x-admin.toolbar description="Anahtarlar müşteri panelinde LICENSE_KEY olarak girilir.">
+        <x-slot:actions>
+            <a href="{{ route('admin.saas.licenses.create') }}" class="admin-btn-emerald">Yeni lisans</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">
             <thead class="admin-table-head">

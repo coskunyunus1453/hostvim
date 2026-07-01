@@ -1,10 +1,9 @@
 <x-admin.layout title="Panel sürümleri">
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">
-            Müşteri sunucularındaki Panelze paneli bu sürümleri kontrol eder. Yayınlanan sürümler için müşteri yöneticisine bildirim gider; güncelleme müşterinin onayı ile uygulanır.
-        </p>
-        <a href="{{ route('admin.panel-releases.create') }}" class="admin-btn-emerald">Yeni sürüm</a>
-    </div>
+    <x-admin.toolbar description="Müşteri sunucularındaki Panelze paneli bu sürümleri kontrol eder. Yayınlanan sürümler için müşteri yöneticisine bildirim gider.">
+        <x-slot:actions>
+            <a href="{{ route('admin.panel-releases.create') }}" class="admin-btn-emerald">Yeni sürüm</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
 
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">

@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni doküman sayfası">
-    <form method="POST" action="{{ route('admin.doc-pages.store') }}" class="mx-auto max-w-2xl space-y-5">
+    <form method="POST" action="{{ route('admin.doc-pages.store') }}" class="admin-form">
         @csrf
 
         <div>

@@ -1,8 +1,9 @@
 <x-admin.layout title="SaaS — modüller">
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="admin-muted">Ücretli özellik bayrakları; ürün JSON’unda anahtar adlarıyla eşleşmeli.</p>
-        <a href="{{ route('admin.saas.modules.create') }}" class="admin-btn-emerald">Yeni modül</a>
-    </div>
+    <x-admin.toolbar description="Ücretli özellik bayrakları; ürün JSON'unda anahtar adlarıyla eşleşmeli.">
+        <x-slot:actions>
+            <a href="{{ route('admin.saas.modules.create') }}" class="admin-btn-emerald">Yeni modül</a>
+        </x-slot:actions>
+    </x-admin.toolbar>
     <div class="admin-table-wrap">
         <table class="min-w-full text-left text-sm">
             <thead class="admin-table-head">

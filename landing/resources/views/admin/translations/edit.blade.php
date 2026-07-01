@@ -1,5 +1,5 @@
 <x-admin.layout title="Çeviri: {{ $key }}">
-    <div class="max-w-3xl space-y-6">
+    <div class="admin-form">
         <div>
             <a href="{{ route('admin.translations.index', ['locale' => $locale]) }}" class="admin-link text-xs">← Listeye dön</a>
             <h1 class="admin-page-title mt-3">Çeviri düzenle</h1>

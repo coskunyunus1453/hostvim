@@ -1,5 +1,5 @@
 <x-admin.layout title="Yeni modül">
-    <form method="POST" action="{{ route('admin.saas.modules.store') }}" class="max-w-xl space-y-4">
+    <form method="POST" action="{{ route('admin.saas.modules.store') }}" class="admin-form admin-form--narrow">
         @csrf
         <div>
             <label class="block text-sm font-medium">Anahtar * <span class="text-slate-500">(snake_case)</span></label>
