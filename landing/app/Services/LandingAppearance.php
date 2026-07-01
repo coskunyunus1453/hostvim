@@ -141,6 +141,16 @@ final class LandingAppearance
         return self::activeTheme() === 'neon';
     }
 
+    public static function usesHostvimShell(): bool
+    {
+        return ! self::isNeonTheme();
+    }
+
+    public static function shellClass(): string
+    {
+        return self::usesHostvimShell() ? 'hv-shell-hostvim' : '';
+    }
+
     public static function graphicMotif(): string
     {
         $m = LandingSiteSetting::getValue('landing.graphic_motif', 'grid');

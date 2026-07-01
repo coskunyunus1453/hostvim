@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './hostvim-shell.css';
 
 /* Manuel gece modu: html.dark ile çalışır (varsayılan Tailwind v4 = sadece OS karanlık teması) */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -9,7 +10,7 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
@@ -20,11 +21,11 @@
 html.hv-theme-orange {
     --hv-brand-200: 254 215 170;
     --hv-brand-300: 253 186 116;
-    --hv-brand-400: 251 146 60;
-    --hv-brand-500: 249 115 22;
-    --hv-brand-600: 234 88 12;
-    --hv-brand-700: 194 65 12;
-    --hv-brand-800: 154 52 18;
+    --hv-brand-400: 234 88 12;
+    --hv-brand-500: 194 65 12;
+    --hv-brand-600: 194 65 12;
+    --hv-brand-700: 154 52 18;
+    --hv-brand-800: 124 45 18;
     --hv-blob: 254 215 170;
 }
 
@@ -322,9 +323,13 @@ html.dark.hv-theme-neon .hv-neon-page-section .hv-blog-card {
     border-color: rgb(var(--hv-brand-500) / 0.2);
 }
 
-/* Ön yüz (site layout): Helvetica ailesi; admin paneli html/body varsayılan --font-sans ile kalır */
+/* Ön yüz gövde — HostVim kabuğu aktifken hostvim-shell.css geçerli olur */
 .hv-body {
-    @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply antialiased;
+}
+
+html:not(.hv-shell-hostvim) .hv-body {
+    @apply bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100;
     font-family:
         Helvetica,
         'Helvetica Neue',

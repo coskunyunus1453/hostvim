@@ -21,8 +21,8 @@
             />
         </div>
     @else
-        <div {{ $attributes->merge(['class' => 'hv-brand-logo-box']) }}>
-            <span class="text-lg font-bold hv-text-brand">{{ $initial }}</span>
+        <div {{ $attributes->merge(['class' => 'hv-brand-fallback']) }} style="width: 2.5rem; height: 2.5rem; font-size: 1rem;">
+            <span>{{ $initial }}</span>
         </div>
     @endif
 @elseif ($variant === 'neon')

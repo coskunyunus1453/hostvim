@@ -11,6 +11,8 @@ class LandingAppearanceComposer
     {
         $view->with([
             'landingThemeClass' => LandingAppearance::themeClass(),
+            'landingShellClass' => LandingAppearance::shellClass(),
+            'landingUsesHostvimShell' => LandingAppearance::usesHostvimShell(),
             'landingThemeInlineStyle' => LandingAppearance::themeInlineStyle(),
             'landingGraphicMotifClass' => LandingAppearance::graphicMotifClass(),
         ]);

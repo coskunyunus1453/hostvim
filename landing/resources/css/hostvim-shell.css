@@ -1,0 +1,197 @@
+/* HostVim mağaza sitesi (hostvim.com) ile uyumlu tipografi, renkler ve kabuk bileşenleri */
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url('/fonts/plus-jakarta-sans/latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url('/fonts/plus-jakarta-sans/latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+html.hv-shell-hostvim {
+    --hv-font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --hv-radius: 0.75rem;
+    --hv-radius-lg: calc(0.75rem + 4px);
+    --hv-primary: #C2410C;
+    --hv-primary-hover: #9A3412;
+    --hv-secondary: #166534;
+    --hv-bg: #FFFFFF;
+    --hv-surface: #FAFAF9;
+    --hv-surface-elevated: #FFFFFF;
+    --hv-text: #1C1917;
+    --hv-text-muted: #57534E;
+    --hv-link: #C2410C;
+    --hv-border: #E7E5E4;
+    --hv-header-bg: #FFFFFF;
+    --hv-footer-bg: #FAFAF9;
+    --hv-brand-200: 254 215 170;
+    --hv-brand-300: 253 186 116;
+    --hv-brand-400: 234 88 12;
+    --hv-brand-500: 194 65 12;
+    --hv-brand-600: 194 65 12;
+    --hv-brand-700: 154 52 18;
+    --hv-brand-800: 124 45 18;
+    --hv-blob: 254 215 170;
+}
+
+html.dark.hv-shell-hostvim {
+    --hv-primary: #EA580C;
+    --hv-primary-hover: #FB923C;
+    --hv-secondary: #22C55E;
+    --hv-bg: #0C0A09;
+    --hv-surface: #1C1917;
+    --hv-surface-elevated: #292524;
+    --hv-text: #FAFAF9;
+    --hv-text-muted: #A8A29E;
+    --hv-link: #FB923C;
+    --hv-border: #292524;
+    --hv-header-bg: #0C0A09;
+    --hv-footer-bg: #1C1917;
+}
+
+html.hv-shell-hostvim body.hv-body {
+    font-family: var(--hv-font-sans);
+    background-color: var(--hv-bg);
+    color: var(--hv-text);
+}
+
+html.hv-shell-hostvim .text-hv-text { color: var(--hv-text); }
+html.hv-shell-hostvim .text-hv-muted { color: var(--hv-text-muted); }
+html.hv-shell-hostvim .text-hv-primary { color: var(--hv-primary); }
+html.hv-shell-hostvim .border-hv-border { border-color: var(--hv-border); }
+html.hv-shell-hostvim .bg-hv-surface { background-color: var(--hv-surface); }
+html.hv-shell-hostvim .bg-hv-elevated { background-color: var(--hv-surface-elevated); }
+
+html.hv-shell-hostvim .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--hv-radius);
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    background-color: var(--hv-primary);
+    box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--hv-primary) 25%, transparent);
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+html.hv-shell-hostvim .btn-primary:hover {
+    background-color: var(--hv-primary-hover);
+}
+
+html.hv-shell-hostvim .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--hv-radius);
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--hv-text-muted);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+html.hv-shell-hostvim .btn-ghost:hover {
+    background-color: var(--hv-surface);
+    color: var(--hv-primary);
+}
+
+html.hv-shell-hostvim .nav-link {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--hv-text-muted);
+    transition: color 0.15s ease;
+}
+html.hv-shell-hostvim .nav-link:hover,
+html.hv-shell-hostvim .nav-link-active {
+    color: var(--hv-primary);
+}
+
+html.hv-shell-hostvim .hv-header {
+    position: sticky;
+    top: 0;
+    z-index: 110;
+    border-bottom: 1px solid color-mix(in srgb, var(--hv-border) 80%, transparent);
+    color: var(--hv-text);
+}
+html.hv-shell-hostvim .hv-header-glass {
+    background: color-mix(in srgb, var(--hv-header-bg) 82%, transparent);
+    backdrop-filter: blur(12px);
+}
+
+html.hv-shell-hostvim .theme-toggle {
+    border-radius: var(--hv-radius);
+    padding: 0.5rem;
+    color: var(--hv-text-muted);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+html.hv-shell-hostvim .theme-toggle:hover {
+    background: var(--hv-surface);
+    color: var(--hv-primary);
+}
+
+html.hv-shell-hostvim .hv-footer-default {
+    background: var(--hv-footer-bg);
+    border-top: 1px solid var(--hv-border);
+}
+
+html.hv-shell-hostvim .hv-footer-gradient {
+    background: linear-gradient(
+        180deg,
+        var(--hv-bg) 0%,
+        var(--hv-footer-bg) 40%,
+        color-mix(in srgb, var(--hv-primary) 8%, var(--hv-footer-bg)) 100%
+    );
+    border-top: 1px solid var(--hv-border);
+}
+
+html.hv-shell-hostvim a.hv-muted-nav {
+    color: var(--hv-text-muted);
+}
+html.hv-shell-hostvim a.hv-muted-nav:hover {
+    color: var(--hv-primary);
+}
+
+html.hv-shell-hostvim .hv-brand-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--hv-radius);
+    background: linear-gradient(135deg, var(--hv-primary), var(--hv-secondary));
+    font-weight: 800;
+    color: #fff;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--hv-primary) 30%, transparent);
+}
+
+html.hv-shell-hostvim .hv-sidebar-backdrop {
+    background: color-mix(in srgb, #000 45%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+html.hv-shell-hostvim .hv-sidebar-panel {
+    background: var(--hv-surface-elevated);
+    border-color: var(--hv-border);
+    color: var(--hv-text);
+}
+
+html.hv-shell-hostvim .hv-sidebar-link {
+    display: block;
+    border-radius: var(--hv-radius);
+    padding: 0.625rem 0.75rem;
+    font-weight: 500;
+    color: var(--hv-text);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+html.hv-shell-hostvim .hv-sidebar-link:hover {
+    background: var(--hv-surface);
+    color: var(--hv-primary);
+}
