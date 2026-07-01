@@ -73,6 +73,7 @@ class CartService
         }
 
         session([$this->sessionKey => $items]);
+        $this->persistSession();
     }
 
     /**
@@ -148,6 +149,7 @@ class CartService
         ];
 
         session([$this->sessionKey => $items]);
+        $this->persistSession();
     }
 
     protected function removeProductLines(int $productId): void
@@ -159,6 +161,7 @@ class CartService
             }
         }
         session([$this->sessionKey => $items]);
+        $this->persistSession();
     }
 
     public function addDomain(string $domain, int $years = 1, ?float $unitPrice = null): void
@@ -199,6 +202,7 @@ class CartService
                 'registrar_api' => $registrarApi,
             ],
         ])]);
+        $this->persistSession();
     }
 
     public function remove(string $key): void
@@ -210,12 +214,21 @@ class CartService
         $items = $this->items();
         unset($items[$key]);
         session([$this->sessionKey => $items]);
+        $this->persistSession();
+    }
+
+    private function persistSession(): void
+    {
+        if (session()->isStarted()) {
+            session()->save();
+        }
     }
 
     public function clear(): void
     {
         session()->forget($this->sessionKey);
         $this->campaigns->removeCoupon();
+        $this->persistSession();
     }
 
     public function count(): int
@@ -291,7 +304,13 @@ class CartService
                     continue;
                 }
                 if ($this->domainSettings->registerEnabled()) {
-                    $check = $this->domains->check($domain);
+                    try {
+                        $check = $this->domains->check($domain);
+                    } catch (\Throwable) {
+                        $validated[$key] = $this->withUnitCost($item);
+
+                        continue;
+                    }
                     if (! ($check['available'] ?? false)) {
                         // Musait olmayan domaini sepette tutma; kullaniciyi bilgilendir.
                         // (Onceden exception firlatiyordu ve checkout/sepet 500 veriyordu.)
@@ -374,6 +393,7 @@ class CartService
 
         if ($validated !== $this->items()) {
             session([$this->sessionKey => $validated]);
+            $this->persistSession();
         }
 
         return $validated;

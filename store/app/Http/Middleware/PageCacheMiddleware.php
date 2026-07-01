@@ -14,6 +14,8 @@ class PageCacheMiddleware
     protected array $excludedRouteNames = [
         'cart.index', 'cart.count', 'cart.remove', 'cart.clear',
         'checkout.index', 'checkout.process',
+        'domain.index', 'domain.check', 'domain.search', 'domain.whois', 'domain.cart.add',
+        'domain.value', 'domain.value.lookup',
         'payment.success', 'payment.fail',
         'payment.paytr.callback', 'payment.iyzico.callback',
         'contact.index', 'contact.store', 'products.cart.add',
@@ -25,6 +27,7 @@ class PageCacheMiddleware
     protected array $excludedPrefixes = [
         'admin', 'livewire', 'filament',
         'giris', 'kayit', 'cikis', 'hesabim', 'sifremi-unuttum', 'sifre-sifirla',
+        'domain', 'sepet', 'odeme', 'hosting',
     ];
 
     public function __construct(
@@ -157,6 +160,9 @@ class PageCacheMiddleware
             || str_starts_with($path, 'admin')
             || str_starts_with($path, 'hesabim')
             || str_starts_with($path, 'odeme')
+            || str_starts_with($path, 'sepet')
+            || str_starts_with($path, 'domain')
+            || str_starts_with($path, 'hosting')
             || str_starts_with($path, 'sifremi-unuttum')
             || str_starts_with($path, 'sifre-sifirla');
 

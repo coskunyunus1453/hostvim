@@ -3,9 +3,13 @@
 namespace App\Services\Payment\Support;
 
 use App\Models\Order;
+use App\Services\CartService;
 
 class OrderPaymentCompleter
 {
+    public function __construct(
+        private CartService $cart,
+    ) {}
     /**
      * @param  array<string, mixed>  $paymentData
      */
@@ -21,6 +25,8 @@ class OrderPaymentCompleter
             'payment_reference' => $reference,
             'payment_data' => array_merge($order->payment_data ?? [], $paymentData),
         ]);
+
+        $this->cart->clear();
 
         return $order->fresh();
     }

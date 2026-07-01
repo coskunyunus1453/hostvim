@@ -30,7 +30,7 @@ class CheckoutController extends Controller
         }
 
         if (empty($items)) {
-            return redirect()->route('products.index')->with('error', 'Sepetiniz boş.');
+            return redirect()->route('cart.index')->with('error', 'Sepetiniz boş.');
         }
 
         $paymentMethods = PaymentMethod::where('is_active', true)->orderBy('sort_order')->get();
@@ -78,7 +78,7 @@ class CheckoutController extends Controller
         }
 
         if (empty($items)) {
-            return redirect()->route('products.index')->with('error', 'Sepetiniz boş veya geçersiz ürünler içeriyor.');
+            return redirect()->route('cart.index')->with('error', 'Sepetiniz boş veya geçersiz ürünler içeriyor.');
         }
 
         $validated = $request->validate([
@@ -223,9 +223,8 @@ class CheckoutController extends Controller
                 $this->sendAccountCreatedMail($createdAccount);
             }
 
-            $cart->clear();
-
             if (($result['type'] ?? '') === 'bank_transfer') {
+                $cart->clear();
                 $this->sendBankTransferPendingMail($order, $paymentMethod, $result);
 
                 return view('checkout.bank-transfer', compact('order', 'result', 'paymentMethod'));

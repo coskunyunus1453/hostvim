@@ -269,7 +269,7 @@
         add: @json(route('domain.cart.add')),
         whois: @json(route('domain.whois')),
     };
-    const csrf = @json(csrf_token());
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     const els = {
         form: document.getElementById('domain-search-form'),
@@ -413,7 +413,7 @@
         try {
             const res = await fetch(routes.whois, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
                 body: JSON.stringify({ domain }),
             });
             const data = await res.json();
@@ -454,12 +454,19 @@
         try {
             const res = await fetch(routes.search, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
                 body: JSON.stringify({ domain: query }),
             });
             const data = await res.json();
             els.loading.classList.add('hidden');
 
+            if (res.status === 419) {
+                els.error.textContent = 'Oturum süresi doldu. Sayfa yenileniyor…';
+                els.error.classList.remove('hidden');
+                setTimeout(() => window.location.reload(), 800);
+                return;
+            }
             if (!res.ok) {
                 els.error.textContent = data.message || 'Sorgu başarısız oldu.';
                 els.error.classList.remove('hidden');
@@ -488,10 +495,15 @@
         try {
             const res = await fetch(routes.add, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
                 body: JSON.stringify({ domain, years: 1 }),
             });
             const data = await res.json();
+            if (res.status === 419) {
+                window.location.reload();
+                return;
+            }
             if (res.ok && data.redirect) { window.location = data.redirect; return; }
             alert(data.message || 'Sepete eklenemedi.');
         } catch (e) {

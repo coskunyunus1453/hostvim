@@ -151,7 +151,7 @@
 <script>
 (function () {
     const routes = { estimate: @json(route('domain.value.estimate')) };
-    const csrf = @json(csrf_token());
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const form = document.getElementById('value-search-form');
     const input = document.getElementById('value-domain-input');
     const loading = document.getElementById('value-loading');
@@ -268,7 +268,7 @@
         try {
             const res = await fetch(routes.estimate, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
                 body: JSON.stringify({ domain: query }),
             });
 

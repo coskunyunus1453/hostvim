@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\StorefrontAuth;
 use App\Services\SettingsService;
 use App\Services\TemplatedMailService;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
+        StorefrontAuth::purgeUnsafeIntendedUrl(request());
+
         return view('auth.login');
     }
 
@@ -30,7 +33,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('account.dashboard'));
+        return StorefrontAuth::redirectAfterLogin($request);
     }
 
     public function showRegister()
