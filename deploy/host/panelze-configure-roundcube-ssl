@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# /usr/local/sbin/panelze-configure-roundcube-ssl — deploy/scripts/configure-roundcube-ssl.sh sarmalayıcısı
+set -euo pipefail
+PZ_HOME="${PANELZE_HOME:-}"
+if [[ -z "$PZ_HOME" ]]; then
+  for d in /var/www/hostvim /var/www/panelze; do
+    if [[ -f "$d/deploy/scripts/configure-roundcube-ssl.sh" ]]; then
+      PZ_HOME="$d"
+      break
+    fi
+  done
+fi
+PZ_HOME="${PZ_HOME:-/var/www/panelze}"
+SCRIPT="$PZ_HOME/deploy/scripts/configure-roundcube-ssl.sh"
+if [[ ! -f "$SCRIPT" ]]; then
+  echo "configure-roundcube-ssl.sh bulunamadı: $SCRIPT" >&2
+  exit 1
+fi
+exec bash "$SCRIPT" "$@"

@@ -143,6 +143,7 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool mail-provision
   install_host_tool mail-dkim-sync
   install_host_tool bind-sync
+  install_host_tool configure-roundcube-ssl
   install_host_tool node-pm2
   install_host_tool nginx-vhost
   install_host_tool apache-vhost
@@ -166,6 +167,9 @@ if [[ "$(id -u)" -eq 0 ]]; then
   if [[ -f "$SCRIPT_DIR/fix-roundcube-smtp.sh" ]] && dpkg-query -W -f='${Status}' roundcube-core 2>/dev/null | grep -q 'install ok'; then
     bash "$SCRIPT_DIR/fix-roundcube-smtp.sh" || true
   fi
+  # shellcheck source=lib/install-roundcube-ssl-tool.sh
+  source "$SCRIPT_DIR/lib/install-roundcube-ssl-tool.sh"
+  ensure_roundcube_ssl_deploy_steps "$SCRIPT_DIR" "$PANEL_ROOT"
   install_host_tool terminal-root
   install_host_tool php-ini
   install_host_tool system-settings

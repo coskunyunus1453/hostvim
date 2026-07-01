@@ -540,6 +540,7 @@ install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
 install_host_tool bind-sync
+install_host_tool configure-roundcube-ssl
 install_host_tool terminal-root
 install_host_tool php-ini
 install_host_tool security
@@ -600,6 +601,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-configure-roundcube-ssl
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
 visudo -cf /etc/sudoers.d/panelze-engine
@@ -816,6 +818,7 @@ panelze_run_artisan panelze:init-outbound-mail --no-interaction 2>/dev/null || p
 panelze_run_artisan panelze:repair-stack-installs --no-interaction 2>/dev/null || true
 if [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "1" ]] || [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "yes" ]]; then
   panelze_run_artisan panelze:ensure-mail-stack --no-interaction 2>/dev/null || true
+  panelze_run_artisan panelze:ensure-webmail-ssl --all --no-interaction 2>/dev/null || true
 fi
 
 if [[ "${SKIP_DB_SEED:-}" != "1" ]]; then

@@ -11,6 +11,7 @@ class WebmailService
         private MailDnsService $mailDns,
         private PanelDnsSettingsService $dnsSettings,
         private DomainNsDelegationService $nsDelegation,
+        private WebmailSslService $webmailSsl,
     ) {}
 
     /**
@@ -161,17 +162,15 @@ class WebmailService
 
     private function detectScheme(string $host, ?string $fallbackIp): ?string
     {
-        if ($this->probeHttp($host, 443, true)) {
+        if ($this->webmailSsl->hasTrustedTls($host)) {
             return 'https';
         }
+
         if ($this->probeHttp($host, 80, false)) {
             return 'http';
         }
 
         if ($fallbackIp !== null && filter_var($fallbackIp, FILTER_VALIDATE_IP)) {
-            if ($this->probeHttpWithHost($fallbackIp, 443, $host, true)) {
-                return 'https';
-            }
             if ($this->probeHttpWithHost($fallbackIp, 80, $host, false)) {
                 return 'http';
             }

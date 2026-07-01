@@ -8,6 +8,8 @@ class MailDnsService
 {
     public function __construct(
         private DomainDnsBootstrapService $dnsBootstrap,
+        private MailStackService $mailStack,
+        private WebmailSslService $webmailSsl,
     ) {}
 
     /**
@@ -29,6 +31,13 @@ class MailDnsService
         }
 
         $created = (int) ($result['created'] ?? 0);
+
+        if ($this->mailStack->isWebmailStackInstalled() && $domain->emailAccounts()->exists()) {
+            $ssl = $this->webmailSsl->ensureForDomain($domain);
+            if (! ($ssl['ok'] ?? false)) {
+                $result['webmail_ssl_error'] = $ssl['error'] ?? 'webmail_ssl_failed';
+            }
+        }
 
         return [
             'created' => $created,

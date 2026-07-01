@@ -24,6 +24,7 @@ class EnsureMailStackCommand extends Command
             } else {
                 $this->info('Mail provision tamam.');
             }
+            $this->callSilent('panelze:ensure-webmail-ssl', ['--all' => true]);
 
             return self::SUCCESS;
         }
@@ -45,6 +46,7 @@ class EnsureMailStackCommand extends Command
         }
 
         $this->info('Tam posta + webmail kurulumu tamamlandı.');
+        $this->callSilent('panelze:ensure-webmail-ssl', ['--all' => true]);
 
         return self::SUCCESS;
     }

@@ -251,6 +251,15 @@ location = /panelze-signon {
 NGX
 sed -i "s|PHP_SOCK_PLACEHOLDER|${PHP_SOCK}|g" /etc/nginx/snippets/panelze-roundcube-signon.conf
 
+cat >/etc/nginx/snippets/panelze-roundcube-acme.conf <<'NGX'
+location ^~ /.well-known/acme-challenge/ {
+    default_type "text/plain";
+    root /usr/share/roundcube;
+    try_files $uri =404;
+    allow all;
+}
+NGX
+
 install -d -m 0755 /usr/local/share/panelze
 _HERE="$(cd "$(dirname "$0")" && pwd)"
 if [[ -f "${_HERE}/panelze-roundcube-signon.php" ]]; then
@@ -266,6 +275,7 @@ server {
   root /usr/share/roundcube;
   index index.php;
   client_max_body_size 25M;
+  include snippets/panelze-roundcube-acme.conf;
   location / {
     try_files $uri $uri/ /index.php?$query_string;
   }
@@ -275,6 +285,10 @@ server {
 NGX
 
 ln -sf /etc/nginx/sites-available/panelze-roundcube /etc/nginx/sites-enabled/50-panelze-roundcube.conf
+
+install -m 755 "${_HERE}/../host/panelze-configure-roundcube-ssl" /usr/local/sbin/panelze-configure-roundcube-ssl 2>/dev/null \
+  || install -m 755 "${_HERE}/../scripts/configure-roundcube-ssl.sh" /usr/local/sbin/panelze-configure-roundcube-ssl 2>/dev/null \
+  || true
 
 CFG_SCRIPT="${_HERE}/../scripts/configure-roundcube-signon.sh"
 if [[ -x "$CFG_SCRIPT" ]]; then

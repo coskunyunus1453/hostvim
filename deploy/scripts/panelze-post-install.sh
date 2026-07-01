@@ -41,6 +41,7 @@ if [[ -f "$PANEL_ROOT/artisan" ]]; then
   panelze_run_artisan optimize:clear || true
   panelze_run_artisan panelze:repair-stack-installs --no-interaction || true
   panelze_run_artisan panelze:ensure-mail-stack --no-interaction || true
+  panelze_run_artisan panelze:ensure-webmail-ssl --all --no-interaction || true
   panelze_run_artisan panelze:install-check --ping || true
 fi
 
@@ -58,6 +59,7 @@ install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
 install_host_tool bind-sync
+install_host_tool configure-roundcube-ssl
 install_host_tool nginx-vhost
 install_host_tool security
 if [[ "$(id -u)" -eq 0 ]] && [[ -f "$SCRIPT_DIR/ensure-security-defaults.sh" ]]; then

@@ -155,6 +155,13 @@ return [
         'internal_key' => trim((string) env('PANELZE_WEBMAIL_SIGNON_INTERNAL_KEY', '')),
     ],
 
+    /** webmail.{domain} Let's Encrypt + nginx 443 (Roundcube paylaşımlı vhost) */
+    'webmail_ssl' => [
+        'script_path' => env('PANELZE_WEBMAIL_SSL_SCRIPT', '/usr/local/sbin/panelze-configure-roundcube-ssl'),
+        'roundcube_root' => env('PANELZE_WEBMAIL_ROUNDCUBE_ROOT', '/usr/share/roundcube'),
+        'ssl_root' => env('PANELZE_WEBMAIL_SSL_ROOT', ''),
+    ],
+
     /**
      * İsteğe bağlı CDN önbellek temizliği (api_token + zone_id; provider: cloudflare).
      *

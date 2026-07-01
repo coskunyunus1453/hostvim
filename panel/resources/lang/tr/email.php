@@ -14,6 +14,7 @@ return [
     'webmail_sso_token_invalid' => 'Webmail oturum bağlantısı geçersiz veya süresi dolmuş.',
     'webmail_stack_not_ready' => 'Webmail sunucusu kurulu değil.',
     'webmail_url_unavailable' => 'Webmail adresi hazır değil. DNS kayıtlarını kontrol edin.',
+    'webmail_https_unavailable' => 'Webmail için güvenli bağlantı (HTTPS) kurulamadı. Birkaç dakika sonra tekrar deneyin veya destek ile iletişime geçin.',
     'webmail_domain_missing' => 'Posta kutusunun alan adı bulunamadı.',
     'webmail_account_inactive' => 'Posta kutusu etkin değil.',
     'webmail_password_missing' => 'Posta kutusu şifresi panelde kayıtlı değil. Şifreyi yenileyin.',

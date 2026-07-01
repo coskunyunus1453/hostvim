@@ -68,6 +68,10 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-site-cage" ]]; then
   echo "==> /usr/local/sbin/panelze-site-cage (PanelKafes)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-site-cage" /usr/local/sbin/panelze-site-cage
 fi
+if [[ -f "$REPO_ROOT/deploy/host/panelze-configure-roundcube-ssl" ]]; then
+  echo "==> /usr/local/sbin/panelze-configure-roundcube-ssl (webmail TLS)"
+  sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-configure-roundcube-ssl" /usr/local/sbin/panelze-configure-roundcube-ssl
+fi
 if [[ -f "$REPO_ROOT/deploy/host/zz-panelze-perf.ini" ]]; then
   echo "==> PHP global performans ini (realpath cache) — tüm FPM sürümleri"
   for _phpdir in /etc/php/*/fpm/conf.d; do
@@ -172,6 +176,22 @@ if [[ -f "$DEPLOY_SCRIPTS/ensure-engine-sudoers.sh" ]]; then
   else
     sudo bash "$DEPLOY_SCRIPTS/ensure-engine-sudoers.sh"
   fi
+fi
+
+if dpkg-query -W -f='${Status}' roundcube-core 2>/dev/null | grep -q 'install ok'; then
+  if [[ -f "$DEPLOY_SCRIPTS/configure-roundcube-signon.sh" ]]; then
+    echo "==> Roundcube SSO (panelze-signon)"
+    if [[ "$(id -u)" -eq 0 ]]; then
+      bash "$DEPLOY_SCRIPTS/configure-roundcube-signon.sh" || true
+    else
+      sudo bash "$DEPLOY_SCRIPTS/configure-roundcube-signon.sh" || true
+    fi
+  fi
+  # shellcheck source=lib/install-roundcube-ssl-tool.sh
+  source "$DEPLOY_SCRIPTS/lib/install-roundcube-ssl-tool.sh"
+  install_roundcube_ssl_tool "$REPO_ROOT"
+  echo "==> webmail TLS (mevcut domainler)"
+  panelze_run_artisan panelze:ensure-webmail-ssl --all --no-interaction || true
 fi
 
 echo "==> site dosya izinleri (data/www)"

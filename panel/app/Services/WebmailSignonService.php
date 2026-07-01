@@ -10,6 +10,7 @@ class WebmailSignonService
 {
     public function __construct(
         private WebmailService $webmail,
+        private WebmailSslService $webmailSsl,
     ) {}
 
     /**
@@ -25,6 +26,11 @@ class WebmailSignonService
 
         if ($account->status !== 'active') {
             throw new \InvalidArgumentException(__('email.webmail_account_inactive'));
+        }
+
+        $ssl = $this->webmailSsl->ensureForDomain($domain);
+        if (! ($ssl['ok'] ?? false)) {
+            throw new \RuntimeException($ssl['error'] ?? __('email.webmail_https_unavailable'));
         }
 
         $status = $this->webmail->statusForDomain($domain, true);

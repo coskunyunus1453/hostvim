@@ -37,6 +37,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-hosting-perms
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-fix-hosting-perms
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-configure-roundcube-ssl
 SUDOERS
 
 chmod 440 "$SUDOERS"
