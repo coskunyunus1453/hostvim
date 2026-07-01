@@ -99,6 +99,10 @@ hostvim_resolve_store_group() {
   local group="${1:-}"
   local user
   user="$(hostvim_resolve_store_owner)"
+  if [[ "$user" == "pk-hostvim-com" ]] && getent group panelze-hosting &>/dev/null; then
+    printf '%s\n' panelze-hosting
+    return 0
+  fi
   if [[ -n "$group" ]] && getent group "$group" &>/dev/null; then
     printf '%s\n' "$group"
     return 0
