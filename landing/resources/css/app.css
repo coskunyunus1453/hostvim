@@ -1055,3 +1055,21 @@ a.hv-muted-nav:hover {
 .hv-theme-tabs #hv-theme-tab-neon_features:checked ~ .hv-tab-nav label[for="hv-theme-tab-neon_features"] {
 	@apply !border-orange-500 !text-orange-700 dark:!text-orange-200;
 }
+
+/* Admin — kompakt sidebar navigasyon */
+.admin-sidebar-nav {
+	scrollbar-width: thin;
+	scrollbar-color: rgb(203 213 225 / 0.6) transparent;
+}
+.dark .admin-sidebar-nav {
+	scrollbar-color: rgb(71 85 105 / 0.6) transparent;
+}
+.admin-sidebar-nav::-webkit-scrollbar {
+	width: 4px;
+}
+.admin-sidebar-nav::-webkit-scrollbar-thumb {
+	@apply rounded-full bg-slate-300/70;
+}
+.dark .admin-sidebar-nav::-webkit-scrollbar-thumb {
+	@apply bg-slate-600/70;
+}
