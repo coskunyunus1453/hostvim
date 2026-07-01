@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="WordPress Hosting">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#21759b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="white" opacity="0.06"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <circle cx="600" cy="350" r="120" fill="white" fill-opacity="0.15"/><text x="600" y="375" text-anchor="middle" font-family="Georgia,serif" font-size="96" font-weight="bold" fill="white" fill-opacity="0.9">W</text>
+  <text x="80" y="560" font-family="system-ui,-apple-system,sans-serif" font-size="36" font-weight="600" fill="white" fill-opacity="0.92">WordPress Hosting</text>
+  <text x="80" y="598" font-family="system-ui,-apple-system,sans-serif" font-size="20" fill="white" fill-opacity="0.55">Panelze Blog</text>
+</svg>

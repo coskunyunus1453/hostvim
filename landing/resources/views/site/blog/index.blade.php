@@ -28,7 +28,21 @@
         @else
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($posts as $post)
-                    <a href="{{ route('blog.show', $post->slug) }}" class="hv-blog-card group flex flex-col p-6">
+                    <a href="{{ route('blog.show', $post->slug) }}" class="hv-blog-card group flex flex-col overflow-hidden">
+                        @if ($post->ogImageAbsolute())
+                            <div class="aspect-[1200/630] w-full overflow-hidden border-b border-slate-200/90 bg-slate-100 dark:border-slate-800/80 dark:bg-slate-800/50">
+                                <img
+                                    src="{{ $post->ogImageAbsolute() }}"
+                                    alt=""
+                                    width="1200"
+                                    height="630"
+                                    class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            </div>
+                        @endif
+                        <div class="flex flex-1 flex-col p-6">
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">
                                 {{ $post->published_at?->translatedFormat('d M Y') }}
@@ -43,6 +57,7 @@
                             <p class="mt-2 line-clamp-3 text-base leading-relaxed text-slate-600 dark:text-slate-400">{{ $post->excerpt }}</p>
                         @endif
                         <span class="mt-5 text-sm font-semibold hv-text-brand">{{ landing_t('blog.read_more') }}</span>
+                        </div>
                     </a>
                 @endforeach
             </div>

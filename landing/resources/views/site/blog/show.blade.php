@@ -28,6 +28,19 @@
             @if ($post->excerpt)
                 <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">{{ $post->excerpt }}</p>
             @endif
+            @if ($post->ogImageAbsolute())
+                <figure class="mt-8 overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800/80">
+                    <img
+                        src="{{ $post->ogImageAbsolute() }}"
+                        alt="{{ $post->title }}"
+                        width="1200"
+                        height="630"
+                        class="aspect-[1200/630] w-full object-cover"
+                        loading="eager"
+                        decoding="async"
+                    />
+                </figure>
+            @endif
             <div class="markdown-body mt-8 border-t border-slate-200/90 pt-8 dark:border-slate-800/80">
                 {!! \App\Support\SafeRichContent::toHtml($post->content) !!}
             </div>
