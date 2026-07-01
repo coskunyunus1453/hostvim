@@ -14,6 +14,8 @@ class SafeHtml
     {
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
+            ->allowRelativeLinks()
+            ->allowRelativeMedias()
             ->allowElement('span', ['class'])
             ->allowElement('div', ['class'])
             ->allowElement('p', ['class'])
