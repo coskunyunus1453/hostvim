@@ -30,6 +30,7 @@ class DocController extends Controller
 
         return view('site.docs.index', [
             'roots' => $roots,
+            'navRoots' => $roots,
             'seoSchema' => SchemaBuilder::encode($schema),
             'seoCanonical' => landing_url_with_lang(route('docs.index', absolute: true), $locale),
             'seoDescription' => landing_t('docs.index_meta_description'),
@@ -69,10 +70,25 @@ class DocController extends Controller
 
         return view('site.docs.show', [
             'page' => $page,
-            'showInstallCommands' => $page->slug === 'server-setup',
+            'navRoots' => $this->navTree($locale),
+            'showInstallCommands' => in_array($page->slug, ['server-setup', 'install-commands'], true),
             'seoCanonical' => $canonical,
             'seoDescription' => $page->effectiveMetaDescription(),
             'seoSchema' => SchemaBuilder::encode($schema),
         ]);
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, DocPage>
+     */
+    private function navTree(string $locale)
+    {
+        return DocPage::query()
+            ->published()
+            ->forLocale($locale)
+            ->whereNull('parent_id')
+            ->with(['children' => fn ($q) => $q->published()->forLocale($locale)->orderBy('sort_order')])
+            ->orderBy('sort_order')
+            ->get();
     }
 }

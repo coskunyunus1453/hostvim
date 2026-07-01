@@ -129,7 +129,7 @@ final class PanelFeatureCatalog
         return SaasModuleDefaults::integration($key);
     }
 
-    private static function proModuleLabelEn(string $key): string
+    public static function proModuleLabelEn(string $key): string
     {
         return match ($key) {
             'phpmyadmin_sso' => 'phpMyAdmin one-click SSO',
@@ -144,7 +144,7 @@ final class PanelFeatureCatalog
         };
     }
 
-    private static function proModuleDescriptionEn(string $key): string
+    public static function proModuleDescriptionEn(string $key): string
     {
         return match ($key) {
             'phpmyadmin_sso' => 'SSO from the database screen into phpMyAdmin without copying passwords.',

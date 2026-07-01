@@ -1,5 +1,5 @@
 <x-admin.layout title="Doküman sayfaları">
-    <x-admin.toolbar description="Hiyerarşi için üst sayfa seçilebilir.">
+    <x-admin.toolbar description="Hiyerarşi için üst sayfa seçilebilir. Her dil için ayrı kayıt oluşturun (tr / en). Katalogdan toplu güncelleme: php artisan panelze:sync-docs">
         <x-slot:actions>
             <a href="{{ route('admin.doc-pages.create') }}" class="admin-btn-emerald">Yeni doküman</a>
         </x-slot:actions>

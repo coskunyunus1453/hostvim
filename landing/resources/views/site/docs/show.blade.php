@@ -4,37 +4,43 @@
     :canonical-url="$seoCanonical"
     :schema-json-ld="$seoSchema"
 >
-    <div class="hv-container max-w-3xl">
-        <nav class="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-500">
-            <a href="{{ route('landing.home') }}" class="hv-muted-nav">{{ landing_t('nav.home') }}</a>
-            <span class="text-slate-400">/</span>
-            <a href="{{ route('docs.index') }}" class="hv-muted-nav">{{ landing_t('docs.breadcrumb') }}</a>
-            @if ($page->parent)
-                <span class="text-slate-400">/</span>
-                <a href="{{ route('docs.show', $page->parent->slug) }}" class="hv-muted-nav">{{ $page->parent->title }}</a>
-            @endif
-            <span class="text-slate-400">/</span>
-            <span class="text-slate-600 dark:text-slate-400">{{ $page->title }}</span>
-        </nav>
+    <div class="hv-container">
+        <div class="docs-layout">
+            <aside class="docs-layout__aside hidden lg:block">
+                <x-docs.sidebar :nav-roots="$navRoots" :current="$page" />
+            </aside>
 
-        <article class="rounded-2xl border border-slate-200/90 bg-white/95 p-6 sm:p-10 dark:border-slate-800/80 dark:bg-slate-900/65">
-            <h1 class="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{{ $page->title }}</h1>
-            <div class="markdown-body mt-6">
-                {!! \App\Support\SafeRichContent::toHtml($page->content) !!}
+            <div class="docs-layout__main min-w-0">
+                <nav class="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-500">
+                    <a href="{{ route('landing.home') }}" class="hv-muted-nav">{{ landing_t('nav.home') }}</a>
+                    <span class="text-slate-400">/</span>
+                    <a href="{{ route('docs.index') }}" class="hv-muted-nav">{{ landing_t('docs.breadcrumb') }}</a>
+                    @if ($page->parent)
+                        <span class="text-slate-400">/</span>
+                        <a href="{{ route('docs.show', $page->parent->slug) }}" class="hv-muted-nav">{{ $page->parent->title }}</a>
+                    @endif
+                    <span class="text-slate-400">/</span>
+                    <span class="text-slate-600 dark:text-slate-400">{{ $page->title }}</span>
+                </nav>
+
+                <article class="rounded-2xl border border-slate-200/90 bg-white/95 p-6 sm:p-10 dark:border-slate-800/80 dark:bg-slate-900/65">
+                    <h1 class="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{{ $page->title }}</h1>
+                    <div class="markdown-body mt-6">
+                        {!! \App\Support\SafeRichContent::toHtml($page->content) !!}
+                    </div>
+
+                    @if (! empty($showInstallCommands))
+                        <div class="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
+                            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-50">{{ landing_t('docs.install_commands_heading') }}</h2>
+                            <x-landing.install-commands variant="full" class="mt-6" />
+                        </div>
+                    @endif
+                </article>
+
+                <p class="mt-8 text-center text-sm font-medium">
+                    <a href="{{ route('docs.index') }}" class="hv-link-quiet">{{ landing_t('docs.back_to_index') }}</a>
+                </p>
             </div>
-
-            @if (! empty($showInstallCommands))
-                <div class="mt-10 border-t border-slate-200 pt-8 dark:border-slate-800">
-                    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-50">
-                        {{ app()->getLocale() === 'tr' ? 'Kurulum komutları' : 'Install commands' }}
-                    </h2>
-                    <x-landing.install-commands variant="full" class="mt-6" />
-                </div>
-            @endif
-        </article>
-
-        <p class="mt-10 text-center text-sm font-medium">
-            <a href="{{ route('docs.index') }}" class="hv-link-quiet">← Dokümantasyon ana sayfası</a>
-        </p>
+        </div>
     </div>
 </x-site.layout>

@@ -131,12 +131,16 @@ return [
     ],
 
     'docs' => [
-        'index_meta_description' => 'Panelze installation, architecture, and usage guides.',
+        'index_meta_description' => 'Panelze install guides, panel usage, Pro modules, licensing, and integrations.',
         'breadcrumb' => 'Documentation',
         'index_page_title' => 'Documentation · :brand',
         'index_heading' => 'Documentation',
-        'index_lead' => 'Getting started guides and technical references.',
+        'index_lead' => 'Step-by-step guides from install to Pro modules. Available in Turkish and English; editable from the admin panel.',
         'index_empty' => 'No documentation pages yet.',
+        'sidebar_label' => 'Documentation menu',
+        'sidebar_title' => 'Topics',
+        'install_commands_heading' => 'Install commands',
+        'back_to_index' => '← Back to documentation home',
     ],
 
     'license' => [

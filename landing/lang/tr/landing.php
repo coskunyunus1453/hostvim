@@ -131,12 +131,16 @@ return [
     ],
 
     'docs' => [
-        'index_meta_description' => 'Panelze kurulumu, mimari ve kullanım rehberleri.',
+        'index_meta_description' => 'Panelze kurulumu, panel kullanımı, Pro modüller, lisans ve entegrasyon rehberleri.',
         'breadcrumb' => 'Dokümantasyon',
         'index_page_title' => 'Dokümantasyon · :brand',
         'index_heading' => 'Dokümantasyon',
-        'index_lead' => 'Başlangıç rehberleri ve teknik konular.',
+        'index_lead' => 'Kurulumdan Pro modüllere kadar adım adım rehberler. Türkçe ve İngilizce; içerik admin panelden düzenlenebilir.',
         'index_empty' => 'Henüz doküman sayfası yok.',
+        'sidebar_label' => 'Dokümantasyon menüsü',
+        'sidebar_title' => 'Konular',
+        'install_commands_heading' => 'Kurulum komutları',
+        'back_to_index' => '← Dokümantasyon ana sayfası',
     ],
 
     'license' => [

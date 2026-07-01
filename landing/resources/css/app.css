@@ -1149,10 +1149,42 @@ a.hv-muted-nav:hover {
     @apply text-white;
 }
 .admin-quick-link {
-    @apply flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm text-slate-700 transition hover:border-slate-200 hover:bg-slate-50;
+	@apply flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm text-slate-700 transition hover:border-slate-200 hover:bg-slate-50;
 }
 .dark .admin-quick-link {
-    @apply text-slate-200 hover:border-slate-700 hover:bg-slate-900/50;
+	@apply text-slate-200 hover:border-slate-700 hover:bg-slate-900/50;
+}
+
+/* Public docs — sidebar layout */
+.docs-layout {
+	@apply flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10;
+}
+.docs-layout__aside {
+	@apply w-full shrink-0 lg:sticky lg:top-24 lg:w-64 xl:w-72;
+}
+.docs-layout__main {
+	@apply flex-1;
+}
+.docs-sidebar {
+	@apply rounded-2xl border border-slate-200/90 bg-white/90 p-4 dark:border-slate-800 dark:bg-slate-900/60;
+}
+.docs-sidebar__title {
+	@apply mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500;
+}
+.docs-sidebar__list {
+	@apply space-y-3 text-sm;
+}
+.docs-sidebar__link {
+	@apply block rounded-lg px-2.5 py-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-100;
+}
+.docs-sidebar__link--root {
+	@apply font-semibold text-slate-800 dark:text-slate-200;
+}
+.docs-sidebar__link--active {
+	@apply bg-orange-500/10 font-medium text-orange-800 ring-1 ring-orange-500/25 dark:text-orange-200;
+}
+.docs-sidebar__children {
+	@apply mt-1 space-y-0.5 border-l border-slate-200/90 pl-2 dark:border-slate-700;
 }
 
 /* Quill zengin metin — toolbar, mobil sarma, gece modu */
