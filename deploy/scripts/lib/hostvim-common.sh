@@ -82,9 +82,45 @@ hostvim_detect_web_user() {
   printf '%s\n' "$(id -un)"
 }
 
+hostvim_detect_store_user() {
+  if [[ -n "${HOSTVIM_STORE_USER:-}" ]]; then
+    printf '%s\n' "$HOSTVIM_STORE_USER"
+    return 0
+  fi
+  hostvim_resolve_paths
+  if [[ -f "${STORE_ROOT}/artisan" ]]; then
+    stat -c '%U' "${STORE_ROOT}/artisan" 2>/dev/null || stat -f '%Su' "${STORE_ROOT}/artisan" 2>/dev/null || true
+    return 0
+  fi
+  hostvim_detect_web_user
+}
+
+hostvim_detect_store_group() {
+  if [[ -n "${HOSTVIM_STORE_GROUP:-}" ]]; then
+    printf '%s\n' "$HOSTVIM_STORE_GROUP"
+    return 0
+  fi
+  hostvim_resolve_paths
+  if [[ -f "${STORE_ROOT}/artisan" ]]; then
+    stat -c '%G' "${STORE_ROOT}/artisan" 2>/dev/null || stat -f '%Sg' "${STORE_ROOT}/artisan" 2>/dev/null || true
+    return 0
+  fi
+  printf '%s\n' "$(hostvim_detect_store_user)"
+}
+
 hostvim_run_as_web() {
   local user
   user="$(hostvim_detect_web_user)"
+  if [[ "$(id -un)" == "$user" ]]; then
+    "$@"
+  else
+    sudo -u "$user" "$@"
+  fi
+}
+
+hostvim_run_as_store() {
+  local user
+  user="$(hostvim_detect_store_user)"
   if [[ "$(id -un)" == "$user" ]]; then
     "$@"
   else
@@ -367,14 +403,14 @@ hostvim_store_post_deploy() {
 
   echo "==> Store: composer + migrate + seed"
   cd "$STORE_ROOT"
-  hostvim_run_as_web composer install --no-dev --optimize-autoloader --no-interaction \
+  hostvim_run_as_store composer install --no-dev --optimize-autoloader --no-interaction \
     2>/dev/null || composer install --no-dev --optimize-autoloader --no-interaction
 
-  hostvim_run_as_web php artisan migrate --force --no-interaction
+  hostvim_run_as_store php artisan migrate --force --no-interaction
 
   if [[ "${HOSTVIM_STORE_SEED:-0}" == "1" ]]; then
     echo "==> Store: db:seed"
-    hostvim_run_as_web php artisan db:seed --force --no-interaction
+    hostvim_run_as_store php artisan db:seed --force --no-interaction
   else
     local user_count
     user_count="$(cd "$STORE_ROOT" && php -r "
@@ -385,15 +421,15 @@ echo (int) \\App\\Models\\User::count();
 " 2>/dev/null || echo 0)"
     if [[ "${user_count:-0}" -lt 1 ]]; then
       echo "==> Store: ilk kurulum — db:seed"
-      hostvim_run_as_web php artisan db:seed --force --no-interaction
+      hostvim_run_as_store php artisan db:seed --force --no-interaction
     fi
   fi
 
-  hostvim_run_as_web php artisan filament:assets --no-interaction 2>/dev/null || true
-  hostvim_run_as_web php artisan filament:optimize --no-interaction 2>/dev/null || true
-  hostvim_run_as_web php artisan icons:cache --no-interaction 2>/dev/null || true
-  hostvim_run_as_web php artisan vendor:publish --tag=livewire:assets --force --no-interaction 2>/dev/null || true
-  hostvim_run_as_web php artisan storage:link --force 2>/dev/null || true
+  hostvim_run_as_store php artisan filament:assets --no-interaction 2>/dev/null || true
+  hostvim_run_as_store php artisan filament:optimize --no-interaction 2>/dev/null || true
+  hostvim_run_as_store php artisan icons:cache --no-interaction 2>/dev/null || true
+  hostvim_run_as_store php artisan vendor:publish --tag=livewire:assets --force --no-interaction 2>/dev/null || true
+  hostvim_run_as_store php artisan storage:link --force 2>/dev/null || true
 
   local public_dir="$STORE_ROOT/public"
   if [[ -d "$public_dir" && ! -e "$STORE_ROOT/storage" ]]; then
@@ -405,33 +441,64 @@ echo (int) \\App\\Models\\User::count();
     fi
   fi
 
-  hostvim_run_as_web php artisan config:cache
-  hostvim_run_as_web php artisan route:cache
-  hostvim_run_as_web php artisan view:cache 2>/dev/null || hostvim_run_as_web php artisan view:clear
-  hostvim_run_as_web php artisan event:cache 2>/dev/null || true
-  hostvim_run_as_web php artisan seo:publish-static 2>/dev/null || true
+  hostvim_run_as_store php artisan config:cache
+  hostvim_run_as_store php artisan route:cache
+  hostvim_run_as_store php artisan view:cache 2>/dev/null || hostvim_run_as_store php artisan view:clear
+  hostvim_run_as_store php artisan event:cache 2>/dev/null || true
+  hostvim_run_as_store php artisan seo:publish-static 2>/dev/null || true
+
+  hostvim_fix_store_permissions
 
   echo "==> Store: sayfa önbelleği ısıtma"
   curl -sf -o /dev/null -H "Host: ${STORE_DOMAIN}" http://127.0.0.1/ 2>/dev/null || true
   curl -sf -o /dev/null -H "Host: ${STORE_DOMAIN}" http://127.0.0.1/giris 2>/dev/null || true
 }
 
-hostvim_fix_permissions() {
+hostvim_fix_store_permissions() {
   hostvim_resolve_paths
   local user group
-  user="$(hostvim_detect_web_user)"
-  group="${HOSTVIM_WEB_GROUP:-$user}"
+  user="$(hostvim_detect_store_user)"
+  group="$(hostvim_detect_store_group)"
 
-  for dir in "$STORE_ROOT/storage" "$STORE_ROOT/bootstrap/cache" "$PANEL_ROOT/storage" "$PANEL_ROOT/bootstrap/cache"; do
+  for dir in "$STORE_ROOT/storage" "$STORE_ROOT/bootstrap/cache"; do
     [[ -d "$dir" ]] || continue
     chown -R "$user:$group" "$dir" 2>/dev/null || true
-    chmod -R ug+rwx "$dir" 2>/dev/null || true
+    find "$dir" -type d -exec chmod 2775 {} + 2>/dev/null || true
+    find "$dir" -type f -exec chmod 664 {} + 2>/dev/null || true
   done
 
   if [[ -d "$STORE_ROOT/public" ]]; then
     chown -R "$user:$group" "$STORE_ROOT/public/js" "$STORE_ROOT/public/css" \
       "$STORE_ROOT/public/fonts" "$STORE_ROOT/public/vendor" 2>/dev/null || true
   fi
+
+  echo "==> Store izinleri: $user:$group"
+}
+
+hostvim_fix_permissions() {
+  hostvim_resolve_paths
+  local panel_user panel_group
+  panel_user="$(hostvim_detect_web_user)"
+  panel_group="${HOSTVIM_WEB_GROUP:-$panel_user}"
+
+  for dir in "$PANEL_ROOT/storage" "$PANEL_ROOT/bootstrap/cache"; do
+    [[ -d "$dir" ]] || continue
+    chown -R "$panel_user:$panel_group" "$dir" 2>/dev/null || true
+    chmod -R ug+rwx "$dir" 2>/dev/null || true
+  done
+
+  hostvim_fix_store_permissions
+}
+
+hostvim_install_store_scheduler() {
+  hostvim_resolve_paths
+  local user
+  user="$(hostvim_detect_store_user)"
+  echo "==> Store scheduler cron — $user"
+  cat > /etc/cron.d/hostvim-store <<CRON
+* * * * * ${user} cd ${STORE_ROOT} && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+CRON
+  chmod 644 /etc/cron.d/hostvim-store
 }
 
 hostvim_install_store_queue() {
@@ -439,10 +506,11 @@ hostvim_install_store_queue() {
   local log_dir
   log_dir="$(dirname "$STORE_ROOT")/logs"
   mkdir -p "$log_dir" 2>/dev/null || log_dir="/var/log"
-  local user
-  user="$(hostvim_detect_web_user)"
+  local user group
+  user="$(hostvim_detect_store_user)"
+  group="$(hostvim_detect_store_group)"
 
-  echo "==> Store queue worker (systemd)"
+  echo "==> Store queue worker (systemd) — $user:$group"
   cat > /etc/systemd/system/hostvim-store-queue.service <<UNIT
 [Unit]
 Description=HostVim Store Queue Worker
@@ -450,7 +518,7 @@ After=network.target mysql.service mariadb.service
 
 [Service]
 User=${user}
-Group=${user}
+Group=${group}
 Restart=always
 RestartSec=5
 WorkingDirectory=${STORE_ROOT}
@@ -519,6 +587,7 @@ hostvim_full_setup() {
     hostvim_store_post_deploy || return 1
     hostvim_fix_permissions
     if [[ "${HOSTVIM_SKIP_QUEUE:-0}" != "1" ]] && [[ "$(id -u)" -eq 0 ]]; then
+      hostvim_install_store_scheduler
       hostvim_install_store_queue
     fi
   fi
