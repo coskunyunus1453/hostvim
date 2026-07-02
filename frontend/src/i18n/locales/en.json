@@ -48,6 +48,7 @@
     "stack": "Server packages",
     "outbound_mail": "Outbound mail",
     "dns_settings": "DNS server",
+    "managed_backup": "Managed Backups",
     "roles": "Roles",
     "webserver_settings": "Apache & Nginx",
     "server_settings": "Server & IP",

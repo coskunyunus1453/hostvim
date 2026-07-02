@@ -136,6 +136,7 @@ class BackupController extends Controller
     {
         $rows = BackupDestination::query()
             ->where('user_id', $request->user()->id)
+            ->where('is_system', false)
             ->latest('id')
             ->get();
 

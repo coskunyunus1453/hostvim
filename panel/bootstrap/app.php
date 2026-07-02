@@ -35,6 +35,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('backups:reconcile-running')->everyTwoMinutes()->withoutOverlapping();
         // Yedek temizliği: süresi dolan yedekler + retention sınırını aşan eski zincirler (disk açar).
         $schedule->command('backups:prune')->dailyAt('03:30')->withoutOverlapping();
+        // Merkezi (şirket Drive havuzu) otomatik yedekleme: tüm hosting siteleri için günlük
+        // zamanlamaları senkronlar (yeni siteleri otomatik kapsar). Saatlik çalışır; asıl
+        // yedekleri ayarlanan saatte backups:run-due tetikler.
+        $schedule->command('backups:provision-managed')->hourly()->withoutOverlapping();
+        // Başarısız yedeklerin günlük özet bildirimi (HostVim ekibine).
+        $schedule->command('backups:notify-failures')->dailyAt('08:00')->withoutOverlapping();
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
         // DNS'i sonradan sunucuya yönlenen (özellikle "kendi alan adım") siteler için
         // eksik Let's Encrypt sertifikalarını günde 2 kez otomatik dener (job DNS'i doğrular).

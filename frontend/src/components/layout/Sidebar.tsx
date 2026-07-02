@@ -164,6 +164,7 @@ export default function Sidebar() {
         { path: '/admin/stack', icon: Layers, label: 'nav.stack', allow: isAdmin },
         { path: '/admin/terminal', icon: TerminalSquare, label: 'nav.terminal', allow: isAdmin },
         { path: '/admin/dns-settings', icon: Globe, label: 'nav.dns_settings', allow: isAdmin },
+        { path: '/admin/managed-backup', icon: HardDrive, label: 'nav.managed_backup', allow: isAdmin },
       ],
     },
     {

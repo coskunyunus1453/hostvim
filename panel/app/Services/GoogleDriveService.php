@@ -54,13 +54,13 @@ class GoogleDriveService
     /**
      * @return array{url: string, state: string}
      */
-    public function authorizationUrl(int $userId): array
+    public function authorizationUrl(int $userId, bool $system = false): array
     {
         if (! $this->isConfigured()) {
             throw new \RuntimeException(__('backups.google_drive_not_configured'));
         }
         $state = Str::random(40);
-        Cache::put($this->stateCacheKey($state), $userId, now()->addMinutes(15));
+        Cache::put($this->stateCacheKey($state), ['uid' => $userId, 'system' => $system], now()->addMinutes(15));
 
         $oauthState = $this->usesHubRedirect()
             ? $this->compositeOAuthState($state)
@@ -82,10 +82,13 @@ class GoogleDriveService
     /**
      * @return array{ok: bool, error?: string, destination?: BackupDestination}
      */
-    public function completeOAuth(int $userId, string $code, string $state, string $destinationName = 'Google Drive'): array
+    public function completeOAuth(int $userId, string $code, string $state, string $destinationName = 'Google Drive', ?string $folderName = null): array
     {
-        $cachedUser = Cache::pull($this->stateCacheKey($state));
-        if ((int) $cachedUser !== $userId) {
+        $cached = Cache::pull($this->stateCacheKey($state));
+        // Geriye dönük uyumluluk: eski akışta değer int (userId) idi.
+        $cachedUser = is_array($cached) ? (int) ($cached['uid'] ?? 0) : (int) $cached;
+        $system = is_array($cached) ? (bool) ($cached['system'] ?? false) : false;
+        if ($cachedUser !== $userId || $cachedUser === 0) {
             return ['ok' => false, 'error' => __('backups.google_drive_state_invalid')];
         }
 
@@ -94,25 +97,33 @@ class GoogleDriveService
             return ['ok' => false, 'error' => (string) ($tokens['error'] ?? 'oauth_failed')];
         }
 
-        BackupDestination::query()
-            ->where('user_id', $userId)
-            ->where('driver', 'google_drive')
-            ->update(['is_default' => false]);
+        if ($system) {
+            // Şirket havuz hesabı: müşteri hedeflerinin is_default'unu bozmaz.
+            $defaultFolder = (string) config('panelze.google_drive.system_folder_name', 'HostVim Managed Backups');
+        } else {
+            BackupDestination::query()
+                ->where('user_id', $userId)
+                ->where('driver', 'google_drive')
+                ->where('is_system', false)
+                ->update(['is_default' => false]);
+            $defaultFolder = (string) config('panelze.google_drive.folder_name', 'Panelze Backups');
+        }
 
         $dest = BackupDestination::create([
             'user_id' => $userId,
-            'name' => $destinationName !== '' ? $destinationName : 'Google Drive',
+            'name' => $destinationName !== '' ? $destinationName : ($system ? 'HostVim Drive' : 'Google Drive'),
             'driver' => 'google_drive',
             'config' => [
                 'access_token' => $tokens['access_token'],
                 'refresh_token' => $tokens['refresh_token'] ?? null,
                 'expires_at' => $tokens['expires_at'] ?? null,
                 'email' => $tokens['email'] ?? null,
-                'folder_name' => (string) config('panelze.google_drive.folder_name', 'Panelze Backups'),
+                'folder_name' => trim((string) ($folderName ?: $defaultFolder)),
                 'folder_id' => null,
             ],
-            'is_default' => true,
+            'is_default' => ! $system,
             'is_active' => true,
+            'is_system' => $system,
         ]);
 
         $folderId = $this->ensureFolder($dest);
@@ -122,7 +133,7 @@ class GoogleDriveService
             $dest->update(['config' => $cfg]);
         }
 
-        return ['ok' => true, 'destination' => $dest->fresh()];
+        return ['ok' => true, 'destination' => $dest->fresh(), 'system' => $system];
     }
 
     /**

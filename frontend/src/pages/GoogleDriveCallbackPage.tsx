@@ -35,16 +35,19 @@ export default function GoogleDriveCallbackPage() {
     }
 
     ;(async () => {
+      let isSystem = false
       try {
-        await api.post('/backups/google-drive/complete', { code, state })
+        const res = await api.post('/backups/google-drive/complete', { code, state })
+        isSystem = Boolean((res?.data as { system?: boolean })?.system)
         toast.success(t('backups.google_connected'))
         await qc.invalidateQueries({ queryKey: ['backups-gdrive'] })
         await qc.invalidateQueries({ queryKey: ['backup-destinations'] })
+        await qc.invalidateQueries({ queryKey: ['admin-managed-backup'] })
       } catch (err: unknown) {
         const ax = err as { response?: { data?: { message?: string } } }
         toast.error(ax.response?.data?.message ?? String(err))
       } finally {
-        navigate('/backups', { replace: true })
+        navigate(isSystem ? '/admin/managed-backup' : '/backups', { replace: true })
       }
     })()
   }, [navigate, qc, searchParams, t])

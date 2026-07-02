@@ -48,6 +48,7 @@
     "stack": "Sunucu paketleri",
     "outbound_mail": "Giden posta",
     "dns_settings": "DNS sunucusu",
+    "managed_backup": "Merkezi Yedekleme",
     "roles": "Roller",
     "webserver_settings": "Apache & Nginx",
     "server_settings": "Sunucu & IP",

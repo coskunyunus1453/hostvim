@@ -22,6 +22,7 @@ class BackupGoogleDriveController extends Controller
             ->where('user_id', $request->user()->id)
             ->where('driver', 'google_drive')
             ->where('is_active', true)
+            ->where('is_system', false)
             ->latest('id')
             ->first();
 
@@ -75,6 +76,7 @@ class BackupGoogleDriveController extends Controller
         return response()->json([
             'message' => __('backups.google_drive_connected'),
             'destination' => $result['destination'],
+            'system' => (bool) ($result['system'] ?? false),
         ], 201);
     }
 
@@ -83,6 +85,7 @@ class BackupGoogleDriveController extends Controller
         BackupDestination::query()
             ->where('user_id', $request->user()->id)
             ->where('driver', 'google_drive')
+            ->where('is_system', false)
             ->delete();
 
         return response()->json(['message' => __('backups.google_drive_disconnected')]);

@@ -18,6 +18,7 @@ class BackupSchedule extends Model
         'retention_count',
         'schedule',
         'enabled',
+        'is_managed',
         'last_run_at',
         'next_run_at',
     ];
@@ -26,6 +27,7 @@ class BackupSchedule extends Model
     {
         return [
             'enabled' => 'boolean',
+            'is_managed' => 'boolean',
             'last_run_at' => 'datetime',
             'next_run_at' => 'datetime',
             'full_interval_days' => 'integer',

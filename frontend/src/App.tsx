@@ -42,6 +42,7 @@ const AdminLicensePage = lazy(() => import('./pages/AdminLicensePage'))
 const AdminStackPage = lazy(() => import('./pages/AdminStackPage'))
 const AdminMailSettingsPage = lazy(() => import('./pages/AdminMailSettingsPage'))
 const AdminDnsSettingsPage = lazy(() => import('./pages/AdminDnsSettingsPage'))
+const AdminManagedBackupPage = lazy(() => import('./pages/AdminManagedBackupPage'))
 const AdminRolesPage = lazy(() => import('./pages/AdminRolesPage'))
 const AdminWebServerSettingsPage = lazy(() => import('./pages/AdminWebServerSettingsPage'))
 const AdminServerSettingsPage = lazy(() => import('./pages/AdminServerSettingsPage'))
@@ -160,6 +161,7 @@ export default function App() {
         <Route path="admin/stack" element={<AdvancedRoute><LazyPage><AdminStackPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/mail-settings" element={<AdvancedRoute><LazyPage><AdminMailSettingsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/dns-settings" element={<AdvancedRoute><LazyPage><AdminDnsSettingsPage /></LazyPage></AdvancedRoute>} />
+        <Route path="admin/managed-backup" element={<AdvancedRoute><LazyPage><AdminManagedBackupPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/webserver" element={<AdvancedRoute><LazyPage><AdminWebServerSettingsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/php-settings" element={<AdvancedRoute><LazyPage><AdminPhpSettingsPage /></LazyPage></AdvancedRoute>} />
         <Route path="admin/logs" element={<AdvancedRoute><LazyPage><AdminLogsPage /></LazyPage></AdvancedRoute>} />

@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Admin\DnsSettingsController;
+use App\Http\Controllers\Admin\ManagedBackupController;
 use App\Http\Controllers\Admin\OutboundMailSettingsController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\PhpSettingsController;
@@ -507,6 +508,12 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('settings/mail/setup-stack', [OutboundMailSettingsController::class, 'setupMailStack']);
         Route::get('settings/terminal', [TerminalSettingsController::class, 'show']);
         Route::put('settings/terminal', [TerminalSettingsController::class, 'update']);
+        // Merkezi (şirket Drive havuzu) otomatik yedekleme yönetimi.
+        Route::get('settings/managed-backup', [ManagedBackupController::class, 'status']);
+        Route::put('settings/managed-backup', [ManagedBackupController::class, 'updateSettings']);
+        Route::get('settings/managed-backup/auth-url', [ManagedBackupController::class, 'authUrl']);
+        Route::post('settings/managed-backup/run-now', [ManagedBackupController::class, 'runNow'])->middleware('throttle:20,1');
+        Route::delete('settings/managed-backup/accounts/{backupDestination}', [ManagedBackupController::class, 'disconnect']);
         Route::get('users', [UserController::class, 'index']);
         Route::post('users', [UserController::class, 'store'])->middleware('throttle:20,1');
         Route::get('users/{user}', [UserController::class, 'show']);
