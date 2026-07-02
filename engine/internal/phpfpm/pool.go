@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"panelze/engine/internal/fsutil"
 )
 
 // NormalizeVersion "8.2" gibi sade sürüm metni döner.
@@ -210,7 +212,7 @@ func RestorePoolConf(h HostingPoolSettings, domain, phpVersion string, previous 
 	}
 	p := poolConfPath(h, phpVersion, domain)
 	if hadPrevious {
-		return os.WriteFile(p, previous, 0o644)
+		return fsutil.AtomicWrite(p, previous, 0o644)
 	}
 	return os.Remove(p)
 }
@@ -378,7 +380,7 @@ func WritePool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts .
 		return "", previous, hadPrevious, rerr
 	}
 
-	if err := os.WriteFile(confPath, []byte(body), 0o644); err != nil {
+	if err := fsutil.AtomicWrite(confPath, []byte(body), 0o644); err != nil {
 		return "", previous, hadPrevious, fmt.Errorf("write pool: %w", err)
 	}
 

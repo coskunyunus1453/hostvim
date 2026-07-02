@@ -420,8 +420,12 @@ hostvim_ensure_nginx_vhosts() {
   hostvim_prune_nginx_symlinks
 
   local vhosts_dir="${PANELZE_HOME}/data/vhosts"
-  mkdir -p "$vhosts_dir" "${PANELZE_HOME}/data/logs"
-  chown www-data:www-data "$vhosts_dir" "${PANELZE_HOME}/data/logs" 2>/dev/null || true
+  mkdir -p "$vhosts_dir" "${PANELZE_HOME}/data/logs" "${PANELZE_HOME}/data/apache-vhosts" "${PANELZE_HOME}/data/ols-staging"
+  # Engine (www-data) yazar; setgid + doğru sahiplik → root artıkları sahiplik kayması ile yazımı blokelemesin.
+  chown www-data:www-data "$vhosts_dir" "${PANELZE_HOME}/data/logs" "${PANELZE_HOME}/data/apache-vhosts" "${PANELZE_HOME}/data/ols-staging" 2>/dev/null || true
+  chmod 2775 "$vhosts_dir" "${PANELZE_HOME}/data/logs" "${PANELZE_HOME}/data/apache-vhosts" "${PANELZE_HOME}/data/ols-staging" 2>/dev/null || true
+  # Geçmişte root olarak oluşmuş vhost/pool artıklarını www-data'ya devret (idempotent onarım).
+  find "$vhosts_dir" "${PANELZE_HOME}/data/apache-vhosts" "${PANELZE_HOME}/data/ols-staging" -maxdepth 2 ! -user www-data -exec chown www-data:www-data {} + 2>/dev/null || true
 
   local active_count vhost_count
   active_count="$(cd "$PANEL_ROOT" && php artisan tinker --execute="echo (int) App\\Models\\Domain::where('status','active')->count();" 2>/dev/null | tr -d '\r' || echo 0)"

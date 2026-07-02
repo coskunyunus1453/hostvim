@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"panelze/engine/internal/config"
+	"panelze/engine/internal/fsutil"
 	"panelze/engine/internal/nginx"
 )
 
@@ -339,13 +340,13 @@ func applyVhostInner(cfg *config.Config, domain, docRoot, phpSocket, sslFullchai
 	oldAvail, readAvailErr := os.ReadFile(avail)
 	hadAvail := readAvailErr == nil
 
-	if err := os.WriteFile(avail, buf.Bytes(), 0o644); err != nil {
+	if err := fsutil.AtomicWrite(avail, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write apache vhost: %w", err)
 	}
 
 	if err := runApacheVhostHelper(cfg, "enable", avail); err != nil {
 		if hadAvail {
-			_ = os.WriteFile(avail, oldAvail, 0o644)
+			_ = fsutil.AtomicWrite(avail, oldAvail, 0o644)
 		} else {
 			_ = os.Remove(avail)
 		}
@@ -466,12 +467,12 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 	oldAvail, readAvailErr := os.ReadFile(p)
 	hadAvail := readAvailErr == nil
 
-	if err := os.WriteFile(p, content, 0o644); err != nil {
+	if err := fsutil.AtomicWrite(p, content, 0o644); err != nil {
 		return fmt.Errorf("write apache vhost: %w", err)
 	}
 	if err := runApacheVhostHelper(cfg, "enable", p); err != nil {
 		if hadAvail {
-			_ = os.WriteFile(p, oldAvail, 0o644)
+			_ = fsutil.AtomicWrite(p, oldAvail, 0o644)
 		} else {
 			_ = os.Remove(p)
 		}
@@ -479,7 +480,7 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 	}
 	prev := apachePrevPath(p)
 	if hadAvail && len(oldAvail) > 0 {
-		_ = os.WriteFile(prev, oldAvail, 0o600)
+		_ = fsutil.AtomicWrite(prev, oldAvail, 0o600)
 	} else {
 		_ = os.Remove(prev)
 	}
@@ -507,18 +508,18 @@ func RevertVhostRaw(cfg *config.Config, domain string) error {
 		hadCur = true
 	}
 
-	if err := os.WriteFile(p, prevBody, 0o644); err != nil {
+	if err := fsutil.AtomicWrite(p, prevBody, 0o644); err != nil {
 		return fmt.Errorf("write apache vhost: %w", err)
 	}
 	if err := runApacheVhostHelper(cfg, "enable", p); err != nil {
 		if hadCur {
-			_ = os.WriteFile(p, curContent, 0o644)
+			_ = fsutil.AtomicWrite(p, curContent, 0o644)
 			_ = runApacheVhostHelper(cfg, "enable", p)
 		}
 		return err
 	}
 	if hadCur && len(curContent) > 0 {
-		_ = os.WriteFile(prev, curContent, 0o600)
+		_ = fsutil.AtomicWrite(prev, curContent, 0o600)
 	} else {
 		_ = os.Remove(prev)
 	}

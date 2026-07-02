@@ -11,9 +11,15 @@ import (
 	"text/template"
 
 	"panelze/engine/internal/config"
+	"panelze/engine/internal/fsutil"
 )
 
 var domainSafe = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`)
+
+// atomicWriteFile, ortak fsutil.AtomicWrite'a ince sarmalayıcı (sahiplik kaymasına dayanıklı yazım).
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	return fsutil.AtomicWrite(path, data, perm)
+}
 
 // DomainSafe alan adı nginx/apache vhost için güvenli mi.
 func DomainSafe(domain string) bool {
@@ -732,7 +738,7 @@ func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, 
 		hadOld = true
 	}
 
-	if err := os.WriteFile(avail, buf.Bytes(), 0o644); err != nil {
+	if err := atomicWriteFile(avail, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write vhost: %w", err)
 	}
 
@@ -740,7 +746,7 @@ func ApplyVhost(cfg *config.Config, confName, docRoot, phpSocket, sslFullchain, 
 	if err := runNginxVhostHelper(cfg, "enable", avail); err != nil {
 		_ = runNginxVhostHelper(cfg, "disable", base)
 		if hadOld {
-			if werr := os.WriteFile(avail, oldContent, 0o644); werr != nil {
+			if werr := atomicWriteFile(avail, oldContent, 0o644); werr != nil {
 				return fmt.Errorf("%w; önceki vhost geri yazılamadı: %v", err, werr)
 			}
 			if e2 := runNginxVhostHelper(cfg, "enable", avail); e2 != nil {
@@ -885,13 +891,13 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 		hadOld = true
 	}
 
-	if err := os.WriteFile(p, content, 0o644); err != nil {
+	if err := atomicWriteFile(p, content, 0o644); err != nil {
 		return fmt.Errorf("write vhost: %w", err)
 	}
 
 	if err := runNginxVhostHelper(cfg, "enable", p); err != nil {
 		if hadOld {
-			if werr := os.WriteFile(p, oldContent, 0o644); werr != nil {
+			if werr := atomicWriteFile(p, oldContent, 0o644); werr != nil {
 				return fmt.Errorf("%w; rollback write failed: %v", err, werr)
 			}
 			if e2 := runNginxVhostHelper(cfg, "enable", p); e2 != nil {
@@ -905,7 +911,7 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 	// Başarılı kayıt: bir önceki sürümü geri alma için yan dosyada sakla.
 	prev := vhostPrevPath(p)
 	if hadOld && len(oldContent) > 0 {
-		_ = os.WriteFile(prev, oldContent, 0o600)
+		_ = atomicWriteFile(prev, oldContent, 0o600)
 	} else {
 		_ = os.Remove(prev)
 	}
@@ -933,18 +939,18 @@ func RevertVhostRaw(cfg *config.Config, domain string) error {
 		curContent = b
 		hadCur = true
 	}
-	if err := os.WriteFile(p, prevBody, 0o644); err != nil {
+	if err := atomicWriteFile(p, prevBody, 0o644); err != nil {
 		return fmt.Errorf("write vhost: %w", err)
 	}
 	if err := runNginxVhostHelper(cfg, "enable", p); err != nil {
 		if hadCur {
-			_ = os.WriteFile(p, curContent, 0o644)
+			_ = atomicWriteFile(p, curContent, 0o644)
 			_ = runNginxVhostHelper(cfg, "enable", p)
 		}
 		return err
 	}
 	if hadCur && len(curContent) > 0 {
-		_ = os.WriteFile(prev, curContent, 0o600)
+		_ = atomicWriteFile(prev, curContent, 0o600)
 	} else {
 		_ = os.Remove(prev)
 	}

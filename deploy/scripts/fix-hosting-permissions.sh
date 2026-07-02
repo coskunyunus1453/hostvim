@@ -131,7 +131,7 @@ if [[ "$_quick" == "1" ]]; then
   fi
 else
   echo "==> Tam izin onarımı (data + www)…"
-  for _d in logs ssl backups vhosts tmp pm2; do
+  for _d in logs ssl backups vhosts apache-vhosts ols-staging tmp pm2; do
     [[ -d "$DATA_ROOT/$_d" ]] && _apply_tree "$DATA_ROOT/$_d"
   done
   if [[ "$PANELKAFES" == "1" ]]; then

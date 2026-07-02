@@ -418,9 +418,18 @@ fi
 # PHP-FPM soketi (apt sonrası)
 PHP_FPM_SOCK="$(detect_php_fpm_sock)"
 
-mkdir -p "$PANELZE_HOME/data"/{www,tmp,ssl,backups,logs,vhosts,apache-vhosts,ols-staging}
+mkdir -p "$PANELZE_HOME/data"/{www,tmp,ssl,backups,logs,vhosts,apache-vhosts,ols-staging,pm2}
 mkdir -p /etc/panelze
 chown -R www-data:www-data "$PANELZE_HOME/data"
+# Engine (www-data) bu dizinlere vhost/pool/log/ssl yazar. setgid (2775) sayesinde alt
+# dosyalar grubu www-data'dan miras alır; root olarak oluşan artıklar sahiplik kayması
+# yaratıp "permission denied" ile yazımı bloke etmesin. (Engine ayrıca atomik yazımla
+# kendini onarır; bu, ilk kurulumda tutarlı temel izinleri sağlar.)
+chmod 2775 "$PANELZE_HOME/data" \
+  "$PANELZE_HOME/data/www" "$PANELZE_HOME/data/tmp" "$PANELZE_HOME/data/ssl" \
+  "$PANELZE_HOME/data/backups" "$PANELZE_HOME/data/logs" "$PANELZE_HOME/data/vhosts" \
+  "$PANELZE_HOME/data/apache-vhosts" "$PANELZE_HOME/data/ols-staging" \
+  "$PANELZE_HOME/data/pm2" 2>/dev/null || true
 
 # RESET modunda eski hosting kalıntılarını da temizle (plesk benzeri "silince anında düşsün" davranışı).
 if [[ "${RESET_PANEL_DB:-0}" == "1" ]] || [[ "${RESET_PANEL_DB:-0}" == "yes" ]]; then

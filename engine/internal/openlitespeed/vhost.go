@@ -15,6 +15,7 @@ import (
 	"text/template"
 
 	"panelze/engine/internal/config"
+	"panelze/engine/internal/fsutil"
 	"panelze/engine/internal/nginx"
 )
 
@@ -628,20 +629,20 @@ func WriteVhostRaw(cfg *config.Config, domain string, content []byte) error {
 		old = b
 		hadOld = true
 	}
-	if err := os.WriteFile(p, content, 0o644); err != nil {
+	if err := fsutil.AtomicWrite(p, content, 0o644); err != nil {
 		return fmt.Errorf("write ols vhconf: %w", err)
 	}
 	if cfg.Hosting.OLSReloadAfterVhost {
 		if err := olsReload(cfg); err != nil {
 			if hadOld {
-				_ = os.WriteFile(p, old, 0o644)
+				_ = fsutil.AtomicWrite(p, old, 0o644)
 			}
 			return err
 		}
 	}
 	prev := olsPrevPath(p)
 	if hadOld && len(old) > 0 {
-		_ = os.WriteFile(prev, old, 0o600)
+		_ = fsutil.AtomicWrite(prev, old, 0o600)
 	} else {
 		_ = os.Remove(prev)
 	}
@@ -674,19 +675,19 @@ func RevertVhostRaw(cfg *config.Config, domain string) error {
 		cur = b
 		hadCur = true
 	}
-	if err := os.WriteFile(p, prevBody, 0o644); err != nil {
+	if err := fsutil.AtomicWrite(p, prevBody, 0o644); err != nil {
 		return fmt.Errorf("write ols vhconf: %w", err)
 	}
 	if cfg.Hosting.OLSReloadAfterVhost {
 		if err := olsReload(cfg); err != nil {
 			if hadCur {
-				_ = os.WriteFile(p, cur, 0o644)
+				_ = fsutil.AtomicWrite(p, cur, 0o644)
 			}
 			return err
 		}
 	}
 	if hadCur && len(cur) > 0 {
-		_ = os.WriteFile(prevPath, cur, 0o600)
+		_ = fsutil.AtomicWrite(prevPath, cur, 0o600)
 	} else {
 		_ = os.Remove(prevPath)
 	}
