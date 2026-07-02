@@ -29,7 +29,10 @@ class PayTRGateway implements PaymentGatewayInterface
             ])->values()->toArray()
         ));
 
-        $merchantOid = $order->order_number;
+        // PayTR merchant_oid YALNIZCA alfanumerik olmalıdır (tire/altçizgi kabul edilmez).
+        // order_number "HV-XXXX-NNNN" formatında tire içerdiğinden token isteği reddedilir;
+        // bu yüzden temizlenmiş hâlini gönderiyoruz, callback'te de aynı kurala göre eşliyoruz.
+        $merchantOid = self::merchantOid($order->order_number);
         $email = $order->customer_email;
         $paymentAmount = (int) round($order->total * 100);
         $userIp = request()->ip() ?? '127.0.0.1';
@@ -63,6 +66,15 @@ class PayTRGateway implements PaymentGatewayInterface
             'test_mode' => $testMode,
         ]);
 
+        if ($response->failed()) {
+            Log::error('PayTR token isteği başarısız (HTTP)', [
+                'order' => $order->order_number,
+                'status' => $response->status(),
+            ]);
+
+            return ['type' => 'error', 'message' => 'PayTR ödeme sağlayıcısına ulaşılamadı.'];
+        }
+
         $result = $response->json();
 
         if (($result['status'] ?? '') === 'success' && ! empty($result['token'])) {
@@ -73,6 +85,11 @@ class PayTRGateway implements PaymentGatewayInterface
             ];
         }
 
+        Log::warning('PayTR token alınamadı', [
+            'order' => $order->order_number,
+            'reason' => $result['reason'] ?? null,
+        ]);
+
         return [
             'type' => 'error',
             'message' => $result['reason'] ?? 'PayTR ödeme başlatılamadı.',
@@ -81,7 +98,11 @@ class PayTRGateway implements PaymentGatewayInterface
 
     public function handleCallback(array $data): Order
     {
-        $order = Order::where('order_number', $data['merchant_oid'] ?? '')->firstOrFail();
+        $order = $this->findOrder($data['merchant_oid'] ?? '');
+        if (! $order) {
+            Log::warning('PayTR callback: sipariş bulunamadı', ['merchant_oid' => $data['merchant_oid'] ?? null]);
+            throw (new \Illuminate\Database\Eloquent\ModelNotFoundException)->setModel(Order::class);
+        }
 
         if (! $this->verify($data)) {
             Log::warning('PayTR callback imza doğrulaması başarısız', [
@@ -108,7 +129,7 @@ class PayTRGateway implements PaymentGatewayInterface
 
     public function verify(array $data): bool
     {
-        $order = Order::where('order_number', $data['merchant_oid'] ?? '')->first();
+        $order = $this->findOrder($data['merchant_oid'] ?? '');
         if (! $order || ! $order->paymentMethod) {
             return false;
         }
@@ -137,5 +158,30 @@ class PayTRGateway implements PaymentGatewayInterface
         unset($data['hash']);
 
         return $data;
+    }
+
+    /** order_number → PayTR merchant_oid (yalnızca harf/rakam). */
+    public static function merchantOid(string $orderNumber): string
+    {
+        return preg_replace('/[^A-Za-z0-9]/', '', $orderNumber) ?? '';
+    }
+
+    /**
+     * PayTR'dan gelen (alfanumerik) merchant_oid ile siparişi bulur.
+     * order_number tire içerebildiğinden, tireler yok sayılarak eşleştirilir.
+     */
+    protected function findOrder(string $merchantOid): ?Order
+    {
+        $merchantOid = trim($merchantOid);
+        if ($merchantOid === '') {
+            return null;
+        }
+
+        $order = Order::where('order_number', $merchantOid)->first();
+        if ($order) {
+            return $order;
+        }
+
+        return Order::whereRaw("REPLACE(REPLACE(order_number, '-', ''), '_', '') = ?", [$merchantOid])->first();
     }
 }

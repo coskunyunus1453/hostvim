@@ -9,4 +9,6 @@
         <iframe src="{{ $result['iframe_url'] }}" id="paytriframe" frameborder="0" scrolling="no" style="width:100%;min-height:600px;"></iframe>
     </div>
 </section>
+<script src="https://www.paytr.com/js/iframeResizer.min.js"></script>
+<script>iFrameResize({}, '#paytriframe');</script>
 @endsection

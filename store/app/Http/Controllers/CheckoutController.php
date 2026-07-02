@@ -247,8 +247,12 @@ class CheckoutController extends Controller
         }
     }
 
-    public function success(Order $order)
+    public function success(Order $order, CartService $cart)
     {
+        // PayTR/redirect gateway'lerinde ödeme bildirimi (callback) sunucu-sunucu gelir ve
+        // oturum bilgisi taşımaz; bu yüzden sepet, kullanıcının döndüğü bu sayfada temizlenir.
+        $cart->clear();
+
         return view('checkout.success', compact('order'));
     }
 
