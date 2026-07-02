@@ -217,6 +217,15 @@ return [
         'max_db_import_mb' => (int) env('PANELZE_MAX_DB_IMPORT_MB', 512),
         /** Zip açarken kota: arşiv boyutu × çarpan (tahmini çıkarılan veri) */
         'disk_unzip_expand_multiplier' => max(2, (int) env('PANELZE_DISK_UNZIP_EXPAND_MULT', 4)),
+        /**
+         * Günlük disk kotası denetimi (panelze:disk-quota-enforce):
+         *  - warn_percent: paket kotasının bu yüzdesini aşınca uyarı (askı yok).
+         *  - grace_days: %100 aşımı bu kadar gün sürerse siteler otomatik askıya alınır.
+         *  - auto_suspend: false ise sadece uyarır, hiç askıya almaz.
+         */
+        'disk_quota_warn_percent' => max(50, min(100, (int) env('PANELZE_DISK_QUOTA_WARN_PERCENT', 90))),
+        'disk_quota_grace_days' => max(0, (int) env('PANELZE_DISK_QUOTA_GRACE_DAYS', 3)),
+        'disk_quota_auto_suspend' => filter_var(env('PANELZE_DISK_QUOTA_AUTO_SUSPEND', 'true'), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /** Yetkili DNS — BIND9 (panel dns_records → zone dosyaları) */

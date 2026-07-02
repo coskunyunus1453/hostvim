@@ -34,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('panelze:self-heal')->everyMinute()->withoutOverlapping();
         // PanelKafes drift onarımı: FPM servis tutarlılığı + eksik cage'leri paket limitleriyle tamamlar.
         $schedule->command('panelze:panelkafes-reconcile')->everyFifteenMinutes()->withoutOverlapping();
+        // Disk kotası denetimi: günde 1 kez (gece), aşan müşteriyi uyarır ve grace sonrası askıya alır.
+        $schedule->command('panelze:disk-quota-enforce')->dailyAt('04:00')->withoutOverlapping();
         $schedule->command('panelze:check-panel-update')->everySixHours()->withoutOverlapping();
         $schedule->command('panelze:stack-scan-hourly')->hourly()->withoutOverlapping();
         // Müşteri cron'ları: mutex takılırsa (deploy/kill) tüm siteler durur — kısa süre sonra otomatik açılsın.
