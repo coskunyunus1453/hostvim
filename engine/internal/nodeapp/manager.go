@@ -10,6 +10,7 @@ import (
 
 	"panelze/engine/internal/config"
 	"panelze/engine/internal/hosting"
+	"panelze/engine/internal/sitecage"
 	"panelze/engine/internal/sites"
 )
 
@@ -185,6 +186,42 @@ func StatusOf(cfg *config.Config, sc SiteScope, meta *sites.SiteMeta) (Status, e
 		st.Status = "stopped"
 	}
 	return st, nil
+}
+
+// pm2AppPids PM2 jlist çıktısından ilgili uygulamanın OS süreç PID'ini döndürür.
+func pm2AppPids(cfg *config.Config, name string) []int {
+	out, err := pm2Output(cfg, "jlist")
+	if err != nil || strings.TrimSpace(out) == "" {
+		return nil
+	}
+	var procs []struct {
+		Name string `json:"name"`
+		PID  int    `json:"pid"`
+	}
+	if jsonErr := json.Unmarshal([]byte(out), &procs); jsonErr != nil {
+		return nil
+	}
+	var pids []int
+	for _, p := range procs {
+		if p.Name == name && p.PID > 0 {
+			pids = append(pids, p.PID)
+		}
+	}
+	return pids
+}
+
+// applyNodeCage Node sürecini sitenin PanelKafes kaynak slice'ına taşır (best-effort).
+// PHP-FPM ile aynı paket limiti (CPU/RAM/PID) Node uygulamasına da uygulanır.
+func applyNodeCage(cfg *config.Config, domain, pm2Name string) {
+	cage := sitecage.FromHosting(cfg)
+	if !cage.Enabled {
+		return
+	}
+	pids := pm2AppPids(cfg, pm2Name)
+	if len(pids) == 0 {
+		return
+	}
+	_ = sitecage.NodeCage(cage, domain, pids)
 }
 
 func pm2StatusFromJlist(jlist, name string) string {
@@ -391,6 +428,7 @@ func Start(cfg *config.Config, domain, pathSegment string) (string, error) {
 	if err := ensureListening(cfg, sc); err != nil {
 		return s, fmt.Errorf("started but not listening: %w", err)
 	}
+	applyNodeCage(cfg, domain, name)
 	return s, nil
 }
 
@@ -417,6 +455,7 @@ func Restart(cfg *config.Config, domain, pathSegment string) (string, error) {
 		if listenErr := ensureListening(cfg, sc); listenErr != nil {
 			return out, fmt.Errorf("restarted but not listening: %w", listenErr)
 		}
+		applyNodeCage(cfg, domain, name)
 	}
 	return out, err
 }

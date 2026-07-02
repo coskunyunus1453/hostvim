@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"panelze/engine/internal/config"
@@ -261,6 +262,30 @@ func RemoveService(c Config, domain, phpVersion string) error {
 		phpVersion = "8.2"
 	}
 	_, err := c.run("cage-service-remove", domain, phpVersion)
+	return err
+}
+
+// NodeCage Node/PM2 uygulama süreçlerini sitenin kaynak slice'ına taşır; böylece
+// PHP-FPM ile AYNI paket limiti (CPU/RAM/PID) Node uygulamasına da uygulanır.
+// Best-effort: hata durumunda Node uygulaması çalışmaya devam eder (yalnız izolasyonsuz).
+func NodeCage(c Config, domain string, pids []int) error {
+	if !c.Enabled {
+		return nil
+	}
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	if domain == "" || strings.Contains(domain, "..") {
+		return fmt.Errorf("invalid domain")
+	}
+	args := []string{"node-cage", domain}
+	for _, p := range pids {
+		if p > 0 {
+			args = append(args, strconv.Itoa(p))
+		}
+	}
+	if len(args) <= 2 {
+		return nil
+	}
+	_, err := c.run(args...)
 	return err
 }
 

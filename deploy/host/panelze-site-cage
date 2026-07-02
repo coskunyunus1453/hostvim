@@ -24,6 +24,7 @@ usage() {
   echo "       panelze-site-cage write-pool <version> <domain>  (pool icerigi stdin)" >&2
   echo "       panelze-site-cage cage-service <domain> <version> [cpu%] [mem_mb]" >&2
   echo "       panelze-site-cage cage-service-remove <domain> <version>" >&2
+  echo "       panelze-site-cage node-cage <domain> <pid> [pid...]" >&2
   echo "       panelze-site-cage reload-fpm <version>" >&2
   echo "       panelze-site-cage reconcile" >&2
   exit 2
@@ -334,6 +335,41 @@ cmd_cage_service_remove() {
   echo "OK cage-service-remove $svc"
 }
 
+# node-cage <domain> <pid> [pid...]
+# Node/PM2 uygulama süreçlerini sitenin kaynak slice'ına (panelkafes-<slug>.slice) taşır.
+# Böylece PHP-FPM ile AYNI paket limiti (CPUQuota/MemoryMax/TasksMax) Node uygulamasına da
+# uygulanır — kaçak bir Node süreci (ör. sonsuz döngü, bellek sızıntısı) komşu siteleri etkileyemez.
+# cgroup v2 "internal process" kuralı gereği süreçler slice kökü yerine 'node.cage' alt cgroup'una
+# konur; ata slice'ın limitleri tüm alt ağaç için enforce edilir. Ek-güvenlik amaçlıdır: her adım
+# best-effort'tur, başarısızlık Node uygulamasını DURDURMAZ (yalnız izolasyonsuz çalışır).
+cmd_node_cage() {
+  local domain="${1:-}"; shift || true
+  [[ -n "$domain" ]] || usage
+  local slice
+  slice="$(slice_name "$domain")"
+  # Slice tanımı yoksa varsayılan limitlerle oluştur (PHP cage henüz kurulmamış siteler için).
+  [[ -f "/etc/systemd/system/${slice}.slice" ]] || cmd_limits "$domain" "$DEFAULT_CPU_PCT" "$DEFAULT_MEM_MB" >/dev/null 2>&1 || true
+  systemctl start "${slice}.slice" >/dev/null 2>&1 || true
+  # Gerçek cgroup yolunu systemd'den çöz (slug'daki '-' iç içe slice demektir).
+  local cg_rel cgbase sub
+  cg_rel="$(systemctl show -p ControlGroup --value "${slice}.slice" 2>/dev/null || true)"
+  [[ -n "$cg_rel" ]] || { echo "slice cgroup cozulemedi: ${slice}.slice" >&2; exit 1; }
+  cgbase="/sys/fs/cgroup${cg_rel}"
+  [[ -d "$cgbase" ]] || { echo "slice cgroup yok: $cgbase" >&2; exit 1; }
+  sub="${cgbase}/node.cage"
+  mkdir -p "$sub" 2>/dev/null || true
+  [[ -d "$sub" ]] || { echo "alt cgroup olusturulamadi: $sub" >&2; exit 1; }
+  local pid p moved=0
+  for pid in "$@"; do
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    # Sürecin kendisi + doğrudan çocukları (PM2 cluster/fork) taşınır.
+    for p in "$pid" $(pgrep -P "$pid" 2>/dev/null || true); do
+      if printf '%s\n' "$p" > "${sub}/cgroup.procs" 2>/dev/null; then moved=$((moved+1)); fi
+    done
+  done
+  echo "OK node-cage slice=${slice} moved=${moved}"
+}
+
 # reconcile — tüm sitelerin PanelKafes tutarlılığını denetler ve onarır:
 #  1) per-site servisi olan sitelerin paylaşımlı pool.d kopyalarını temizler (çakışma önleme)
 #  2) her per-site servisi enable + aktif olduğundan emin olur (gerekirse başlatır)
@@ -524,6 +560,7 @@ case "$cmd" in
   write-pool) cmd_write_pool "${1:-}" "${2:-}" ;;
   cage-service) cmd_cage_service "${1:-}" "${2:-}" "${3:-}" "${4:-}" ;;
   cage-service-remove) cmd_cage_service_remove "${1:-}" "${2:-}" ;;
+  node-cage) cmd_node_cage "$@" ;;
   reload-fpm) cmd_reload_fpm "${1:-}" ;;
   reconcile) cmd_reconcile ;;
   ensure-user) cmd_ensure_user "${1:-}" "${2:-}" ;;

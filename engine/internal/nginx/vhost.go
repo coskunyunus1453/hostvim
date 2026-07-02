@@ -126,6 +126,9 @@ server {
     }
 {{else if gt .ProxyPort 0}}
     location / {
+        # PanelKafes — Node/proxy uygulaması için site+IP başına hız/eşzamanlılık limiti.
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         proxy_pass http://127.0.0.1:{{.ProxyPort}};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -190,6 +193,9 @@ server {
 
 {{if eq .ProxyPort 0}}
     location ~ \.php$ {
+        # PanelKafes — site+IP başına hız/eşzamanlılık limiti (kötüye kullanım/DoS koruması).
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{{.PHPSocket}};
     }
@@ -245,6 +251,9 @@ server {
     }
 {{else if gt .ProxyPort 0}}
     location / {
+        # PanelKafes — Node/proxy uygulaması için site+IP başına hız/eşzamanlılık limiti.
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         proxy_pass http://127.0.0.1:{{.ProxyPort}};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -312,6 +321,9 @@ server {
 
 {{if eq .ProxyPort 0}}
     location ~ \.php$ {
+        # PanelKafes — site+IP başına hız/eşzamanlılık limiti (kötüye kullanım/DoS koruması).
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{{.PHPSocket}};
     }
@@ -371,6 +383,9 @@ server {
     }
 {{else if gt .ProxyPort 0}}
     location / {
+        # PanelKafes — Node/proxy uygulaması için site+IP başına hız/eşzamanlılık limiti.
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         proxy_pass http://127.0.0.1:{{.ProxyPort}};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -431,6 +446,9 @@ server {
 
 {{if eq .ProxyPort 0}}
     location ~ \.php$ {
+        # PanelKafes — site+IP başına hız/eşzamanlılık limiti (kötüye kullanım/DoS koruması).
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{{.PHPSocket}};
     }
@@ -485,6 +503,9 @@ server {
     }
 {{else if gt .ProxyPort 0}}
     location / {
+        # PanelKafes — Node/proxy uygulaması için site+IP başına hız/eşzamanlılık limiti.
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         proxy_pass http://127.0.0.1:{{.ProxyPort}};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -555,6 +576,9 @@ server {
 
 {{if eq .ProxyPort 0}}
     location ~ \.php$ {
+        # PanelKafes — site+IP başına hız/eşzamanlılık limiti (kötüye kullanım/DoS koruması).
+        limit_conn panelze_conn 40;
+        limit_req zone=panelze_php burst=80 nodelay;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{{.PHPSocket}};
     }
