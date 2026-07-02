@@ -12,6 +12,7 @@ class Order extends Model
     protected $fillable = [
         'order_number', 'panel_order_id', 'panel_order_number', 'user_id', 'payment_method_id', 'status', 'payment_status',
         'payment_reference', 'subtotal', 'discount_amount', 'coupon_code', 'campaign_id',
+        'tax_rate', 'tax_amount',
         'total', 'currency', 'billing_cycle',
         'customer_name', 'customer_email', 'customer_phone', 'customer_company',
         'customer_address', 'notes', 'payment_data',
@@ -28,6 +29,8 @@ class Order extends Model
         return [
             'subtotal' => 'decimal:2',
             'discount_amount' => 'decimal:2',
+            'tax_rate' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
             'total' => 'decimal:2',
             // NOT: payment_data kolonu MySQL/MariaDB'de JSON (json_valid CHECK) olarak tanımlı.
             // "encrypted:array" cast'i JSON olmayan şifreli metin ürettiğinden CHECK constraint'ini

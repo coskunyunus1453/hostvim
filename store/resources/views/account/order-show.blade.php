@@ -21,6 +21,19 @@
             </li>
         @endforeach
     </ul>
+    <div class="mt-4 space-y-1 border-t border-hv-border pt-4 text-sm">
+        <div class="flex justify-between text-hv-muted"><span>Ara toplam</span><span>₺{{ number_format($order->subtotal, 2, ',', '.') }}</span></div>
+        @if((float) $order->discount_amount > 0)
+            <div class="flex justify-between text-green-700"><span>İndirim</span><span>-₺{{ number_format($order->discount_amount, 2, ',', '.') }}</span></div>
+        @endif
+        @if((float) $order->tax_rate > 0)
+            <div class="flex justify-between text-hv-muted">
+                <span>KDV (%{{ rtrim(rtrim(number_format($order->tax_rate, 2, ',', '.'), '0'), ',') }}){{ (float) $order->subtotal >= (float) $order->total ? ' dahil' : '' }}</span>
+                <span>₺{{ number_format($order->tax_amount, 2, ',', '.') }}</span>
+            </div>
+        @endif
+        <div class="flex justify-between pt-1 text-base font-bold"><span>Toplam</span><span class="text-hv-primary">₺{{ number_format($order->total, 2, ',', '.') }}</span></div>
+    </div>
     <div class="mt-6 flex flex-wrap items-center gap-3">
         <a href="{{ route('account.orders') }}" class="btn-ghost inline-flex text-sm">← Siparişlere dön</a>
         @if($order->invoice)

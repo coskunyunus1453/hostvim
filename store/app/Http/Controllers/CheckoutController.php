@@ -43,7 +43,8 @@ class CheckoutController extends Controller
             'items' => $items,
             'subtotal' => $subtotal,
             'discount' => $discount,
-            'total' => $cart->total(),
+            'total' => $cart->grossTotal(),
+            'tax' => $cart->taxBreakdown(),
             'appliedCoupon' => $appliedCoupon,
             'paymentMethods' => $paymentMethods,
             'hasHosting' => $hasHosting,
@@ -107,7 +108,13 @@ class CheckoutController extends Controller
 
         $subtotal = $cart->subtotal();
         $discount = $cart->couponDiscount();
-        $total = $cart->total();
+        $netAfterDiscount = $cart->total();
+        // KDV kırılımı (oran/mod e-fatura ayarından). KDV dahil ise gross=net (toplam değişmez),
+        // KDV hariç ise gross=net+tax (ödenecek tutar artar).
+        $tax = app(\App\Services\TaxService::class)->breakdown($netAfterDiscount);
+        $taxRate = (float) $tax['rate'];
+        $taxAmount = (float) $tax['tax'];
+        $total = (float) $tax['gross'];
         $appliedCoupon = $campaigns->appliedCoupon();
 
         if ($appliedCoupon && $discount > 0) {
@@ -142,7 +149,7 @@ class CheckoutController extends Controller
                 }
             }
 
-            $order = DB::transaction(function () use ($items, $validated, $paymentMethod, $subtotal, $discount, $total, $appliedCoupon, $accountUserId) {
+            $order = DB::transaction(function () use ($items, $validated, $paymentMethod, $subtotal, $discount, $taxRate, $taxAmount, $total, $appliedCoupon, $accountUserId) {
                 $serviceDomain = isset($validated['service_domain'])
                     ? strtolower(trim((string) $validated['service_domain']))
                     : '';
@@ -157,6 +164,8 @@ class CheckoutController extends Controller
                     'discount_amount' => $discount,
                     'coupon_code' => $appliedCoupon?->code,
                     'campaign_id' => $appliedCoupon?->id,
+                    'tax_rate' => $taxRate,
+                    'tax_amount' => $taxAmount,
                     'total' => $total,
                     'currency' => 'TRY',
                     'billing_cycle' => $items[array_key_first($items)]['billing_cycle'],

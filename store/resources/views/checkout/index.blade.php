@@ -87,6 +87,12 @@
                         @if($discount > 0)
                             <div class="flex justify-between text-green-700"><span>İndirim</span><span>-₺{{ number_format($discount, 2, ',', '.') }}</span></div>
                         @endif
+                        @if(!empty($tax) && $tax['rate'] > 0)
+                            <div class="flex justify-between text-hv-muted">
+                                <span>KDV (%{{ rtrim(rtrim(number_format($tax['rate'], 2, ',', '.'), '0'), ',') }}){{ $tax['includes'] ? ' dahil' : '' }}</span>
+                                <span>{{ $tax['includes'] ? '' : '+' }}₺{{ number_format($tax['tax'], 2, ',', '.') }}</span>
+                            </div>
+                        @endif
                     </div>
                     <div class="mt-2 flex justify-between text-lg font-bold">
                         <span>Toplam</span><span class="text-hv-primary">₺{{ number_format($total, 2, ',', '.') }}</span>

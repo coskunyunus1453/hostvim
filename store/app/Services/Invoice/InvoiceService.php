@@ -27,11 +27,22 @@ class InvoiceService
 
         $order->loadMissing(['items', 'user']);
 
-        $rate = EInvoiceSettings::taxRate();
         $total = (float) $order->total;
-        $includesTax = EInvoiceSettings::priceIncludesTax();
-        $subtotal = $includesTax ? round($total / (1 + $rate / 100), 2) : $total;
-        $taxTotal = $includesTax ? round($total - $subtotal, 2) : round($total * $rate / 100, 2);
+        // Fatura her zaman müşterinin ÖDEDİĞİ tutara (order.total) eşit olmalı.
+        if ((float) $order->tax_rate > 0) {
+            // Yeni siparişler: ödeme anında hesaplanan KDV kırılımını kullan (çifte KDV'yi önler).
+            $rate = (float) $order->tax_rate;
+            $taxTotal = round((float) $order->tax_amount, 2);
+            $subtotal = round($total - $taxTotal, 2);
+            $invoiceTotal = $total;
+        } else {
+            // Geriye dönük (KDV kırılımı olmayan eski siparişler): ayardan hesapla.
+            $rate = EInvoiceSettings::taxRate();
+            $includesTax = EInvoiceSettings::priceIncludesTax();
+            $subtotal = $includesTax ? round($total / (1 + $rate / 100), 2) : $total;
+            $taxTotal = $includesTax ? round($total - $subtotal, 2) : round($total * $rate / 100, 2);
+            $invoiceTotal = $includesTax ? $total : round($subtotal + $taxTotal, 2);
+        }
 
         $customer = $this->resolveCustomer($order);
         $type = $this->resolveType($customer['tax_number']);
@@ -49,7 +60,7 @@ class InvoiceService
             'customer_address' => $customer['address'],
             'subtotal' => $subtotal,
             'tax_total' => $taxTotal,
-            'total' => $includesTax ? $total : round($subtotal + $taxTotal, 2),
+            'total' => $invoiceTotal,
             'tax_rate' => $rate,
             'currency' => $order->currency ?: 'TRY',
             'meta' => ['lines' => $this->buildLines($order, $rate)],

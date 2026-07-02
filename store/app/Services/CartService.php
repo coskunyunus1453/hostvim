@@ -290,6 +290,22 @@ class CartService
     }
 
     /**
+     * KDV kırılımı (oran/mod e-fatura ayarından).
+     *
+     * @return array{rate: float, net: float, tax: float, gross: float, includes: bool}
+     */
+    public function taxBreakdown(): array
+    {
+        return app(\App\Services\TaxService::class)->breakdown($this->total());
+    }
+
+    /** Ödenecek nihai tutar (KDV hariç modda KDV eklenmiş, dahil modda total ile aynı). */
+    public function grossTotal(): float
+    {
+        return (float) $this->taxBreakdown()['gross'];
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public function validatedItems(): array
