@@ -514,8 +514,12 @@ echo (int) \\App\\Models\\User::count();
   hostvim_fix_store_permissions
 
   echo "==> Store: sayfa önbelleği ısıtma"
-  curl -sf -o /dev/null -H "Host: ${STORE_DOMAIN}" http://127.0.0.1/ 2>/dev/null || true
-  curl -sf -o /dev/null -H "Host: ${STORE_DOMAIN}" http://127.0.0.1/giris 2>/dev/null || true
+  # HTTPS üzerinden ısıt (http://127.0.0.1 301 ile https'e yönlenir ve sayfayı
+  # render etmeden döner; eski hali ısıtmayı etkisiz bırakıyordu). -k: yerel sertifika.
+  local _warm
+  for _warm in / /blog /urunler /web-hosting /bulut-sunucu; do
+    curl -sk -o /dev/null -H "Host: ${STORE_DOMAIN}" "https://127.0.0.1${_warm}" 2>/dev/null || true
+  done
 }
 
 hostvim_fix_store_permissions() {
