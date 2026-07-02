@@ -8,6 +8,7 @@ use App\Http\Controllers\DomainController;
 use App\Http\Controllers\DomainValueController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HostingConfigureController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PaymentController;
@@ -137,9 +138,13 @@ Route::middleware(['auth', 'panel.sync'])->prefix('hesabim')->name('account.')->
     Route::post('/alan-adlarim/{id}/transfer-kodu', [\App\Http\Controllers\Account\DomainController::class, 'authCode'])->whereNumber('id')->name('domains.authcode');
     Route::get('/hostinglerim', [\App\Http\Controllers\Account\HostingController::class, 'index'])->name('hosting');
     Route::post('/hostinglerim/panel', [\App\Http\Controllers\Account\HostingController::class, 'panelLogin'])->name('hosting.panel');
+    Route::post('/alan-adlarim/{id}/devret', [\App\Http\Controllers\Account\TransferController::class, 'requestDomain'])->whereNumber('id')->name('transfers.domain');
+    Route::post('/hostinglerim/{orderId}/devret', [\App\Http\Controllers\Account\TransferController::class, 'requestHosting'])->whereNumber('orderId')->name('transfers.hosting');
+    Route::post('/devir/{transfer}/iptal', [\App\Http\Controllers\Account\TransferController::class, 'cancel'])->whereNumber('transfer')->name('transfers.cancel');
     Route::get('/faturalarim', [\App\Http\Controllers\Account\InvoiceController::class, 'index'])->name('invoices');
     Route::get('/faturalarim/{invoiceId}', [\App\Http\Controllers\Account\InvoiceController::class, 'show'])->name('invoices.show');
     Route::post('/faturalarim/{invoiceId}/ode', [\App\Http\Controllers\Account\InvoiceController::class, 'pay'])->name('invoices.pay');
+    Route::get('/e-fatura/{invoice}/pdf', [InvoiceController::class, 'customerPdf'])->name('einvoice.pdf');
     Route::get('/siparislerim', [\App\Http\Controllers\Account\OrderController::class, 'index'])->name('orders');
     Route::get('/siparislerim/{orderId}', [\App\Http\Controllers\Account\OrderController::class, 'show'])->name('orders.show');
     Route::get('/destek', [\App\Http\Controllers\Account\SupportTicketController::class, 'index'])->name('support.index');
@@ -148,4 +153,9 @@ Route::middleware(['auth', 'panel.sync'])->prefix('hesabim')->name('account.')->
     Route::get('/destek/{ticket}', [\App\Http\Controllers\Account\SupportTicketController::class, 'show'])->name('support.show');
     Route::post('/destek/{ticket}/yanit', [\App\Http\Controllers\Account\SupportTicketController::class, 'reply'])->name('support.reply');
     Route::post('/destek/{ticket}/kapat', [\App\Http\Controllers\Account\SupportTicketController::class, 'close'])->name('support.close');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/admin/faturalar/{invoice}/pdf', [InvoiceController::class, 'adminPdf'])
+        ->name('admin.invoices.pdf');
 });
