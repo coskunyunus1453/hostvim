@@ -598,7 +598,13 @@ class BackupController extends Controller
 
     public function syncToDestination(Backup $backup): array
     {
-        $result = $this->storage->syncBackup($backup);
+        // Uzak hedef hataları (ör. Google Drive token süresi dolmuş) exception fırlatabilir;
+        // yerel yedek zaten geçerli olduğundan senkron hatası akışı ÇÖKERTMEMELİ.
+        try {
+            $result = $this->storage->syncBackup($backup);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
         if ($result['ok'] ?? false) {
             $backup->update([
                 'remote_path' => $result['remote_path'] ?? null,
