@@ -176,7 +176,7 @@
 
 {{-- ===== CTA ===== --}}
 <section class="mx-4 mb-20 mt-4 lg:mx-8">
-    <div class="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-r from-hv-primary to-hv-secondary px-8 py-14 text-center text-white shadow-xl lg:px-16">
+    <div class="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-hv-gradient-r px-8 py-14 text-center text-white shadow-xl lg:px-16">
         <h2 class="text-2xl font-bold md:text-3xl">{{ $pageLabel }} için doğru paket sizi bekliyor</h2>
         <p class="mx-auto mt-3 max-w-xl text-white/85">Dakikalar içinde başlayın. Taşıma ve kurulum desteği ücretsiz, memnun kalmazsanız iade garantili.</p>
         <div class="mt-7 flex flex-wrap justify-center gap-4">

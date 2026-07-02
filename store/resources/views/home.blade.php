@@ -143,12 +143,12 @@
 
 {{-- CTA --}}
 <section class="mx-4 mb-20 lg:mx-8">
-    <div class="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-r from-hv-primary to-hv-secondary px-8 py-16 text-center text-white shadow-xl lg:px-16">
+    <div class="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-hv-gradient-r px-8 py-16 text-center text-white shadow-xl lg:px-16">
         <h2 class="text-3xl font-bold md:text-4xl">Projenize bugün başlayın</h2>
         <p class="mx-auto mt-4 max-w-xl text-white/80">Doğru paketi seçin, dakikalar içinde online olun. Taşıma ve kurulum desteği ücretsiz.</p>
         <div class="mt-8 flex flex-wrap justify-center gap-4">
             <a href="{{ route('products.index') }}" class="rounded-xl bg-white px-8 py-3 font-semibold text-hv-primary shadow-lg hover:bg-white/90">Paket Seç</a>
-            <a href="{{ route('contact.index') }}" class="rounded-xl border-2 border-white/40 px-8 py-3 font-semibold hover:bg-white/10">Destek Al</a>
+            <a href="{{ route('contact.index') }}" class="rounded-xl border-2 border-white/40 px-8 py-3 font-semibold text-white hover:bg-white/10">Destek Al</a>
         </div>
     </div>
 </section>

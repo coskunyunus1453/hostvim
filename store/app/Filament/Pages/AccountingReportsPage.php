@@ -77,6 +77,7 @@ class AccountingReportsPage extends Page
     {
         return $schema->components([
             Section::make('Filtreler')
+                ->compact()
                 ->schema([
                     Select::make('period')
                         ->label('Dönem')
@@ -105,17 +106,15 @@ class AccountingReportsPage extends Page
                         ->displayFormat('d.m.Y')
                         ->visible(fn (Get $get): bool => $get('period') === 'custom'),
                     TextInput::make('default_domain_cost')
-                        ->label('Domain alış (yıllık ₺)')
+                        ->label('Domain alış (₺/yıl)')
                         ->numeric()
                         ->minValue(0)
                         ->step(0.01)
-                        ->placeholder('ör. 199')
-                        ->helperText('Yeni domain siparişlerinde kullanılır.'),
+                        ->placeholder('199'),
                 ])
                 ->columns([
-                    'default' => 1,
-                    'md' => 2,
-                    'xl' => 4,
+                    'default' => 2,
+                    'lg' => 4,
                 ]),
         ]);
     }
@@ -145,7 +144,8 @@ class AccountingReportsPage extends Page
                             ])->render()
                         )),
                 ])
-                ->compact(),
+                ->compact()
+                ->contained(false),
         ]);
     }
 
@@ -182,8 +182,8 @@ class AccountingReportsPage extends Page
 
         $summary = $reports->summary($from, $to);
         $products = $reports->productProfitability($from, $to, 30);
-        $customers = $reports->customerRanking($from, $to, 20);
-        $inactive = $reports->inactiveCustomers(90, 20);
+        $customers = $reports->customerRanking($from, $to, 8);
+        $inactive = $reports->inactiveCustomers(90, 8);
         $byType = $reports->revenueByServiceType($from, $to);
         $byPaymentMethod = $reports->revenueByPaymentMethod($from, $to);
         $expenses = $reports->expensesByCategory($from, $to);
@@ -192,8 +192,8 @@ class AccountingReportsPage extends Page
         return [
             'summary' => $summary,
             'products' => $products,
-            'topProfit' => array_slice($products, 0, 8),
-            'lowProfit' => array_slice(array_reverse($products), 0, 8),
+            'topProfit' => array_slice($products, 0, 5),
+            'lowProfit' => array_slice(array_reverse($products), 0, 5),
             'customers' => $customers,
             'inactive' => $inactive,
             'byType' => $byType,

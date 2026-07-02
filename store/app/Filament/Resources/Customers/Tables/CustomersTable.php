@@ -4,10 +4,17 @@ namespace App\Filament\Resources\Customers\Tables;
 
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\User;
+use App\Services\CustomerDeletionService;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class CustomersTable
 {
@@ -30,6 +37,35 @@ class CustomersTable
                 TextColumn::make('created_at')->label('Kayıt')->dateTime('d.m.Y')->sortable(),
             ])
             ->recordUrl(fn (User $record): string => CustomerResource::getUrl('view', ['record' => $record]))
-            ->recordActions([ViewAction::make()->label('Detay')]);
+            ->recordActions([
+                ViewAction::make()->label('Detay'),
+                DeleteAction::make()
+                    ->label('Sil')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->visible(fn (User $record): bool => app(CustomerDeletionService::class)->canDelete($record))
+                    ->modalHeading('Müşteriyi sil')
+                    ->modalDescription(fn (User $record): string => app(CustomerDeletionService::class)->modalDescription($record))
+                    ->successNotificationTitle('Müşteri silindi'),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->label('Seçilenleri sil')
+                        ->modalHeading('Seçili müşterileri sil')
+                        ->before(function (Collection $records): void {
+                            $blocked = $records->first(fn (User $user): bool => ! app(CustomerDeletionService::class)->canDelete($user));
+                            if ($blocked !== null) {
+                                Notification::make()
+                                    ->title('Yönetici hesabı silinemez')
+                                    ->danger()
+                                    ->send();
+
+                                throw new Halt;
+                            }
+                        })
+                        ->successNotificationTitle('Müşteriler silindi'),
+                ]),
+            ]);
     }
 }

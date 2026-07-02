@@ -15,13 +15,16 @@
                     <h2 class="font-bold text-hv-text">Ödeme Sıklığı</h2>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2">
                         @foreach($cycles as $cycle => $info)
-                            <label class="cursor-pointer rounded-xl border-2 p-4 {{ old('billing_cycle', $config['billing_cycle'] ?? '') === $cycle ? 'border-hv-primary bg-hv-primary/5' : 'border-hv-border' }}">
+                            <label class="hv-choice">
                                 <input type="radio" name="billing_cycle" value="{{ $cycle }}" class="sr-only" @checked(old('billing_cycle', $config['billing_cycle'] ?? array_key_first($cycles)) === $cycle) required>
-                                <span class="block font-semibold">{{ $info['label'] }}</span>
-                                <span class="mt-1 block text-lg font-bold text-hv-primary">₺{{ number_format($info['price'], 2, ',', '.') }}</span>
-                                @if($info['savings'])
-                                    <span class="mt-1 inline-block rounded bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">%{{ $info['savings'] }} tasarruf</span>
-                                @endif
+                                <span class="hv-choice__dot" aria-hidden="true"></span>
+                                <span class="min-w-0">
+                                    <span class="block font-semibold">{{ $info['label'] }}</span>
+                                    <span class="mt-1 block text-lg font-bold text-hv-primary">₺{{ number_format($info['price'], 2, ',', '.') }}</span>
+                                    @if($info['savings'])
+                                        <span class="mt-1 inline-block rounded bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">%{{ $info['savings'] }} tasarruf</span>
+                                    @endif
+                                </span>
                             </label>
                         @endforeach
                     </div>

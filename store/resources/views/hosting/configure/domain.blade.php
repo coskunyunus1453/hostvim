@@ -17,10 +17,13 @@
                     'transfer' => ['Alan Adını Transfer Et', 'Mevcut alan adınızı bize taşıyın.'],
                     'own' => ['Kendime Ait Alan Adı', 'Alan adınız başka yerde kalsın, DNS yönlendirmesi yapın.'],
                 ] as $mode => $meta)
-                    <label class="cursor-pointer rounded-2xl border-2 p-5 transition {{ old('domain_mode', $config['domain_mode'] ?? '') === $mode ? 'border-hv-primary bg-hv-primary/5' : 'border-hv-border hover:border-stone-300' }}">
+                    <label class="hv-choice">
                         <input type="radio" name="domain_mode" value="{{ $mode }}" class="sr-only" @checked(old('domain_mode', $config['domain_mode'] ?? 'own') === $mode) required>
-                        <span class="block font-bold text-hv-text">{{ $meta[0] }}</span>
-                        <span class="mt-1 block text-sm text-hv-muted">{{ $meta[1] }}</span>
+                        <span class="hv-choice__dot" aria-hidden="true"></span>
+                        <span class="min-w-0">
+                            <span class="block font-bold text-hv-text">{{ $meta[0] }}</span>
+                            <span class="mt-1 block text-sm text-hv-muted">{{ $meta[1] }}</span>
+                        </span>
                     </label>
                 @endforeach
             </div>

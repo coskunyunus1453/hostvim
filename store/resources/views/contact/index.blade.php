@@ -29,63 +29,61 @@
     </div>
 </section>
 
-<section class="bg-hv-bg py-12 lg:py-16">
-    <div class="mx-auto max-w-6xl px-4 lg:px-8">
-        <div class="grid gap-8 lg:grid-cols-5 lg:gap-12">
+<section class="bg-hv-bg py-10 lg:py-12">
+    <div class="mx-auto max-w-5xl px-4 lg:px-8">
+        <div class="grid items-start gap-6 lg:grid-cols-2 lg:gap-8">
 
-            {{-- İletişim kartları --}}
-            <div class="space-y-4 lg:col-span-2">
-                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6 shadow-sm">
-                    <h2 class="text-lg font-bold text-hv-text">Doğrudan ulaşın</h2>
-                    <p class="mt-1 text-sm text-hv-muted">Acil durumlarda aşağıdaki kanalları kullanabilirsiniz.</p>
-                    <ul class="mt-6 space-y-4">
-                        @if($phone)
-                            <li class="flex items-start gap-4">
-                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-lg">📞</span>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">Telefon</p>
-                                    <a href="tel:{{ preg_replace('/\s+/', '', $phone) }}" class="mt-0.5 block font-semibold text-hv-text hover:text-hv-primary">{{ $phone }}</a>
-                                </div>
-                            </li>
-                        @endif
-                        @if($email)
-                            <li class="flex items-start gap-4">
-                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-lg">✉️</span>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">E-posta</p>
-                                    <a href="mailto:{{ $email }}" class="mt-0.5 block font-semibold text-hv-text hover:text-hv-primary">{{ $email }}</a>
-                                </div>
-                            </li>
-                        @endif
-                        @if($whatsapp)
-                            <li class="flex items-start gap-4">
-                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-lg">💬</span>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">WhatsApp</p>
-                                    <a href="https://wa.me/{{ preg_replace('/\D+/', '', $whatsapp) }}" target="_blank" rel="noopener" class="mt-0.5 block font-semibold text-hv-text hover:text-hv-primary">{{ $whatsapp }}</a>
-                                </div>
-                            </li>
-                        @endif
-                        @if($address)
-                            <li class="flex items-start gap-4">
-                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-lg">📍</span>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">Adres</p>
-                                    <p class="mt-0.5 font-medium text-hv-text">{{ $address }}</p>
-                                </div>
-                            </li>
-                        @endif
-                        <li class="flex items-start gap-4">
-                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-lg">🕐</span>
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">Destek saatleri</p>
-                                <p class="mt-0.5 font-medium text-hv-text">{{ $hours }}</p>
+            {{-- Sol: İletişim bilgileri --}}
+            <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6 shadow-sm lg:sticky lg:top-24">
+                <h2 class="text-lg font-bold text-hv-text">İletişim bilgileri</h2>
+                <p class="mt-1 text-sm text-hv-muted">Doğrudan ulaşmak için aşağıdaki kanalları kullanabilirsiniz.</p>
+                <ul class="mt-6 space-y-4">
+                    @if($phone)
+                        <li class="flex items-start gap-3">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-base">📞</span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">Telefon</p>
+                                <a href="tel:{{ preg_replace('/\s+/', '', $phone) }}" class="mt-0.5 block font-semibold text-hv-text hover:text-hv-primary">{{ $phone }}</a>
                             </div>
                         </li>
-                    </ul>
-                </div>
+                    @endif
+                    @if($email)
+                        <li class="flex items-start gap-3">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-base">✉️</span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">E-posta</p>
+                                <a href="mailto:{{ $email }}" class="mt-0.5 block break-all font-semibold text-hv-text hover:text-hv-primary">{{ $email }}</a>
+                            </div>
+                        </li>
+                    @endif
+                    @if($whatsapp)
+                        <li class="flex items-start gap-3">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-base">💬</span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">WhatsApp</p>
+                                <a href="https://wa.me/{{ preg_replace('/\D+/', '', $whatsapp) }}" target="_blank" rel="noopener" class="mt-0.5 block font-semibold text-hv-text hover:text-hv-primary">{{ $whatsapp }}</a>
+                            </div>
+                        </li>
+                    @endif
+                    @if($address)
+                        <li class="flex items-start gap-3">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-base">📍</span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">Adres</p>
+                                <p class="mt-0.5 font-medium text-hv-text">{{ $address }}</p>
+                            </div>
+                        </li>
+                    @endif
+                    <li class="flex items-start gap-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hv-primary/10 text-base">🕐</span>
+                        <div class="min-w-0">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-hv-muted">Destek saatleri</p>
+                            <p class="mt-0.5 font-medium text-hv-text">{{ $hours }}</p>
+                        </div>
+                    </li>
+                </ul>
 
-                <div class="rounded-2xl border border-hv-border bg-hv-surface p-5 text-sm text-hv-muted">
+                <div class="mt-6 rounded-xl border border-hv-border bg-hv-surface px-4 py-3 text-sm text-hv-muted">
                     <p class="font-semibold text-hv-text">Müşteri paneli</p>
                     <p class="mt-1">Mevcut hizmetleriniz için
                         @auth
@@ -97,9 +95,8 @@
                 </div>
             </div>
 
-            {{-- Form --}}
-            <div class="lg:col-span-3">
-                <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6 shadow-sm sm:p-8" id="contact-form-card">
+            {{-- Sağ: Form --}}
+            <div class="rounded-2xl border border-hv-border bg-hv-elevated p-6 shadow-sm sm:p-7" id="contact-form-card">
                     <h2 class="text-xl font-bold text-hv-text">Mesaj gönderin</h2>
                     <p class="mt-1 text-sm text-hv-muted">Zorunlu alanlar <span class="text-hv-primary">*</span> ile işaretlidir.</p>
 
@@ -188,7 +185,6 @@
                             Yeni mesaj gönder
                         </button>
                     @endif
-                </div>
             </div>
         </div>
     </div>

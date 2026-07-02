@@ -80,6 +80,62 @@
 .bg-hv-gradient { background-image: linear-gradient(135deg, var(--hv-primary), var(--hv-secondary)); }
 .bg-hv-gradient-r { background-image: linear-gradient(90deg, var(--hv-primary), var(--hv-secondary)); }
 
+/* Seçilebilir kart (radio) — sipariş sihirbazındaki alan adı/ödeme sıklığı gibi
+   tekli seçimler için. Seçili durum saf CSS ile (:has(:checked)) yansıtılır;
+   marka renkleri özel utility olduğundan Tailwind peer-checked varyantı
+   üretilmez, bu yüzden bilerek @layer dışında elle tanımlandı (tree-shake edilmez). */
+.hv-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+    border: 2px solid var(--hv-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    background-color: var(--hv-surface-elevated);
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.hv-choice:hover {
+    border-color: color-mix(in srgb, var(--hv-primary) 45%, var(--hv-border));
+}
+.hv-choice:has(input:checked) {
+    border-color: var(--hv-primary);
+    background-color: color-mix(in srgb, var(--hv-primary) 7%, transparent);
+    box-shadow: 0 4px 10px -2px color-mix(in srgb, var(--hv-primary) 22%, transparent);
+}
+.hv-choice:focus-within {
+    outline: 2px solid color-mix(in srgb, var(--hv-primary) 45%, transparent);
+    outline-offset: 2px;
+}
+.hv-choice__dot {
+    position: relative;
+    flex: none;
+    margin-top: 0.15rem;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 9999px;
+    border: 2px solid var(--hv-border);
+    transition: border-color .15s ease;
+}
+.hv-choice:has(input:checked) .hv-choice__dot {
+    border-color: var(--hv-primary);
+}
+.hv-choice__dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 9999px;
+    background-color: var(--hv-primary);
+    transform: scale(0);
+    transition: transform .15s ease;
+}
+.hv-choice:has(input:checked) .hv-choice__dot::after {
+    transform: scale(1);
+}
+
 @layer components {
     .btn-primary {
         @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-lg transition focus:outline-none focus:ring-2;
