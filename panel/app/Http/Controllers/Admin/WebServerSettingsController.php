@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\EngineApiService;
+use App\Services\PanelKafesApplyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -122,28 +123,31 @@ class WebServerSettingsController extends Controller
         ]);
     }
 
-    public function applyPanelKafesAll(): JsonResponse
+    public function applyPanelKafesAll(PanelKafesApplyService $apply): JsonResponse
     {
-        $result = $this->engine->applyPanelKafesAll();
+        $result = $apply->applyAllActive();
 
         return response()->json([
-            'message' => $result['message'] ?? 'ok',
-            'results' => $result['results'] ?? [],
+            'message' => sprintf('PanelKafes: %d başarılı, %d hatalı', $result['ok'], $result['failed']),
+            'ok' => $result['ok'],
+            'failed' => $result['failed'],
+            'results' => $result['results'],
         ]);
     }
 
-    public function applyPanelKafesSite(Request $request): JsonResponse
+    public function applyPanelKafesSite(Request $request, PanelKafesApplyService $apply): JsonResponse
     {
         $validated = $request->validate([
             'domain' => 'required|string|max:253',
         ]);
         $domain = strtolower(trim((string) $validated['domain']));
-        $result = $this->engine->applyPanelKafesSite($domain);
+        $result = $apply->applySite($domain);
 
         return response()->json([
             'message' => $result['message'] ?? 'ok',
             'cage_user' => $result['cage_user'] ?? null,
             'status' => $result['status'] ?? null,
+            'error' => $result['error'] ?? null,
         ]);
     }
 }

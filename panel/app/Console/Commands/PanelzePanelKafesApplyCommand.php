@@ -3,8 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Domain;
-use App\Models\User;
-use App\Services\EngineApiService;
+use App\Services\PanelKafesApplyService;
 use Illuminate\Console\Command;
 
 class PanelzePanelKafesApplyCommand extends Command
@@ -15,30 +14,20 @@ class PanelzePanelKafesApplyCommand extends Command
 
     protected $description = 'PanelKafes izolasyonunu sitelere uygular (Linux kullanıcı + PHP-FPM + paket bazlı CPU/RAM cgroup limiti)';
 
-    public function handle(EngineApiService $engine): int
+    public function handle(PanelKafesApplyService $apply): int
     {
         if ($this->option('all')) {
-            $domains = Domain::query()->where('status', 'active')->get();
-            $this->info("PanelKafes: {$domains->count()} aktif siteye paket bazlı CPU/RAM limitleri uygulanıyor…");
-            $ok = 0;
-            $fail = 0;
-            foreach ($domains as $domain) {
-                [$cpu, $mem] = $this->limitsForDomain($domain);
-                try {
-                    $result = $engine->applyPanelKafesSite($domain->name, $cpu, $mem);
-                    if (! empty($result['error'])) {
-                        throw new \RuntimeException((string) $result['error']);
-                    }
-                    $this->line('OK   '.$domain->name.'  ['.$this->limitText($cpu, $mem).']');
-                    $ok++;
-                } catch (\Throwable $e) {
-                    $this->line('FAIL '.$domain->name.' — '.$e->getMessage());
-                    $fail++;
+            $result = $apply->applyAllActive();
+            foreach ($result['results'] as $row) {
+                if ($row['ok'] ?? false) {
+                    $this->line('OK   '.$row['domain'].'  ['.$this->limitText((int) ($row['cpu'] ?? 0), (int) ($row['memory_mb'] ?? 0)).']');
+                } else {
+                    $this->line('FAIL '.$row['domain'].' — '.($row['error'] ?? '?'));
                 }
             }
-            $this->info("Tamamlandı: {$ok} başarılı, {$fail} hatalı.");
+            $this->info("Tamamlandı: {$result['ok']} başarılı, {$result['failed']} hatalı.");
 
-            return $fail > 0 ? self::FAILURE : self::SUCCESS;
+            return $result['failed'] > 0 ? self::FAILURE : self::SUCCESS;
         }
 
         $domainName = strtolower(trim((string) $this->option('domain')));
@@ -52,11 +41,11 @@ class PanelzePanelKafesApplyCommand extends Command
         if (! $domain) {
             $this->warn("Panel veritabanında kayıt yok: {$domainName} (engine global varsayılanla uygular)");
         }
-        [$cpu, $mem] = $domain ? $this->limitsForDomain($domain) : [0, 0];
+        [$cpu, $mem] = $domain ? $apply->limitsForDomain($domain) : [0, 0];
 
         $this->info("PanelKafes: {$domainName}  [".$this->limitText($cpu, $mem).']');
         try {
-            $result = $engine->applyPanelKafesSite($domainName, $cpu, $mem);
+            $result = $apply->applySite($domainName);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
 
@@ -78,29 +67,6 @@ class PanelzePanelKafesApplyCommand extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Sitenin sahibinin hosting paketindeki CPU/RAM limitleri.
-     *
-     * @return array{0:int,1:int} [cpuPercent, memoryMB] — 0 = engine global varsayılanı
-     */
-    private function limitsForDomain(Domain $domain): array
-    {
-        /** @var User|null $user */
-        $user = $domain->user()->first();
-        if (! $user) {
-            return [0, 0];
-        }
-        $pkg = $user->hostingPackage()->first();
-        if (! $pkg) {
-            return [0, 0];
-        }
-
-        return [
-            max(0, (int) ($pkg->cpu_limit ?? 0)),
-            max(0, (int) ($pkg->memory_limit_mb ?? 0)),
-        ];
     }
 
     private function limitText(int $cpu, int $mem): string
