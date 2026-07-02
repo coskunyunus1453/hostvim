@@ -128,6 +128,25 @@ class PanelProvisioningService
         }
     }
 
+    /**
+     * Paneli yeniden ZORLAMADAN yalnızca durum sorgusuyla senkronize eder.
+     *
+     * Store→panel fulfill isteği zaman aşımına uğradığında panel provizyonu tamamlasa bile
+     * store siparişi "failed" görünebilir (tutarsızlık). Bu metod, panelde sipariş gerçekten
+     * varsa store kaydını "completed" yapar; yoksa hiçbir şey yapmaz (gerçek hataları
+     * gereksiz yere yeniden denemez).
+     */
+    public function reconcileFromPanelStatus(Order $order): bool
+    {
+        $order = $order->fresh();
+
+        if ($order->payment_status !== 'paid' || $order->panel_provision_status === 'completed') {
+            return false;
+        }
+
+        return $this->tryRecoverFromPanelStatus($order);
+    }
+
     public function retry(Order $order): void
     {
         if ($order->payment_status !== 'paid' || $order->panel_provision_status === 'completed') {

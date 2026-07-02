@@ -3,6 +3,7 @@ package sites
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"os"
@@ -10,6 +11,30 @@ import (
 	"regexp"
 	"strings"
 )
+
+// ensureDocRootMode, docRoot'u oluşturur ve modunu ayarlar.
+//
+// Yeniden provizyonda (reprovision/retry) docRoot çoğu zaman site'ın cage
+// kullanıcısına aittir; engine (www-data) bu dizini chmod EDEMEZ (EPERM).
+// Dizin zaten varsa ve chmod izin hatası verirse bunu yutarız (idempotent),
+// böylece kısmi kalmış kurulumlar tekrar denendiğinde tamamlanabilir. Dizin
+// yeni oluşturulduğunda ise chmod başarısızlığı gerçek bir hatadır.
+func ensureDocRootMode(docRoot string, mode os.FileMode) error {
+	preexist := false
+	if _, statErr := os.Stat(docRoot); statErr == nil {
+		preexist = true
+	}
+	if err := os.MkdirAll(docRoot, mode); err != nil {
+		return err
+	}
+	if err := os.Chmod(docRoot, mode); err != nil {
+		if preexist && errors.Is(err, os.ErrPermission) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
 
 var siteDomainRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$`)
 
@@ -184,10 +209,7 @@ func Provision(webRoot, domain, phpVersion, serverType string) (documentRoot str
 	if oldMeta != nil && strings.TrimSpace(oldMeta.DocumentRoot) != "" {
 		docRoot = filepath.Clean(oldMeta.DocumentRoot)
 	}
-	if err := os.MkdirAll(docRoot, 0o2775); err != nil {
-		return "", err
-	}
-	if err := os.Chmod(docRoot, 0o2775); err != nil {
+	if err := ensureDocRootMode(docRoot, 0o2775); err != nil {
 		return "", err
 	}
 	if oldMeta == nil && !docRootHasSiteContent(docRoot) {
@@ -248,10 +270,7 @@ func ProvisionSubdomain(webRoot, parentDomain, hostname, pathSegment, phpVersion
 	st := NormalizeServerType(serverType)
 	base := filepath.Join(webRoot, parentDomain, pathSegment)
 	docRoot := filepath.Join(base, "public_html")
-	if err := os.MkdirAll(docRoot, 0o2775); err != nil {
-		return "", err
-	}
-	if err := os.Chmod(docRoot, 0o2775); err != nil {
+	if err := ensureDocRootMode(docRoot, 0o2775); err != nil {
 		return "", err
 	}
 	if !docRootHasSiteContent(docRoot) {

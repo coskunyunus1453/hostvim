@@ -31,6 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('sanctum:prune-expired --hours=24')->daily();
         $schedule->command('backups:run-due')->everyMinute();
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
+        // DNS'i sonradan sunucuya yönlenen (özellikle "kendi alan adım") siteler için
+        // eksik Let's Encrypt sertifikalarını günde 2 kez otomatik dener (job DNS'i doğrular).
+        $schedule->command('panelze:ssl-auto-issue')->twiceDaily(5, 17)->withoutOverlapping();
         $schedule->command('panelze:self-heal')->everyMinute()->withoutOverlapping();
         // PanelKafes drift onarımı: FPM servis tutarlılığı + eksik cage'leri paket limitleriyle tamamlar.
         $schedule->command('panelze:panelkafes-reconcile')->everyFifteenMinutes()->withoutOverlapping();

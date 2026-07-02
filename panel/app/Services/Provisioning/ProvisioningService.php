@@ -86,6 +86,13 @@ class ProvisioningService
                 'domain' => $domainName !== '' ? $domainName : null,
             ], request());
 
+            // Otomatik SSL: alan adı sunucuya yönlüyse Let's Encrypt sertifikasını
+            // arka planda (best-effort) ver. Transaction commit olduktan sonra kuyruğa
+            // girsin ki provizyon işlemi SSL'e bağlı olarak yavaşlamasın/kilitlenmesin.
+            if ($domain !== null) {
+                \App\Jobs\IssueDomainSslJob::dispatch($domain->id)->afterCommit();
+            }
+
             return $subscription;
         });
     }

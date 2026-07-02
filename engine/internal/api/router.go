@@ -655,12 +655,19 @@ func handleDeleteSite(cfg *config.Config, d *daemon.Daemon) gin.HandlerFunc {
 			_ = sitecage.Remove(sitecage.FromHosting(cfg), domain)
 		}
 		if sitecage.ManagePools(cfg) {
+			// Per-site FPM systemd servisini de kaldır; aksi halde site silinse bile
+			// panelze-fpm-<domain>.service çalışır durumda kalır (yetim servis birikir).
+			cageCfg := sitecage.FromHosting(cfg)
 			if meta != nil {
+				_ = sitecage.RemoveService(cageCfg, domain, meta.PHPVersion)
 				_ = phpfpm.RemovePool(ps, domain, meta.PHPVersion)
 				if cfg.Hosting.PHPFPMreloadAfterPool {
 					_ = phpfpm.Reload(meta.PHPVersion)
 				}
 			} else {
+				for _, ver := range []string{"7.4", "8.0", "8.1", "8.2", "8.3", "8.4"} {
+					_ = sitecage.RemoveService(cageCfg, domain, ver)
+				}
 				for _, ver := range phpfpm.RemovePoolBestEffortAllVersions(ps, domain) {
 					if cfg.Hosting.PHPFPMreloadAfterPool {
 						_ = phpfpm.Reload(ver)
