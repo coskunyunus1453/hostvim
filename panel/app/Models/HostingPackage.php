@@ -23,6 +23,7 @@ class HostingPackage extends Model
         'max_cron_jobs',
         'cpu_limit',
         'memory_limit_mb',
+        'inode_limit',
         'php_versions',
         'ssl_enabled',
         'backup_enabled',

@@ -327,6 +327,39 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"domain": d, "bytes": n, "exists": true})
 	})
 
+	api.GET("/sites/:domain/inode-usage", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		webRoot := filepath.Clean(cfg.Paths.WebRoot)
+		if webRoot == "" || webRoot == "." {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "paths.web_root is not set"})
+			return
+		}
+		siteDir := filepath.Join(webRoot, d)
+		fi, err := os.Stat(siteDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				c.JSON(http.StatusOK, gin.H{"domain": d, "inodes": 0, "exists": false})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if !fi.IsDir() {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "site path is not a directory"})
+			return
+		}
+		n, err := hosting.DirInodeCount(siteDir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"domain": d, "inodes": n, "exists": true})
+	})
+
 	api.GET("/sites/:domain/traffic", func(c *gin.Context) {
 		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
 		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {

@@ -218,6 +218,46 @@ class HostingQuotaService
         }
     }
 
+    /** Paket inode (dosya/dizin sayısı) kotası; null = sınırsız (admin veya inode_limit negatif/0). */
+    public function inodeQuota(?HostingPackage $pkg): ?int
+    {
+        if ($pkg === null) {
+            return null;
+        }
+        $n = (int) ($pkg->inode_limit ?? -1);
+        if ($n <= 0) {
+            return null;
+        }
+
+        return $n;
+    }
+
+    /**
+     * Kullanıcının tüm alan adları için engine üzerinden toplam inode (dosya/dizin) sayısı.
+     */
+    public function sumAccountInodes(User $user): int
+    {
+        if ($user->isAdmin()) {
+            return 0;
+        }
+
+        return (int) Cache::remember(
+            'panelze:inode:sum:'.$user->id,
+            60,
+            function () use ($user): int {
+                $total = 0;
+                foreach ($user->domains()->cursor() as $domain) {
+                    $row = $this->engine->getSiteInodeUsage((string) $domain->name);
+                    if (empty($row['error'])) {
+                        $total += (int) ($row['inodes'] ?? 0);
+                    }
+                }
+
+                return $total;
+            }
+        );
+    }
+
     /**
      * Dosya listesinden tek dosya boyutu (bayt); bulunamazsa 0.
      */

@@ -226,6 +226,13 @@ return [
         'disk_quota_warn_percent' => max(50, min(100, (int) env('PANELZE_DISK_QUOTA_WARN_PERCENT', 90))),
         'disk_quota_grace_days' => max(0, (int) env('PANELZE_DISK_QUOTA_GRACE_DAYS', 3)),
         'disk_quota_auto_suspend' => filter_var(env('PANELZE_DISK_QUOTA_AUTO_SUSPEND', 'true'), FILTER_VALIDATE_BOOLEAN),
+        /**
+         * Günlük inode (dosya/dizin sayısı) kotası denetimi — disk kotasıyla aynı akış.
+         * Paket "inode_limit" alanı > 0 olan müşteriler için geçerlidir (-1/0 = sınırsız).
+         */
+        'inode_quota_warn_percent' => max(50, min(100, (int) env('PANELZE_INODE_QUOTA_WARN_PERCENT', 90))),
+        'inode_quota_grace_days' => max(0, (int) env('PANELZE_INODE_QUOTA_GRACE_DAYS', 3)),
+        'inode_quota_auto_suspend' => filter_var(env('PANELZE_INODE_QUOTA_AUTO_SUSPEND', 'true'), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /** Yetkili DNS — BIND9 (panel dns_records → zone dosyaları) */

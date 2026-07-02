@@ -22,6 +22,7 @@ type Pkg = {
   max_cron_jobs: number
   cpu_limit?: number | null
   memory_limit_mb?: number | null
+  inode_limit?: number | null
   ssl_enabled: boolean
   backup_enabled: boolean
   price_monthly: string | number
@@ -44,6 +45,7 @@ type FormState = {
   max_cron_jobs: number
   cpu_limit: number
   memory_limit_mb: number
+  inode_limit: number
   ssl_enabled: boolean
   backup_enabled: boolean
   price_monthly: number
@@ -66,6 +68,7 @@ const emptyForm: FormState = {
   max_cron_jobs: 5,
   cpu_limit: 100,
   memory_limit_mb: 1024,
+  inode_limit: -1,
   ssl_enabled: true,
   backup_enabled: true,
   price_monthly: 9.99,
@@ -89,6 +92,7 @@ function fromPkg(p: Pkg): FormState {
     max_cron_jobs: p.max_cron_jobs,
     cpu_limit: p.cpu_limit ?? 100,
     memory_limit_mb: p.memory_limit_mb ?? 1024,
+    inode_limit: p.inode_limit ?? -1,
     ssl_enabled: p.ssl_enabled,
     backup_enabled: p.backup_enabled,
     price_monthly: Number(p.price_monthly),
@@ -184,6 +188,7 @@ export default function AdminPackagesPage() {
       max_cron_jobs: Number(form.max_cron_jobs),
       cpu_limit: Number(form.cpu_limit),
       memory_limit_mb: Number(form.memory_limit_mb),
+      inode_limit: Number(form.inode_limit),
       ssl_enabled: form.ssl_enabled,
       backup_enabled: form.backup_enabled,
       price_monthly: Number(form.price_monthly),
@@ -264,6 +269,7 @@ export default function AdminPackagesPage() {
                   {num('Trafik (MB)', 'bandwidth_mb', '-1 = limitsiz')}
                   {num('İşlemci (CPU %)', 'cpu_limit', 'Bilgi amaçlı — gerçek sınır için sunucu altyapısı gerekir')}
                   {num('RAM (MB)', 'memory_limit_mb', 'Bilgi amaçlı — gerçek sınır için sunucu altyapısı gerekir')}
+                  {num('inode Limiti (dosya sayısı)', 'inode_limit', '-1 = limitsiz. Günlük tarama ile uygulanır; aşımda grace sonrası askıya alınır')}
                 </div>
               </div>
 
@@ -325,6 +331,7 @@ export default function AdminPackagesPage() {
               <th className="text-left px-4 py-2">Ad</th>
               <th className="text-left px-4 py-2">Disk</th>
               <th className="text-left px-4 py-2">RAM</th>
+              <th className="text-left px-4 py-2">inode</th>
               <th className="text-left px-4 py-2">Domain</th>
               <th className="text-left px-4 py-2">DB</th>
               <th className="text-left px-4 py-2">E-posta</th>
@@ -339,6 +346,7 @@ export default function AdminPackagesPage() {
                 <td className="px-4 py-2 font-medium">{p.name}</td>
                 <td className="px-4 py-2">{fmtLimit(p.disk_space_mb)} MB</td>
                 <td className="px-4 py-2">{p.memory_limit_mb ? `${p.memory_limit_mb} MB` : '—'}</td>
+                <td className="px-4 py-2">{p.inode_limit == null ? '—' : fmtLimit(p.inode_limit)}</td>
                 <td className="px-4 py-2">{fmtLimit(p.max_domains)}</td>
                 <td className="px-4 py-2">{fmtLimit(p.max_databases)}</td>
                 <td className="px-4 py-2">{fmtLimit(p.max_email_accounts)}</td>

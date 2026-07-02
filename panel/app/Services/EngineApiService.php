@@ -1357,6 +1357,38 @@ class EngineApiService
         }
     }
 
+    /**
+     * Sitenin dosya/dizin (inode) sayısını engine üzerinden okur.
+     *
+     * @return array{inodes?: int, exists?: bool, error?: string}
+     */
+    public function getSiteInodeUsage(string $domain): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return ['error' => (string) __('messages.engine_auth_missing'), 'inodes' => 0, 'exists' => false];
+        }
+        try {
+            $response = $this->client()->get($this->baseUrl.'/api/v1/sites/'.rawurlencode($domain).'/inode-usage');
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                return [
+                    'error' => $this->formatEngineHttpError($response, $json),
+                    'inodes' => 0,
+                    'exists' => false,
+                ];
+            }
+
+            return [
+                'inodes' => (int) ($json['inodes'] ?? 0),
+                'exists' => (bool) ($json['exists'] ?? true),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Engine API GET /sites/inode-usage failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage(), 'inodes' => 0, 'exists' => false];
+        }
+    }
+
     public function restoreBackupUpload(string $localPath, ?string $filename = null): array
     {
         if (! $this->engineAuthConfigured()) {

@@ -420,17 +420,28 @@ class PanelProvisioningService
             return;
         }
 
-        $panelLogin = (string) ($panelResult['panel_login_url'] ?? config('panelze.panel_login_url', ''));
+        $panelLogin = rtrim((string) ($panelResult['panel_login_url'] ?? config('panelze.panel_login_url', '')), '/');
         $tempPassword = (string) ($panelResult['temporary_password'] ?? '');
-        $needsPasswordSetup = (bool) ($panelResult['needs_password_setup'] ?? false);
+        $storeAccountUrl = rtrim((string) config('panelze.store_account_url', rtrim((string) config('app.url'), '/').'/hesabim'), '/');
+        $loginUrl = e($panelLogin.'/login');
+        $email = e((string) $order->customer_email);
 
+        // Müşteri her durumda panele nasıl gireceğini bilmeli:
+        // 1) hostvim.com > Hesabım > "Panele giriş" ile PAROLASIZ (SSO) — önerilen yol.
+        // 2) Doğrudan panelden: kullanıcı adı = e-posta; şifre yeni oluşturulduysa geçici şifre,
+        //    aksi halde "Şifremi unuttum" ile belirlenir.
         if ($tempPassword !== '') {
-            $passwordLine = '<p>Geçici şifreniz: <strong>'.e($tempPassword).'</strong> (ilk girişte değiştirmeniz istenecektir).</p>';
-        } elseif ($needsPasswordSetup) {
-            $resetUrl = e($panelLogin.'/login');
-            $passwordLine = '<p>Panel şifrenizi belirlemek için <a href="'.$resetUrl.'">giriş sayfasından</a> “Şifremi unuttum” bağlantısını kullanın.</p>';
+            $passwordLine = '<p><strong>Kontrol paneli erişimi</strong><br>'
+                .'Panel adresi: <a href="'.$loginUrl.'">'.e($panelLogin).'</a><br>'
+                .'Kullanıcı adı: <strong>'.$email.'</strong><br>'
+                .'Geçici şifreniz: <strong>'.e($tempPassword).'</strong> (ilk girişte değiştirmeniz istenecektir).</p>'
+                .'<p>Dilerseniz şifre girmeden, <a href="'.e($storeAccountUrl).'">Hesabım</a> sayfanızdaki “Panele giriş” butonuyla tek tıkla girebilirsiniz.</p>';
         } else {
-            $passwordLine = '';
+            $passwordLine = '<p><strong>Kontrol paneli erişimi</strong><br>'
+                .'En kolay yol: <a href="'.e($storeAccountUrl).'">Hesabım</a> sayfanızdaki “Panele giriş” butonu ile tek tıkla (şifresiz) girebilirsiniz.</p>'
+                .'<p>Doğrudan girmek isterseniz panel adresi: <a href="'.$loginUrl.'">'.e($panelLogin).'</a><br>'
+                .'Kullanıcı adınız: <strong>'.$email.'</strong><br>'
+                .'Şifrenizi belirlemek için giriş sayfasındaki “Şifremi unuttum” bağlantısını kullanın.</p>';
         }
 
         $replacements = [

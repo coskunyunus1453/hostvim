@@ -27,3 +27,24 @@ func DirSizeBytes(root string) (int64, error) {
 	}
 	return total, nil
 }
+
+// DirInodeCount site dizinindeki dosya + dizin (inode) sayısı (alt dizinler dahil).
+// Her ziyaret edilen giriş bir inode sayılır (dosya, dizin ve sembolik bağlar).
+func DirInodeCount(root string) (int64, error) {
+	root = filepath.Clean(root)
+	var count int64
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		count++
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
