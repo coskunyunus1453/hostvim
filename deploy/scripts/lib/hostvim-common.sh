@@ -563,7 +563,15 @@ hostvim_finalize_store() {
   fi
   if [[ -f "$STORE_ROOT/artisan" ]]; then
     cd "$STORE_ROOT"
-    hostvim_run_as_store php artisan optimize:clear --no-interaction 2>/dev/null || true
+    # ÜRETİM ÖNBELLEĞİNİ KUR (SİLME!). Buradaki eski "optimize:clear" her deploy'un
+    # sonunda config/route/view/event + Filament component cache'lerini siliyordu; bu da
+    # admin panelini her istekte boot maliyetiyle 2-3 sn'ye çıkarıyordu. Store'u daima
+    # optimize bırakmak için önbellekleri (idempotent) yeniden kuruyoruz.
+    hostvim_run_as_store php artisan config:cache 2>/dev/null || true
+    hostvim_run_as_store php artisan route:cache 2>/dev/null || true
+    hostvim_run_as_store php artisan view:cache 2>/dev/null || true
+    hostvim_run_as_store php artisan event:cache 2>/dev/null || true
+    hostvim_run_as_store php artisan filament:optimize --no-interaction 2>/dev/null || true
   fi
   local code
   code="$(curl -sk -o /dev/null -w '%{http_code}' "${STORE_URL:-https://${STORE_DOMAIN:-hostvim.com}}/" 2>/dev/null || echo 000)"
