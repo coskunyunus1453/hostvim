@@ -30,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('sanctum:prune-expired --hours=24')->daily();
         $schedule->command('backups:run-due')->everyMinute();
+        // Asenkron yedekleri engine durumundan sonlandırır (running/syncing kalan veya
+        // yanlış failed olanları toparlar). Büyük siteler worker poll'ünü aşabilir.
+        $schedule->command('backups:reconcile-running')->everyTwoMinutes()->withoutOverlapping();
         // Yedek temizliği: süresi dolan yedekler + retention sınırını aşan eski zincirler (disk açar).
         $schedule->command('backups:prune')->dailyAt('03:30')->withoutOverlapping();
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();

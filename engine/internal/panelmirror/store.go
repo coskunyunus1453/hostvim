@@ -303,6 +303,25 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64, level 
 	}
 	mu.Unlock()
 
+	// ASENKRON: arşivleme arka planda çalışır. Büyük siteler (GB'larca) 10+ dakika
+	// sürebilir; HTTP bağlantısını o süre boyunca açık tutmak WriteTimeout'a takılır
+	// ve panel tarafında yanlış "failed" + duplicate yedeğe yol açar. Bu yüzden POST
+	// anında "running" döner; panel durumu GET /backups ile yoklar (poll) / reconcile eder.
+	go runBackupArchive(cfg, path, id, d, outPath, snapOut, parentSnapshot, backupDir, level)
+
+	return gin.H{
+		"message":       "backup started",
+		"id":            id,
+		"path":          outPath,
+		"snapshot_path": snapOut,
+		"level":         level,
+		"status":        "running",
+	}, nil
+}
+
+// runBackupArchive, BackupQueue tarafından goroutine olarak çağrılır: arşivi üretir ve
+// backups.json kaydını completed/failed olarak günceller.
+func runBackupArchive(cfg *config.Config, path, id, d, outPath, snapOut, parentSnapshot, backupDir string, level int) {
 	maxSec := cfg.Hosting.BackupMaxSeconds
 	if maxSec <= 0 {
 		maxSec = 3600
@@ -322,9 +341,9 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64, level 
 
 	mu.Lock()
 	defer mu.Unlock()
-	rows, err = readSlice(path)
+	rows, err := readSlice(path)
 	if err != nil {
-		return nil, err
+		return
 	}
 	completedAt := time.Now().UTC().Format(time.RFC3339)
 	var sizeBytes int64
@@ -350,27 +369,7 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64, level 
 		rows[i]["completed_at"] = completedAt
 		break
 	}
-	if err := writeSlice(path, rows); err != nil {
-		return nil, err
-	}
-
-	if runErr != nil {
-		return gin.H{
-			"id":     id,
-			"path":   outPath,
-			"status": "failed",
-			"error":  runErr.Error(),
-		}, nil
-	}
-	return gin.H{
-		"message":       "backup completed",
-		"id":            id,
-		"path":          outPath,
-		"snapshot_path": snapOut,
-		"level":         level,
-		"status":        "completed",
-		"size_bytes":    sizeBytes,
-	}, nil
+	_ = writeSlice(path, rows)
 }
 
 // BackupRestoreChain arttırımlı zinciri (base → ... → hedef) engine backup id'lerine göre

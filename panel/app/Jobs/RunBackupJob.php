@@ -55,7 +55,10 @@ class RunBackupJob implements ShouldQueue
             }
         }
 
-        $result = $engine->queueBackupLong($backup->domain->name, $backup->type, $backup->id, $timeout, $level, $parentSnapshot);
+        // Engine artık ASENKRON çalışıyor: POST anında "running" döner (büyük siteler
+        // 10+ dk sürebilir; senkron HTTP WriteTimeout'a takılıp yanlış "failed" +
+        // duplicate üretiyordu). Kısa timeout yeterli.
+        $result = $engine->queueBackupLong($backup->domain->name, $backup->type, $backup->id, 120, $level, $parentSnapshot);
 
         if (! empty($result['error'])) {
             $backup->update(['status' => 'failed']);
@@ -69,33 +72,110 @@ class RunBackupJob implements ShouldQueue
         }
 
         $engineId = isset($result['id']) ? (string) $result['id'] : null;
-        $engineStatus = is_string($result['status'] ?? null) ? (string) $result['status'] : '';
-        $panelStatus = $engineStatus === 'completed' || $engineStatus === 'failed' ? $engineStatus : 'running';
-        $update = [
-            'status' => $panelStatus,
+        // Engine kaydını hemen sakla ki poll timeout olsa bile reconciler bulup sonlandırabilsin.
+        $seed = [
+            'status' => 'running',
             'file_path' => $result['path'] ?? null,
             'snapshot_path' => $result['snapshot_path'] ?? null,
             'engine_backup_id' => $engineId,
         ];
-        // Engine arttırımlıyı tam yedeğe düşürmüş olabilir (parent snapshot bozuk); level'ı senkronla.
         if (isset($result['level'])) {
-            $engineLevel = (int) $result['level'];
+            $seed['level'] = (int) $result['level'];
+        }
+        $backup->update($seed);
+
+        if ($engineId === null || $engineId === '') {
+            // Engine id dönmediyse durumu sorgulayamayız; reconciler'a bırakmak yerine failed.
+            $backup->update(['status' => 'failed']);
+
+            return;
+        }
+
+        // Durumu belirli bir süre yokla (poll). Bu sürede tamamlanırsa hemen sonlandır +
+        // hedefe senkronla. Daha uzun sürerse "running" bırak; backups:reconcile-running
+        // arka planda tamamlar (worker'ı süresiz meşgul etmeyelim).
+        $pollSeconds = (int) config('panelze.engine_backup_poll_seconds', 1500);
+        if ($pollSeconds < 30) {
+            $pollSeconds = 1500;
+        }
+        $deadline = microtime(true) + $pollSeconds;
+        $finalStatus = null;
+        $engineRow = null;
+
+        do {
+            sleep(5);
+            $engineRow = $this->findEngineBackup($engine, $engineId);
+            $st = is_array($engineRow) ? (string) ($engineRow['status'] ?? '') : '';
+            if ($st === 'completed' || $st === 'failed') {
+                $finalStatus = $st;
+                break;
+            }
+        } while (microtime(true) < $deadline);
+
+        if ($finalStatus === null) {
+            // Hâlâ çalışıyor: reconciler devralacak.
+            return;
+        }
+
+        $this->finalizeFromEngineRow($backup->fresh(), $engineRow, $finalStatus);
+    }
+
+    /**
+     * Engine backups listesinden verilen id'yi bulur.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findEngineBackup(EngineApiService $engine, string $engineId): ?array
+    {
+        foreach ($engine->listBackups() as $row) {
+            if (is_array($row) && (string) ($row['id'] ?? '') === $engineId) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Engine kaydına göre panel yedeğini sonlandırır (completed→sync, failed).
+     *
+     * @param  array<string, mixed>|null  $engineRow
+     */
+    private function finalizeFromEngineRow(Backup $backup, ?array $engineRow, string $status): void
+    {
+        if ($status === 'failed') {
+            $backup->update(['status' => 'failed']);
+            SafeAuditLogger::warning('panelze.backup_job_failed', [
+                'backup_id' => $backup->id,
+                'domain_id' => $backup->domain_id,
+                'error' => (string) ($engineRow['error'] ?? 'engine backup failed'),
+            ]);
+
+            return;
+        }
+
+        $update = ['status' => 'completed', 'completed_at' => now()];
+        if (isset($engineRow['level'])) {
+            $engineLevel = (int) $engineRow['level'];
             $update['level'] = $engineLevel;
             if ($engineLevel === 0) {
                 $update['parent_backup_id'] = null;
                 $update['base_backup_id'] = null;
             }
         }
-        if (! empty($result['size_bytes'])) {
-            $update['size_mb'] = round(((float) $result['size_bytes']) / 1048576, 4);
+        if (! empty($engineRow['size_bytes'])) {
+            $update['size_mb'] = round(((float) $engineRow['size_bytes']) / 1048576, 4);
         }
-        if ($panelStatus === 'completed') {
-            $update['completed_at'] = now();
+        if (! empty($engineRow['path'])) {
+            $update['file_path'] = (string) $engineRow['path'];
+        }
+        if (! empty($engineRow['snapshot_path'])) {
+            $update['snapshot_path'] = (string) $engineRow['snapshot_path'];
         }
         $backup->update($update);
         $backup = $backup->fresh();
 
-        if ($panelStatus !== 'completed' || ! $backup->destination_id) {
+        if (! $backup->destination_id) {
             return;
         }
 
@@ -114,7 +194,11 @@ class RunBackupJob implements ShouldQueue
     public function failed(?Throwable $e): void
     {
         $backup = Backup::query()->find($this->backupId);
-        if ($backup && ! in_array($backup->status, ['completed', 'failed'], true)) {
+        // Engine'e iş verildiyse (engine_backup_id var) ve hâlâ çalışıyor olabilir:
+        // yanlışlıkla "failed" yapma; reconciler durumu engine'den doğrulayıp sonlandırır.
+        if ($backup
+            && ! in_array($backup->status, ['completed', 'failed'], true)
+            && empty($backup->engine_backup_id)) {
             $backup->update(['status' => 'failed']);
         }
         SafeAuditLogger::warning('panelze.backup_job_exception', [
