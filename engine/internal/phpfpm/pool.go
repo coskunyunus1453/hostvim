@@ -146,6 +146,9 @@ pm.min_spare_servers = %d
 pm.max_spare_servers = %d
 pm.max_requests = 500
 pm.process_idle_timeout = 60s
+; Güvenlik/izolasyon: asılı kalan (sonsuz döngü, dış I/O beklemesi) istekleri öldür —
+; tek bir sitenin worker'ları ve CPU'yu süresiz tüketip komşu siteleri etkilemesini önler.
+request_terminate_timeout = 300s
 chdir = %s
 php_admin_value[open_basedir] = %s
 php_admin_value[memory_limit] = %s

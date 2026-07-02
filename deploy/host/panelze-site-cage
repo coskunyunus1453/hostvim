@@ -9,6 +9,8 @@ ENGINE_USER="${PANELZE_CAGE_ENGINE_USER:-www-data}"
 SLICE_PREFIX="panelkafes"
 DEFAULT_CPU_PCT="${PANELZE_CAGE_CPU_PERCENT:-100}"
 DEFAULT_MEM_MB="${PANELZE_CAGE_MEMORY_MB:-1024}"
+# Fork-bomb / kaçak süreç koruması: slice başına maksimum görev (PID) sayısı.
+DEFAULT_TASKS_MAX="${PANELZE_CAGE_TASKS_MAX:-200}"
 
 usage() {
   echo "usage: panelze-site-cage ensure-user <domain> <web_root>" >&2
@@ -228,7 +230,7 @@ cmd_cage_service() {
     echo "pool yok: $pool_src" >&2; exit 1
   fi
 
-  # 1) Kaynak slice (CPU/RAM)
+  # 1) Kaynak slice (CPU/RAM/PID)
   cat >"/etc/systemd/system/${slice}.slice" <<EOF
 [Unit]
 Description=PanelKafes resource slice for ${domain}
@@ -236,6 +238,7 @@ Description=PanelKafes resource slice for ${domain}
 [Slice]
 CPUQuota=${cpu}%
 MemoryMax=${mem}M
+TasksMax=${DEFAULT_TASKS_MAX}
 EOF
 
   # 2) Per-site FPM config: global + pool içeriği (kaynak pool.d'den)
@@ -457,9 +460,10 @@ Documentation=https://panelze.local/panelkafes
 [Slice]
 CPUQuota=${cpu}%
 MemoryMax=${mem}M
+TasksMax=${DEFAULT_TASKS_MAX}
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "OK limits slice=${slice} cpu=${cpu}% mem=${mem}M"
+  echo "OK limits slice=${slice} cpu=${cpu}% mem=${mem}M tasks=${DEFAULT_TASKS_MAX}"
 }
 
 cmd_remove_user() {
