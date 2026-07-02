@@ -2,6 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Mail\DiskQuotaRestoredMail;
+use App\Mail\DiskQuotaSuspendedMail;
+use App\Mail\DiskQuotaWarningMail;
 use App\Models\SystemAlert;
 use App\Models\User;
 use App\Services\DomainService;
@@ -10,6 +13,7 @@ use App\Services\HostingQuotaService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -74,13 +78,17 @@ class PanelzeDiskQuotaEnforceCommand extends Command
                 $this->warnAdmin($user, $used, $limit, $percent, $daysOver, 'over');
 
                 if ($autoSuspend && $daysOver >= $graceDays) {
-                    $count = $dryRun ? $this->activeDomainCount($user) : $this->suspendUserSites($user, $domains);
+                    $count = $dryRun ? $this->activeDomainCount($user) : $this->suspendUserSites($user, $domains, $used, $limit);
                     if ($count > 0) {
                         $suspended += $count;
                         $this->line(sprintf('SUSPEND %s — %d site (%.1f%%, %d gün aşımda)', $user->email, $count, $percent, $daysOver));
                     }
                 } else {
                     $warned++;
+                    $remainingGrace = max(0, $graceDays - $daysOver);
+                    if (! $dryRun) {
+                        $this->notifyCustomerWarning($user, $used, $limit, $percent, true, $remainingGrace);
+                    }
                     $this->line(sprintf('WARN    %s — %.1f%% (%d/%d gün grace)', $user->email, $percent, $daysOver, $graceDays));
                 }
 
@@ -93,6 +101,10 @@ class PanelzeDiskQuotaEnforceCommand extends Command
             if ($percent >= $warnPercent) {
                 $warned++;
                 $this->warnAdmin($user, $used, $limit, $percent, 0, 'near');
+                // "Yaklaştı" uyarısı müşteriye en fazla 3 günde bir (spam olmasın).
+                if (! $dryRun && $this->throttle('near-mail-'.$user->id, 3 * 86400)) {
+                    $this->notifyCustomerWarning($user, $used, $limit, $percent, false, 0);
+                }
                 $this->line(sprintf('NEAR    %s — %.1f%%', $user->email, $percent));
             }
 
@@ -155,7 +167,7 @@ class PanelzeDiskQuotaEnforceCommand extends Command
     }
 
     /** @return int askıya alınan site sayısı */
-    private function suspendUserSites(User $user, DomainService $domains): int
+    private function suspendUserSites(User $user, DomainService $domains, int $used, int $limit): int
     {
         $suspendedNames = [];
         $count = 0;
@@ -177,6 +189,13 @@ class PanelzeDiskQuotaEnforceCommand extends Command
                 $count,
                 implode(', ', $suspendedNames)
             ), 'diskquota-suspend-'.$user->id.'-'.date('Ymd'));
+
+            $this->safeMail(fn () => Mail::to($user->email)->queue(new DiskQuotaSuspendedMail(
+                (string) ($user->name ?: $user->email),
+                round($used / 1048576, 1),
+                round($limit / 1048576, 1),
+                $suspendedNames,
+            )));
         }
 
         return $count;
@@ -210,9 +229,48 @@ class PanelzeDiskQuotaEnforceCommand extends Command
                 $user->email,
                 $count
             ), 'diskquota-reactivate-'.$user->id.'-'.date('Ymd'));
+
+            $restored = array_values(array_filter($names, static fn ($n) => is_string($n)));
+            $this->safeMail(fn () => Mail::to($user->email)->queue(new DiskQuotaRestoredMail(
+                (string) ($user->name ?: $user->email),
+                $restored,
+            )));
         }
 
         return $count;
+    }
+
+    private function notifyCustomerWarning(User $user, int $used, int $limit, float $percent, bool $over, int $remainingGraceDays): void
+    {
+        $this->safeMail(fn () => Mail::to($user->email)->queue(new DiskQuotaWarningMail(
+            (string) ($user->name ?: $user->email),
+            round($used / 1048576, 1),
+            round($limit / 1048576, 1),
+            round($percent, 1),
+            $over,
+            $remainingGraceDays,
+        )));
+    }
+
+    /** @return bool true = işlem yapılabilir (pencere içinde ilk kez), false = yakın zamanda yapıldı */
+    private function throttle(string $key, int $seconds): bool
+    {
+        $cacheKey = 'panelze:diskquota:throttle:'.$key;
+        if (Cache::has($cacheKey)) {
+            return false;
+        }
+        Cache::put($cacheKey, now()->timestamp, now()->addSeconds($seconds));
+
+        return true;
+    }
+
+    private function safeMail(callable $send): void
+    {
+        try {
+            $send();
+        } catch (\Throwable $e) {
+            Log::warning('diskquota.mail_failed', ['error' => $e->getMessage()]);
+        }
     }
 
     private function warnAdmin(User $user, int $used, int $limit, float $percent, int $daysOver, string $kind): void
