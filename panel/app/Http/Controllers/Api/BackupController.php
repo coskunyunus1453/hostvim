@@ -51,16 +51,17 @@ class BackupController extends Controller
     {
         $validated = $request->validate([
             'domain_id' => 'required|exists:domains,id',
-            'type' => 'nullable|string|in:full,files,database',
+            'type' => 'nullable|string|in:full,incremental,files,database',
             'destination_id' => 'nullable|integer|exists:backup_destinations,id',
         ]);
         $domain = Domain::findOrFail($validated['domain_id']);
         if (! $this->userOwnsDomain($request, $domain)) {
             abort(403);
         }
-        if (! empty($validated['destination_id'])) {
+        $destinationId = $validated['destination_id'] ?? null;
+        if (! empty($destinationId)) {
             $ownsDestination = BackupDestination::query()
-                ->where('id', (int) $validated['destination_id'])
+                ->where('id', (int) $destinationId)
                 ->where('user_id', $request->user()->id)
                 ->exists();
             if (! $ownsDestination) {
@@ -70,11 +71,30 @@ class BackupController extends Controller
 
         $this->quota->ensureCanQueueBackup($request->user());
 
+        $type = $validated['type'] ?? 'full';
+        $level = 0;
+        $parentId = null;
+        $baseId = null;
+        if ($type === 'incremental') {
+            $parent = $this->resolveIncrementalParent($request->user()->id, $domain->id, $destinationId);
+            if ($parent) {
+                $level = (int) $parent->level + 1;
+                $parentId = $parent->id;
+                $baseId = $parent->base_backup_id ?: $parent->id;
+            } else {
+                // Zincir yok → otomatik olarak tam (base) yedek al.
+                $type = 'full';
+            }
+        }
+
         $backup = Backup::create([
             'user_id' => $request->user()->id,
             'domain_id' => $domain->id,
-            'destination_id' => $validated['destination_id'] ?? null,
-            'type' => $validated['type'] ?? 'full',
+            'destination_id' => $destinationId,
+            'type' => $type,
+            'level' => $level,
+            'parent_backup_id' => $parentId,
+            'base_backup_id' => $baseId,
             'status' => 'queued',
         ]);
 
@@ -84,12 +104,32 @@ class BackupController extends Controller
             'domain_id' => $domain->id,
             'backup_id' => $backup->id,
             'destination_id' => $backup->destination_id,
+            'type' => $backup->type,
+            'level' => $backup->level,
         ]);
 
         return response()->json([
             'message' => __('backups.queued'),
             'backup' => $backup->fresh(['domain', 'destination']),
         ], 202);
+    }
+
+    /**
+     * Arttırımlı yedek için zincirin ucundaki (en güncel tamamlanmış, snapshot'lı) yedeği bulur.
+     * Zincir, domain + hedef (destination) bazında ayrılır ki farklı hedeflerin snapshot
+     * zincirleri birbirine karışmasın.
+     */
+    private function resolveIncrementalParent(int $userId, int $domainId, ?int $destinationId): ?Backup
+    {
+        return Backup::query()
+            ->where('user_id', $userId)
+            ->where('domain_id', $domainId)
+            ->where('status', 'completed')
+            ->whereNotNull('snapshot_path')
+            ->when($destinationId !== null, fn ($q) => $q->where('destination_id', $destinationId))
+            ->when($destinationId === null, fn ($q) => $q->whereNull('destination_id'))
+            ->orderByDesc('id')
+            ->first();
     }
 
     public function destinations(Request $request): JsonResponse
@@ -177,7 +217,9 @@ class BackupController extends Controller
         $validated = $request->validate([
             'domain_id' => 'required|integer|exists:domains,id',
             'destination_id' => 'nullable|integer|exists:backup_destinations,id',
-            'type' => 'nullable|string|in:full,files,database',
+            'type' => 'nullable|string|in:full,incremental,files,database',
+            'full_interval_days' => 'nullable|integer|min:1|max:365',
+            'retention_count' => 'nullable|integer|min:1|max:100',
             'schedule' => ['required', 'string', 'regex:/^\S+\s+\S+\s+\S+\s+\S+\s+\S+$/'],
             'enabled' => 'sometimes|boolean',
         ]);
@@ -199,6 +241,8 @@ class BackupController extends Controller
             'domain_id' => $domain->id,
             'destination_id' => $validated['destination_id'] ?? null,
             'type' => $validated['type'] ?? 'full',
+            'full_interval_days' => $validated['full_interval_days'] ?? 7,
+            'retention_count' => $validated['retention_count'] ?? null,
             'schedule' => $validated['schedule'],
             'enabled' => (bool) ($validated['enabled'] ?? true),
         ]);
@@ -214,7 +258,9 @@ class BackupController extends Controller
         }
         $validated = $request->validate([
             'destination_id' => 'nullable|integer|exists:backup_destinations,id',
-            'type' => 'nullable|string|in:full,files,database',
+            'type' => 'nullable|string|in:full,incremental,files,database',
+            'full_interval_days' => 'nullable|integer|min:1|max:365',
+            'retention_count' => 'nullable|integer|min:1|max:100',
             'schedule' => ['sometimes', 'string', 'regex:/^\S+\s+\S+\s+\S+\s+\S+\s+\S+$/'],
             'enabled' => 'sometimes|boolean',
         ]);
@@ -261,11 +307,29 @@ class BackupController extends Controller
 
         $this->quota->ensureCanQueueBackup($request->user());
 
+        $type = $backupSchedule->type ?: 'full';
+        $level = 0;
+        $parentId = null;
+        $baseId = null;
+        if ($type === 'incremental') {
+            $parent = $this->resolveIncrementalParent($request->user()->id, $domain->id, $backupSchedule->destination_id);
+            if ($parent) {
+                $level = (int) $parent->level + 1;
+                $parentId = $parent->id;
+                $baseId = $parent->base_backup_id ?: $parent->id;
+            } else {
+                $type = 'full';
+            }
+        }
+
         $backup = Backup::create([
             'user_id' => $request->user()->id,
             'domain_id' => $domain->id,
             'destination_id' => $backupSchedule->destination_id,
-            'type' => $backupSchedule->type ?: 'full',
+            'type' => $type,
+            'level' => $level,
+            'parent_backup_id' => $parentId,
+            'base_backup_id' => $baseId,
             'status' => 'queued',
         ]);
         RunBackupJob::dispatch($backup->id);
@@ -304,10 +368,56 @@ class BackupController extends Controller
         if ($backup->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
             abort(403);
         }
+
+        // Zincir güvenliği: bu yedeğe bağlı arttırımlı yedek(ler) varsa silmeye izin verme.
+        // (Base/parent silinirse zincir bozulur, restore imkânsız hale gelir.)
+        $hasDependents = Backup::query()
+            ->where('id', '!=', $backup->id)
+            ->where(function ($q) use ($backup) {
+                $q->where('parent_backup_id', $backup->id)
+                    ->orWhere('base_backup_id', $backup->id);
+            })
+            ->exists();
+        if ($hasDependents) {
+            return response()->json(['message' => __('backups.delete_has_dependents')], 422);
+        }
+
+        $this->purgeBackupArtifacts($backup);
         $backup->delete();
         $this->audit($request, 'backup_delete', true, null, ['backup_id' => $backup->id]);
 
         return response()->json(['message' => __('backups.deleted')]);
+    }
+
+    /**
+     * Bir yedeğin engine (arşiv+snapshot) ve uzak hedef dosyalarını temizler (best-effort).
+     */
+    public function purgeBackupArtifacts(Backup $backup): void
+    {
+        $eid = trim((string) $backup->engine_backup_id);
+        if ($eid !== '') {
+            try {
+                $this->engine->deleteBackup($eid);
+            } catch (\Throwable $e) {
+                SafeAuditLogger::warning('panelze.backup_engine_delete_failed', [
+                    'backup_id' => $backup->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+        if ($backup->destination_id && ($backup->remote_path || $backup->remote_file_id)) {
+            try {
+                $dest = $backup->destination;
+                if ($dest) {
+                    $this->storage->deleteRemote($dest, (string) $backup->remote_path, $backup->remote_file_id ? (string) $backup->remote_file_id : null);
+                }
+            } catch (\Throwable $e) {
+                SafeAuditLogger::warning('panelze.backup_remote_delete_failed', [
+                    'backup_id' => $backup->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     public function restore(Request $request, Backup $backup): JsonResponse
@@ -391,8 +501,29 @@ class BackupController extends Controller
         if ($eid === null || $eid === '') {
             return response()->json(['message' => __('backups.restore_no_engine_id')], 422);
         }
-        $result = $this->engine->restoreBackup($eid);
-        $this->audit($request, 'backup_restore', true, null, ['backup_id' => $backup->id, 'engine_backup_id' => $eid]);
+
+        // Arttırımlı zincir: base → ... → hedef sırayla geri yüklenmeli.
+        // Tek (tam) yedekte zincir tek elemanlıdır.
+        $chain = $backup->restoreChain();
+        $chainIds = [];
+        foreach ($chain as $node) {
+            $nid = trim((string) $node->engine_backup_id);
+            if ($nid === '') {
+                return response()->json(['message' => __('backups.restore_chain_broken')], 422);
+            }
+            $chainIds[] = $nid;
+        }
+
+        if (count($chainIds) > 1) {
+            $result = $this->engine->restoreBackupChain($chainIds);
+        } else {
+            $result = $this->engine->restoreBackup($eid);
+        }
+        $this->audit($request, 'backup_restore', true, null, [
+            'backup_id' => $backup->id,
+            'engine_backup_id' => $eid,
+            'chain' => $chainIds,
+        ]);
 
         return response()->json($this->publicBackupPayload($request, [
             'message' => __('backups.restore_started'),

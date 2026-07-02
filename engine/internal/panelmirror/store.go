@@ -221,7 +221,15 @@ func BackupsList(cfg *config.Config) ([]gin.H, error) {
 	return out, nil
 }
 
-func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H, error) {
+// BackupQueue bir yedek üretir.
+//
+//   - level 0 (veya parentSnapshot boş): TAM (base) yedek; yeni snapshot (.snar) oluşturur.
+//   - level > 0 ve parentSnapshot verilmişse: ARTTIRIMLI yedek; yalnızca parent snapshot'tan
+//     bu yana değişen dosyalar arşivlenir. parentSnapshot engine tarafındaki .snar yoludur.
+//
+// Dönen "snapshot_path", bu yedeğin sonrası durumunu yansıtan .snar yoludur; panel bunu
+// bir sonraki arttırımlı yedeğe parent olarak geri gönderir.
+func BackupQueue(cfg *config.Config, domain, typ string, panelID float64, level int, parentSnapshot string) (gin.H, error) {
 	d := safeDomain(domain)
 	if d == "" {
 		return nil, fmt.Errorf("invalid domain")
@@ -233,8 +241,20 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H
 	if err := os.MkdirAll(backupDir, 0o750); err != nil {
 		return nil, err
 	}
+	snapDir := filepath.Join(backupDir, "snapshots")
+	if err := os.MkdirAll(snapDir, 0o750); err != nil {
+		return nil, err
+	}
 	id := fmt.Sprintf("bk_%d", time.Now().UnixNano())
 	outPath := filepath.Join(backupDir, id+".tar.gz")
+	snapOut := filepath.Join(snapDir, id+".snar")
+	// parentSnapshot yoksa arttırımlı yapılamaz → tam yedeğe düş (level 0).
+	if strings.TrimSpace(parentSnapshot) == "" {
+		level = 0
+	}
+	if level < 0 {
+		level = 0
+	}
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	path := filepath.Join(dir(cfg), "backups.json")
@@ -248,9 +268,11 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H
 		"id":              id,
 		"domain":          d,
 		"type":            typ,
+		"level":           float64(level),
 		"panel_backup_id": panelID,
 		"queued_at":       now,
 		"path":            outPath,
+		"snapshot_path":   snapOut,
 	}
 
 	if !cfg.Hosting.ExecuteBackups {
@@ -264,10 +286,12 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H
 			return nil, err
 		}
 		return gin.H{
-			"message": "backup recorded (execute_backups=false; no archive on disk)",
-			"id":      id,
-			"path":    outPath,
-			"status":  "completed",
+			"message":       "backup recorded (execute_backups=false; no archive on disk)",
+			"id":            id,
+			"path":          outPath,
+			"snapshot_path": snapOut,
+			"level":         level,
+			"status":        "completed",
 		}, nil
 	}
 
@@ -286,7 +310,15 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxSec)*time.Second)
 	defer cancel()
 
-	runErr := backup.ArchiveDomain(ctx, cfg, d, outPath, backupDir)
+	runErr := backup.ArchiveDomainIncremental(ctx, cfg, d, outPath, snapOut, parentSnapshot, backupDir)
+	// Arttırımlı denenip parent snapshot bozuksa güvenli tarafa düş: tam yedek.
+	if runErr != nil && level > 0 {
+		_ = os.Remove(outPath)
+		if fbErr := backup.ArchiveDomainIncremental(ctx, cfg, d, outPath, snapOut, "", backupDir); fbErr == nil {
+			runErr = nil
+			level = 0
+		}
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -309,9 +341,11 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H
 			rows[i]["status"] = "failed"
 			rows[i]["error"] = runErr.Error()
 			_ = os.Remove(outPath)
+			_ = os.Remove(snapOut)
 		} else {
 			rows[i]["status"] = "completed"
 			rows[i]["size_bytes"] = float64(sizeBytes)
+			rows[i]["level"] = float64(level)
 		}
 		rows[i]["completed_at"] = completedAt
 		break
@@ -329,12 +363,107 @@ func BackupQueue(cfg *config.Config, domain, typ string, panelID float64) (gin.H
 		}, nil
 	}
 	return gin.H{
-		"message":    "backup completed",
-		"id":         id,
-		"path":       outPath,
-		"status":     "completed",
-		"size_bytes": sizeBytes,
+		"message":       "backup completed",
+		"id":            id,
+		"path":          outPath,
+		"snapshot_path": snapOut,
+		"level":         level,
+		"status":        "completed",
+		"size_bytes":    sizeBytes,
 	}, nil
+}
+
+// BackupRestoreChain arttırımlı zinciri (base → ... → hedef) engine backup id'lerine göre
+// SIRAYLA geri yükler. ids, panel tarafından zincir sırasında verilmelidir.
+func BackupRestoreChain(cfg *config.Config, ids []string) (gin.H, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("empty restore chain")
+	}
+	if !cfg.Hosting.ExecuteBackupRestore {
+		return gin.H{"message": "restore not executed (hosting.execute_backup_restore=false)"}, nil
+	}
+	path := filepath.Join(dir(cfg), "backups.json")
+	mu.Lock()
+	rows, err := readSlice(path)
+	mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	byID := map[string]string{}
+	for _, r := range rows {
+		if strings.ToLower(strings.TrimSpace(fmt.Sprint(r["status"]))) != "completed" {
+			continue
+		}
+		byID[idStr(r["id"])] = strings.TrimSpace(fmt.Sprint(r["path"]))
+	}
+	archivePaths := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		p, ok := byID[id]
+		if !ok || p == "" {
+			return nil, fmt.Errorf("backup not found or not completed: %s", id)
+		}
+		archivePaths = append(archivePaths, p)
+	}
+	backupDir := filepath.Join(dir(cfg), "backup-files")
+	maxSec := cfg.Hosting.BackupMaxSeconds
+	if maxSec <= 0 {
+		maxSec = 3600
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxSec)*time.Second)
+	defer cancel()
+	if err := backup.RestoreDomainChain(ctx, cfg, archivePaths, backupDir); err != nil {
+		return nil, err
+	}
+	return gin.H{"message": "restore completed", "count": len(archivePaths)}, nil
+}
+
+// BackupDelete bir yedeğin arşiv (.tar.gz) ve snapshot (.snar) dosyalarını ve backups.json
+// kaydını siler (retention/temizlik için). Diskte yer açar.
+func BackupDelete(cfg *config.Config, backupID string) (gin.H, error) {
+	backupID = strings.TrimSpace(backupID)
+	if backupID == "" {
+		return nil, fmt.Errorf("invalid backup id")
+	}
+	backupDir := filepath.Join(dir(cfg), "backup-files")
+	absPrefix, _ := filepath.Abs(filepath.Clean(backupDir))
+	path := filepath.Join(dir(cfg), "backups.json")
+	mu.Lock()
+	defer mu.Unlock()
+	rows, err := readSlice(path)
+	if err != nil {
+		return nil, err
+	}
+	next := make([]map[string]interface{}, 0, len(rows))
+	removed := false
+	for _, r := range rows {
+		if idStr(r["id"]) != backupID {
+			next = append(next, r)
+			continue
+		}
+		removed = true
+		for _, key := range []string{"path", "snapshot_path"} {
+			p := strings.TrimSpace(fmt.Sprint(r[key]))
+			if p == "" {
+				continue
+			}
+			abs, aerr := filepath.Abs(filepath.Clean(p))
+			if aerr != nil {
+				continue
+			}
+			// Sadece backup-files altındaki dosyaları sil (güvenlik).
+			if abs == absPrefix || strings.HasPrefix(abs, absPrefix+string(filepath.Separator)) {
+				_ = os.Remove(abs)
+			}
+		}
+	}
+	if !removed {
+		return gin.H{"message": "backup not found", "id": backupID}, nil
+	}
+	if err := writeSlice(path, next); err != nil {
+		return nil, err
+	}
+	return gin.H{"message": "backup deleted", "id": backupID}, nil
 }
 
 // BackupRestore extracts a completed backup archive into web root (dangerous; hosting.execute_backup_restore).

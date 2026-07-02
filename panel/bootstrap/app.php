@@ -30,6 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('sanctum:prune-expired --hours=24')->daily();
         $schedule->command('backups:run-due')->everyMinute();
+        // Yedek temizliği: süresi dolan yedekler + retention sınırını aşan eski zincirler (disk açar).
+        $schedule->command('backups:prune')->dailyAt('03:30')->withoutOverlapping();
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
         // DNS'i sonradan sunucuya yönlenen (özellikle "kendi alan adım") siteler için
         // eksik Let's Encrypt sertifikalarını günde 2 kez otomatik dener (job DNS'i doğrular).

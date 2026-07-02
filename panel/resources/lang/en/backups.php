@@ -8,6 +8,8 @@ return [
     'deleted' => 'Backup deleted',
     'restore_started' => 'Restore started',
     'restore_no_engine_id' => 'No engine backup id; create a new backup and restore from it.',
+    'restore_chain_broken' => 'Incremental chain is incomplete; a backup in the chain has no engine id. Restore from a full backup.',
+    'delete_has_dependents' => 'This backup has dependent incremental backup(s). Delete the newer incremental backups first.',
     'remote_restore_missing' => 'Remote restore requires destination and backup path.',
     'remote_restore_invalid_path' => 'Invalid backup path.',
     'remote_restore_not_found' => 'Backup file not found on remote destination.',

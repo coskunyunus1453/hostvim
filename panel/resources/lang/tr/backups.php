@@ -8,6 +8,8 @@ return [
     'deleted' => 'Yedek silindi',
     'restore_started' => 'Geri yükleme başlatıldı',
     'restore_no_engine_id' => 'Bu yedeğin engine kaydı yok; yeni yedek alıp ondan geri yükleyin.',
+    'restore_chain_broken' => 'Arttırımlı yedek zinciri eksik; zincirdeki bir yedeğin engine kaydı yok. Tam yedekten geri yükleyin.',
+    'delete_has_dependents' => 'Bu yedeğe bağlı arttırımlı yedek(ler) var. Önce daha yeni arttırımlı yedekleri silin.',
     'remote_restore_missing' => 'Remote restore için destination ve backup set gerekli.',
     'remote_restore_invalid_path' => 'Geçersiz yedek yolu (dizin çıkışına izin verilmez).',
     'remote_restore_not_found' => 'Uzak hedefte yedek dosyası bulunamadı.',

@@ -14,6 +14,8 @@ class BackupSchedule extends Model
         'domain_id',
         'destination_id',
         'type',
+        'full_interval_days',
+        'retention_count',
         'schedule',
         'enabled',
         'last_run_at',
@@ -26,6 +28,8 @@ class BackupSchedule extends Model
             'enabled' => 'boolean',
             'last_run_at' => 'datetime',
             'next_run_at' => 'datetime',
+            'full_interval_days' => 'integer',
+            'retention_count' => 'integer',
         ];
     }
 

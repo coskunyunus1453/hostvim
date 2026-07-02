@@ -28,6 +28,9 @@ type BackupRow = {
   domain_id: number
   destination_id?: number | null
   type: string
+  level?: number | null
+  parent_backup_id?: number | null
+  base_backup_id?: number | null
   status: string
   created_at: string
   file_path?: string | null
@@ -128,7 +131,9 @@ export default function BackupsPage() {
     id: number | null
     domain_id: number | ''
     destination_id: number | ''
-    type: 'full' | 'files' | 'database'
+    type: 'full' | 'incremental' | 'files' | 'database'
+    full_interval_days: number
+    retention_count: number | ''
     schedule: string
     enabled: boolean
   }>({
@@ -136,6 +141,8 @@ export default function BackupsPage() {
     domain_id: '',
     destination_id: '',
     type: 'full',
+    full_interval_days: 7,
+    retention_count: '',
     schedule: '0 3 * * *',
     enabled: true,
   })
@@ -239,6 +246,8 @@ export default function BackupsPage() {
       domain_id: domainFilter !== '' ? domainFilter : '',
       destination_id: '',
       type: 'full',
+      full_interval_days: 7,
+      retention_count: '',
       schedule: '0 3 * * *',
       enabled: true,
     })
@@ -250,7 +259,9 @@ export default function BackupsPage() {
         id: Number(row.id),
         domain_id: Number((row.domain_id as number) ?? (row.domain as { id?: number })?.id ?? ''),
         destination_id: row.destination_id != null ? Number(row.destination_id) : '',
-        type: (String(row.type ?? 'full') as 'full' | 'files' | 'database') || 'full',
+        type: (String(row.type ?? 'full') as 'full' | 'incremental' | 'files' | 'database') || 'full',
+        full_interval_days: Number(row.full_interval_days ?? 7) || 7,
+        retention_count: row.retention_count != null ? Number(row.retention_count) : '',
         schedule: String(row.schedule ?? '0 3 * * *'),
         enabled: row.enabled !== false,
       })
@@ -266,6 +277,8 @@ export default function BackupsPage() {
         domain_id: Number(scheduleForm.domain_id),
         destination_id: scheduleForm.destination_id !== '' ? Number(scheduleForm.destination_id) : undefined,
         type: scheduleForm.type,
+        full_interval_days: scheduleForm.type === 'incremental' ? scheduleForm.full_interval_days : undefined,
+        retention_count: scheduleForm.retention_count !== '' ? Number(scheduleForm.retention_count) : undefined,
         schedule: scheduleForm.schedule.trim(),
         enabled: scheduleForm.enabled,
       }
@@ -600,6 +613,14 @@ export default function BackupsPage() {
   const gdriveFiles = gdriveFilesQ.data?.files ?? []
   const activeRows = useMemo(() => rows.filter((b) => isActiveBackupStatus(b.status)), [rows])
   const hasActiveBackups = activeRows.length > 0
+  // Listedeki arttırımlı yedeklerin taban (base) aldığı yedek id'leri → "base" rozeti için.
+  const baseBackupIds = useMemo(() => {
+    const set = new Set<number>()
+    for (const b of rows) {
+      if (b.base_backup_id != null) set.add(Number(b.base_backup_id))
+    }
+    return set
+  }, [rows])
 
   const defaultDest = useMemo(
     () => destinations.find((d) => d.is_default) ?? destinations.find((d) => d.driver === 'google_drive'),
@@ -624,6 +645,15 @@ export default function BackupsPage() {
               {statusLabel(b.status)}
             </span>
             <span className="text-xs font-mono text-gray-500 uppercase">{b.type}</span>
+            {b.level != null && b.level > 0 ? (
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                {t('backups.level_incremental', { level: b.level })}
+              </span>
+            ) : baseBackupIds.has(b.id) ? (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                {t('backups.level_base')}
+              </span>
+            ) : null}
           </div>
           <p className="text-xs text-gray-500 mt-1">
             {new Date(b.created_at).toLocaleString()}
@@ -1230,9 +1260,11 @@ export default function BackupsPage() {
                 <label className="label">{t('backups.type')}</label>
                 <select name="type" className="input w-full" defaultValue="full">
                   <option value="full">{t('backups.type_full')}</option>
+                  <option value="incremental">{t('backups.type_incremental')}</option>
                   <option value="files">{t('backups.type_files')}</option>
                   <option value="database">{t('backups.type_database')}</option>
                 </select>
+                <p className="mt-1 text-xs text-gray-500">{t('backups.type_incremental_hint')}</p>
               </div>
               <div>
                 <label className="label">{t('backups.destination')}</label>
@@ -1387,13 +1419,45 @@ export default function BackupsPage() {
                     className="input w-full"
                     value={scheduleForm.type}
                     onChange={(e) =>
-                      setScheduleForm((s) => ({ ...s, type: e.target.value as 'full' | 'files' | 'database' }))
+                      setScheduleForm((s) => ({ ...s, type: e.target.value as 'full' | 'incremental' | 'files' | 'database' }))
                     }
                   >
                     <option value="full">{t('backups.type_full')}</option>
+                    <option value="incremental">{t('backups.type_incremental')}</option>
                     <option value="files">{t('backups.type_files')}</option>
                     <option value="database">{t('backups.type_database')}</option>
                   </select>
+                </div>
+                {scheduleForm.type === 'incremental' && (
+                  <div>
+                    <label className="label">{t('backups.full_interval_days')}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      className="input w-full"
+                      value={scheduleForm.full_interval_days}
+                      onChange={(e) =>
+                        setScheduleForm((s) => ({ ...s, full_interval_days: Math.max(1, Number(e.target.value) || 7) }))
+                      }
+                    />
+                    <p className="mt-1 text-xs text-gray-500">{t('backups.full_interval_days_hint')}</p>
+                  </div>
+                )}
+                <div>
+                  <label className="label">{t('backups.retention_count')}</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    className="input w-full"
+                    placeholder={t('backups.retention_count_placeholder')}
+                    value={scheduleForm.retention_count}
+                    onChange={(e) =>
+                      setScheduleForm((s) => ({ ...s, retention_count: e.target.value === '' ? '' : Math.max(1, Number(e.target.value) || 1) }))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-gray-500">{t('backups.retention_count_hint')}</p>
                 </div>
                 <div>
                   <label className="label">{t('backups.destination')}</label>

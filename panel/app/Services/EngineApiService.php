@@ -1271,11 +1271,14 @@ class EngineApiService
      *
      * @return array<string, mixed>
      */
-    public function queueBackupLong(string $domain, string $type = 'full', ?int $panelBackupId = null, int $timeout = 3700): array
+    public function queueBackupLong(string $domain, string $type = 'full', ?int $panelBackupId = null, int $timeout = 3700, int $level = 0, ?string $parentSnapshot = null): array
     {
-        $payload = ['domain' => $domain, 'type' => $type];
+        $payload = ['domain' => $domain, 'type' => $type, 'level' => $level];
         if ($panelBackupId !== null) {
             $payload['panel_backup_id'] = $panelBackupId;
+        }
+        if ($parentSnapshot !== null && $parentSnapshot !== '') {
+            $payload['parent_snapshot'] = $parentSnapshot;
         }
 
         return $this->postLongChecked('/api/v1/backups', $payload, $timeout);
@@ -1284,6 +1287,39 @@ class EngineApiService
     public function restoreBackup(string $id): array
     {
         return $this->postLongChecked('/api/v1/backups/'.rawurlencode($id).'/restore', [], 3700);
+    }
+
+    /**
+     * Engine üzerindeki yedek arşiv (.tar.gz) ve snapshot (.snar) dosyalarını siler.
+     *
+     * @return array<string, mixed>
+     */
+    public function deleteBackup(string $id): array
+    {
+        try {
+            $response = $this->client()->delete($this->baseUrl.'/api/v1/backups/'.rawurlencode($id));
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                return ['error' => $this->formatEngineHttpError($response, $json)];
+            }
+
+            return $json;
+        } catch (\Exception $e) {
+            Log::error('Engine API DELETE /backups failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Arttırımlı zincir geri yükleme: engine backup id'leri base → ... → hedef sırasında.
+     *
+     * @param  array<int, string>  $ids
+     * @return array<string, mixed>
+     */
+    public function restoreBackupChain(array $ids): array
+    {
+        return $this->postLongChecked('/api/v1/backups/restore-chain', ['ids' => array_values($ids)], 7200);
     }
 
     /**

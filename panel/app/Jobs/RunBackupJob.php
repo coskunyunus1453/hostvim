@@ -27,7 +27,7 @@ class RunBackupJob implements ShouldQueue
 
     public function handle(EngineApiService $engine): void
     {
-        $backup = Backup::query()->with(['domain', 'destination'])->find($this->backupId);
+        $backup = Backup::query()->with(['domain', 'destination', 'parent'])->find($this->backupId);
         if (! $backup || ! $backup->domain) {
             return;
         }
@@ -43,7 +43,19 @@ class RunBackupJob implements ShouldQueue
             $timeout = 3700;
         }
 
-        $result = $engine->queueBackupLong($backup->domain->name, $backup->type, $backup->id, $timeout);
+        // Arttırımlı yedek: parent'ın engine snapshot (.snar) yolundan devam et.
+        $level = (int) ($backup->level ?? 0);
+        $parentSnapshot = null;
+        if ($level > 0 && $backup->parent) {
+            $parentSnapshot = $backup->parent->snapshot_path;
+            // Parent snapshot yoksa engine güvenli tarafa (tam yedek) düşer; level'ı da 0'a çekelim.
+            if (! $parentSnapshot) {
+                $level = 0;
+                $backup->update(['level' => 0, 'parent_backup_id' => null, 'base_backup_id' => null]);
+            }
+        }
+
+        $result = $engine->queueBackupLong($backup->domain->name, $backup->type, $backup->id, $timeout, $level, $parentSnapshot);
 
         if (! empty($result['error'])) {
             $backup->update(['status' => 'failed']);
@@ -62,8 +74,18 @@ class RunBackupJob implements ShouldQueue
         $update = [
             'status' => $panelStatus,
             'file_path' => $result['path'] ?? null,
+            'snapshot_path' => $result['snapshot_path'] ?? null,
             'engine_backup_id' => $engineId,
         ];
+        // Engine arttırımlıyı tam yedeğe düşürmüş olabilir (parent snapshot bozuk); level'ı senkronla.
+        if (isset($result['level'])) {
+            $engineLevel = (int) $result['level'];
+            $update['level'] = $engineLevel;
+            if ($engineLevel === 0) {
+                $update['parent_backup_id'] = null;
+                $update['base_backup_id'] = null;
+            }
+        }
         if (! empty($result['size_bytes'])) {
             $update['size_mb'] = round(((float) $result['size_bytes']) / 1048576, 4);
         }

@@ -255,6 +255,27 @@ class GoogleDriveService
     }
 
     /**
+     * Drive'daki bir dosyayı siler (retention/temizlik).
+     *
+     * @return array{ok: bool, error?: string}
+     */
+    public function deleteFile(BackupDestination $dest, string $fileId): array
+    {
+        $fileId = trim($fileId);
+        if ($fileId === '') {
+            return ['ok' => false, 'error' => 'empty file id'];
+        }
+        $token = $this->accessToken($dest);
+        $response = Http::withToken($token)->delete(self::DRIVE_API.'/'.rawurlencode($fileId));
+        // 204 No Content = başarı; 404 = zaten yok (idempotent kabul).
+        if ($response->successful() || $response->status() === 404) {
+            return ['ok' => true];
+        }
+
+        return ['ok' => false, 'error' => (string) ($response->json('error.message') ?? $response->body())];
+    }
+
+    /**
      * @return array{ok: bool, error?: string, path?: string}
      */
     public function downloadToTemp(BackupDestination $dest, string $fileId): array

@@ -158,6 +158,38 @@ class BackupStorageService
         }
     }
 
+    /**
+     * Uzak hedeften bir yedek dosyasını siler (retention/temizlik). Best-effort.
+     *
+     * @return array{ok: bool, error?: string}
+     */
+    public function deleteRemote(BackupDestination $dest, string $remotePath, ?string $fileId = null): array
+    {
+        if ($dest->driver === 'google_drive') {
+            $id = $fileId ?: $this->parseGoogleFileId($remotePath);
+            if (trim((string) $id) === '') {
+                return ['ok' => true];
+            }
+
+            return $this->googleDrive->deleteFile($dest, (string) $id);
+        }
+
+        $key = trim($remotePath);
+        if ($key === '') {
+            return ['ok' => true];
+        }
+        try {
+            $disk = $this->buildDestinationDisk($dest);
+            if ($disk->exists($key)) {
+                $disk->delete($key);
+            }
+
+            return ['ok' => true];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     public function buildDestinationDisk(BackupDestination $dest)
     {
         $cfg = (array) ($dest->config ?? []);

@@ -242,15 +242,17 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	})
 	api.POST("/backups", func(c *gin.Context) {
 		var req struct {
-			Domain        string  `json:"domain" binding:"required"`
-			Type          string  `json:"type"`
-			PanelBackupID float64 `json:"panel_backup_id"`
+			Domain         string  `json:"domain" binding:"required"`
+			Type           string  `json:"type"`
+			PanelBackupID  float64 `json:"panel_backup_id"`
+			Level          int     `json:"level"`
+			ParentSnapshot string  `json:"parent_snapshot"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		entry, err := panelmirror.BackupQueue(cfg, req.Domain, req.Type, req.PanelBackupID)
+		entry, err := panelmirror.BackupQueue(cfg, req.Domain, req.Type, req.PanelBackupID, req.Level, req.ParentSnapshot)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -259,6 +261,30 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 	})
 	api.POST("/backups/:id/restore", func(c *gin.Context) {
 		res, err := panelmirror.BackupRestore(cfg, c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, res)
+	})
+	// Arttırımlı zincir geri yükleme: base → ... → hedef engine backup id'leri sıralı.
+	api.POST("/backups/restore-chain", func(c *gin.Context) {
+		var req struct {
+			IDs []string `json:"ids" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		res, err := panelmirror.BackupRestoreChain(cfg, req.IDs)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, res)
+	})
+	api.DELETE("/backups/:id", func(c *gin.Context) {
+		res, err := panelmirror.BackupDelete(cfg, c.Param("id"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
