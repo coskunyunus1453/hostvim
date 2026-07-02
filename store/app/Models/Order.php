@@ -29,7 +29,11 @@ class Order extends Model
             'subtotal' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total' => 'decimal:2',
-            'payment_data' => 'encrypted:array',
+            // NOT: payment_data kolonu MySQL/MariaDB'de JSON (json_valid CHECK) olarak tanımlı.
+            // "encrypted:array" cast'i JSON olmayan şifreli metin ürettiğinden CHECK constraint'ini
+            // ihlal ediyordu ve TÜM ödeme callback'leri (PayTR/Stripe/PayPal/Iyzico) hata veriyordu.
+            // Düz JSON cast'i kullanıyoruz; alan zaten $hidden ile API/serileştirmede gizli.
+            'payment_data' => 'array',
         ];
     }
 
