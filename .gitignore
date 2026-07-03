@@ -76,6 +76,23 @@ dist-artifacts/
 .env.staging
 **/.env.production
 
+# .env yedekleri / sir icerebilecek yedekler (asla commit edilmez)
+.env.bak
+.env.bak.*
+.env.bak-*
+.env.bak_*
+.env.backup
+**/.env.bak*
+**/.env.*.bak
+*.env.bak*
+
+# Genel yedek/eski dosyalar (kaynak/sir sizintisi onlemi)
+*.bak
+*.bak-*
+*.bak.*
+*.bak_*
+composer.lock.bak*
+
 # Stray manuel yedek/arşiv ve debug dosyaları
 /landing/*.zip
 /error.txt
