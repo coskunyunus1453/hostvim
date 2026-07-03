@@ -16,6 +16,10 @@ func PoolOptions(cfg *config.Config, meta *sites.SiteMeta, domain, docRoot strin
 		MaxChildren:  c.DefaultMaxChildren,
 		MemoryLimit:  c.DefaultMemoryLimit,
 	}
+	// Site bilinçli olarak shell fonksiyonlarına izin verdiyse disable_functions'ı kaldır.
+	if meta != nil && meta.ShellFunctions {
+		opts.DisableFunctions = "none"
+	}
 	if !c.Enabled {
 		return opts
 	}

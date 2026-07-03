@@ -374,6 +374,102 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		})
 	})
 
+	// PHP shell fonksiyonları (exec/shell_exec/system...) site bazında aç/kapa durumu.
+	api.GET("/sites/:domain/php-shell", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		enabled := meta != nil && meta.ShellFunctions
+		c.JSON(http.StatusOK, gin.H{
+			"domain":          d,
+			"shell_functions": enabled,
+			"managed_pool":    sitecage.ManagePools(cfg),
+		})
+	})
+
+	// PHP shell fonksiyonlarını aç/kapa: site meta güncellenir ve FPM havuzu yeniden yazılır.
+	api.POST("/sites/:domain/php-shell", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		var req struct {
+			Enabled    bool   `json:"enabled"`
+			PHPVersion string `json:"php_version"`
+			ServerType string `json:"server_type"`
+		}
+		_ = c.ShouldBindJSON(&req)
+
+		// Site kökü yoksa gerçekten sağlanmamış demektir.
+		siteRoot := filepath.Join(cfg.Paths.WebRoot, d)
+		if _, statErr := os.Stat(siteRoot); statErr != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "domain root not found", "needs_reprovision": true})
+			return
+		}
+
+		// Meta yoksa (ör. eski panelden taşınmış site) makul varsayılanlarla oluştur (self-heal).
+		meta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, d)
+		if meta == nil {
+			meta = &sites.SiteMeta{}
+		}
+		if strings.TrimSpace(meta.PHPVersion) == "" {
+			meta.PHPVersion = strings.TrimSpace(req.PHPVersion)
+			if meta.PHPVersion == "" {
+				meta.PHPVersion = "8.2"
+			}
+		}
+		if strings.TrimSpace(meta.DocumentRoot) == "" {
+			meta.DocumentRoot = filepath.Join(siteRoot, "public_html")
+		}
+		if strings.TrimSpace(meta.ServerType) == "" {
+			st := sites.NormalizeServerType(strings.TrimSpace(req.ServerType))
+			if st == "" {
+				st = "nginx"
+			}
+			meta.ServerType = st
+		}
+		if sitecage.ManagePools(cfg) {
+			meta.CageEnabled = true
+		}
+		meta.ShellFunctions = req.Enabled
+		if err := sites.WriteSiteMeta(cfg.Paths.WebRoot, d, meta); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// FPM havuzu yalnızca per-site pool yönetiliyorsa yeniden yazılır (aksi halde
+		// paylaşımlı master zaten disable_functions uygulamaz).
+		if sitecage.ManagePools(cfg) {
+			phpV := strings.TrimSpace(meta.PHPVersion)
+			if phpV == "" {
+				phpV = "8.2"
+			}
+			docRoot := strings.TrimSpace(meta.DocumentRoot)
+			if docRoot == "" {
+				docRoot = filepath.Join(cfg.Paths.WebRoot, d, "public_html")
+			}
+			ps := phpfpmSettings(cfg)
+			poolOpts := sitecage.PoolOptions(cfg, meta, d, docRoot)
+			if _, _, _, perr := phpfpm.WritePool(ps, d, phpV, docRoot, poolOpts); perr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": perr.Error()})
+				return
+			}
+			if cfg.Hosting.PHPFPMreloadAfterPool {
+				_ = phpfpm.Reload(phpV)
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ok":              true,
+			"domain":          d,
+			"shell_functions": meta.ShellFunctions,
+		})
+	})
+
 	api.GET("/sites/:domain/traffic", func(c *gin.Context) {
 		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
 		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {

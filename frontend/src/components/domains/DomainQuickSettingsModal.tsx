@@ -45,6 +45,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
   const [php, setPhp] = useState('')
   const [server, setServer] = useState<'nginx' | 'apache' | 'openlitespeed'>('nginx')
   const [perfMode, setPerfMode] = useState<'off' | 'standard'>('off')
+  const [shellOn, setShellOn] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [sslPhase, setSslPhase] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [sslStep, setSslStep] = useState(0)
@@ -83,6 +84,7 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
       setSslStep(0)
       setSslDiagnostics(null)
       setPerfMode('off')
+      setShellOn(false)
     }
   }, [domain])
 
@@ -150,6 +152,41 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
       setPerfMode(m)
     }
   }, [perfQ.data?.performance_mode])
+
+  const phpShellQ = useQuery({
+    queryKey: ['domain-php-shell', domain?.id ?? 0],
+    enabled: open && !!domain?.id,
+    queryFn: async () =>
+      (await api.get(`/domains/${domain?.id}/php-functions`)).data as {
+        shell_functions: boolean
+        managed_pool?: boolean
+        can_manage?: boolean
+      },
+    staleTime: 15_000,
+    retry: false,
+  })
+
+  useEffect(() => {
+    if (typeof phpShellQ.data?.shell_functions === 'boolean') {
+      setShellOn(phpShellQ.data.shell_functions)
+    }
+  }, [phpShellQ.data?.shell_functions])
+
+  const phpShellM = useMutation({
+    mutationFn: async (enabled: boolean) =>
+      (await api.post(`/domains/${domain?.id}/php-functions`, { enabled })).data as {
+        shell_functions: boolean
+      },
+    onSuccess: (res) => {
+      toast.success(t('domains.php_shell_saved'))
+      setShellOn(res.shell_functions)
+      void qc.invalidateQueries({ queryKey: ['domain-php-shell', domain?.id ?? 0] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
 
   const perfSaveM = useMutation({
     mutationFn: async (mode: 'off' | 'standard') =>
@@ -666,6 +703,53 @@ export default function DomainQuickSettingsModal({ domain, open, onClose }: Prop
             {vhostServerKind !== 'nginx' && (
               <p className="self-center text-xs text-amber-700 dark:text-amber-300">{t('domains.perf_nginx_only')}</p>
             )}
+          </div>
+        </div>
+        )}
+
+        {!isSubdomainQuick && phpShellQ.data?.can_manage && phpShellQ.data?.managed_pool && (
+        <div className="mb-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('domains.php_shell_title')}</p>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t('domains.php_shell_hint')}</p>
+            </div>
+            <span
+              className={clsx(
+                'shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide',
+                shellOn
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+              )}
+            >
+              {phpShellQ.isLoading ? '…' : shellOn ? t('domains.php_shell_on') : t('domains.php_shell_off')}
+            </span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={clsx('btn-secondary text-xs', !shellOn && 'ring-2 ring-emerald-500')}
+              disabled={phpShellM.isPending || phpShellQ.isLoading || !shellOn}
+              onClick={() => {
+                if (!window.confirm(t('domains.php_shell_confirm_off'))) return
+                phpShellM.mutate(false)
+              }}
+            >
+              {t('domains.php_shell_disable')}
+            </button>
+            <button
+              type="button"
+              className={clsx('btn-secondary text-xs', shellOn && 'ring-2 ring-amber-500')}
+              disabled={phpShellM.isPending || phpShellQ.isLoading || shellOn}
+              onClick={() => {
+                if (!window.confirm(t('domains.php_shell_confirm_on'))) return
+                phpShellM.mutate(true)
+              }}
+            >
+              {phpShellM.isPending ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : null}{' '}
+              {t('domains.php_shell_enable')}
+            </button>
           </div>
         </div>
         )}

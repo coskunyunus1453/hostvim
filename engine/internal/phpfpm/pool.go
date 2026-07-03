@@ -64,7 +64,13 @@ type PoolOptions struct {
 	MemoryLimit  string
 	BaseDir      string // open_basedir kökü (site kökü). Boşsa docRoot kullanılır.
 	ExtraBasedir string // örn. site/tmp — session/upload/tmp buraya yönlenir
+	// DisableFunctions php_admin_value[disable_functions] tam değeri. Boşsa güvenli
+	// varsayılan (DefaultDisableFunctions) uygulanır. "none" ise hiçbir fonksiyon kapatılmaz.
+	DisableFunctions string
 }
+
+// DefaultDisableFunctions güvenli varsayılan: tehlikeli sistem/komut fonksiyonları kapalı.
+const DefaultDisableFunctions = "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,pcntl_fork"
 
 func (h HostingPoolSettings) poolUser(opts PoolOptions) string {
 	if strings.TrimSpace(opts.SiteUser) != "" {
@@ -157,7 +163,7 @@ php_admin_value[memory_limit] = %s
 php_admin_value[session.save_path] = %s
 php_admin_value[upload_tmp_dir] = %s
 php_value[sys_temp_dir] = %s
-php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,pcntl_fork
+php_admin_value[disable_functions] = %s
 ; Performans: OPcache (PHP uygulamaları için interned/dosya/revalidate ayarı)
 php_admin_value[opcache.interned_strings_buffer] = 16
 php_admin_value[opcache.max_accelerated_files] = 20000
@@ -279,6 +285,13 @@ func RenderPool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts 
 		basedir += ":" + tmpDir
 	}
 	basedir += ":/tmp:/var/tmp"
+	// disable_functions: boş → güvenli varsayılan; "none" → hiçbiri kapatılmaz.
+	disableFns := strings.TrimSpace(o.DisableFunctions)
+	if disableFns == "" {
+		disableFns = DefaultDisableFunctions
+	} else if strings.EqualFold(disableFns, "none") {
+		disableFns = ""
+	}
 	body = fmt.Sprintf(
 		poolTemplate,
 		domain,
@@ -299,6 +312,7 @@ func RenderPool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts 
 		tmpDir,
 		tmpDir,
 		tmpDir,
+		disableFns,
 	)
 	return body, socket, nil
 }

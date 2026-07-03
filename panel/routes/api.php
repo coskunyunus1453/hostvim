@@ -56,6 +56,7 @@ use App\Http\Controllers\Api\NodeAppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PanelUpdateController;
 use App\Http\Controllers\Api\PerformanceController;
+use App\Http\Controllers\Api\PhpFunctionsController;
 use App\Http\Controllers\Api\PluginStoreController;
 use App\Http\Controllers\Api\RedirectController;
 use App\Http\Controllers\Api\ProfileController;
@@ -146,6 +147,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::get('domains/{domain}/traffic', [DomainController::class, 'traffic']);
         Route::get('domains/{domain}/stack-scan', [SiteStackController::class, 'scan']);
         Route::get('domains/{domain}/performance', [PerformanceController::class, 'show']);
+        Route::get('domains/{domain}/php-functions', [PhpFunctionsController::class, 'show']);
         Route::get('domains/{domain}/redirects', [RedirectController::class, 'index']);
     });
     Route::middleware('ability:domains:write')->group(function () {
@@ -163,6 +165,7 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
         Route::post('domains/{domain}/document-root', [DocumentRootController::class, 'update']);
         Route::post('domains/{domain}/stack-fix', [SiteStackController::class, 'fix']);
         Route::post('domains/{domain}/performance', [PerformanceController::class, 'update']);
+        Route::post('domains/{domain}/php-functions', [PhpFunctionsController::class, 'update']);
         Route::put('domains/{domain}/redirects', [RedirectController::class, 'update']);
         Route::get('domains/{domain}/nginx-vhost', [DomainNginxVhostController::class, 'show']);
         Route::put('domains/{domain}/nginx-vhost', [DomainNginxVhostController::class, 'update']);

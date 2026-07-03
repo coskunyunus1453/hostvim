@@ -40,6 +40,11 @@ type SiteMeta struct {
 	// 0 = engine global varsayılanı kullan (geriye dönük uyumluluk).
 	CPUPercent int `json:"cpu_percent,omitempty"`
 	MemoryMB   int `json:"memory_mb,omitempty"`
+	// ShellFunctions true ise site PHP-FPM havuzunda exec/shell_exec/system vb.
+	// tehlikeli fonksiyonlar AÇIK bırakılır (varsayılan: kapalı — güvenli).
+	// Yalnızca bu fonksiyonlara ihtiyaç duyan (ör. CLI çağıran) uygulamalar için
+	// yönetici tarafından bilinçli olarak açılmalıdır.
+	ShellFunctions bool `json:"shell_functions,omitempty"`
 }
 
 // ForceHTTPSRedirect SSL etkin sitelerde HTTP→HTTPS yönlendirmesi isteniyor mu (varsayılan: true).

@@ -378,6 +378,34 @@ class EngineApiService
     }
 
     /**
+     * PHP shell fonksiyonları (exec/shell_exec/system...) site bazında açık mı.
+     *
+     * @return array{domain?: string, shell_functions?: bool, managed_pool?: bool, error?: string}
+     */
+    public function getSitePhpShell(string $domain): array
+    {
+        return $this->getChecked('/api/v1/sites/'.rawurlencode($domain).'/php-shell');
+    }
+
+    /**
+     * PHP shell fonksiyonlarını aç/kapa (site meta + FPM havuzu yeniden yazılır).
+     *
+     * @return array{domain?: string, shell_functions?: bool, ok?: bool, error?: string}
+     */
+    public function setSitePhpShell(string $domain, bool $enabled, string $phpVersion = '', string $serverType = ''): array
+    {
+        $payload = ['enabled' => $enabled];
+        if ($phpVersion !== '') {
+            $payload['php_version'] = $phpVersion;
+        }
+        if ($serverType !== '') {
+            $payload['server_type'] = $this->normalizeServerType($serverType);
+        }
+
+        return $this->postChecked('/api/v1/sites/'.rawurlencode($domain).'/php-shell', $payload);
+    }
+
+    /**
      * @return array{domain?: string, ssl_enabled?: bool, force_https?: bool, server_type?: string, error?: string}
      */
     public function getSiteSslSettings(string $domain): array
