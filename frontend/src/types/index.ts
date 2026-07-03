@@ -194,10 +194,15 @@ export interface DashboardQuota {
   disk_used_mb: number
   /** null = sınırsız */
   disk_limit_mb: number | null
+  inode_used?: number
+  /** null = sınırsız */
+  inode_limit?: number | null
   /** null = sınırsız */
   cpu_limit: number | null
   /** null = sınırsız */
   memory_limit_mb: number | null
+  /** Anlık RAM kullanımı (MB); yalnızca per-site cage slice'ı olan sitelerde ölçülür */
+  memory_used_mb?: number
   domains: QuotaUsage
   databases: QuotaUsage
   email: QuotaUsage

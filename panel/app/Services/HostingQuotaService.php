@@ -259,6 +259,33 @@ class HostingQuotaService
     }
 
     /**
+     * Kullanıcının tüm alan adları için PanelKafes slice'larından toplam anlık RAM (bayt).
+     * Not: yalnızca per-site cage slice'ı olan siteler ölçülür; olmayan siteler 0 sayılır.
+     */
+    public function sumAccountMemoryBytes(User $user): int
+    {
+        if ($user->isAdmin()) {
+            return 0;
+        }
+
+        return (int) Cache::remember(
+            'panelze:mem:sum:'.$user->id,
+            30,
+            function () use ($user): int {
+                $total = 0;
+                foreach ($user->domains()->cursor() as $domain) {
+                    $row = $this->engine->getSiteCageUsage((string) $domain->name);
+                    if (empty($row['error'])) {
+                        $total += (int) ($row['memory_bytes'] ?? 0);
+                    }
+                }
+
+                return $total;
+            }
+        );
+    }
+
+    /**
      * Dosya listesinden tek dosya boyutu (bayt); bulunamazsa 0.
      */
     public function engineFileSizeBytes(string $domain, string $enginePath): int

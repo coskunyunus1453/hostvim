@@ -360,6 +360,20 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		c.JSON(http.StatusOK, gin.H{"domain": d, "inodes": n, "exists": true})
 	})
 
+	api.GET("/sites/:domain/cage-usage", func(c *gin.Context) {
+		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
+		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain"})
+			return
+		}
+		memBytes, ok := sitecage.MemoryUsageBytes(d)
+		c.JSON(http.StatusOK, gin.H{
+			"domain":       d,
+			"memory_bytes": memBytes,
+			"exists":       ok,
+		})
+	})
+
 	api.GET("/sites/:domain/traffic", func(c *gin.Context) {
 		d := strings.ToLower(strings.TrimSpace(c.Param("domain")))
 		if d == "" || strings.Contains(d, "..") || !nginx.DomainSafe(d) {

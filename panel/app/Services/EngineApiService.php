@@ -1389,6 +1389,38 @@ class EngineApiService
         }
     }
 
+    /**
+     * Sitenin PanelKafes kaynak slice'ının anlık bellek (RAM) kullanımını bayt olarak okur.
+     *
+     * @return array{memory_bytes?: int, exists?: bool, error?: string}
+     */
+    public function getSiteCageUsage(string $domain): array
+    {
+        if (! $this->engineAuthConfigured()) {
+            return ['error' => (string) __('messages.engine_auth_missing'), 'memory_bytes' => 0, 'exists' => false];
+        }
+        try {
+            $response = $this->client()->get($this->baseUrl.'/api/v1/sites/'.rawurlencode($domain).'/cage-usage');
+            $json = $response->json() ?? [];
+            if (! $response->successful()) {
+                return [
+                    'error' => $this->formatEngineHttpError($response, $json),
+                    'memory_bytes' => 0,
+                    'exists' => false,
+                ];
+            }
+
+            return [
+                'memory_bytes' => (int) ($json['memory_bytes'] ?? 0),
+                'exists' => (bool) ($json['exists'] ?? false),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Engine API GET /sites/cage-usage failed: '.$e->getMessage());
+
+            return ['error' => $e->getMessage(), 'memory_bytes' => 0, 'exists' => false];
+        }
+    }
+
     public function restoreBackupUpload(string $localPath, ?string $filename = null): array
     {
         if (! $this->engineAuthConfigured()) {

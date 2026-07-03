@@ -25,6 +25,11 @@ function fmtMb(mb?: number | null): string {
   return `${Math.round(mb)} MB`
 }
 
+function fmtNum(n?: number | null): string {
+  if (n == null || !Number.isFinite(n)) return '—'
+  return Math.round(n).toLocaleString()
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -176,10 +181,9 @@ export default function DashboardPage() {
   ]
   const pkg = user?.hosting_package
   const quota = d?.quota
-  type LimitRow = { key: string; label: string; used: number; max: number | null; kind: 'disk' | 'count' }
+  type LimitRow = { key: string; label: string; used: number; max: number | null; kind: 'disk' | 'ram' | 'count' }
   const limitRows: LimitRow[] = quota
     ? [
-        { key: 'disk', label: t('dashboard.limit_disk'), used: quota.disk_used_mb, max: quota.disk_limit_mb, kind: 'disk' },
         { key: 'domains', label: t('nav.domains'), used: quota.domains.used, max: quota.domains.max, kind: 'count' },
         { key: 'databases', label: t('nav.databases'), used: quota.databases.used, max: quota.databases.max, kind: 'count' },
         { key: 'email', label: t('nav.email'), used: quota.email.used, max: quota.email.max, kind: 'count' },
@@ -193,10 +197,25 @@ export default function DashboardPage() {
           { key: 'email', label: t('nav.email'), used: d?.email_accounts_count ?? 0, max: pkg.max_email_accounts, kind: 'count' },
         ]
       : []
-  const nearLimit = limitRows.some((x) => x.max != null && x.max > 0 && x.used >= x.max)
   const cpuLimit = quota?.cpu_limit ?? null
   const ramLimit = quota?.memory_limit_mb ?? null
+  // Müşteriye özel kaynak doluluğu (SSD/RAM/inode) — "Sistem Durumu" kartında gösterilir.
+  const resourceRows: LimitRow[] = quota
+    ? [
+        { key: 'disk', label: t('dashboard.limit_disk'), used: quota.disk_used_mb, max: quota.disk_limit_mb, kind: 'disk' },
+        { key: 'ram', label: t('dashboard.limit_ram'), used: quota.memory_used_mb ?? 0, max: ramLimit, kind: 'ram' },
+        { key: 'inode', label: t('dashboard.limit_inode'), used: quota.inode_used ?? 0, max: quota.inode_limit ?? null, kind: 'count' },
+      ]
+    : []
+  const nearLimit =
+    limitRows.some((x) => x.max != null && x.max > 0 && x.used >= x.max) ||
+    resourceRows.some((x) => x.max != null && x.max > 0 && x.used >= x.max)
   const showPackageCard = limitRows.length > 0 || cpuLimit != null || ramLimit != null
+  const showCustomerResources = !serverUI && quota != null
+  const custDiskPct =
+    quota && quota.disk_limit_mb != null && quota.disk_limit_mb > 0
+      ? Math.min(100, Math.round((quota.disk_used_mb / quota.disk_limit_mb) * 100))
+      : null
   const servicePriority = ['nginx', 'apache2', 'openlitespeed']
   const serviceRows = ((servicesQ.data ?? []) as ServiceInfo[])
     .filter((svc) => servicePriority.includes(svc.name) || /^php[0-9.]+-fpm$/i.test(svc.name))
@@ -293,10 +312,20 @@ export default function DashboardPage() {
                 {t('dashboard.disk_usage')}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                {dashQ.isFetching && !sys ? '…' : `${fmtGb(sys?.disk_used)} / ${fmtGb(sys?.disk_total)}`}
+                {showCustomerResources
+                  ? `${fmtMb(quota?.disk_used_mb)} / ${quota?.disk_limit_mb == null ? t('dashboard.unlimited') : fmtMb(quota.disk_limit_mb)}`
+                  : dashQ.isFetching && !sys
+                    ? '…'
+                    : `${fmtGb(sys?.disk_used)} / ${fmtGb(sys?.disk_total)}`}
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {sys?.disk_percent != null ? `%${Math.round(sys.disk_percent)} dolu` : '—'}
+                {showCustomerResources
+                  ? custDiskPct == null
+                    ? t('dashboard.unlimited')
+                    : `%${custDiskPct} ${t('dashboard.used')}`
+                  : sys?.disk_percent != null
+                    ? `%${Math.round(sys.disk_percent)} dolu`
+                    : '—'}
               </p>
             </div>
             <div className="rounded-xl bg-orange-50 p-2.5 ring-1 ring-orange-200 dark:bg-orange-950/30 dark:ring-orange-900/60">
@@ -306,7 +335,7 @@ export default function DashboardPage() {
           <div className="mt-4 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
             <div
               className="h-2 rounded-full bg-gradient-to-r from-orange-500 to-rose-500 transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, sys?.disk_percent ?? 0))}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, showCustomerResources ? (custDiskPct ?? 0) : (sys?.disk_percent ?? 0)))}%` }}
             />
           </div>
         </div>
@@ -350,9 +379,65 @@ export default function DashboardPage() {
             {t('dashboard.system_status')}
           </h3>
           {!serverUI ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('dashboard.system_admin_only')}
-            </p>
+            showCustomerResources ? (
+              <div className="space-y-4">
+                {quota?.package_name && (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{t('dashboard.package_resources_hint')}</p>
+                    <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/20 dark:text-primary-300">
+                      {quota.package_name}
+                    </span>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {resourceRows.map((r) => {
+                    const unlimited = r.max == null || r.max <= 0
+                    const pct = unlimited ? 0 : Math.min(100, Math.round((r.used / (r.max as number)) * 100))
+                    const fmt = r.kind === 'count' ? fmtNum : fmtMb
+                    const valueText = unlimited
+                      ? `${fmt(r.used)} / ${t('dashboard.unlimited')}`
+                      : `${fmt(r.used)} / ${fmt(r.max)}`
+                    const barColor = pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                    return (
+                      <div key={r.key} className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-gray-700 dark:text-gray-200">{r.label}</span>
+                          <span className="text-gray-900 dark:text-white">{valueText}</span>
+                        </div>
+                        <div className="mt-2 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                          <div
+                            className={`h-2 rounded-full transition-all ${unlimited ? 'bg-gray-300 dark:bg-gray-600' : barColor}`}
+                            style={{ width: unlimited ? '8%' : `${Math.max(2, pct)}%` }}
+                          />
+                        </div>
+                        {!unlimited && <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">%{pct} {t('dashboard.used')}</p>}
+                      </div>
+                    )
+                  })}
+                  <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700 dark:text-gray-200">{t('dashboard.limit_cpu')}</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {cpuLimit == null ? t('dashboard.unlimited') : `%${cpuLimit}`}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">{t('dashboard.cpu_entitlement_hint')}</p>
+                  </div>
+                </div>
+                {nearLimit && (
+                  <Link
+                    to="/invoices"
+                    className="inline-flex rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100"
+                  >
+                    {t('dashboard.upgrade_cta')}
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('dashboard.system_admin_only')}
+              </p>
+            )
           ) : !sys ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t('dashboard.system_engine_hint')}
@@ -456,7 +541,7 @@ export default function DashboardPage() {
                     </div>
                   )
                 })}
-                {(cpuLimit != null || ramLimit != null) && (
+                {!showCustomerResources && (cpuLimit != null || ramLimit != null) && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div className="rounded-lg bg-gray-50 px-2.5 py-2 dark:bg-gray-800/60">
                       <p className="text-[11px] text-gray-500 dark:text-gray-400">{t('dashboard.limit_cpu')}</p>
