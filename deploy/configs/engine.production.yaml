@@ -1,5 +1,7 @@
 # Panelze Engine — üretim şablonu (/etc/panelze/engine.yaml olarak kopyalanır)
-# Kurulum: install-production.sh otomatik doldurur (__INTERNAL_KEY__, __PANELZE_HOME__)
+# Kurulum: install-production.sh otomatik doldurur (PANELZE_HOME=__PANELZE_HOME__)
+# Not: gizli anahtarlar (internal_api_key/jwt_secret/secret_key) yalnizca ilgili
+# alanlarda tutulur; guvenlik icin yorumlara ASLA kopyalanmaz.
 
 server:
   port: 9090
