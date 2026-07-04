@@ -7,9 +7,16 @@ set -euo pipefail
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Root gerekli." >&2; exit 1; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/resolve-paths.sh
+source "$SCRIPT_DIR/lib/resolve-paths.sh"
+
 PANELZE_REPO_URL="${PANELZE_REPO_URL:-https://github.com/coskunyunus1453/hostvim.git}"
 PANELZE_BRANCH="${PANELZE_BRANCH:-main}"
-LANDING_ROOT="${LANDING_ROOT:-/var/www/panelze/data/www/panelze.com}"
+if [[ -z "${LANDING_ROOT:-}" ]]; then
+  _home="$(resolve_panelze_home)"
+  LANDING_ROOT="$_home/data/www/panelze.com"
+fi
 PUBLIC_HTML="${PUBLIC_HTML:-$LANDING_ROOT/public_html}"
 RUN_USER="${RUN_USER:-www-data}"
 WORK="$(mktemp -d)"
@@ -50,6 +57,17 @@ sudo -u "$RUN_USER" php artisan migrate --force 2>/dev/null || true
 sudo -u "$RUN_USER" php artisan config:cache 2>/dev/null || true
 sudo -u "$RUN_USER" php artisan route:cache 2>/dev/null || true
 sudo -u "$RUN_USER" php artisan view:cache 2>/dev/null || true
+
+# Site cage kullanıcısı varsa storage yazılabilir olmalı
+SITE_META="$LANDING_ROOT/.panelze/site.json"
+if [[ -f "$SITE_META" ]] && command -v jq >/dev/null 2>&1; then
+  CAGE_USER="$(jq -r '.cage_user // empty' "$SITE_META" 2>/dev/null || true)"
+  CAGE_GROUP="$(jq -r '.cage_group // empty' "$SITE_META" 2>/dev/null || true)"
+  if [[ -n "$CAGE_USER" ]]; then
+    chown -R "$CAGE_USER:${CAGE_GROUP:-$CAGE_USER}" "$LANDING_ROOT/storage" "$LANDING_ROOT/bootstrap/cache" 2>/dev/null || true
+    chmod -R ug+rwx "$LANDING_ROOT/storage" "$LANDING_ROOT/bootstrap/cache" 2>/dev/null || true
+  fi
+fi
 
 echo "==> Tamam. Kontrol:"
 ls -la "$PUBLIC_HTML/index.php"

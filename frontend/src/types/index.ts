@@ -192,6 +192,8 @@ export interface QuotaUsage {
 export interface DashboardQuota {
   package_name: string
   disk_used_mb: number
+  /** Küçük sitelerde doğru gösterim için bayt cinsinden disk kullanımı */
+  disk_used_bytes?: number
   /** null = sınırsız */
   disk_limit_mb: number | null
   inode_used?: number
@@ -203,6 +205,7 @@ export interface DashboardQuota {
   memory_limit_mb: number | null
   /** Anlık RAM kullanımı (MB); yalnızca per-site cage slice'ı olan sitelerde ölçülür */
   memory_used_mb?: number
+  memory_used_bytes?: number
   domains: QuotaUsage
   databases: QuotaUsage
   email: QuotaUsage

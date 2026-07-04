@@ -280,7 +280,9 @@ class SystemController extends Controller
 
                 $data['quota'] = [
                     'package_name' => $pkg->name,
+                    // MB alanları geriye dönük uyumluluk; küçük kullanımlar için bytes alanlarını kullanın.
                     'disk_used_mb' => (int) round($diskUsedBytes / 1048576),
+                    'disk_used_bytes' => $diskUsedBytes,
                     'disk_limit_mb' => $diskLimitBytes === null ? null : (int) round($diskLimitBytes / 1048576),
                     'inode_used' => $inodeUsed,
                     'inode_limit' => $inodeLimit,
@@ -288,6 +290,7 @@ class SystemController extends Controller
                     'memory_limit_mb' => $norm((int) ($pkg->memory_limit_mb ?? -1)),
                     // Anlık RAM kullanımı yalnızca per-site cage slice'ı olan sitelerde ölçülür (0 olabilir).
                     'memory_used_mb' => (int) round($memoryUsedBytes / 1048576),
+                    'memory_used_bytes' => $memoryUsedBytes,
                     'domains' => ['used' => $data['domains_count'], 'max' => $norm((int) ($pkg->max_domains ?? -1))],
                     'databases' => ['used' => $data['databases_count'], 'max' => $norm((int) ($pkg->max_databases ?? -1))],
                     'email' => ['used' => $data['email_accounts_count'], 'max' => $norm((int) ($pkg->max_email_accounts ?? -1))],

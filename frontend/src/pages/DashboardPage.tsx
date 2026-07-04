@@ -13,6 +13,7 @@ import ResourceChartsSection from '../components/dashboard/ResourceChartsSection
 import DashboardSkeleton from '../components/dashboard/DashboardSkeleton'
 import PanelUpdateCard from '../components/panel/PanelUpdateCard'
 import { pollWhenVisible } from '../lib/pollWhenVisible'
+import { fmtStorageBytes, fmtStorageLimitMb, storageUsagePercent } from '../lib/formatStorage'
 
 function fmtGb(nBytes?: number | null): string {
   if (nBytes == null || !Number.isFinite(nBytes)) return '—'
@@ -181,7 +182,15 @@ export default function DashboardPage() {
   ]
   const pkg = user?.hosting_package
   const quota = d?.quota
-  type LimitRow = { key: string; label: string; used: number; max: number | null; kind: 'disk' | 'ram' | 'count' }
+  type LimitRow = {
+    key: string
+    label: string
+    used: number
+    max: number | null
+    kind: 'disk' | 'ram' | 'count'
+    /** disk/ram için bayt — küçük kullanımlarda KB/B gösterimi */
+    usedBytes?: number
+  }
   const limitRows: LimitRow[] = quota
     ? [
         { key: 'domains', label: t('nav.domains'), used: quota.domains.used, max: quota.domains.max, kind: 'count' },
@@ -202,8 +211,22 @@ export default function DashboardPage() {
   // Müşteriye özel kaynak doluluğu (SSD/RAM/inode) — "Sistem Durumu" kartında gösterilir.
   const resourceRows: LimitRow[] = quota
     ? [
-        { key: 'disk', label: t('dashboard.limit_disk'), used: quota.disk_used_mb, max: quota.disk_limit_mb, kind: 'disk' },
-        { key: 'ram', label: t('dashboard.limit_ram'), used: quota.memory_used_mb ?? 0, max: ramLimit, kind: 'ram' },
+        {
+          key: 'disk',
+          label: t('dashboard.limit_disk'),
+          used: quota.disk_used_mb,
+          usedBytes: quota.disk_used_bytes,
+          max: quota.disk_limit_mb,
+          kind: 'disk',
+        },
+        {
+          key: 'ram',
+          label: t('dashboard.limit_ram'),
+          used: quota.memory_used_mb ?? 0,
+          usedBytes: quota.memory_used_bytes,
+          max: ramLimit,
+          kind: 'ram',
+        },
         { key: 'inode', label: t('dashboard.limit_inode'), used: quota.inode_used ?? 0, max: quota.inode_limit ?? null, kind: 'count' },
       ]
     : []
@@ -214,8 +237,30 @@ export default function DashboardPage() {
   const showCustomerResources = !serverUI && quota != null
   const custDiskPct =
     quota && quota.disk_limit_mb != null && quota.disk_limit_mb > 0
-      ? Math.min(100, Math.round((quota.disk_used_mb / quota.disk_limit_mb) * 100))
+      ? storageUsagePercent(quota.disk_used_bytes ?? quota.disk_used_mb * 1024 * 1024, quota.disk_limit_mb)
       : null
+
+  const fmtUsage = (r: LimitRow): string => {
+    if (r.kind === 'count') return fmtNum(r.used)
+    if (r.usedBytes != null && r.usedBytes >= 0) return fmtStorageBytes(r.usedBytes)
+    return fmtMb(r.used)
+  }
+
+  const fmtLimit = (r: LimitRow): string => {
+    if (r.kind === 'count') return fmtNum(r.max)
+    return fmtStorageLimitMb(r.max)
+  }
+
+  const usagePercent = (r: LimitRow): number => {
+    if (r.max == null || r.max <= 0) return 0
+    if (r.kind === 'disk' && r.usedBytes != null) {
+      return storageUsagePercent(r.usedBytes, r.max)
+    }
+    if (r.kind === 'ram' && r.usedBytes != null) {
+      return storageUsagePercent(r.usedBytes, r.max)
+    }
+    return Math.min(100, Math.round((r.used / r.max) * 100))
+  }
   const servicePriority = ['nginx', 'apache2', 'openlitespeed']
   const serviceRows = ((servicesQ.data ?? []) as ServiceInfo[])
     .filter((svc) => servicePriority.includes(svc.name) || /^php[0-9.]+-fpm$/i.test(svc.name))
@@ -313,7 +358,7 @@ export default function DashboardPage() {
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
                 {showCustomerResources
-                  ? `${fmtMb(quota?.disk_used_mb)} / ${quota?.disk_limit_mb == null ? t('dashboard.unlimited') : fmtMb(quota.disk_limit_mb)}`
+                  ? `${fmtStorageBytes(quota?.disk_used_bytes ?? (quota?.disk_used_mb != null ? quota.disk_used_mb * 1024 * 1024 : null))} / ${quota?.disk_limit_mb == null ? t('dashboard.unlimited') : fmtStorageLimitMb(quota.disk_limit_mb)}`
                   : dashQ.isFetching && !sys
                     ? '…'
                     : `${fmtGb(sys?.disk_used)} / ${fmtGb(sys?.disk_total)}`}
@@ -392,11 +437,10 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {resourceRows.map((r) => {
                     const unlimited = r.max == null || r.max <= 0
-                    const pct = unlimited ? 0 : Math.min(100, Math.round((r.used / (r.max as number)) * 100))
-                    const fmt = r.kind === 'count' ? fmtNum : fmtMb
+                    const pct = unlimited ? 0 : usagePercent(r)
                     const valueText = unlimited
-                      ? `${fmt(r.used)} / ${t('dashboard.unlimited')}`
-                      : `${fmt(r.used)} / ${fmt(r.max)}`
+                      ? `${fmtUsage(r)} / ${t('dashboard.unlimited')}`
+                      : `${fmtUsage(r)} / ${fmtLimit(r)}`
                     const barColor = pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
                     return (
                       <div key={r.key} className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
