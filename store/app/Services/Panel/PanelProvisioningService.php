@@ -147,22 +147,42 @@ class PanelProvisioningService
         return $this->tryRecoverFromPanelStatus($order);
     }
 
-    public function retry(Order $order): void
+    /**
+     * Admin "Tekrar dene" — yeni store/panel siparişi oluşturmaz.
+     * Panel fulfill `store_order_number` ile idempotent; varsa mevcut panel siparişi döner.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function retry(Order $order): array
     {
-        if ($order->payment_status !== 'paid' || $order->panel_provision_status === 'completed') {
-            return;
+        $order = $order->fresh();
+
+        if ($order === null || $order->payment_status !== 'paid') {
+            return ['ok' => false, 'message' => 'Sipariş ödenmemiş; panel kurulumu yapılamaz.'];
         }
 
-        if ($order->panel_provision_status === 'processing') {
-            return;
+        if ($order->panel_provision_status === 'completed') {
+            return ['ok' => true, 'message' => 'Panel kurulumu zaten tamamlanmış.'];
         }
 
+        if ($order->panel_provision_status === 'skipped') {
+            return ['ok' => false, 'message' => 'Bu siparişte panel kurulumu atlanmış (yalnızca bulut vb.).'];
+        }
+
+        // Önce panelde zaten var mı bak — çift order yaratmadan store'u completed yap.
+        if ($this->reconcileFromPanelStatus($order->fresh())) {
+            return ['ok' => true, 'message' => 'Panelde sipariş zaten vardı; store durumu senkronlandı (yeni kurulum yok).'];
+        }
+
+        // Stuck "processing" admin retry ile çözülebilir (recover cron da yapar ama UI net olsun).
         $order->update([
             'panel_provision_status' => 'pending',
             'panel_provision_error' => null,
         ]);
 
         $this->dispatchIfNeeded($order->fresh());
+
+        return ['ok' => true, 'message' => 'Panel kurulumu kuyruğa alındı. Birkaç saniye içinde tamamlanır; yoksa hata alanını yenileyin.'];
     }
 
     private function shouldQueue(Order $order): bool

@@ -1,20 +1,9 @@
-@extends('layouts.app')
-
-@section('title', 'Oturum süresi doldu')
-
-@section('content')
-<section class="auth-page">
-    <div class="auth-card">
-        <div class="auth-alert auth-alert-error" role="alert">
-            <p class="font-semibold">Form gönderilemedi</p>
-            <p class="mt-1 text-sm">Güvenlik doğrulaması başarısız oldu (oturum süresi dolmuş veya sayfa önbellekten yüklendi). Lütfen sayfayı yenileyip tekrar deneyin.</p>
-        </div>
-        <p class="mt-4 text-center">
-            <a href="{{ route('password.request') }}" class="btn-primary inline-flex">Şifremi unuttum sayfasını yenile</a>
-        </p>
-        <p class="auth-footer-text mt-4">
-            <a href="{{ route('login') }}" class="font-semibold text-hv-primary hover:underline">← Giriş sayfasına dön</a>
-        </p>
-    </div>
-</section>
-@endsection
+@include('errors._page', [
+    'code' => 419,
+    'title' => 'Oturum süreniz doldu',
+    'description' => 'HostVim güvenli oturumunun süresi doldu; işlemi yeniden başlatabilirsiniz.',
+    'message' => 'Güvenliğiniz için uzun süre açık kalan formlar sonlandırılır. Ana sayfaya dönüp işlemi yeniden başlatmanız yeterlidir.',
+    'accent' => '#06b6d4',
+    'accentDark' => '#0e7490',
+    'icon' => '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+])

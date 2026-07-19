@@ -123,6 +123,12 @@ hostvim_detect_store_user() {
     printf '%s\n' "$HOSTVIM_STORE_USER"
     return 0
   fi
+  # PanelKafes üretiminde FPM kullanıcısı her zaman doğru kaynak; rsync ile gelen
+  # Mac sahipliği (501/staff) artisan dosyasından yanlış kullanıcı seçilmesin.
+  if id pk-hostvim-com &>/dev/null; then
+    printf '%s\n' pk-hostvim-com
+    return 0
+  fi
   hostvim_resolve_paths
   local owner=""
   if [[ -f "${STORE_ROOT}/artisan" ]]; then
@@ -191,22 +197,24 @@ hostvim_rsync_store() {
   local dst="$2"
   local ssh_cmd="${3:-}"
   echo "==> Store rsync -> $dst"
+  # storage + bootstrap/cache asla rsync ile taşınmaz:
+  # Mac'teki 501:staff sahipliği ve dev-only provider önbelleği (Pail vb.) üretimde 500 üretir.
+  local -a _rsync_excludes=(
+    --exclude vendor
+    --exclude node_modules
+    --exclude .env
+    --exclude storage
+    --exclude bootstrap/cache
+    --exclude .git
+  )
   if [[ -n "$ssh_cmd" ]]; then
     rsync -az --delete \
-      --exclude vendor \
-      --exclude node_modules \
-      --exclude .env \
-      --exclude storage \
-      --exclude .git \
+      "${_rsync_excludes[@]}" \
       -e "$ssh_cmd" \
       "$repo/store/" "$dst"
   else
     rsync -az --delete \
-      --exclude vendor \
-      --exclude node_modules \
-      --exclude .env \
-      --exclude storage \
-      --exclude .git \
+      "${_rsync_excludes[@]}" \
       "$repo/store/" "$dst"
   fi
 }
@@ -236,7 +244,9 @@ hostvim_post_rsync_store() {
     find "$STORE_ROOT" \( -path "$STORE_ROOT/vendor" -o -path "$STORE_ROOT/.env" \) -prune \
       -o -exec chown "$user:$group" {} + 2>/dev/null || true
   fi
+  hostvim_ensure_store_runtime_dirs
   hostvim_fix_store_permissions
+  hostvim_sanitize_store_bootstrap_cache
 }
 
 hostvim_rsync_panel_integration() {
@@ -269,11 +279,13 @@ hostvim_rsync_deploy_helpers() {
     rsync -az -e "ssh -i $ssh_key -o StrictHostKeyChecking=no" \
       "$repo/deploy/scripts/install-hostvim-full.sh" \
       "$repo/deploy/scripts/deploy-store.sh" \
+      "$repo/deploy/scripts/fix-store-permissions.sh" \
       "${ssh_host}:${panelze_home}/deploy/scripts/"
   else
     mkdir -p "$panelze_home/deploy/scripts/lib"
     rsync -az "$repo/deploy/scripts/lib/hostvim-common.sh" "$panelze_home/deploy/scripts/lib/"
     rsync -az "$repo/deploy/scripts/install-hostvim-full.sh" "$repo/deploy/scripts/deploy-store.sh" \
+      "$repo/deploy/scripts/fix-store-permissions.sh" \
       "$panelze_home/deploy/scripts/" 2>/dev/null || true
   fi
 }
@@ -293,6 +305,7 @@ hostvim_rsync_repo_for_panel() {
       --exclude '*/vendor' \
       --exclude 'frontend/node_modules' \
       --exclude 'store/storage' \
+      --exclude 'store/bootstrap/cache' \
       --exclude 'panel/storage' \
       --exclude 'landing/storage' \
       --exclude 'data/www' \
@@ -313,6 +326,7 @@ hostvim_rsync_repo_for_panel() {
       --exclude '*/vendor' \
       --exclude 'frontend/node_modules' \
       --exclude 'store/storage' \
+      --exclude 'store/bootstrap/cache' \
       --exclude 'panel/storage' \
       --exclude 'landing/storage' \
       --exclude 'data/www' \
@@ -493,6 +507,10 @@ echo (int) \\App\\Models\\User::count();
     fi
   fi
 
+  hostvim_ensure_store_runtime_dirs
+  hostvim_fix_store_permissions
+  hostvim_sanitize_store_bootstrap_cache
+
   hostvim_run_as_store php artisan filament:assets --no-interaction 2>/dev/null || true
   hostvim_run_as_store php artisan filament:optimize --no-interaction 2>/dev/null || true
   hostvim_run_as_store php artisan icons:cache --no-interaction 2>/dev/null || true
@@ -526,11 +544,55 @@ echo (int) \\App\\Models\\User::count();
   done
 }
 
+hostvim_ensure_store_runtime_dirs() {
+  hostvim_resolve_paths
+  [[ -d "$STORE_ROOT" ]] || return 0
+  local user group
+  user="$(hostvim_detect_store_user)"
+  group="$(hostvim_detect_store_group)"
+  mkdir -p \
+    "$STORE_ROOT/storage/framework/cache/data" \
+    "$STORE_ROOT/storage/framework/sessions" \
+    "$STORE_ROOT/storage/framework/views" \
+    "$STORE_ROOT/storage/logs" \
+    "$STORE_ROOT/storage/app/public" \
+    "$STORE_ROOT/bootstrap/cache"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown -R "$user:$group" "$STORE_ROOT/storage" "$STORE_ROOT/bootstrap/cache" 2>/dev/null || true
+  fi
+}
+
+# Mac/rsync ile gelen dev bootstrap önbelleğini (Pail vb.) üretimde yeniden kurar.
+hostvim_sanitize_store_bootstrap_cache() {
+  hostvim_resolve_paths
+  [[ -f "$STORE_ROOT/artisan" ]] || return 0
+  local packages="$STORE_ROOT/bootstrap/cache/packages.php"
+  local needs_rebuild=0
+  if [[ ! -f "$packages" ]]; then
+    needs_rebuild=1
+  elif grep -qE 'PailServiceProvider|CollisionServiceProvider|Laravel\\\\Sail' "$packages" 2>/dev/null; then
+    needs_rebuild=1
+  fi
+  if [[ "$needs_rebuild" != "1" ]]; then
+    return 0
+  fi
+  echo "==> Store bootstrap cache yeniden oluşturuluyor (dev provider temizliği)"
+  cd "$STORE_ROOT"
+  rm -f \
+    "$STORE_ROOT/bootstrap/cache/packages.php" \
+    "$STORE_ROOT/bootstrap/cache/services.php" \
+    "$STORE_ROOT/bootstrap/cache/config.php"
+  hostvim_fix_store_permissions
+  hostvim_run_as_store php artisan package:discover --ansi --no-interaction 2>/dev/null || true
+}
+
 hostvim_fix_store_permissions() {
   hostvim_resolve_paths
   local user group
   user="$(hostvim_detect_store_user)"
   group="$(hostvim_detect_store_group)"
+
+  hostvim_ensure_store_runtime_dirs
 
   for dir in "$STORE_ROOT/storage" "$STORE_ROOT/bootstrap/cache"; do
     [[ -d "$dir" ]] || continue
@@ -545,6 +607,66 @@ hostvim_fix_store_permissions() {
   fi
 
   echo "==> Store izinleri: $user:$group"
+}
+
+# Hafif sağlık kontrolü — cron/guard için; tam deploy değil.
+hostvim_store_guard() {
+  hostvim_resolve_paths
+  [[ -f "$STORE_ROOT/artisan" ]] || return 0
+
+  local user code probe need_perm_fix=0
+  user="$(hostvim_detect_store_user)"
+
+  # logs + file-cache + sessions: FPM (pk-hostvim-com) yazabilmeli.
+  # Root ile artisan çalıştırılınca alt dizinler root'a geçer → Permission denied → 500.
+  for probe in \
+    "$STORE_ROOT/storage/logs/.hostvim-guard-probe" \
+    "$STORE_ROOT/storage/framework/cache/data/.hostvim-guard-probe" \
+    "$STORE_ROOT/storage/framework/sessions/.hostvim-guard-probe" \
+    "$STORE_ROOT/storage/framework/views/.hostvim-guard-probe"
+  do
+    mkdir -p "$(dirname "$probe")" 2>/dev/null || true
+    if ! (sudo -u "$user" touch "$probe" 2>/dev/null && sudo -u "$user" rm -f "$probe" 2>/dev/null); then
+      need_perm_fix=1
+      break
+    fi
+  done
+
+  # Root'a geçmiş cache/session dosyaları (probe geçer ama alt dizin yazılamaz)
+  if [[ "$need_perm_fix" != "1" ]] && [[ -d "$STORE_ROOT/storage/framework" ]]; then
+    if find "$STORE_ROOT/storage/framework" "$STORE_ROOT/storage/logs" "$STORE_ROOT/bootstrap/cache" \
+      -not -user "$user" 2>/dev/null | head -1 | grep -q .; then
+      need_perm_fix=1
+    fi
+  fi
+
+  if [[ "$need_perm_fix" == "1" ]]; then
+    echo "==> Store guard: storage/cache yazılamıyor veya sahiplik kaymış — izin onarımı"
+    hostvim_fix_store_permissions
+    hostvim_sanitize_store_bootstrap_cache
+  fi
+
+  hostvim_sanitize_store_bootstrap_cache
+
+  code="$(curl -sk -o /dev/null -w '%{http_code}' -H "Host: ${STORE_DOMAIN}" "https://127.0.0.1/" 2>/dev/null || echo 000)"
+  if [[ "$code" != "200" ]]; then
+    echo "==> Store guard: HTTP $code — tam onarım"
+    hostvim_finalize_store || return 1
+  fi
+  return 0
+}
+
+hostvim_install_store_guard_cron() {
+  hostvim_resolve_paths
+  local script="${PANELZE_HOME}/deploy/scripts/fix-store-permissions.sh"
+  [[ -f "$script" ]] || script="$(hostvim_repo_root)/deploy/scripts/fix-store-permissions.sh"
+  [[ -f "$script" ]] || return 0
+  echo "==> Store guard cron (5 dk)"
+  cat > /etc/cron.d/hostvim-store-guard <<CRON
+# HostVim store — rsync/izin kayması sonrası otomatik onarım
+*/5 * * * * root bash ${script} --guard-only >/dev/null 2>&1
+CRON
+  chmod 644 /etc/cron.d/hostvim-store-guard
 }
 
 hostvim_fix_permissions() {
@@ -564,10 +686,13 @@ hostvim_fix_permissions() {
 
 hostvim_finalize_store() {
   hostvim_resolve_paths
+  hostvim_ensure_store_runtime_dirs
   hostvim_fix_store_permissions
+  hostvim_sanitize_store_bootstrap_cache
   if [[ "$(id -u)" -eq 0 ]]; then
     hostvim_install_store_scheduler
     hostvim_install_store_queue
+    hostvim_install_store_guard_cron
   fi
   if [[ -f "$STORE_ROOT/artisan" ]]; then
     cd "$STORE_ROOT"

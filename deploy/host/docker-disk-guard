@@ -1,0 +1,148 @@
+#!/bin/bash
+# Docker + build cache disk guard — Coderga/coskai sandbox imajları korunur.
+#
+# Kullanım:
+#   docker-disk-guard           # günlük (hafif)
+#   docker-disk-guard weekly    # haftalık (orphan imaj/volume + mobil preview)
+#
+# Ortam:
+#   DOCKER_GUARD_VERBOSE=1
+#   DOCKER_GUARD_BUILD_CACHE_KEEP_HOURS=72   # günlük prune eşiği
+#   DOCKER_GUARD_BUILD_CACHE_MAX_GB=8        # aşılırsa agresif prune
+set -euo pipefail
+
+LOG_TAG="docker-disk-guard"
+MODE="${1:-daily}"
+VERBOSE="${DOCKER_GUARD_VERBOSE:-0}"
+BUILD_KEEP_HOURS="${DOCKER_GUARD_BUILD_CACHE_KEEP_HOURS:-72}"
+BUILD_MAX_GB="${DOCKER_GUARD_BUILD_CACHE_MAX_GB:-8}"
+MOBIL_WRITABLE="/var/www/hostvim/data/www/mobiluygulaman.com/public_html/writable"
+
+vlog() { [[ "$VERBOSE" == "1" ]] && echo "[$LOG_TAG] $*" || true; }
+log() { echo "[$LOG_TAG] $*"; logger -t "$LOG_TAG" "$*"; }
+
+is_protected_repo() {
+  local repo="$1"
+  [[ "$repo" =~ ^(coskai|coderga)(-|$) ]] && return 0
+  return 1
+}
+
+parse_size_gb() {
+  local raw="${1:-0}"
+  local num unit
+  num="$(echo "$raw" | sed -E 's/[^0-9.]//g')"
+  unit="$(echo "$raw" | sed -E 's/[0-9.]//g' | tr '[:lower:]' '[:upper:]')"
+  [[ -z "$num" ]] && echo "0" && return
+  case "$unit" in
+    GB|G) echo "$num" ;;
+    MB|M) awk -v n="$num" 'BEGIN{printf "%.3f", n/1024}' ;;
+    KB|K) awk -v n="$num" 'BEGIN{printf "%.6f", n/1048576}' ;;
+    B|*)  awk -v n="$num" 'BEGIN{printf "%.9f", n/1073741824}' ;;
+  esac
+}
+
+build_cache_gb() {
+  local line size
+  line="$(docker system df 2>/dev/null | awk '/Build Cache/{print $(NF-1); exit}')"
+  size="$(parse_size_gb "$line")"
+  echo "${size:-0}"
+}
+
+prune_builder_cache() {
+  local hours="$1"
+  local aggressive="${2:-0}"
+  local flags="-f"
+  [[ "$aggressive" == "1" ]] && flags="-af"
+  local out total
+  out="$(docker builder prune $flags --filter "until=${hours}h" 2>&1)" || true
+  total="$(echo "$out" | grep -E '^Total:' | tail -1 || echo 'Total: 0B')"
+  log "build cache prune (${hours}h, aggressive=${aggressive}): $total"
+}
+
+prune_dangling_images() {
+  local out
+  out="$(docker image prune -f 2>&1)" || true
+  log "dangling images: $(echo "$out" | grep -E '^Total' | tail -1 || echo 'ok')"
+}
+
+prune_orphan_images() {
+  local removed=0
+  while IFS= read -r img; do
+    [[ -z "$img" || "$img" == "<none>:<none>" ]] && continue
+    local repo="${img%%:*}"
+    is_protected_repo "$repo" && continue
+    local used
+    used="$(docker ps -aq --filter "ancestor=$img" 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "$used" != "0" ]] && continue
+    vlog "orphan image: $img"
+    if docker rmi -f "$img" >/dev/null 2>&1; then
+      removed=$((removed + 1))
+    fi
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null)
+  log "orphan images removed: $removed"
+}
+
+prune_unused_volumes() {
+  local out
+  out="$(docker volume prune -f 2>&1)" || true
+  log "unused volumes: $(echo "$out" | grep -E '^Total' | tail -1 || echo 'ok')"
+}
+
+clean_mobil_gradle_tmp() {
+  local age_days="${1:-2}"
+  local n
+  n="$(find /tmp -maxdepth 1 -type d -name 'ai_gradle_job_*' -mtime +"$age_days" 2>/dev/null | wc -l | tr -d ' ')"
+  if [[ "$n" != "0" ]]; then
+    find /tmp -maxdepth 1 -type d -name 'ai_gradle_job_*' -mtime +"$age_days" -exec rm -rf {} + 2>/dev/null || true
+    log "mobil /tmp gradle jobs (>${age_days}d): $n"
+  fi
+}
+
+clean_mobil_previews() {
+  local dir="${MOBIL_WRITABLE}/ai_code_previews"
+  [[ -d "$dir" ]] || return 0
+  local n
+  n="$(find "$dir" -mindepth 1 -mtime +7 2>/dev/null | wc -l | tr -d ' ')"
+  find "$dir" -mindepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+  [[ "$n" != "0" ]] && log "mobil ai_code_previews (>7d): $n entries"
+}
+
+enforce_build_cache_cap() {
+  local cache_gb max_gb
+  cache_gb="$(build_cache_gb)"
+  max_gb="$BUILD_MAX_GB"
+  vlog "build cache now: ${cache_gb}GB (max ${max_gb}GB)"
+  if awk -v c="$cache_gb" -v m="$max_gb" 'BEGIN{exit !(c>m)}'; then
+    log "build cache ${cache_gb}GB > ${max_gb}GB — agresif prune"
+    prune_builder_cache 24 1
+  fi
+}
+
+case "$MODE" in
+  daily)
+    prune_builder_cache "$BUILD_KEEP_HOURS" 0
+    enforce_build_cache_cap
+    prune_dangling_images
+    clean_mobil_gradle_tmp 2
+    ;;
+  weekly)
+    prune_builder_cache 168 1
+    enforce_build_cache_cap
+    prune_orphan_images
+    prune_unused_volumes
+    clean_mobil_previews
+    clean_mobil_gradle_tmp 1
+    ;;
+  -h|--help)
+    sed -n '1,12p' "$0" | tail -n +2
+    exit 0
+    ;;
+  *)
+    echo "Bilinmeyen mod: $MODE (daily|weekly)" >&2
+    exit 2
+    ;;
+esac
+
+log "disk: $(df -h / | tail -1)"
+
+exit 0

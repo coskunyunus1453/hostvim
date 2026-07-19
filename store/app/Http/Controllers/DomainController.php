@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CartService;
 use App\Services\Domain\DomainAvailabilityService;
+use App\Support\CustomerFacingText;
 use App\Services\Domain\DomainSettings;
 use App\Services\Domain\WhoisService;
 use App\Services\SeoService;
@@ -82,10 +83,57 @@ class DomainController extends Controller
         ]);
 
         try {
-            return response()->json($whois->lookup($validated['domain']));
+            $data = $whois->lookup($validated['domain']);
+            if (is_array($data) && isset($data['registrar'])) {
+                $data['registrar'] = self::publicRegistrarLabel((string) $data['registrar']);
+            }
+            if (is_array($data) && ! empty($data['name_servers']) && is_array($data['name_servers'])) {
+                $data['name_servers'] = self::publicNameservers($data['name_servers']);
+            }
+
+            return response()->json($data);
         } catch (\Throwable $e) {
-            return response()->json(['ok' => false, 'reason' => 'error', 'message' => $e->getMessage()], 422);
+            return response()->json(['ok' => false, 'reason' => 'error', 'message' => CustomerFacingText::sanitize($e->getMessage())], 422);
         }
+    }
+
+    private static function publicRegistrarLabel(string $registrar): string
+    {
+        $lower = strtolower($registrar);
+        foreach (['spaceship', 'porkbun', 'cloudflare', 'metunic'] as $vendor) {
+            if (str_contains($lower, $vendor)) {
+                return CustomerFacingText::brandName();
+            }
+        }
+
+        return $registrar;
+    }
+
+    /**
+     * @param  list<string>  $servers
+     * @return list<string>
+     */
+    private static function publicNameservers(array $servers): array
+    {
+        $vendors = ['spaceship', 'porkbun', 'cloudflare', 'metunic'];
+        $hasVendor = false;
+        foreach ($servers as $ns) {
+            $lower = strtolower((string) $ns);
+            foreach ($vendors as $vendor) {
+                if (str_contains($lower, $vendor)) {
+                    $hasVendor = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (! $hasVendor) {
+            return $servers;
+        }
+
+        $branded = CustomerFacingText::defaultNameservers();
+
+        return $branded !== [] ? $branded : $servers;
     }
 
     public function addToCart(Request $request, CartService $cart): JsonResponse

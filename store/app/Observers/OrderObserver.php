@@ -22,11 +22,34 @@ class OrderObserver
             return;
         }
 
+        $this->consumeCouponIfNeeded($order);
+
         app(PanelProvisioningService::class)->dispatchIfNeeded($order);
         app(CloudProvisioningService::class)->dispatchIfNeeded($order);
         app(DomainProvisioningService::class)->dispatchIfNeeded($order);
 
         $this->generateInvoice($order);
+    }
+
+    private function consumeCouponIfNeeded(Order $order): void
+    {
+        if (! $order->campaign_id) {
+            return;
+        }
+
+        $meta = is_array($order->payment_data) ? $order->payment_data : [];
+        if (! empty($meta['coupon_usage_recorded'])) {
+            return;
+        }
+
+        $campaign = \App\Models\Campaign::query()->find($order->campaign_id);
+        if ($campaign) {
+            app(\App\Services\CampaignService::class)->incrementUsage($campaign);
+        }
+
+        $order->forceFill([
+            'payment_data' => array_merge($meta, ['coupon_usage_recorded' => true]),
+        ])->saveQuietly();
     }
 
     private function generateInvoice(Order $order): void

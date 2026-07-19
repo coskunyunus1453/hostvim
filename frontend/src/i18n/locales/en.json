@@ -2589,6 +2589,8 @@
     "two_factor_disabled_toast": "Two-factor authentication is off.",
     "mandatory_2fa_banner": "Your host requires two-factor authentication for your role. Complete setup below before using the rest of the panel.",
     "mandatory_password_banner": "For security, password change is required after first login. Set a new password below to continue.",
+    "initial_password_hint": "If you signed in via the store panel link, you can leave the current password empty and set a new one only.",
+    "current_password_optional": "Current password (optional on first setup)",
     "password_policy_hint": "At least 8 characters; must include uppercase, lowercase, number, and symbol.",
     "branding": "Branding",
     "branding_hint": "Separate logos for customer UI vs admin area. Sidebar picks admin logo on /admin routes and customer logo elsewhere; login uses the customer logo.",

@@ -17,4 +17,4 @@ Route::get('/{any?}', function () {
     }
 
     return response()->file($indexPath);
-})->where('any', '^(?!api|sanctum|up|pma-signon|webmail-signon).*$');
+})->where('any', '^(?!api|sanctum|up|pma-signon|webmail-signon|sso).*$');

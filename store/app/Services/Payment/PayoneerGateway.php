@@ -139,6 +139,10 @@ class PayoneerGateway implements PaymentGatewayInterface
 
     public function handleWebhook(array $data): Order
     {
+        if (! $this->verify($data)) {
+            throw new \RuntimeException('Payoneer webhook imza doğrulaması başarısız.');
+        }
+
         $reference = (string) ($data['reference_id'] ?? $data['merchant_reference'] ?? '');
         $order = Order::query()->where('order_number', $reference)->firstOrFail();
 
@@ -146,20 +150,37 @@ class PayoneerGateway implements PaymentGatewayInterface
             return $order;
         }
 
-        $status = strtolower((string) ($data['status'] ?? $data['payment_status'] ?? ''));
-        if (in_array($status, ['paid', 'completed', 'success', 'charged'], true)) {
-            return $this->completer->markPaid($order, (string) ($data['transaction_id'] ?? $data['id'] ?? ''), [
-                'payoneer_webhook' => true,
-                'payoneer_status' => $status,
-            ]);
+        // Webhook gövdesine güvenme: ödeme durumunu API'den yeniden doğrula.
+        $requestId = (string) ($data['payment_request_id'] ?? $data['id'] ?? $order->payment_reference ?? '');
+        if ($requestId !== '') {
+            return $this->completeReturn($order, $requestId);
         }
 
-        return $order;
+        throw new \RuntimeException('Payoneer webhook: ödeme isteği doğrulanamadı.');
     }
 
     public function verify(array $data): bool
     {
-        return true;
+        $secret = (string) (
+            $data['__webhook_secret']
+            ?? config('services.payoneer.webhook_secret')
+            ?? ''
+        );
+
+        // Secret yapılandırılmamışsa sahte "paid" webhook'unu kabul etme.
+        if ($secret === '') {
+            return false;
+        }
+
+        $provided = (string) ($data['signature'] ?? $data['x_payoneer_signature'] ?? '');
+        if ($provided === '') {
+            return false;
+        }
+
+        $payload = (string) ($data['__raw_body'] ?? json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return hash_equals(hash_hmac('sha256', $payload, $secret), $provided)
+            || hash_equals($secret, $provided);
     }
 
     /** @param  array<string, mixed>  $config */

@@ -75,8 +75,14 @@ class HostingController extends Controller
 
     public function panelLogin(Request $request, PanelCustomerService $panel)
     {
+        $user = $request->user();
+        if (! $user->panel_user_id) {
+            $panel->syncPanelUserId($user);
+            $user->refresh();
+        }
+
         try {
-            $sso = $panel->panelSso($request->user());
+            $sso = $panel->panelSso($user);
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }

@@ -90,6 +90,11 @@ function AdvancedRoute({ children }: { children: React.ReactNode }) {
 
 function UnknownRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const params = new URLSearchParams(window.location.search)
+  const sso = params.get('sso')
+  if (sso && !isAuthenticated) {
+    return <Navigate to={`/login?sso=${encodeURIComponent(sso)}`} replace />
+  }
   return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />
 }
 

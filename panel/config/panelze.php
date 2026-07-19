@@ -327,7 +327,7 @@ return [
      */
     'whmcs_integration' => [
         'secret' => trim((string) env('PANELZE_WHMCS_SECRET', '')),
-        /** WHMCS SSO sonrası tarayıcı yönlendirmesi (örn. https://panel.example.com/admin) */
+        /** WHMCS / mağaza SSO sonrası SPA giriş sayfası (örn. https://panel.example.com/login) */
         'sso_redirect_base' => rtrim(trim((string) env('PANELZE_SSO_PANEL_URL', '')), '/'),
     ],
 

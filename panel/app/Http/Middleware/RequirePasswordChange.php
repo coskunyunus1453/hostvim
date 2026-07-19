@@ -25,7 +25,7 @@ class RequirePasswordChange
         }
 
         return response()->json([
-            'message' => 'İlk giriş sonrası şifrenizi değiştirmeniz gerekiyor.',
+            'message' => __('auth.password_change_required'),
             'code' => 'password_change_required',
         ], 423);
     }

@@ -902,9 +902,12 @@ func handleIssueSSL(cfg *config.Config) gin.HandlerFunc {
 				httpDoc = hosting.ResolveHTTPDocRoot(meta.DocumentRoot)
 			}
 		}
-		acmeDir := filepath.Join(httpDoc, ".well-known", "acme-challenge")
-		if err := os.MkdirAll(acmeDir, 0o755); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "acme challenge dir: " + err.Error()})
+		repairDomain := strings.ToLower(strings.TrimSpace(req.Domain))
+		if parent != "" {
+			repairDomain = parent
+		}
+		if err := hosting.EnsureAcmeChallengeDir(httpDoc, repairDomain); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		var vhostErr error

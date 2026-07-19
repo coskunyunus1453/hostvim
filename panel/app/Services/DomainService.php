@@ -202,6 +202,7 @@ class DomainService
                     $domain->update(['document_root' => $documentRoot, 'server_type' => $serverType]);
                 }
                 $this->setPanelStatus($domain, 'active');
+                $this->maybeBootstrapDns($domain->fresh());
 
                 return $domain->fresh();
             }
@@ -231,6 +232,8 @@ class DomainService
                 'server_type' => $serverType,
             ]);
             $this->setPanelStatus($domain, 'active');
+
+            $this->maybeBootstrapDns($domain->fresh());
 
             return $domain->fresh();
         });

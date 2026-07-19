@@ -44,9 +44,32 @@ class DomainProvisioningService
 
     public function process(Order $order): void
     {
+        $this->processInternal($order, force: false, notifyCustomerOnFailure: true);
+    }
+
+    /**
+     * Admin "Tekrar dene" — yeni sipariş oluşturmaz; aynı Order üzerinde failed/stuck domainleri yeniden kaydeder.
+     * Spaceship'te zaten varsa ücret alınmadan senkronlar ve müşteriye tanımlar.
+     *
+     * @return array{attempted: int, succeeded: int, failed: int, messages: list<string>}
+     */
+    public function retry(Order $order): array
+    {
+        return $this->processInternal($order, force: true, notifyCustomerOnFailure: false);
+    }
+
+    /**
+     * @return array{attempted: int, succeeded: int, failed: int, messages: list<string>}
+     */
+    private function processInternal(Order $order, bool $force, bool $notifyCustomerOnFailure): array
+    {
+        $summary = ['attempted' => 0, 'succeeded' => 0, 'failed' => 0, 'messages' => []];
+
         $order = $order->fresh('items');
         if ($order === null || $order->payment_status !== 'paid') {
-            return;
+            $summary['messages'][] = 'Sipariş ödenmemiş; domain kaydı yapılamaz.';
+
+            return $summary;
         }
 
         foreach ($this->domainItems($order) as $item) {
@@ -56,33 +79,65 @@ class DomainProvisioningService
             }
 
             $existing = DomainName::query()->where('domain', $domain)->first();
-            if ($existing !== null && in_array($existing->status, ['registered', 'active', 'registering'], true)) {
-                // Zaten kayitli/kayit suruyor — mukerrer islemi onle, sadece musteriye bagla.
-                if (! $existing->customer_email) {
-                    $existing->update(['customer_email' => $order->customer_email, 'order_id' => $order->id]);
+            if ($existing !== null && in_array($existing->status, ['registered', 'active'], true)) {
+                // Zaten kayıtlı — mukerrer Spaceship kaydı yok; sadece müşteri/sipariş bağını sağlamla.
+                if (! $existing->customer_email || (int) $existing->order_id !== (int) $order->id) {
+                    $existing->update([
+                        'customer_email' => $existing->customer_email ?: $order->customer_email,
+                        'order_id' => $existing->order_id ?: $order->id,
+                    ]);
                 }
+                $this->syncPanelDomainStatus($domain);
+                $summary['messages'][] = $domain.': zaten kayıtlı (atlandı).';
+
+                continue;
+            }
+
+            // Otomatik job: kısa süre önce "registering" ise çift Spaceship isteğini önle.
+            if (
+                ! $force
+                && $existing !== null
+                && $existing->status === 'registering'
+                && $existing->updated_at !== null
+                && $existing->updated_at->gt(now()->subMinutes(5))
+            ) {
+                $summary['messages'][] = $domain.': kayıt sürüyor (atlandı).';
 
                 continue;
             }
 
             $years = max(1, min(10, (int) ($item->domain_years ?? 1)));
             $apiName = is_array($item->config_meta ?? null) ? ($item->config_meta['registrar_api'] ?? null) : null;
+            $summary['attempted']++;
 
             try {
                 $result = $this->management->registerForOrder($order, $domain, $years, $apiName);
                 if ($result['ok'] ?? false) {
+                    $summary['succeeded']++;
+                    $summary['messages'][] = $domain.': '.($result['message'] ?? 'Kayıt başarılı');
                     $this->sendCustomerDomainEmail($order, $domain, true);
                     $this->syncPanelDomainStatus($domain);
                 } else {
-                    $this->notifications->fromDomainProvisionFailed($order, $domain, $result['message'] ?? null);
-                    $this->sendCustomerDomainEmail($order, $domain, false);
+                    $summary['failed']++;
+                    $msg = $result['message'] ?? 'Kayıt başarısız';
+                    $summary['messages'][] = $domain.': '.$msg;
+                    $this->notifications->fromDomainProvisionFailed($order, $domain, $msg);
+                    if ($notifyCustomerOnFailure) {
+                        $this->sendCustomerDomainEmail($order, $domain, false);
+                    }
                 }
             } catch (Throwable $e) {
                 report($e);
+                $summary['failed']++;
+                $summary['messages'][] = $domain.': '.$e->getMessage();
                 $this->notifications->fromDomainProvisionFailed($order, $domain, $e->getMessage());
-                $this->sendCustomerDomainEmail($order, $domain, false);
+                if ($notifyCustomerOnFailure) {
+                    $this->sendCustomerDomainEmail($order, $domain, false);
+                }
             }
         }
+
+        return $summary;
     }
 
     /**

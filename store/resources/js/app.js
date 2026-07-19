@@ -24,32 +24,14 @@ if (cartBadge) {
         .catch(() => {});
 }
 
-function applyTheme(mode) {
-    const isDark = mode === 'dark';
-    document.documentElement.classList.toggle('dark', isDark);
+function applySystemTheme() {
+    const mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.classList.toggle('dark', mode === 'dark');
     document.documentElement.dataset.theme = mode;
-    localStorage.setItem('hostvim-theme', mode);
+    try { localStorage.removeItem('hostvim-theme'); } catch (e) {}
 }
 
-function resolveSystemTheme() {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-const themeToggle = document.getElementById('theme-toggle');
-if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-        const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-        applyTheme(next);
-    });
-}
-
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    const stored = localStorage.getItem('hostvim-theme');
-    const defaultMode = document.querySelector('meta[name="theme-default"]')?.content || 'system';
-    if (!stored && defaultMode === 'system') {
-        applyTheme(resolveSystemTheme());
-    }
-});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
 
 const mobileSidebar = document.getElementById('mobile-sidebar');
 const mobileMenuOpen = document.getElementById('mobile-menu-open');

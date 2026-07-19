@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Jobs\SyncBindDnsJob;
 use App\Models\Domain;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
@@ -17,6 +20,44 @@ class BindDnsService
     /**
      * @return array{ok: bool, zones?: int, message?: string, skipped?: bool}
      */
+    /**
+     * BIND senkronunu kuyruğa alır. Aktif transaction içindeyse commit sonrasına ertelenir;
+     * aksi halde harici artisan süreci henüz commit edilmemiş DNS kayıtlarını göremez.
+     */
+    public function scheduleSync(int $delaySeconds = 2): void
+    {
+        if (! $this->dnsSettings->bindEnabled()) {
+            return;
+        }
+
+        $job = SyncBindDnsJob::dispatch()->delay(now()->addSeconds($delaySeconds));
+
+        if (DB::transactionLevel() > 0) {
+            $job->afterCommit();
+        }
+    }
+
+    /**
+     * Anında senkron dener; başarısız olursa kuyruğa yedekler.
+     *
+     * @return array{ok: bool, skipped?: bool, message?: string, queued?: bool}
+     */
+    public function syncNowOrQueue(int $queueDelaySeconds = 3): array
+    {
+        if (! $this->dnsSettings->bindEnabled()) {
+            return ['ok' => true, 'skipped' => true, 'message' => 'BIND sync kapalı'];
+        }
+
+        $result = $this->syncReliable();
+        if ($result['ok'] ?? false) {
+            return $result;
+        }
+
+        $this->scheduleSync($queueDelaySeconds);
+
+        return array_merge($result, ['queued' => true]);
+    }
+
     public function syncViaSudo(): array
     {
         if (! $this->dnsSettings->bindEnabled()) {
@@ -234,6 +275,40 @@ class BindDnsService
     public function serverIp(): string
     {
         return $this->dnsSettings->serverIp();
+    }
+
+    public function zoneFilePath(string $domainName): string
+    {
+        $zonesDir = rtrim((string) config('panelze.dns.zones_dir', '/var/lib/bind/panelze/zones'), '/');
+
+        return $zonesDir.'/'.strtolower(rtrim(trim($domainName), '.')).'.zone';
+    }
+
+    public function zoneFileExists(string $domainName): bool
+    {
+        $path = $this->zoneFilePath($domainName);
+
+        return is_readable($path) && filesize($path) > 0;
+    }
+
+    /**
+     * Panelde DNS kaydı olan ancak BIND zone dosyası eksik domainler.
+     *
+     * @return Collection<int, Domain>
+     */
+    public function domainsWithMissingZoneFiles(): Collection
+    {
+        if (! $this->dnsSettings->bindEnabled()) {
+            return collect();
+        }
+
+        return Domain::query()
+            ->whereIn('status', ['active', 'pending'])
+            ->whereHas('dnsRecords')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (Domain $domain) => ! $this->zoneFileExists($domain->name))
+            ->values();
     }
 
   /**

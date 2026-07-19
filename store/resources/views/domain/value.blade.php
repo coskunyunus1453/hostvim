@@ -89,7 +89,7 @@
                 <div>
                     <h2 class="text-2xl font-extrabold tracking-tight text-hv-text">{{ $section['title'] }}</h2>
                     <div class="mt-4 space-y-4 text-sm leading-relaxed text-hv-muted [&_h3]:mt-6 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-hv-text [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_a]:font-semibold [&_a]:text-hv-primary [&_a]:underline">
-                        {!! $section['body'] !!}
+                        {!! safe_html($section['body'] ?? '') !!}
                     </div>
                 </div>
             @endforeach

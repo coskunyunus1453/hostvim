@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\HostingSiteTarget;
 use App\Services\HostingSiteTargetResolver;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class SslIssueService
 {
@@ -116,12 +117,23 @@ class SslIssueService
             }
         }
 
+        $this->ensureAcmeChallengeWritable($target->domain, $target->documentRoot);
+
         $engine = $this->engine->issueSSL(
             $target->hostname,
             is_string($email) ? $email : null,
             $target->isSubdomain() ? $target->engineSiteName : null,
             $target->subdomain?->path_segment,
         );
+        if (! empty($engine['error']) && $this->isAcmePermissionError((string) $engine['error'])) {
+            $this->ensureAcmeChallengeWritable($target->domain, $target->documentRoot, true);
+            $engine = $this->engine->issueSSL(
+                $target->hostname,
+                is_string($email) ? $email : null,
+                $target->isSubdomain() ? $target->engineSiteName : null,
+                $target->subdomain?->path_segment,
+            );
+        }
         if (! empty($engine['error'])) {
             $cert->update(['status' => 'failed']);
             $this->clearSslFlags($target);
@@ -322,5 +334,35 @@ class SslIssueService
                 ? (string) __('ssl.diag_acme_http_ok')
                 : (string) __('ssl.diag_acme_http_fail'),
         ];
+    }
+
+    private function ensureAcmeChallengeWritable(Domain $domain, string $documentRoot, bool $force = false): void
+    {
+        $docroot = $this->resolveAcmeWebroot($documentRoot);
+        if ($docroot === '' || ! is_dir($docroot)) {
+            return;
+        }
+
+        $acme = rtrim($docroot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.well-known'.DIRECTORY_SEPARATOR.'acme-challenge';
+        if (! $force && is_dir($acme) && is_writable($acme)) {
+            return;
+        }
+
+        $script = trim((string) config('panelze.hosting.fix_perms_script', '/usr/local/sbin/panelze-fix-hosting-perms'));
+        if ($script === '' || ! is_executable($script)) {
+            return;
+        }
+
+        $proc = new Process(['sudo', '-n', $script, '--domain', $domain->name]);
+        $proc->setTimeout(120);
+        $proc->run();
+    }
+
+    private function isAcmePermissionError(string $error): bool
+    {
+        $e = strtolower($error);
+
+        return str_contains($e, 'permission denied')
+            || str_contains($e, 'acme challenge dir');
     }
 }

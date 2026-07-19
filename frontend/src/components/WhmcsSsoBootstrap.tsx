@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -11,6 +11,10 @@ import { useAuthStore } from '../store/authStore'
 export default function WhmcsSsoBootstrap() {
   const navigate = useNavigate()
   const ran = useRef(false)
+  const [ssoPending, setSsoPending] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).has('sso')
+  })
 
   useEffect(() => {
     if (ran.current) return
@@ -18,6 +22,7 @@ export default function WhmcsSsoBootstrap() {
     const sso = params.get('sso')
     if (!sso) return
     ran.current = true
+    setSsoPending(true)
 
     ;(async () => {
       try {
@@ -30,6 +35,11 @@ export default function WhmcsSsoBootstrap() {
         params.delete('sso')
         const q = params.toString()
         window.history.replaceState({}, '', `${window.location.pathname}${q ? `?${q}` : ''}${window.location.hash || ''}`)
+        if (data.force_password_change || data.user?.force_password_change) {
+          navigate('/settings?mandatoryPassword=1', { replace: true })
+          toast('İlk giriş: Şifrenizi şimdi değiştirin.', { icon: '🔒' })
+          return
+        }
         navigate('/dashboard', { replace: true })
         toast.success('Oturum açıldı')
       } catch (err: unknown) {
@@ -42,9 +52,17 @@ export default function WhmcsSsoBootstrap() {
         window.history.replaceState({}, '', `${window.location.pathname}${q ? `?${q}` : ''}${window.location.hash || ''}`)
         toast.error(msg)
         navigate('/login', { replace: true })
+      } finally {
+        setSsoPending(false)
       }
     })()
   }, [navigate])
 
-  return null
+  if (!ssoPending) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 dark:bg-gray-950/90">
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Güvenli giriş yapılıyor…</p>
+    </div>
+  )
 }

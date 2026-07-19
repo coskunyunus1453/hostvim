@@ -41,13 +41,33 @@ bash /var/www/hostvim/deploy/scripts/install-hostvim-full.sh --local
 bash /var/www/hostvim/deploy/scripts/deploy-store.sh --local
 ```
 
-### Deploy sonrası zorunlu adım (500 önleme)
+### Deploy sonrası (otomatik)
 
-Her deploy'dan sonra — özellikle manuel `rsync` yaptıysanız:
+`deploy-store.sh` ve `install-hostvim-full.sh` artık rsync sonrası otomatik olarak:
+
+- `bootstrap/cache` ve `storage` hariç tutar (Mac dev önbelleği üretime gitmez)
+- `pk-hostvim-com` sahipliğini geri yükler
+- Dev provider önbelleğini (Pail vb.) temizler
+
+Ek olarak sunucuda **5 dakikada bir** `hostvim-store-guard` cron çalışır; izin kayması veya HTTP ≠ 200 ise otomatik onarır.
+
+Manuel `rsync` yaptıysanız yine de:
 
 ```bash
 bash /var/www/hostvim/deploy/scripts/fix-store-permissions.sh --local
 ```
+
+### Docker disk guard (Coderga sandbox + mobil build)
+
+Sunucuda BuildKit önbelleği ve kullanılmayan imajlar için:
+
+```bash
+bash /var/www/hostvim/deploy/scripts/install-docker-disk-guard.sh --local
+```
+
+- `/etc/docker/daemon.json` — BuildKit GC üst sınırı **8 GiB**
+- `/usr/local/sbin/docker-disk-guard` — günlük (03:40) + haftalık (Pazar 04:10) cron
+- `coskai-*` / `coderga-*` imajları **korunur**; backlink vb. orphan imajlar silinir
 
 Mac'ten:
 

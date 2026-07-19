@@ -6,13 +6,17 @@ use App\Models\DomainRegistration;
 use App\Models\OrderItem;
 use App\Models\User;
 use App\Services\Domain\Registrar\RegistrarDriverResolver;
+use App\Services\DomainDnsBootstrapService;
 use App\Services\SafeAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DomainRegistrarService
 {
-    public function __construct(private RegistrarDriverResolver $resolver) {}
+    public function __construct(
+        private RegistrarDriverResolver $resolver,
+        private DomainDnsBootstrapService $dnsBootstrap,
+    ) {}
 
     public function registerFromOrderItem(User $user, OrderItem $item): DomainRegistration
     {
@@ -52,6 +56,8 @@ class DomainRegistrarService
                 'registrar' => $reg->registrar,
                 'status' => $reg->status,
             ], request());
+
+            $this->dnsBootstrap->ensureAuthoritativeZone($user, $domain);
 
             return $reg;
         });

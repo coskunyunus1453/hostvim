@@ -140,7 +140,7 @@ class DomainManagementService
         $domain = strtolower(trim($domain));
         $apiName = $apiName ?: $this->preferredApi();
         if ($apiName === null) {
-            return ['ok' => false, 'message' => 'Otomatik domain kaydını destekleyen sağlayıcı (Spaceship) yapılandırılmamış.'];
+            return ['ok' => false, 'message' => 'Otomatik alan adı kaydı şu an yapılandırılmamış. Lütfen destek ile iletişime geçin.'];
         }
 
         $row = DomainName::query()->updateOrCreate(

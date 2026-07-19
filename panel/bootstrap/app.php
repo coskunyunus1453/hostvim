@@ -43,9 +43,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('backups:notify-failures')->dailyAt('08:00')->withoutOverlapping();
         $schedule->command('ssl:renew-due')->daily()->withoutOverlapping();
         // DNS'i sonradan sunucuya yönlenen (özellikle "kendi alan adım") siteler için
-        // eksik Let's Encrypt sertifikalarını günde 2 kez otomatik dener (job DNS'i doğrular).
-        $schedule->command('panelze:ssl-auto-issue')->twiceDaily(5, 17)->withoutOverlapping();
+        // eksik Let's Encrypt sertifikalarını saatlik otomatik dener (job DNS'i doğrular).
+        $schedule->command('panelze:ssl-auto-issue')->hourly()->withoutOverlapping();
         $schedule->command('panelze:self-heal')->everyMinute()->withoutOverlapping();
+        // Panel DNS kayıtları var ama BIND zone dosyası oluşmamış domainleri otomatik onar.
+        $schedule->command('panelze:bind-repair-missing')->everyFifteenMinutes()->withoutOverlapping();
         // PanelKafes drift onarımı: FPM servis tutarlılığı + eksik cage'leri paket limitleriyle tamamlar.
         $schedule->command('panelze:panelkafes-reconcile')->everyFifteenMinutes()->withoutOverlapping();
         // Disk kotası denetimi: günde 1 kez (gece), aşan müşteriyi uyarır ve grace sonrası askıya alır.

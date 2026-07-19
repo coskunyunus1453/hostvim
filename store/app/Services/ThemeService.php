@@ -65,14 +65,13 @@ class ThemeService
 
     public function defaultMode(): string
     {
-        $mode = (string) $this->settings->get('design_theme_mode', 'system');
-
-        return in_array($mode, ['light', 'dark', 'system'], true) ? $mode : 'system';
+        // Header'da manuel buton yok; tema her zaman cihaz/sistem tercihine göre.
+        return 'system';
     }
 
     public function isToggleEnabled(): bool
     {
-        return filter_var($this->settings->get('design_theme_toggle', '1'), FILTER_VALIDATE_BOOLEAN);
+        return false;
     }
 
     public function headerStyle(): string
@@ -119,7 +118,7 @@ class ThemeService
             'surface' => $this->color('design_dark_surface', '#1C1917'),
             'surface-elevated' => $this->color('design_dark_surface_elevated', '#292524'),
             'text' => $this->color('design_dark_text', '#FAFAF9'),
-            'text-muted' => $this->color('design_dark_text_muted', '#A8A29E'),
+            'text-muted' => $this->color('design_dark_text_muted', '#D6D3D1'),
             'link' => $this->color('design_dark_link', '#FB923C'),
             'border' => $this->color('design_dark_border', '#292524'),
             'header-bg' => $this->color('design_header_bg_dark', '#0C0A09'),
@@ -131,7 +130,7 @@ class ThemeService
     {
         $light = $this->lightTokens();
         $dark = $this->darkTokens();
-        $font = $this->fontFamily();
+        $font = preg_replace("/[^a-zA-Z0-9 \\-']+/", '', $this->fontFamily()) ?: 'Plus Jakarta Sans';
         $radius = $this->shellRadius();
 
         $lines = [

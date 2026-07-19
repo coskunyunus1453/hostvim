@@ -84,7 +84,11 @@ class MenuItem extends Model
             return '#';
         }
 
-        if (str_starts_with($url, '/')) {
+        if (str_starts_with($url, '//')) {
+            return '#';
+        }
+
+        if (str_starts_with($url, '/') && ! str_starts_with($url, '//')) {
             return $url;
         }
 

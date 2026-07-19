@@ -19,11 +19,21 @@ SSH_HOST="${HOSTVIM_SSH_HOST:-root@207.180.237.13}"
 
 _run_local() {
   hostvim_resolve_paths
+  if [[ "${1:-}" == "--guard-only" ]]; then
+    hostvim_store_guard
+    exit $?
+  fi
   hostvim_finalize_store
 }
 
 if [[ "${1:-}" == "--local" ]]; then
-  _run_local
+  _run_local "${2:-}"
+  exit $?
+fi
+
+if [[ "${1:-}" == "--guard-only" ]]; then
+  ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_HOST" \
+    "bash ${PANELZE_HOME:-/var/www/hostvim}/deploy/scripts/fix-store-permissions.sh --local --guard-only"
   exit $?
 fi
 

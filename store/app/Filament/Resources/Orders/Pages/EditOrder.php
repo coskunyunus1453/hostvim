@@ -43,31 +43,59 @@ class EditOrder extends EditRecord
                     $this->refreshFormData(['payment_status', 'status']);
                 }),
             Action::make('retryPanelProvision')
-                ->label('Panelde yeniden kur')
-                ->icon('heroicon-o-arrow-path')
+                ->label('Hosting: Tekrar dene')
+                ->icon('heroicon-o-server-stack')
                 ->color('warning')
                 ->visible(fn () => $this->record->payment_status === 'paid'
-                    && ! in_array($this->record->panel_provision_status, ['completed', 'processing'], true))
+                    && in_array($this->record->panel_provision_status, ['pending', 'failed', 'processing'], true))
                 ->requiresConfirmation()
+                ->modalHeading('Hosting / panel kurulumunu yeniden dene')
+                ->modalDescription('Aynı sipariş numarasıyla devam edilir; panelde çift sipariş oluşmaz. Önce mevcut panel kaydı kontrol edilir.')
                 ->action(function (PanelProvisioningService $panel): void {
-                    $panel->retry($this->record);
-                    $this->refreshFormData(['panel_provision_status', 'panel_order_number', 'panel_provision_error']);
+                    $result = $panel->retry($this->record);
+                    Notification::make()
+                        ->title($result['ok'] ? 'Hosting kurulumu' : 'Kurulum başlatılamadı')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'danger'}()
+                        ->persistent()
+                        ->send();
+                    $this->refreshFormData([
+                        'panel_provision_status',
+                        'panel_order_number',
+                        'panel_provision_error',
+                        'status',
+                    ]);
+                    $this->record->refresh();
                 }),
             Action::make('retryDomainProvision')
-                ->label('Domain kaydını yeniden dene')
+                ->label('Domain: Tekrar dene')
                 ->icon('heroicon-o-globe-alt')
                 ->color('info')
                 ->visible(fn () => $this->record->payment_status === 'paid' && $this->hasPendingDomains())
                 ->requiresConfirmation()
                 ->modalHeading('Alan adı kaydını yeniden dene')
-                ->modalDescription('Siparişteki alan adları sağlayıcıda (Spaceship) yeniden kaydedilmeye çalışılır. Zaten kayıtlı olanlar atlanır. Kayıt ücreti Spaceship bakiyenizden düşer.')
+                ->modalDescription('Spaceship bakiyeniz varsa kayıt tamamlanır ve müşteriye tanımlanır. Zaten kayıtlı domainler atlanır (çift sipariş / çift ücret yok).')
                 ->action(function (DomainProvisioningService $domains): void {
-                    $domains->process($this->record);
-                    Notification::make()
-                        ->title('Domain kaydı tetiklendi')
-                        ->body('Sonucu "Alan Adları" ekranından kontrol edebilirsiniz. Başarısızsa Spaceship bakiyenizi kontrol edin.')
-                        ->success()
-                        ->send();
+                    $summary = $domains->retry($this->record);
+                    $body = implode("\n", $summary['messages'] ?: ['İşlem yapılacak domain yok.']);
+                    if ($summary['failed'] > 0 && $summary['succeeded'] === 0) {
+                        Notification::make()
+                            ->title('Domain kaydı başarısız')
+                            ->body($body."\n\nSpaceship bakiyesini kontrol edin.")
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                    } elseif ($summary['succeeded'] > 0) {
+                        Notification::make()
+                            ->title('Domain kaydı tamamlandı')
+                            ->body($body)
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    } else {
+                        Notification::make()->title('Domain kaydı')->body($body)->info()->send();
+                    }
+                    $this->record->refresh();
                 }),
             DeleteAction::make(),
         ];

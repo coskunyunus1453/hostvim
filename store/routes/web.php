@@ -73,8 +73,8 @@ Route::delete('/sepet/{key}', [CartController::class, 'remove'])->name('cart.rem
 Route::delete('/sepet', [CartController::class, 'clear'])->name('cart.clear');
 
 Route::get('/odeme', [CheckoutController::class, 'index'])->name('checkout.index');
-Route::post('/odeme/kupon', [\App\Http\Controllers\CouponController::class, 'apply'])->name('checkout.coupon.apply');
-Route::delete('/odeme/kupon', [\App\Http\Controllers\CouponController::class, 'remove'])->name('checkout.coupon.remove');
+Route::post('/odeme/kupon', [\App\Http\Controllers\CouponController::class, 'apply'])->middleware('throttle:10,1')->name('checkout.coupon.apply');
+Route::delete('/odeme/kupon', [\App\Http\Controllers\CouponController::class, 'remove'])->middleware('throttle:20,1')->name('checkout.coupon.remove');
 Route::post('/odeme', [CheckoutController::class, 'process'])
     ->middleware(['throttle:10,1', 'captcha:checkout'])
     ->name('checkout.process');
@@ -130,29 +130,29 @@ Route::middleware(['auth', 'panel.sync'])->prefix('hesabim')->name('account.')->
     Route::put('/profil/sifre', [\App\Http\Controllers\Account\ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::get('/alan-adlarim', [\App\Http\Controllers\Account\DomainController::class, 'index'])->name('domains');
     Route::get('/alan-adlarim/{id}', [\App\Http\Controllers\Account\DomainController::class, 'show'])->whereNumber('id')->name('domains.show');
-    Route::post('/alan-adlarim/{id}/dns', [\App\Http\Controllers\Account\DomainController::class, 'saveDns'])->whereNumber('id')->name('domains.dns');
-    Route::post('/alan-adlarim/{id}/nameserver', [\App\Http\Controllers\Account\DomainController::class, 'nameservers'])->whereNumber('id')->name('domains.nameservers');
-    Route::post('/alan-adlarim/{id}/yenile', [\App\Http\Controllers\Account\DomainController::class, 'renew'])->whereNumber('id')->name('domains.renew');
-    Route::post('/alan-adlarim/{id}/gizlilik', [\App\Http\Controllers\Account\DomainController::class, 'privacy'])->whereNumber('id')->name('domains.privacy');
-    Route::post('/alan-adlarim/{id}/oto-yenileme', [\App\Http\Controllers\Account\DomainController::class, 'autoRenew'])->whereNumber('id')->name('domains.autorenew');
-    Route::post('/alan-adlarim/{id}/transfer-kodu', [\App\Http\Controllers\Account\DomainController::class, 'authCode'])->whereNumber('id')->name('domains.authcode');
+    Route::post('/alan-adlarim/{id}/dns', [\App\Http\Controllers\Account\DomainController::class, 'saveDns'])->middleware('throttle:20,1')->whereNumber('id')->name('domains.dns');
+    Route::post('/alan-adlarim/{id}/nameserver', [\App\Http\Controllers\Account\DomainController::class, 'nameservers'])->middleware('throttle:10,1')->whereNumber('id')->name('domains.nameservers');
+    Route::post('/alan-adlarim/{id}/yenile', [\App\Http\Controllers\Account\DomainController::class, 'renew'])->middleware('throttle:5,1')->whereNumber('id')->name('domains.renew');
+    Route::post('/alan-adlarim/{id}/gizlilik', [\App\Http\Controllers\Account\DomainController::class, 'privacy'])->middleware('throttle:10,1')->whereNumber('id')->name('domains.privacy');
+    Route::post('/alan-adlarim/{id}/oto-yenileme', [\App\Http\Controllers\Account\DomainController::class, 'autoRenew'])->middleware('throttle:10,1')->whereNumber('id')->name('domains.autorenew');
+    Route::post('/alan-adlarim/{id}/transfer-kodu', [\App\Http\Controllers\Account\DomainController::class, 'authCode'])->middleware('throttle:5,1')->whereNumber('id')->name('domains.authcode');
     Route::get('/hostinglerim', [\App\Http\Controllers\Account\HostingController::class, 'index'])->name('hosting');
-    Route::post('/hostinglerim/panel', [\App\Http\Controllers\Account\HostingController::class, 'panelLogin'])->name('hosting.panel');
-    Route::post('/alan-adlarim/{id}/devret', [\App\Http\Controllers\Account\TransferController::class, 'requestDomain'])->whereNumber('id')->name('transfers.domain');
-    Route::post('/hostinglerim/{orderId}/devret', [\App\Http\Controllers\Account\TransferController::class, 'requestHosting'])->whereNumber('orderId')->name('transfers.hosting');
-    Route::post('/devir/{transfer}/iptal', [\App\Http\Controllers\Account\TransferController::class, 'cancel'])->whereNumber('transfer')->name('transfers.cancel');
+    Route::post('/hostinglerim/panel', [\App\Http\Controllers\Account\HostingController::class, 'panelLogin'])->middleware('throttle:10,1')->name('hosting.panel');
+    Route::post('/alan-adlarim/{id}/devret', [\App\Http\Controllers\Account\TransferController::class, 'requestDomain'])->middleware('throttle:5,1')->whereNumber('id')->name('transfers.domain');
+    Route::post('/hostinglerim/{orderId}/devret', [\App\Http\Controllers\Account\TransferController::class, 'requestHosting'])->middleware('throttle:5,1')->whereNumber('orderId')->name('transfers.hosting');
+    Route::post('/devir/{transfer}/iptal', [\App\Http\Controllers\Account\TransferController::class, 'cancel'])->middleware('throttle:10,1')->whereNumber('transfer')->name('transfers.cancel');
     Route::get('/faturalarim', [\App\Http\Controllers\Account\InvoiceController::class, 'index'])->name('invoices');
     Route::get('/faturalarim/{invoiceId}', [\App\Http\Controllers\Account\InvoiceController::class, 'show'])->name('invoices.show');
-    Route::post('/faturalarim/{invoiceId}/ode', [\App\Http\Controllers\Account\InvoiceController::class, 'pay'])->name('invoices.pay');
+    Route::post('/faturalarim/{invoiceId}/ode', [\App\Http\Controllers\Account\InvoiceController::class, 'pay'])->middleware('throttle:10,1')->name('invoices.pay');
     Route::get('/e-fatura/{invoice}/pdf', [InvoiceController::class, 'customerPdf'])->name('einvoice.pdf');
     Route::get('/siparislerim', [\App\Http\Controllers\Account\OrderController::class, 'index'])->name('orders');
     Route::get('/siparislerim/{orderId}', [\App\Http\Controllers\Account\OrderController::class, 'show'])->name('orders.show');
     Route::get('/destek', [\App\Http\Controllers\Account\SupportTicketController::class, 'index'])->name('support.index');
     Route::get('/destek/yeni', [\App\Http\Controllers\Account\SupportTicketController::class, 'create'])->name('support.create');
-    Route::post('/destek', [\App\Http\Controllers\Account\SupportTicketController::class, 'store'])->name('support.store');
+    Route::post('/destek', [\App\Http\Controllers\Account\SupportTicketController::class, 'store'])->middleware('throttle:10,1')->name('support.store');
     Route::get('/destek/{ticket}', [\App\Http\Controllers\Account\SupportTicketController::class, 'show'])->name('support.show');
-    Route::post('/destek/{ticket}/yanit', [\App\Http\Controllers\Account\SupportTicketController::class, 'reply'])->name('support.reply');
-    Route::post('/destek/{ticket}/kapat', [\App\Http\Controllers\Account\SupportTicketController::class, 'close'])->name('support.close');
+    Route::post('/destek/{ticket}/yanit', [\App\Http\Controllers\Account\SupportTicketController::class, 'reply'])->middleware('throttle:20,1')->name('support.reply');
+    Route::post('/destek/{ticket}/kapat', [\App\Http\Controllers\Account\SupportTicketController::class, 'close'])->middleware('throttle:10,1')->name('support.close');
 });
 
 Route::middleware('auth')->group(function () {

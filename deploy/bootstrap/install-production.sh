@@ -958,7 +958,17 @@ EOF
 chmod 644 /etc/cron.d/panelze-panel-scheduler
 systemctl enable --now cron 2>/dev/null || systemctl enable --now crond 2>/dev/null || true
 
-# Geçici .tmp_* dizinleri (yarım unzip/copy): günlük temizlik
+# Docker build cache + orphan imaj temizliği (Coderga/coskai korunur)
+if [[ -x /usr/local/sbin/docker-disk-guard ]] && [[ ! -f /etc/cron.d/hostvim-docker-guard ]]; then
+  cat > /etc/cron.d/hostvim-docker-guard <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+40 3 * * * root /usr/local/sbin/docker-disk-guard daily 2>&1 | logger -t docker-disk-guard
+10 4 * * 0 root /usr/local/sbin/docker-disk-guard weekly 2>&1 | logger -t docker-disk-guard
+CRON
+  chmod 644 /etc/cron.d/hostvim-docker-guard
+fi
+
 rm -f /etc/cron.d/panelsar-cleaner 2>/dev/null || true
 if [[ -x /usr/local/sbin/panelze-cleaner ]]; then
   PANELZE_CLEANER_WEB_ROOT="${PANELZE_HOSTING_WEB_ROOT:-${PANELZE_HOME}/data/www}"

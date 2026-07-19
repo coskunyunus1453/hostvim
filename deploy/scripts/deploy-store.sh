@@ -29,11 +29,21 @@ if [[ "$LOCAL_MODE" != "1" ]]; then
   hostvim_rsync_deploy_helpers "$REPO_ROOT" "$PANELZE_HOME" "$SSH_HOST" "$SSH_KEY"
   hostvim_rsync_store "$REPO_ROOT" "${SSH_HOST}:${STORE_ROOT}/" "$SSH_E"
   hostvim_rsync_panel_integration "$REPO_ROOT" "$PANEL_ROOT" "$SSH_HOST" "$SSH_KEY"
+  ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_HOST" "
+set -euo pipefail
+export HOSTVIM_REPO_ROOT='${PANELZE_HOME}'
+export PANELZE_HOME='${PANELZE_HOME}'
+export STORE_ROOT='${STORE_ROOT}'
+export STORE_DOMAIN='${STORE_DOMAIN}'
+source '${PANELZE_HOME}/deploy/scripts/lib/hostvim-common.sh' 2>/dev/null || source '${REPO_ROOT}/deploy/scripts/lib/hostvim-common.sh'
+hostvim_post_rsync_store
+"
 fi
 
 if [[ "$LOCAL_MODE" == "1" ]]; then
   export HOSTVIM_SKIP_PANEL=0
   export HOSTVIM_SKIP_STORE=0
+  hostvim_post_rsync_store
   hostvim_full_setup
 else
   ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_HOST" "

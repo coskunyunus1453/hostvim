@@ -208,6 +208,20 @@ else
   sudo bash "$DEPLOY_SCRIPTS/fix-hosting-permissions.sh"
 fi
 
+# HostVim store — PanelKafes (pk-hostvim-com) izinleri fix-hosting-permissions ile bozulabilir.
+if [[ -f "$DEPLOY_SCRIPTS/lib/hostvim-common.sh" ]] \
+  && [[ -f "${PANELZE_HOME:-$REPO_ROOT}/data/www/hostvim.com/public_html/artisan" ]]; then
+  echo "==> HostVim store guard (hostvim.com)"
+  # shellcheck source=lib/hostvim-common.sh
+  source "$DEPLOY_SCRIPTS/lib/hostvim-common.sh"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    hostvim_store_guard || hostvim_finalize_store || true
+  else
+    sudo bash "$DEPLOY_SCRIPTS/fix-store-permissions.sh" --local --guard-only || \
+      sudo bash "$DEPLOY_SCRIPTS/fix-store-permissions.sh" --local || true
+  fi
+fi
+
 echo "==> panelze:install-check"
 panelze_run_artisan panelze:install-check --ping || true
 

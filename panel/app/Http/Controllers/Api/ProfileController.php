@@ -35,20 +35,37 @@ class ProfileController extends Controller
 
     public function password(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'current_password' => 'required|string',
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()->symbols()],
-        ]);
+        $user = $request->user();
+        $initialSetup = (bool) $user->force_password_change;
 
-        if (! Hash::check($validated['current_password'], $request->user()->password)) {
+        $rules = [
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()->symbols()],
+        ];
+        if (! $initialSetup) {
+            $rules['current_password'] = ['required', 'string'];
+        } else {
+            $rules['current_password'] = ['nullable', 'string'];
+        }
+
+        $validated = $request->validate($rules);
+
+        if (! $initialSetup) {
+            if (! Hash::check((string) $validated['current_password'], (string) $user->password)) {
+                throw ValidationException::withMessages([
+                    'current_password' => [__('auth.current_password_invalid')],
+                ]);
+            }
+        } elseif (! empty($validated['current_password'])
+            && ! Hash::check((string) $validated['current_password'], (string) $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => [__('auth.current_password_invalid')],
             ]);
         }
 
-        $request->user()->update([
+        $user->update([
             'password' => Hash::make($validated['password']),
             'force_password_change' => false,
+            'password_set_at' => now(),
         ]);
 
         return response()->json(['message' => __('auth.password_updated')]);

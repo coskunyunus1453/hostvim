@@ -3,12 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Services\CartService;
+use InvalidArgumentException;
 
 class CartController extends Controller
 {
     public function index(CartService $cart)
     {
-        $items = $cart->validatedItems();
+        try {
+            $items = $cart->validatedItems();
+        } catch (InvalidArgumentException $e) {
+            return redirect()->route('products.index')->with('error', $e->getMessage());
+        }
 
         return view('cart.index', [
             'items' => $items,

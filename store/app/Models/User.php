@@ -15,7 +15,6 @@ class User extends Authenticatable implements FilamentUser
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'panel_user_id',
         'name',
         'email',
         'password',

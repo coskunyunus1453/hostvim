@@ -31,7 +31,13 @@ class IssueDomainSslJob implements ShouldQueue
 
     public int $timeout = 300;
 
-    public int $tries = 1;
+    public int $tries = 3;
+
+    /** @return list<int> */
+    public function backoff(): array
+    {
+        return [60, 180, 300];
+    }
 
     public function __construct(public int $domainId) {}
 

@@ -116,6 +116,21 @@ class PayTRGateway implements PaymentGatewayInterface
             return $order;
         }
 
+        // PayTR total_amount kuruş cinsinden gelir; sipariş tutarı ile doğrula.
+        if (isset($data['total_amount'])) {
+            $callbackKurus = (int) $data['total_amount'];
+            $orderKurus = (int) round(((float) $order->total) * 100);
+            if ($callbackKurus !== $orderKurus) {
+                Log::warning('PayTR callback tutar uyuşmazlığı', [
+                    'order' => $order->order_number,
+                    'callback' => $callbackKurus,
+                    'expected' => $orderKurus,
+                ]);
+
+                return $order;
+            }
+        }
+
         $status = ($data['status'] ?? '') === 'success' ? 'paid' : 'failed';
         $order->update([
             'payment_status' => $status,

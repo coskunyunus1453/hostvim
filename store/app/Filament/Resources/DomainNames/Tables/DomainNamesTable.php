@@ -3,8 +3,7 @@
 namespace App\Filament\Resources\DomainNames\Tables;
 
 use App\Models\DomainName;
-use App\Models\OrderItem;
-use App\Services\Domain\DomainManagementService;
+use App\Services\Domain\DomainProvisioningService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Repeater;
@@ -93,19 +92,14 @@ class DomainNamesTable
                             return;
                         }
 
-                        $item = OrderItem::query()
-                            ->where('order_id', $order->id)
-                            ->where('item_type', 'domain_register')
-                            ->whereRaw('LOWER(domain_name) = ?', [$record->domain])
-                            ->first();
-                        $years = max(1, (int) ($item->domain_years ?? 1));
-
                         try {
-                            $result = app(DomainManagementService::class)->registerForOrder($order, $record->domain, $years, $record->registrar_api);
+                            // Aynı sipariş üzerinden retry: müşteri e-postası + panel senkronu; yeni sipariş yok.
+                            $summary = app(DomainProvisioningService::class)->retry($order);
+                            $ok = $summary['succeeded'] > 0;
                             Notification::make()
-                                ->title($result['ok'] ? 'Kayıt başarılı' : 'Kayıt başarısız')
-                                ->body($result['message'])
-                                ->{$result['ok'] ? 'success' : 'danger'}()
+                                ->title($ok ? 'Kayıt başarılı' : 'Kayıt başarısız')
+                                ->body(implode("\n", $summary['messages'] ?: [$record->domain]))
+                                ->{$ok ? 'success' : 'danger'}()
                                 ->persistent()
                                 ->send();
                         } catch (\Throwable $e) {

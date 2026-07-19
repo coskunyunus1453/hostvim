@@ -170,7 +170,7 @@ class DnsRecordController extends Controller
     private function triggerBindSync(): array
     {
         try {
-            $result = $this->bindDns->syncViaSudo();
+            $result = $this->bindDns->syncNowOrQueue();
             if (! ($result['ok'] ?? false) && ! ($result['skipped'] ?? false)) {
                 Log::warning('BIND sync failed after DNS change', $result);
             }
@@ -178,8 +178,9 @@ class DnsRecordController extends Controller
             return $result;
         } catch (\Throwable $e) {
             Log::warning('BIND sync error', ['message' => $e->getMessage()]);
+            $this->bindDns->scheduleSync();
 
-            return ['ok' => false, 'message' => $e->getMessage()];
+            return ['ok' => false, 'message' => $e->getMessage(), 'queued' => true];
         }
     }
 }

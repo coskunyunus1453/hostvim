@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Subscription;
 use App\Services\Provisioning\ProvisioningService;
 use App\Services\Domain\DomainRegistrarService;
+use App\Services\BindDnsService;
 use App\Services\SafeAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class InvoiceService
         private BillingSettings $settings,
         private ProvisioningService $provisioning,
         private DomainRegistrarService $domainRegistrar,
+        private BindDnsService $bindDns,
     ) {}
 
     /** Bir sipariş için ilk faturayı oluşturur (kurulum ücretleri dahil). */
@@ -131,6 +133,7 @@ class InvoiceService
                 if ($provisioned !== [] && $invoice->subscription_id === null) {
                     $invoice->update(['subscription_id' => $provisioned[0]->id]);
                 }
+                $this->bindDns->scheduleSync();
             } elseif ($invoice->subscription_id) {
                 $sub = Subscription::query()->with('user', 'hostingPackage', 'domain')->find($invoice->subscription_id);
                 if ($sub) {

@@ -9,17 +9,35 @@
 #
 set -euo pipefail
 
+_resolve_panelze_home_for_script() {
+  if [[ -n "${PANELZE_HOME:-}" && -f "${PANELZE_HOME}/deploy/scripts/lib/panelze-deploy-common.sh" ]]; then
+    echo "$PANELZE_HOME"
+    return
+  fi
+  local d
+  for d in /var/www/hostvim /var/www/panelze; do
+    if [[ -f "$d/deploy/scripts/lib/panelze-deploy-common.sh" ]]; then
+      echo "$d"
+      return
+    fi
+  done
+  echo /var/www/panelze
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$SCRIPT_DIR/lib/panelze-deploy-common.sh" ]]; then
   # shellcheck source=lib/panelze-deploy-common.sh
   source "$SCRIPT_DIR/lib/panelze-deploy-common.sh"
-elif [[ -f "${PANELZE_HOME:-/var/www/panelze}/deploy/scripts/lib/panelze-deploy-common.sh" ]]; then
-  SCRIPT_DIR="${PANELZE_HOME:-/var/www/panelze}/deploy/scripts"
-  # shellcheck source=/dev/null
-  source "$SCRIPT_DIR/lib/panelze-deploy-common.sh"
 else
-  echo "Hata: panelze-deploy-common.sh bulunamadi." >&2
-  exit 1
+  PANELZE_HOME="$(_resolve_panelze_home_for_script)"
+  SCRIPT_DIR="${PANELZE_HOME}/deploy/scripts"
+  if [[ -f "$SCRIPT_DIR/lib/panelze-deploy-common.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/lib/panelze-deploy-common.sh"
+  else
+    echo "Hata: panelze-deploy-common.sh bulunamadi." >&2
+    exit 1
+  fi
 fi
 
 PANELZE_HOME="$(panelze_resolve_home "${PANEL_ROOT:-}")"
@@ -101,6 +119,10 @@ if [[ -n "$TARGET_DOMAIN" ]]; then
     echo "Tamam. $TARGET_DOMAIN — PanelKafes izolasyonu uygulandı."
   else
     _apply_tree "$WEB_ROOT/$TARGET_DOMAIN"
+    acme="$WEB_ROOT/$TARGET_DOMAIN/public_html/.well-known/acme-challenge"
+    if [[ -d "$WEB_ROOT/$TARGET_DOMAIN/public_html" ]]; then
+      install -d -o "$OWNER" -g "$GROUP" -m 2775 "$acme"
+    fi
     echo "Tamam. $TARGET_DOMAIN — panel dosya yöneticisi yazabilir."
   fi
   exit 0

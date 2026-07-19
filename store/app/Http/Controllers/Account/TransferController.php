@@ -16,6 +16,11 @@ class TransferController extends Controller
     public function requestDomain(Request $request, int $id)
     {
         $domain = DomainName::query()->findOrFail($id);
+        $email = (string) $request->user()->email;
+        abort_unless(
+            $domain->customer_email !== null && strcasecmp((string) $domain->customer_email, $email) === 0,
+            403
+        );
 
         $validated = $request->validate([
             'target_email' => ['required', 'email', 'max:255'],

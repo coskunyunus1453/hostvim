@@ -82,11 +82,21 @@ class PaymentController extends Controller
     public function payoneerWebhook(Request $request, PayoneerGateway $payoneer)
     {
         try {
-            $payoneer->handleWebhook($request->all());
+            $payload = $request->all();
+            $payload['__raw_body'] = $request->getContent();
+            $method = PaymentMethod::query()->where('driver', 'payoneer')->where('is_active', true)->first();
+            $config = is_array($method?->config) ? $method->config : [];
+            $payload['__webhook_secret'] = (string) ($config['webhook_secret'] ?? config('services.payoneer.webhook_secret', ''));
+            $payload['signature'] = (string) (
+                $request->header('X-Payoneer-Signature')
+                ?? $request->header('X-Signature')
+                ?? ($payload['signature'] ?? '')
+            );
+            $payoneer->handleWebhook($payload);
         } catch (\Throwable $e) {
             Log::error('Payoneer webhook hatası', ['message' => $e->getMessage()]);
 
-            return response('Error', 500);
+            return response('Error', 401);
         }
 
         return response('OK');

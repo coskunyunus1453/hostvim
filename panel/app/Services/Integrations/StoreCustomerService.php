@@ -236,10 +236,14 @@ class StoreCustomerService
 
     public function updatePassword(User $user, string $current, string $password): void
     {
-        if (! Hash::check($current, (string) $user->password)) {
-            throw ValidationException::withMessages([
-                'current_password' => [__('auth.current_password_invalid')],
-            ]);
+        $initialSetup = (bool) $user->force_password_change;
+
+        if (! $initialSetup || $current !== '') {
+            if ($current === '' || ! Hash::check($current, (string) $user->password)) {
+                throw ValidationException::withMessages([
+                    'current_password' => [__('auth.current_password_invalid')],
+                ]);
+            }
         }
 
         $validator = validator(['password' => $password], [
@@ -253,6 +257,7 @@ class StoreCustomerService
         $user->forceFill([
             'password' => Hash::make($password),
             'force_password_change' => false,
+            'password_set_at' => now(),
         ])->save();
     }
 

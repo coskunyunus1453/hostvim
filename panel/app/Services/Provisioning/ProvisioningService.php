@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\BillingSettings;
+use App\Services\BindDnsService;
 use App\Services\DomainService;
 use App\Services\HostnameReservationService;
 use App\Services\HostingQuotaService;
@@ -28,6 +29,7 @@ class ProvisioningService
         private HostingQuotaService $quota,
         private HostnameReservationService $hostnames,
         private BillingSettings $settings,
+        private BindDnsService $bindDns,
     ) {}
 
     /**
@@ -91,6 +93,7 @@ class ProvisioningService
             // girsin ki provizyon işlemi SSL'e bağlı olarak yavaşlamasın/kilitlenmesin.
             if ($domain !== null) {
                 \App\Jobs\IssueDomainSslJob::dispatch($domain->id)->afterCommit();
+                $this->bindDns->scheduleSync();
             }
 
             return $subscription;

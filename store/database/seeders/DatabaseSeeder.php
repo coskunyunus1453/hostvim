@@ -65,7 +65,7 @@ class DatabaseSeeder extends Seeder
             ['group' => 'design', 'key' => 'design_theme_mode', 'value' => 'system', 'type' => 'text', 'label' => 'Tema Modu'],
             ['group' => 'design', 'key' => 'design_theme_preset', 'value' => 'hostvim-main', 'type' => 'text', 'label' => 'Tema Paketi'],
             ['group' => 'design', 'key' => 'design_font_family', 'value' => 'Plus Jakarta Sans', 'type' => 'text', 'label' => 'Yazı Tipi'],
-            ['group' => 'design', 'key' => 'design_theme_toggle', 'value' => '1', 'type' => 'boolean', 'label' => 'Tema Butonu'],
+            ['group' => 'design', 'key' => 'design_theme_toggle', 'value' => '0', 'type' => 'boolean', 'label' => 'Tema Butonu'],
             ['group' => 'design', 'key' => 'design_header_style', 'value' => 'glass', 'type' => 'text', 'label' => 'Header Stili'],
             ['group' => 'design', 'key' => 'design_header_sticky', 'value' => '1', 'type' => 'boolean', 'label' => 'Yapışkan Header'],
             ['group' => 'design', 'key' => 'design_header_blur', 'value' => '1', 'type' => 'boolean', 'label' => 'Header Blur'],

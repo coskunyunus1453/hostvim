@@ -15,19 +15,21 @@ class PageCacheMiddleware
         'cart.index', 'cart.count', 'cart.remove', 'cart.clear',
         'checkout.index', 'checkout.process',
         'domain.index', 'domain.check', 'domain.search', 'domain.whois', 'domain.cart.add',
-        'domain.value', 'domain.value.lookup',
+        'domain.value.index', 'domain.value.estimate',
         'payment.success', 'payment.fail',
         'payment.paytr.callback', 'payment.iyzico.callback',
         'contact.index', 'contact.store', 'products.cart.add',
         'login', 'register', 'logout',
         'password.request', 'password.email', 'password.reset', 'password.update',
+        'hosting.configure.domain', 'hosting.configure.options', 'hosting.configure.review',
+        'hosting.configure.start', 'hosting.configure.complete',
     ];
 
     /** @var list<string> */
     protected array $excludedPrefixes = [
         'admin', 'livewire', 'filament',
         'giris', 'kayit', 'cikis', 'hesabim', 'sifremi-unuttum', 'sifre-sifirla',
-        'domain', 'sepet', 'odeme', 'hosting',
+        'domain', 'sepet', 'odeme', 'hosting', 'siparis',
     ];
 
     public function __construct(

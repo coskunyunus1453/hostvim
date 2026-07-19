@@ -24,7 +24,10 @@ class SetApiLocale
             return $next($request);
         }
 
-        $supported = ['en', 'tr', 'de', 'fr', 'es', 'pt', 'zh', 'ja', 'ar', 'ru'];
+        $supported = config('panelze.available_locales', ['en', 'tr', 'de', 'fr', 'es', 'pt', 'zh', 'ja', 'ar', 'ru']);
+        if (! is_array($supported)) {
+            $supported = ['en', 'tr'];
+        }
 
         $locale = null;
 

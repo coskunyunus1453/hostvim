@@ -71,6 +71,7 @@ class CacheInvalidator
 
         if ($model instanceof ProductCategory) {
             $this->cache->clearLayoutCategories();
+            $this->cache->clearHomeCache();
             $paths = ['', 'urunler'];
             if ($model->slug) {
                 $paths[] = 'urunler/'.$model->slug;
@@ -86,13 +87,14 @@ class CacheInvalidator
             $categorySlug = null;
             if ($model->relationLoaded('category') && $model->category?->slug) {
                 $categorySlug = $model->category->slug;
-            } elseif ($model->category_id) {
-                $categorySlug = ProductCategory::query()->whereKey($model->category_id)->value('slug');
+            } elseif ($model->product_category_id) {
+                $categorySlug = ProductCategory::query()->whereKey($model->product_category_id)->value('slug');
             }
             if ($categorySlug && $model->slug) {
                 $paths[] = 'urunler/'.$categorySlug.'/'.$model->slug;
                 $paths[] = 'urunler/'.$categorySlug;
             }
+            $this->cache->clearHomeCache();
             $this->cache->clearPageCacheForPaths(array_values(array_unique($paths)));
 
             return;

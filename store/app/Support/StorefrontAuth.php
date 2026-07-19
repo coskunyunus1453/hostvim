@@ -38,16 +38,29 @@ class StorefrontAuth
 
     public static function isAllowedPostLoginUrl(string $url, ?User $user): bool
     {
-        $path = parse_url($url, PHP_URL_PATH) ?? '/';
+        $parts = parse_url($url);
+        if ($parts === false) {
+            return false;
+        }
 
+        $host = $parts['host'] ?? null;
+        if (is_string($host) && $host !== '') {
+            $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+            if (! is_string($appHost) || $appHost === '' || strcasecmp($host, $appHost) !== 0) {
+                return false;
+            }
+        }
+
+        $path = $parts['path'] ?? '/';
         if ($path === '' || $path === '/') {
             return true;
         }
 
+        // Protocol-relative and other non-app paths are rejected via host check above.
         if (str_starts_with($path, '/admin') || str_contains($path, '/filament') || str_starts_with($path, '/livewire')) {
             return (bool) ($user?->is_admin);
         }
 
-        return true;
+        return str_starts_with($path, '/');
     }
 }

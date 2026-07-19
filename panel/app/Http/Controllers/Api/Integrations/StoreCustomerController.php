@@ -78,14 +78,20 @@ class StoreCustomerController extends Controller
 
     public function updatePassword(Request $request): JsonResponse
     {
+        $user = $this->resolveUser($request);
+        $initialSetup = (bool) $user->force_password_change;
+
         $validated = $request->validate([
             'panel_user_id' => ['required', 'integer', 'min:1'],
-            'current_password' => ['required', 'string'],
+            'current_password' => [$initialSetup ? 'nullable' : 'required', 'string'],
             'password' => ['required', 'string', 'confirmed', 'min:8'],
         ]);
 
-        $user = $this->resolveUser($request);
-        $this->customers->updatePassword($user, $validated['current_password'], $validated['password']);
+        $this->customers->updatePassword(
+            $user,
+            (string) ($validated['current_password'] ?? ''),
+            $validated['password'],
+        );
 
         return response()->json(['message' => __('auth.password_updated')]);
     }

@@ -5,6 +5,7 @@ return [
     'failed' => 'Bu kimlik bilgileri kayıtlarımızla eşleşmiyor.',
     'current_password_invalid' => 'Mevcut şifre doğrulanamadı.',
     'password_updated' => 'Şifre güncellendi.',
+    'password_change_required' => 'Devam etmeden önce yeni bir şifre belirlemeniz gerekiyor.',
     'two_factor_secret_missing' => 'TOTP secret bulunamadı. Lütfen kurulumu yeniden başlatın.',
     'two_factor_invalid_code' => '2FA kodu geçersiz.',
     'two_factor_not_enabled' => '2FA henüz etkin değil.',

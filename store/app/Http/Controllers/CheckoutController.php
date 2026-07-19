@@ -129,24 +129,26 @@ class CheckoutController extends Controller
         $createdAccount = null;
 
         try {
-            // Misafir siparisi: mevcut hesaba bagla, yoksa otomatik hesap olustur.
+            // Misafir siparisi: mevcut e-posta varsa giriş zorunlu (hesap ele geçirme riski).
             $accountUserId = auth()->id();
             if ($accountUserId === null) {
                 $existing = User::query()->where('email', $validated['customer_email'])->first();
                 if ($existing !== null) {
-                    $accountUserId = $existing->id;
-                } else {
-                    $createdAccount = User::create([
-                        'name' => $validated['customer_name'],
-                        'email' => $validated['customer_email'],
-                        'phone' => $validated['customer_phone'] ?? null,
-                        'company' => $validated['customer_company'] ?? null,
-                        'address' => $validated['customer_address'] ?? null,
-                        'password' => Str::random(40),
-                        'is_admin' => false,
-                    ]);
-                    $accountUserId = $createdAccount->id;
+                    return redirect()
+                        ->route('login')
+                        ->with('error', 'Bu e-posta ile kayıtlı bir hesabınız var. Siparişi tamamlamak için giriş yapın.');
                 }
+
+                $createdAccount = User::create([
+                    'name' => $validated['customer_name'],
+                    'email' => $validated['customer_email'],
+                    'phone' => $validated['customer_phone'] ?? null,
+                    'company' => $validated['customer_company'] ?? null,
+                    'address' => $validated['customer_address'] ?? null,
+                    'password' => Str::random(40),
+                    'is_admin' => false,
+                ]);
+                $accountUserId = $createdAccount->id;
             }
 
             $order = DB::transaction(function () use ($items, $validated, $paymentMethod, $subtotal, $discount, $taxRate, $taxAmount, $total, $appliedCoupon, $accountUserId) {
@@ -224,9 +226,7 @@ class CheckoutController extends Controller
                 return redirect()->route('checkout.index')->with('error', $result['message'] ?? 'Ödeme başlatılamadı.');
             }
 
-            if ($appliedCoupon) {
-                $campaigns->incrementUsage($appliedCoupon);
-            }
+            // Kupon kullanımı yalnızca ödeme paid olduğunda OrderObserver içinde artar.
 
             if ($createdAccount !== null) {
                 $this->sendAccountCreatedMail($createdAccount);

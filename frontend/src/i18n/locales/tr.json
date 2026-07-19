@@ -2590,6 +2590,8 @@
     "two_factor_disabled_toast": "İki faktörlü doğrulama kapatıldı.",
     "mandatory_2fa_banner": "Sunucu politikası rolünüz için iki aşamalı doğrulama zorunlu kılıyor. Panelin geri kalanını kullanmadan önce aşağıdaki kurulumu tamamlayın.",
     "mandatory_password_banner": "Güvenlik gereği ilk girişten sonra şifre değişimi zorunludur. Devam etmek için aşağıdan yeni şifre belirleyin.",
+    "initial_password_hint": "Mağazadan «Panele giriş» ile geldiniz; mevcut şifreyi boş bırakıp yalnızca yeni şifre belirleyebilirsiniz.",
+    "current_password_optional": "Mevcut şifre (ilk kurulumda isteğe bağlı)",
     "password_policy_hint": "En az 8 karakter; büyük harf, küçük harf, rakam ve özel karakter içermelidir.",
     "branding": "Marka görselleri",
     "branding_hint": "Müşteri paneli ile yönetici bölümü için ayrı logolar. Kenar çubukunda yol (/admin) hangi logo ile eşleşiyorsa o gösterilir; giriş ekranında müşteri logosu kullanılır.",

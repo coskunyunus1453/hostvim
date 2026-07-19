@@ -469,6 +469,18 @@ cmd_apply() {
     fi
   done
 
+  # Let's Encrypt HTTP-01: Engine (www-data) challenge dosyası yazabilsin.
+  # PanelKafes sitelerinde public_html kiracıya aittir; .well-known ayrı sahiplikte kalır.
+  for doc in "$site_root/public_html"; do
+    [[ -d "$doc" ]] || continue
+    acme="$doc/.well-known/acme-challenge"
+    install -d -o "$ENGINE_USER" -g "$GROUP" -m 2775 "$acme"
+    if [[ -d "$doc/.well-known" ]]; then
+      chown "$ENGINE_USER:$GROUP" "$doc/.well-known"
+      chmod 2775 "$doc/.well-known"
+    fi
+  done
+
   limits_file="/etc/security/limits.d/panelkafes-${user}.conf"
   cat >"$limits_file" <<EOF
 # PanelKafes — $domain

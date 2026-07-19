@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useThemeStore } from '../store/themeStore'
@@ -28,6 +28,7 @@ const languages = [
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { isDark, toggleTheme } = useThemeStore()
   const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
@@ -273,6 +274,9 @@ export default function SettingsPage() {
     onSuccess: () => {
       toast.success(t('settings.password_updated'))
       updateUser({ force_password_change: false })
+      if (mandatoryPasswordParam) {
+        navigate('/dashboard', { replace: true })
+      }
     },
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { errors?: Record<string, string[]> } } }
@@ -549,9 +553,20 @@ export default function SettingsPage() {
           }}
         >
           <div>
-            <label className="label">{t('settings.current_password')}</label>
+            <label className="label">
+              {requiresPasswordChange ? t('settings.current_password_optional') : t('settings.current_password')}
+            </label>
             <input name="username" type="email" defaultValue={user?.email || ''} autoComplete="username" className="hidden" tabIndex={-1} />
-            <input name="current_password" type="password" className="input w-full" required autoComplete="current-password" />
+            <input
+              name="current_password"
+              type="password"
+              className="input w-full"
+              required={!requiresPasswordChange}
+              autoComplete="current-password"
+            />
+            {requiresPasswordChange && (
+              <p className="mt-1 text-xs text-gray-500">{t('settings.initial_password_hint')}</p>
+            )}
           </div>
           <div>
             <label className="label">{t('settings.new_password')}</label>

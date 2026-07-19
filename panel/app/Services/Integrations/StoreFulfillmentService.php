@@ -149,8 +149,14 @@ class StoreFulfillmentService
                     ]);
                     $user->syncRoles([$role->name]);
                     $userCreated = true;
-                } elseif ($user->name !== $name && $name !== '') {
-                    $user->forceFill(['name' => $name])->save();
+                } else {
+                    // Mevcut müşteri — şifre daha önce belirlendiyse tekrar zorunlu tutma.
+                    if ($user->password_set_at !== null && $user->force_password_change) {
+                        $user->forceFill(['force_password_change' => false])->save();
+                    }
+                    if ($user->name !== $name && $name !== '') {
+                        $user->forceFill(['name' => $name])->save();
+                    }
                 }
 
                 $orderItems = $this->normalizeItems($items);

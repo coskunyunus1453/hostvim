@@ -159,6 +159,18 @@ class StripeGateway implements PaymentGatewayInterface
         }
 
         if (($session->payment_status ?? '') === 'paid') {
+            $amountTotal = isset($session->amount_total) ? (int) $session->amount_total : null;
+            $expected = (int) round(((float) $order->total) * 100);
+            if ($amountTotal !== null && $amountTotal !== $expected) {
+                Log::warning('Stripe webhook tutar uyuşmazlığı', [
+                    'order' => $order->order_number,
+                    'amount_total' => $amountTotal,
+                    'expected' => $expected,
+                ]);
+
+                return false;
+            }
+
             $this->completer->markPaid($order, $session->payment_intent ?? $session->id, [
                 'stripe_session_id' => $session->id,
                 'stripe_webhook' => true,

@@ -4,6 +4,10 @@ namespace App\Filament\Resources\Orders\RelationManagers;
 
 use App\Models\DomainName;
 use App\Models\OrderItem;
+use App\Services\Domain\DomainProvisioningService;
+use App\Services\Panel\PanelProvisioningService;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -86,6 +90,55 @@ class ItemsRelationManager extends RelationManager
                         'Başarısız' => 'danger',
                         'Bekliyor' => 'warning',
                         default => 'gray',
+                    }),
+            ])
+            ->recordActions([
+                Action::make('retryDomainItem')
+                    ->label('Tekrar dene')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (OrderItem $r): bool => ($r->item_type ?? '') === 'domain_register'
+                        && $r->order?->payment_status === 'paid'
+                        && $this->provisionLabel($r) !== 'Kayıtlı')
+                    ->requiresConfirmation()
+                    ->modalHeading('Alan adı kaydını yeniden dene')
+                    ->modalDescription('Aynı sipariş üzerinden Spaceship kaydı tekrarlanır. Yeni sipariş oluşmaz.')
+                    ->action(function (OrderItem $record, DomainProvisioningService $domains): void {
+                        $order = $record->order;
+                        if ($order === null) {
+                            return;
+                        }
+                        $summary = $domains->retry($order);
+                        $body = implode("\n", $summary['messages'] ?: ['—']);
+                        Notification::make()
+                            ->title($summary['succeeded'] > 0 ? 'Domain kaydı tamamlandı' : 'Domain kaydı')
+                            ->body($body)
+                            ->{$summary['succeeded'] > 0 ? 'success' : ($summary['failed'] > 0 ? 'danger' : 'info')}()
+                            ->persistent()
+                            ->send();
+                    }),
+                Action::make('retryHostingItem')
+                    ->label('Tekrar dene')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (OrderItem $r): bool => in_array($r->item_type ?? '', ['hosting', 'manual', 'product'], true)
+                        && $r->order?->payment_status === 'paid'
+                        && in_array($r->order?->panel_provision_status, ['pending', 'failed', 'processing'], true))
+                    ->requiresConfirmation()
+                    ->modalHeading('Hosting kurulumunu yeniden dene')
+                    ->modalDescription('Panel fulfill aynı store sipariş numarasıyla çalışır; çift panel siparişi oluşmaz.')
+                    ->action(function (OrderItem $record, PanelProvisioningService $panel): void {
+                        $order = $record->order;
+                        if ($order === null) {
+                            return;
+                        }
+                        $result = $panel->retry($order);
+                        Notification::make()
+                            ->title($result['ok'] ? 'Hosting kurulumu' : 'Kurulum başlatılamadı')
+                            ->body($result['message'])
+                            ->{$result['ok'] ? 'success' : 'danger'}()
+                            ->persistent()
+                            ->send();
                     }),
             ])
             ->paginated(false);

@@ -191,6 +191,9 @@ if [[ -f deploy/host/panelze-cleaner ]]; then
   install -m 755 deploy/host/panelze-cleaner /usr/local/sbin/panelze-cleaner
   ln -sfn /usr/local/sbin/panelze-cleaner /usr/local/sbin/panelsar-cleaner
 fi
+if [[ -f deploy/host/docker-disk-guard ]]; then
+  install -m 755 deploy/host/docker-disk-guard /usr/local/sbin/docker-disk-guard
+fi
 if [[ -f deploy/host/panelze-node-pm2 ]]; then
   install -m 755 deploy/host/panelze-node-pm2 /usr/local/sbin/panelze-node-pm2
   ln -sfn /usr/local/sbin/panelze-node-pm2 /usr/local/sbin/panelsar-node-pm2

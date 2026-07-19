@@ -56,11 +56,20 @@ func resolvePHPSocket(cfg *config.Config, domain string, meta *sites.SiteMeta, e
 }
 
 func sslPathsIfEnabled(cfg *config.Config, domain string, meta *sites.SiteMeta) (chain, key string) {
-	if meta == nil || !meta.SSLEnabled {
-		return "", ""
-	}
 	chain, key = ssl.LiveCertPaths(cfg, domain)
-	if !ssl.CertsExist(chain, key) {
+	if ssl.CertsExist(chain, key) {
+		// Panel meta ile engine site.json senkron kayması olabilir; diskte sertifika varsa HTTPS vhost üret.
+		if meta != nil && !meta.SSLEnabled {
+			meta.SSLEnabled = true
+			if meta.ForceHTTPS == nil {
+				force := true
+				meta.ForceHTTPS = &force
+			}
+			_ = sites.WriteSiteMeta(cfg.Paths.WebRoot, domain, meta)
+		}
+		return chain, key
+	}
+	if meta == nil || !meta.SSLEnabled {
 		return "", ""
 	}
 	return chain, key

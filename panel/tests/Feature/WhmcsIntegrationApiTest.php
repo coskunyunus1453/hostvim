@@ -103,6 +103,21 @@ class WhmcsIntegrationApiTest extends TestCase
             ->assertJsonStructure(['token', 'user', 'expires_at']);
     }
 
+    public function test_sso_web_redirect_goes_to_login_with_sso_query(): void
+    {
+        $jti = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\Cache::put('whmcs_sso:'.$jti, ['user_id' => 1, 'admin' => false], now()->addMinutes(2));
+
+        config(['app.url' => 'https://panel.hostvim.test']);
+        config(['panelze.whmcs_integration.sso_redirect_base' => 'https://panel.hostvim.test/admin']);
+
+        $response = $this->get('/sso/whmcs?t='.$jti);
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString('/login', $location);
+        $this->assertStringContainsString('sso='.$jti, $location);
+    }
+
     public function test_sso_mint_admin_and_consume(): void
     {
         Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);

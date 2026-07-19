@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Domain;
 use App\Models\DnsRecord;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class DomainDnsBootstrapService
 {
@@ -66,9 +68,9 @@ class DomainDnsBootstrapService
         $created = (int) ($defaults['created'] ?? 0);
         $skipped = (int) ($defaults['skipped'] ?? 0);
 
-        // Zone dosyası BIND'e kayıtlı olmayabilir (eski kurulum); kayıt değişmese de senkron gerekli.
+        // Zone dosyası transaction commit öncesi harici artisan ile yazılamaz; kuyruk kullan.
         if ($this->dnsSettings->bindEnabled()) {
-            $this->bindDns->syncViaSudo();
+            $this->bindDns->scheduleSync();
         }
 
         return [
@@ -108,10 +110,54 @@ class DomainDnsBootstrapService
         ]);
 
         if ($created > 0 && $this->dnsSettings->bindEnabled()) {
-            $this->bindDns->syncViaSudo();
+            $this->bindDns->scheduleSync();
         }
 
         return ['created' => $created, 'skipped' => $skipped];
+    }
+
+    /**
+     * Alan adı kaydı veya manuel ekleme sonrası panel Domain + varsayılan DNS + BIND zone garantisi.
+     * Hosting kalemi aynı siparişte sonra gelse bile idempotent çalışır.
+     */
+    public function ensureAuthoritativeZone(User $user, string $domainName): ?Domain
+    {
+        $domainName = strtolower(rtrim(trim($domainName), '.'));
+        if ($domainName === '') {
+            return null;
+        }
+
+        $domain = Domain::query()->where('name', $domainName)->first();
+        if ($domain !== null) {
+            if ((int) $domain->user_id !== (int) $user->id) {
+                return null;
+            }
+        } else {
+            $fallbackRoot = rtrim((string) config('panelze.hosting_web_root'), DIRECTORY_SEPARATOR);
+            $provisionalRoot = $fallbackRoot !== ''
+                ? $fallbackRoot.DIRECTORY_SEPARATOR.$domainName.DIRECTORY_SEPARATOR.'public_html'
+                : $domainName.DIRECTORY_SEPARATOR.'public_html';
+
+            $domain = $user->domains()->create([
+                'name' => $domainName,
+                'document_root' => $provisionalRoot,
+                'php_version' => (string) config('panelze.default_php_version', '8.2'),
+                'server_type' => 'nginx',
+                'status' => 'active',
+                'is_primary' => ! $user->domains()->exists(),
+            ]);
+        }
+
+        $result = $this->repairAndProvision($domain);
+        if (! empty($result['error'])) {
+            Log::warning('panelze.dns.ensure_authoritative_zone_failed', [
+                'domain' => $domainName,
+                'user_id' => $user->id,
+                'error' => $result['error'],
+            ]);
+        }
+
+        return $domain->fresh();
     }
 
     /**
@@ -131,7 +177,7 @@ class DomainDnsBootstrapService
         }
 
         if ($removed > 0 && $this->dnsSettings->bindEnabled()) {
-            $this->bindDns->syncViaSudo();
+            $this->bindDns->scheduleSync();
         }
     }
 
@@ -200,8 +246,8 @@ class DomainDnsBootstrapService
             }
         }
 
-        if ($syncBind && $created > 0) {
-            $this->bindDns->syncViaSudo();
+        if ($syncBind && $this->dnsSettings->bindEnabled()) {
+            $this->bindDns->scheduleSync();
         }
 
         return ['created' => $created, 'skipped' => $skipped];

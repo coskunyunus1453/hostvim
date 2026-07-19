@@ -12,6 +12,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -129,20 +130,10 @@ class ManageDesignSettings extends Page
                     ]),
                     Tab::make('theme')->label('Tema Modu')->icon(Heroicon::OutlinedSun)->schema([
                         Section::make('Gece / Gündüz Modu')->schema([
-                            Select::make('design_theme_mode')
-                                ->label('Varsayılan mod')
-                                ->options([
-                                    'system' => 'Sistem tercihi (otomatik)',
-                                    'light' => 'Gündüz modu',
-                                    'dark' => 'Gece modu',
-                                ])
-                                ->default('system')
-                                ->helperText('Ziyaretçi siteye ilk girdiğinde hangi mod kullanılsın'),
-                            Toggle::make('design_theme_toggle')
-                                ->label('Tema değiştirme butonu göster')
-                                ->default(true)
-                                ->helperText('Header\'da gece/gündüz geçiş düğmesi'),
-                        ])->columns(2),
+                            Placeholder::make('theme_auto_info')
+                                ->label('Otomatik tema')
+                                ->content('Site teması ziyaretçinin cihaz ayarına göre otomatik seçilir (gece/gündüz). Header\'da manuel geçiş butonu yoktur.'),
+                        ]),
                     ]),
                     Tab::make('light')->label('Gündüz Renkleri')->icon(Heroicon::OutlinedSwatch)->schema([
                         $this->colorSection('Açık tema renkleri', 'design_light'),

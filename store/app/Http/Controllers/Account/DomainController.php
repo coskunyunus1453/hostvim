@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DomainName;
 use App\Models\OwnershipTransferRequest;
 use App\Services\Domain\DomainManagementService;
+use App\Support\CustomerFacingText;
 use Illuminate\Http\Request;
 use Throwable;
 
@@ -35,8 +36,13 @@ class DomainController extends Controller
             try {
                 $records = $this->domains->dnsRecords($domain);
             } catch (Throwable $e) {
-                $dnsError = $e->getMessage();
+                $dnsError = CustomerFacingText::sanitize($e->getMessage());
             }
+        }
+
+        $daysUntilExpiry = null;
+        if ($domain->expires_at !== null) {
+            $daysUntilExpiry = (int) now()->startOfDay()->diffInDays($domain->expires_at->startOfDay(), false);
         }
 
         $pendingTransfer = OwnershipTransferRequest::query()
@@ -50,6 +56,9 @@ class DomainController extends Controller
             'records' => $records,
             'dnsError' => $dnsError,
             'pendingTransfer' => $pendingTransfer,
+            'defaultNameservers' => CustomerFacingText::defaultNameservers(),
+            'brandName' => CustomerFacingText::brandName(),
+            'daysUntilExpiry' => $daysUntilExpiry,
         ]);
     }
 
@@ -102,11 +111,15 @@ class DomainController extends Controller
     public function renew(Request $request, int $id)
     {
         $domain = $this->ownedDomain($request, $id);
-        $validated = $request->validate([
+        $request->validate([
             'years' => ['required', 'integer', 'min:1', 'max:10'],
         ]);
 
-        return $this->run($domain, fn () => $this->domains->renew($domain, (int) $validated['years']), 'Alan adı yenilendi.');
+        // Ücretsiz registrar yenilemesi kapatıldı — maliyetli işlem ödeme sonrası yapılmalı.
+        return back()->with(
+            'error',
+            'Alan adı yenileme artık doğrudan ücretsiz yapılamaz. Lütfen destek üzerinden yenileme talebi oluşturun; ödeme sonrası işlem tamamlanır.'
+        );
     }
 
     public function privacy(Request $request, int $id)
@@ -130,11 +143,11 @@ class DomainController extends Controller
         try {
             $result = $this->domains->authCode($domain);
         } catch (Throwable $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', CustomerFacingText::sanitize($e->getMessage()));
         }
 
         if (! ($result['ok'] ?? false) || empty($result['code'])) {
-            return back()->with('error', $result['message'] ?? 'Transfer kodu alınamadı.');
+            return back()->with('error', CustomerFacingText::sanitize($result['message'] ?? 'Transfer kodu alınamadı.'));
         }
 
         return back()->with('auth_code', $result['code']);
@@ -152,11 +165,11 @@ class DomainController extends Controller
         try {
             $result = $callback();
         } catch (Throwable $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', CustomerFacingText::sanitize($e->getMessage()));
         }
 
         if (! ($result['ok'] ?? false)) {
-            return back()->with('error', $result['message'] ?? 'İşlem başarısız.');
+            return back()->with('error', CustomerFacingText::sanitize($result['message'] ?? 'İşlem başarısız.'));
         }
 
         return back()->with('success', $successMessage);
