@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panelze install — get.panelze.com</title>
+  <meta name="description" content="Official one-line Panelze installer. Run on a Linux VPS with curl.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://get.panelze.com/">
+  <style>
+    :root {
+      --bg: #0c0a09;
+      --surface: #1c1917;
+      --text: #fafaf9;
+      --muted: #a8a29e;
+      --accent: #ea580c;
+      --border: #292524;
+      --code-bg: #0a0908;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #431407 0%, transparent 55%), var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.5rem;
+    }
+    .lead { color: var(--muted); margin: 0 0 1.75rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.35rem;
+      margin: 0 0 1.25rem;
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      font-weight: 600;
+    }
+    pre {
+      margin: 0;
+      padding: 0.9rem 1rem;
+      background: var(--code-bg);
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      font-size: 0.875rem;
+      border: 1px solid var(--border);
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    ul { margin: 0; padding-left: 1.15rem; color: var(--muted); }
+    li { margin: 0.35rem 0; }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Install Panelze</h1>
+    <p class="lead">Official installer endpoint. Run this on your Linux server — not in the browser.</p>
+
+    <div class="card">
+      <h2>One-line install</h2>
+      <pre><code>curl -fsSL https://get.panelze.com | bash</code></pre>
+    </div>
+
+    <div class="card">
+      <h2>Requirements</h2>
+      <ul>
+        <li>Debian or Ubuntu VPS</li>
+        <li>Root or sudo access</li>
+        <li>SSH into the server, then run the command above</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <a href="https://panelze.com/setup">Setup guide</a>
+      <a href="https://panelze.com">panelze.com</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -13,32 +13,55 @@ class LandingSettingsSeeder extends Seeder
         LandingSiteSetting::put('landing.default_locale', 'en');
         LandingSiteSetting::put('landing.enabled_locales', json_encode(['en', 'tr']));
 
-        LandingSiteSetting::put('landing.site_name', '');
-        LandingSiteSetting::put('landing.site_tagline', '');
-        LandingSiteSetting::put('landing.site_logo_path', '');
-        LandingSiteSetting::put('landing.site_logo_max_height_px', '');
-        LandingSiteSetting::put('landing.site_logo_max_width_px', '');
-        LandingSiteSetting::put('landing.site_logo_footer_max_height_px', '');
-        LandingSiteSetting::put('landing.site_logo_footer_max_width_px', '');
-        LandingSiteSetting::put('landing.favicon_path', '');
-        LandingSiteSetting::put('landing.contact_email', '');
-        LandingSiteSetting::put('landing.social_twitter_url', '');
-        LandingSiteSetting::put('landing.social_github_url', '');
-        LandingSiteSetting::put('landing.social_linkedin_url', '');
-        LandingSiteSetting::put('landing.analytics_ga4_id', '');
-        LandingSiteSetting::put('landing.analytics_head_code', '');
-        LandingSiteSetting::put('landing.analytics_body_code', '');
-        LandingSiteSetting::put('landing.footer_extra_note', '');
+        // Boş varsayılanlar — mevcut logo/favicon/iletişim değerlerini silme
+        $defaults = [
+            'landing.site_name' => '',
+            'landing.site_tagline' => '',
+            'landing.site_logo_path' => '',
+            'landing.site_logo_max_height_px' => '',
+            'landing.site_logo_max_width_px' => '',
+            'landing.site_logo_footer_max_height_px' => '',
+            'landing.site_logo_footer_max_width_px' => '',
+            'landing.favicon_path' => '',
+            'landing.contact_email' => '',
+            'landing.social_twitter_url' => '',
+            'landing.social_github_url' => '',
+            'landing.social_linkedin_url' => '',
+            'landing.analytics_ga4_id' => '',
+            'landing.analytics_head_code' => '',
+            'landing.analytics_body_code' => '',
+            'landing.footer_extra_note' => '',
+            'landing.header_brand_mode' => LandingAppearance::HEADER_BRAND_MODE_BOTH,
+            'landing.active_theme' => 'orange',
+            'landing.graphic_motif' => 'grid',
+            'landing.theme_primary_hex' => '',
+            'landing.hero_image_path' => '',
+            'landing.hero_image_alt' => '',
+            'landing.hero_image_caption' => '',
+            'landing.page_overrides' => '{}',
+            'landing.home_feature_cards' => '[]',
+        ];
 
-        LandingSiteSetting::put('landing.header_brand_mode', LandingAppearance::HEADER_BRAND_MODE_BOTH);
+        foreach ($defaults as $key => $value) {
+            if (LandingSiteSetting::getValue($key, null) === null) {
+                LandingSiteSetting::put($key, $value);
+            }
+        }
 
-        LandingSiteSetting::put('landing.active_theme', 'orange');
-        LandingSiteSetting::put('landing.graphic_motif', 'grid');
-        LandingSiteSetting::put('landing.theme_primary_hex', '');
-        LandingSiteSetting::put('landing.hero_image_path', '');
-        LandingSiteSetting::put('landing.hero_image_alt', '');
-        LandingSiteSetting::put('landing.hero_image_caption', '');
-        LandingSiteSetting::put('landing.page_overrides', '{}');
-        LandingSiteSetting::put('landing.home_feature_cards', '[]');
+        // Diskte logo varsa ve DB boşsa bağla
+        $logoPath = (string) (LandingSiteSetting::getValue('landing.site_logo_path', '') ?? '');
+        if ($logoPath === '') {
+            foreach (['landing/logo-1775426807.png', 'landing/logo-1775255636.png'] as $candidate) {
+                if (LandingAppearance::landingUploadExists($candidate)) {
+                    LandingSiteSetting::put('landing.site_logo_path', $candidate);
+                    break;
+                }
+            }
+        }
+
+        $faviconPath = (string) (LandingSiteSetting::getValue('landing.favicon_path', '') ?? '');
+        if ($faviconPath === '' && LandingAppearance::landingUploadExists('landing/favicon-1775255636.png')) {
+            LandingSiteSetting::put('landing.favicon_path', 'landing/favicon-1775255636.png');
+        }
     }
 }
