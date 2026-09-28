@@ -548,6 +548,8 @@ install_host_tool ols-vhost
 install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
+install_host_tool ftp-provision
+install_host_tool ftp-stack-setup.sh
 install_host_tool bind-sync
 install_host_tool configure-roundcube-ssl
 install_host_tool terminal-root
@@ -597,6 +599,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-ols-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ftp-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-php-ini
@@ -1128,6 +1131,14 @@ run_certbot_if_configured() {
 
 refresh_phpmysql_url_in_env
 run_certbot_if_configured
+
+# Panelze LE config-dir: varsayılan certbot.timer boş /etc/letsencrypt'e bakar ve
+# müşteri sitelerinin sertifikaları yenilenmez (SSL süresi dolar). Kurulumda kalıcı override.
+if [[ -f "$DEPLOY_SCRIPTS/ensure-certbot-panelze-renew.sh" ]]; then
+  echo "==> Certbot Panelze config-dir yenileme (systemd)"
+  install -m 755 "$DEPLOY_SCRIPTS/ensure-certbot-panelze-renew.sh" /usr/local/sbin/panelze-ensure-certbot-renew
+  PANELZE_HOME="${PANELZE_HOME:-$REPO_ROOT}" bash /usr/local/sbin/panelze-ensure-certbot-renew || true
+fi
 
 if [[ -x /usr/local/sbin/panelze-security ]]; then
   echo "==> Security helper self-test"

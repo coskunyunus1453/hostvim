@@ -227,6 +227,13 @@ if [[ -f /etc/systemd/system/panelze-engine.service ]] \
   systemctl enable panelze-engine 2>/dev/null || true
 fi
 
+# Panelze LE config-dir: varsayılan certbot.timer boş /etc/letsencrypt'e bakar.
+if [[ -x "$PANELZE_HOME/deploy/scripts/ensure-certbot-panelze-renew.sh" ]]; then
+  "$PANELZE_HOME/deploy/scripts/ensure-certbot-panelze-renew.sh" || true
+elif [[ -f "$PANELZE_HOME/deploy/scripts/ensure-certbot-panelze-renew.sh" ]]; then
+  bash "$PANELZE_HOME/deploy/scripts/ensure-certbot-panelze-renew.sh" || true
+fi
+
 free_engine_port
 
 restarted=0

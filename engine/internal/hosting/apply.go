@@ -1,6 +1,7 @@
 package hosting
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,14 +169,53 @@ func ApplyWebServer(cfg *config.Config, domain, docRoot string, meta *sites.Site
 	}
 }
 
-// ApplySubdomainVhost ana site FPM havuzu ile alt FQDN için sanal host.
+// ApplySubdomainVhost alt FQDN için kendi PHP sürümü/FPM havuzu ile sanal host yazar.
+// Not: Eski davranış ana sitenin soketini paylaşıyordu; alt alan farklı PHP
+// sürümü seçince (ör. firma → 8.4, parent → 8.2) Composer/Laravel 500 üretiyordu.
 func ApplySubdomainVhost(cfg *config.Config, parentPrimary, hostname, docRoot string, subMeta *sites.SiteMeta) error {
-	sock := resolvePHPSocket(cfg, parentPrimary, subMeta, "")
 	h := strings.ToLower(strings.TrimSpace(hostname))
+	docRoot = ResolveHTTPDocRoot(docRoot)
+	phpV := "8.2"
+	if subMeta != nil && strings.TrimSpace(subMeta.PHPVersion) != "" {
+		phpV = strings.TrimSpace(subMeta.PHPVersion)
+	}
+
+	sock := ""
+	if sitecage.ManagePools(cfg) {
+		opts := sitecage.PoolOptions(cfg, subMeta, h, docRoot)
+		// Alt alan dosyaları genelde webRoot/parent/segment altında; BaseDir'i
+		// docroot'tan türet (webRoot/hostname çoğu zaman yoktur).
+		siteBase := filepath.Clean(docRoot)
+		if filepath.Base(siteBase) == "public" {
+			siteBase = filepath.Dir(siteBase)
+		}
+		opts.BaseDir = siteBase
+		opts.ExtraBasedir = filepath.Join(siteBase, "tmp")
+		// Cage kullanıcısı: alt meta'da yoksa parent ile aynı (dosyalar parent/segment altında).
+		if subMeta == nil || strings.TrimSpace(subMeta.CageUser) == "" {
+			parentMeta, _ := sites.ReadSiteMeta(cfg.Paths.WebRoot, parentPrimary)
+			if parentMeta != nil && strings.TrimSpace(parentMeta.CageUser) != "" {
+				opts.SiteUser = strings.TrimSpace(parentMeta.CageUser)
+			} else if parentPrimary != "" {
+				opts.SiteUser = sitecage.LinuxUserForDomain(sitecage.FromHosting(cfg).UserPrefix, parentPrimary)
+			}
+		}
+		ps := poolSettings(cfg)
+		s, _, _, err := phpfpm.WritePool(ps, h, phpV, docRoot, opts)
+		if err != nil {
+			return fmt.Errorf("subdomain fpm pool: %w", err)
+		}
+		sock = s
+		if cage := sitecage.FromHosting(cfg); cage.Enabled {
+			_ = sitecage.ApplyService(cage, h, phpV, 0, 0)
+		}
+	} else {
+		sock = resolvePHPSocket(cfg, h, subMeta, "")
+	}
+
 	chain, key := sslPathsIfEnabled(cfg, h, subMeta)
 	edge := NginxEdgeProxyEnabled(cfg)
 	st := serverTypeOf(subMeta)
-	docRoot = ResolveHTTPDocRoot(docRoot)
 
 	switch st {
 	case "apache":

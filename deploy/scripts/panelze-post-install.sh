@@ -58,6 +58,8 @@ install_host_tool() {
 install_host_tool stack-install
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
+install_host_tool ftp-provision
+install_host_tool ftp-stack-setup.sh
 install_host_tool bind-sync
 install_host_tool configure-roundcube-ssl
 install_host_tool nginx-vhost
@@ -73,6 +75,11 @@ install_host_tool node-pm2
 if [[ "$(id -u)" -eq 0 ]]; then
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
+  if [[ -f "$SCRIPT_DIR/ensure-certbot-panelze-renew.sh" ]]; then
+    echo "==> Certbot Panelze config-dir yenileme (systemd)"
+    install -m 755 "$SCRIPT_DIR/ensure-certbot-panelze-renew.sh" /usr/local/sbin/panelze-ensure-certbot-renew
+    PANELZE_HOME="$PANELZE_HOME" bash /usr/local/sbin/panelze-ensure-certbot-renew || true
+  fi
   if [[ "${WITH_BIND_DNS:-1}" == "1" ]] || [[ "${WITH_BIND_DNS:-1}" == "yes" ]]; then
     _BIND_SETUP="${PANELZE_HOME}/deploy/host/panelze-bind-setup.sh"
     if command -v named >/dev/null 2>&1 && { systemctl is-active named >/dev/null 2>&1 || systemctl is-active bind9 >/dev/null 2>&1; }; then

@@ -29,6 +29,44 @@ func PoolName(domain string) string {
 	return "panelze-" + poolSlug(domain)
 }
 
+// appendOpenBasedirRealpaths open_basedir listesine docroot/base'in EvalSymlinks
+// sonuçlarını ekler (aynı path tekrarlanmaz). Symlink docroot cage dışındaysa
+// PHP betiği açılamaz; bu yüzden gerçek ağaç da izinli olmalıdır.
+func appendOpenBasedirRealpaths(basedir, base, docRoot string) string {
+	add := func(list, p string) string {
+		p = filepath.Clean(strings.TrimSpace(p))
+		if p == "" || p == "." || p == "/" {
+			return list
+		}
+		for _, part := range strings.Split(list, ":") {
+			if part == p {
+				return list
+			}
+		}
+		if list == "" {
+			return p
+		}
+		return list + ":" + p
+	}
+	for _, candidate := range []string{base, docRoot} {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		real, err := filepath.EvalSymlinks(candidate)
+		if err != nil || real == "" {
+			continue
+		}
+		real = filepath.Clean(real)
+		basedir = add(basedir, real)
+		// Laravel: docroot=.../public → üst dizin (vendor/.env) da gerekli.
+		if filepath.Base(real) == "public" {
+			basedir = add(basedir, filepath.Dir(real))
+		}
+	}
+	return basedir
+}
+
 // SocketPath bu domain için unix soket yolu (nginx ile aynı olmalı).
 func SocketPath(listenDir, domain string) string {
 	name := PoolName(domain) + ".sock"
@@ -70,7 +108,9 @@ type PoolOptions struct {
 }
 
 // DefaultDisableFunctions güvenli varsayılan: tehlikeli sistem/komut fonksiyonları kapalı.
-const DefaultDisableFunctions = "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,pcntl_fork"
+// Not: proc_open / popen açık bırakılır — Laravel sendmail (Symfony ProcessStream)
+// ve birçok uygulama mail göndermek için bunlara ihtiyaç duyar. exec/system hâlâ kapalıdır.
+const DefaultDisableFunctions = "exec,passthru,shell_exec,system,pcntl_exec,pcntl_fork"
 
 func (h HostingPoolSettings) poolUser(opts PoolOptions) string {
 	if strings.TrimSpace(opts.SiteUser) != "" {
@@ -284,6 +324,10 @@ func RenderPool(h HostingPoolSettings, domain, phpVersion, docRoot string, opts 
 	if tmpDir != "" && !strings.HasPrefix(tmpDir, base+string(filepath.Separator)) && tmpDir != base {
 		basedir += ":" + tmpDir
 	}
+	// Docroot veya site kökü symlink ile cage dışına çıkıyorsa (ör. panelze.com →
+	// /var/www/hostvim/landing/public) PHP "Operation not permitted" → "No input
+	// file specified" verir. Gerçek yolu open_basedir'e ekle.
+	basedir = appendOpenBasedirRealpaths(basedir, base, docRoot)
 	basedir += ":/tmp:/var/tmp"
 	// disable_functions: boş → güvenli varsayılan; "none" → hiçbiri kapatılmaz.
 	disableFns := strings.TrimSpace(o.DisableFunctions)

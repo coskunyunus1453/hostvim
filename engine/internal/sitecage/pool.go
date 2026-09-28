@@ -1,6 +1,7 @@
 package sitecage
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -13,8 +14,8 @@ import (
 func PoolOptions(cfg *config.Config, meta *sites.SiteMeta, domain, docRoot string) phpfpm.PoolOptions {
 	c := FromHosting(cfg)
 	opts := phpfpm.PoolOptions{
-		MaxChildren:  c.DefaultMaxChildren,
-		MemoryLimit:  c.DefaultMemoryLimit,
+		MaxChildren: c.DefaultMaxChildren,
+		MemoryLimit: c.DefaultMemoryLimit,
 	}
 	// Site bilinçli olarak shell fonksiyonlarına izin verdiyse disable_functions'ı kaldır.
 	if meta != nil && meta.ShellFunctions {
@@ -35,7 +36,27 @@ func PoolOptions(cfg *config.Config, meta *sites.SiteMeta, domain, docRoot strin
 	// open_basedir kökü site kökü olmalı; aksi halde docroot=public/ olan
 	// projeler vendor/storage/.env'e erişemez (500).
 	opts.BaseDir = siteRoot
-	opts.ExtraBasedir = filepath.Join(siteRoot, "tmp")
+	// Docroot symlink ile site kökünün dışına çıkıyorsa (panelze → landing)
+	// gerçek ağacı da BaseDir yap; RenderPool ayrıca realpath ekler.
+	if doc := strings.TrimSpace(docRoot); doc != "" {
+		if real, err := filepath.EvalSymlinks(doc); err == nil && real != "" {
+			real = filepath.Clean(real)
+			if !strings.HasPrefix(real, filepath.Clean(siteRoot)+string(filepath.Separator)) && real != filepath.Clean(siteRoot) {
+				base := real
+				if filepath.Base(base) == "public" {
+					base = filepath.Dir(base)
+				}
+				opts.BaseDir = base
+			}
+		} else if _, err := os.Stat(siteRoot); err != nil {
+			base := filepath.Clean(doc)
+			if filepath.Base(base) == "public" {
+				base = filepath.Dir(base)
+			}
+			opts.BaseDir = base
+		}
+	}
+	opts.ExtraBasedir = filepath.Join(opts.BaseDir, "tmp")
 	return opts
 }
 
