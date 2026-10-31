@@ -12,6 +12,26 @@ DEFAULT_MEM_MB="${PANELZE_CAGE_MEMORY_MB:-1024}"
 # Fork-bomb / kaçak süreç koruması: slice başına maksimum görev (PID) sayısı.
 DEFAULT_TASKS_MAX="${PANELZE_CAGE_TASKS_MAX:-200}"
 
+# Paylaşımlı PHP-FPM master'ı yeniden yüklerken in-flight istekler ölür (nginx 502).
+# Panel isteği tam o sırada çalıştığı için site oluşturma 502 ile bitiyordu.
+# Çözüm: reload'u kısa gecikmeyle AYRI bir systemd transient unit'inde çalıştır;
+# böylece HTTP yanıtı gönderildikten sonra master yenilenir.
+panelze_reload_fpm_async() {
+  local svc="$1" delay="${2:-3}"
+  [[ -n "$svc" ]] || return 0
+  if command -v systemd-run >/dev/null 2>&1; then
+    local unit="panelze-fpm-reload-${svc//[^a-zA-Z0-9]/-}-$(date +%s%N)"
+    if systemd-run --quiet --collect --on-active="${delay}" --unit="${unit}" \
+      /bin/systemctl reload "$svc" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  # systemd-run yoksa en azından isteği bekletmeden arka planda dene.
+  ( sleep "$delay"; systemctl reload "$svc" >/dev/null 2>&1 || systemctl restart "$svc" >/dev/null 2>&1 ) &
+  disown 2>/dev/null || true
+  return 0
+}
+
 usage() {
   echo "usage: panelze-site-cage ensure-user <domain> <web_root>" >&2
   echo "       panelze-site-cage apply <domain> <web_root>" >&2
@@ -152,7 +172,7 @@ cmd_write_pool() {
     for d in /etc/php/*/fpm/pool.d/panelze-${slug}.conf; do
       ov="$(echo "$d" | sed -E 's#/etc/php/([0-9.]+)/.*#\1#')"
       rm -f "$d"
-      systemctl reload "php${ov}-fpm" 2>/dev/null || true
+      panelze_reload_fpm_async "php${ov}-fpm" 3
     done
     shopt -u nullglob
     systemctl daemon-reload 2>/dev/null || true
@@ -192,15 +212,15 @@ cmd_write_pool() {
     detail="$(printf '%s\n' "$terr" | grep -iE 'ERROR|does not exist' | tail -1)"
     echo "php-fpm${ver} -t basarisiz: ${detail:-bkz fpm log}" >&2; exit 1
   fi
-  if ! systemctl reload "php${ver}-fpm" 2>/dev/null; then
-    systemctl restart "php${ver}-fpm" 2>/dev/null || { echo "reload/restart basarisiz php${ver}-fpm" >&2; exit 1; }
-  fi
+  # Paylaşımlı master'ı SENKRON reload etmek, panelin o an çalışan HTTP isteğini
+  # öldürüyor (nginx 502, domain DB'ye yazılmıyor). Reload'u gecikmeli/ayrı unit'te yap.
+  panelze_reload_fpm_async "php${ver}-fpm" 3
   local i
-  for i in $(seq 1 20); do [[ -S "$sock" ]] && break; sleep 0.25; done
+  for i in $(seq 1 8); do [[ -S "$sock" ]] && break; sleep 0.25; done
   if [[ ! -S "$sock" ]]; then
-    if [[ "$had_prev" == "1" ]]; then printf '%s' "$prev" > "$conf"; else rm -f "$conf"; fi
-    systemctl reload "php${ver}-fpm" 2>/dev/null || true
-    echo "soket olusmadi: $sock" >&2; exit 1
+    # Soket henüz yok: reload gecikmeli çalışacak. Yapılandırma `php-fpm -t` ile doğrulandı.
+    echo "OK $sock (async)"
+    return 0
   fi
   echo "OK $sock"
 }
@@ -291,21 +311,21 @@ EOF
   if [[ -f "$pool_src" ]]; then
     bak="${pool_src}.cagebak"
     mv "$pool_src" "$bak"
-    systemctl reload "php${ver}-fpm" 2>/dev/null || true
+    panelze_reload_fpm_async "php${ver}-fpm" 3
   fi
   for i in $(seq 1 16); do [[ -S "$sock" ]] || break; sleep 0.25; done
 
   # 6) Per-site servisi başlat
   systemctl enable "$svc" >/dev/null 2>&1 || true
   if ! systemctl restart "$svc" 2>/dev/null; then
-    [[ -n "$bak" && -f "$bak" ]] && { mv "$bak" "$pool_src"; systemctl reload "php${ver}-fpm" 2>/dev/null || true; }
+    [[ -n "$bak" && -f "$bak" ]] && { mv "$bak" "$pool_src"; panelze_reload_fpm_async "php${ver}-fpm" 3; }
     echo "servis baslatilamadi: $svc" >&2; exit 1
   fi
   for i in $(seq 1 24); do [[ -S "$sock" ]] && break; sleep 0.25; done
   if [[ ! -S "$sock" ]]; then
     systemctl stop "$svc" 2>/dev/null || true
     systemctl disable "$svc" >/dev/null 2>&1 || true
-    [[ -n "$bak" && -f "$bak" ]] && { mv "$bak" "$pool_src"; systemctl reload "php${ver}-fpm" 2>/dev/null || true; }
+    [[ -n "$bak" && -f "$bak" ]] && { mv "$bak" "$pool_src"; panelze_reload_fpm_async "php${ver}-fpm" 3; }
     echo "per-site soket olusmadi: $sock" >&2; exit 1
   fi
   [[ -n "$bak" && -f "$bak" ]] && rm -f "$bak"
@@ -328,7 +348,7 @@ cmd_cage_service_remove() {
   [[ -f "$unit" ]] && rm -f "$unit"
   if [[ -f "$conf" && ! -f "$pool_dst" ]]; then
     sed '/^\[global\]/,/^$/d' "$conf" >"$pool_dst" 2>/dev/null || true
-    systemctl reload "php${ver}-fpm" 2>/dev/null || true
+    panelze_reload_fpm_async "php${ver}-fpm" 3
   fi
   [[ -f "$conf" ]] && rm -f "$conf"
   systemctl daemon-reload 2>/dev/null || true
@@ -387,7 +407,7 @@ cmd_reconcile() {
     prune_caged_pool_dups "$ver"
     local after=( "/etc/php/${ver}/fpm/pool.d/"panelze-*.conf )
     if [[ "${#before[@]}" != "${#after[@]}" ]] && systemctl is-active --quiet "php${ver}-fpm" 2>/dev/null; then
-      systemctl reload "php${ver}-fpm" 2>/dev/null || true
+      panelze_reload_fpm_async "php${ver}-fpm" 3
     fi
   done
   # 2) per-site servisler

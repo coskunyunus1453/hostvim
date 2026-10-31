@@ -546,6 +546,8 @@ install_host_tool nginx-vhost
 install_host_tool apache-vhost
 install_host_tool ols-vhost
 install_host_tool stack-install
+install_host_tool site-cage
+install_host_tool site-exec
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
 install_host_tool ftp-provision
@@ -598,6 +600,8 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ols-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-ols-vhost
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-exec
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ftp-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
@@ -715,6 +719,8 @@ panelze_resolve_admin_email() {
   fi
   fqdn="$(hostname -f 2>/dev/null || hostname || echo panelze.local)"
   fqdn="${fqdn// /}"
+  # FQDN'de nokta yoksa (ör. "vps123") admin@vps123 geçersiz e-posta olur.
+  [[ "$fqdn" == *.* ]] || fqdn="${fqdn:-panelze}.local"
   echo "admin@${fqdn}"
 }
 
@@ -757,7 +763,20 @@ fi
 
 # Yerel Postfix: Laravel sendmail ile gönderir; SMTP’yi panelden (Admin → Giden posta) tanımlarsınız
 if [[ "${WITH_LOCAL_POSTFIX:-1}" == "1" ]] || [[ "${WITH_LOCAL_POSTFIX:-1}" == "yes" ]]; then
-  _MAIL_FROM="noreply@$(hostname -f 2>/dev/null || hostname)"
+  # MAIL_FROM geçerli bir alan adı içermek zorunda (spatie/laravel-backup doğrular;
+  # "noreply@vps123" gibi değerler composer/artisan aşamasında kurulumu durdurur).
+  _MAIL_DOMAIN=""
+  _maybe_admin="$(panelze_resolve_admin_email 2>/dev/null || true)"
+  _maybe_admin="${_maybe_admin//[[:space:]]/}"
+  if [[ "$_maybe_admin" == *"@"*"."* ]]; then
+    _MAIL_DOMAIN="${_maybe_admin##*@}"
+  fi
+  if [[ -z "$_MAIL_DOMAIN" ]]; then
+    _MAIL_DOMAIN="$(hostname -f 2>/dev/null || hostname || echo panelze.local)"
+    _MAIL_DOMAIN="${_MAIL_DOMAIN// /}"
+    [[ "$_MAIL_DOMAIN" == *.* ]] || _MAIL_DOMAIN="${_MAIL_DOMAIN:-panelze}.local"
+  fi
+  _MAIL_FROM="noreply@${_MAIL_DOMAIN}"
   update_env "MAIL_MAILER" "sendmail"
   update_env "MAIL_FROM_ADDRESS" "\"${_MAIL_FROM}\""
   update_env "MAIL_FROM_NAME" "\"Panelze\""
@@ -1046,9 +1065,19 @@ if [[ "$SERVER_NAME" == "_" ]] && [[ -f "$REPO_ROOT/deploy/scripts/fix-panel-htt
     bash "$REPO_ROOT/deploy/scripts/fix-panel-https-default.sh" || true
 fi
 
+# PanelKafes limit zone'ları: site vhost'ları limit_conn/limit_req kullanır.
+# Bu dosya yoksa nginx "zero size shared memory zone" ile vhost'u reddeder.
+if [[ -f "$REPO_ROOT/deploy/host/nginx/panelze-limits.conf" && -d /etc/nginx/conf.d ]]; then
+  install -m 644 "$REPO_ROOT/deploy/host/nginx/panelze-limits.conf" /etc/nginx/conf.d/panelze-limits.conf
+fi
+
 nginx -t
+systemctl enable nginx >/dev/null 2>&1 || true
+# Taze sunucuda nginx henüz başlamamış olabilir; reload pasif serviste hata verir.
+if ! systemctl is-active --quiet nginx; then
+  systemctl start nginx || systemctl restart nginx
+fi
 systemctl reload nginx
-systemctl enable nginx
 
 # UFW
 if [[ "${SKIP_UFW:-}" != "1" ]] && command -v ufw >/dev/null 2>&1; then
@@ -1229,6 +1258,18 @@ else
   echo "       PANELZE_PUBLIC_HOST=panel.ornek.com LETS_ENCRYPT_EMAIL=size@ornek.com sudo -E bash deploy/bootstrap/install-production.sh"
   echo "     (veya PANELZE_APP_URL=https://panel.ornek.com — FQDN otomatik algilanir.)"
 fi
-echo "  3) Otomatik yapildi: MySQL, izinler, BIND9 (WITH_BIND_DNS), mail stack, APP_URL, panelze:install-check."
+# Özet: yalnızca gerçekten kurulmuş bileşenleri "yapıldı" diye yaz.
+_SUMMARY_OK="MySQL, izinler, APP_URL, panelze:install-check"
+if command -v named >/dev/null 2>&1 && systemctl is-active --quiet named 2>/dev/null; then
+  _SUMMARY_OK="${_SUMMARY_OK}, BIND9"
+else
+  echo "  UYARI: BIND9 kurulu/pasif değil — DNS panelden yayınlanmaz: sudo bash deploy/host/panelze-bind-setup.sh"
+fi
+if command -v dovecot >/dev/null 2>&1 && systemctl is-active --quiet dovecot 2>/dev/null; then
+  _SUMMARY_OK="${_SUMMARY_OK}, posta yığını"
+else
+  echo "  UYARI: posta yığını (Dovecot/Roundcube) kurulmadı — sonra: php artisan panelze:ensure-mail-stack"
+fi
+echo "  3) Otomatik yapildi: ${_SUMMARY_OK}."
 echo "     Sorun olursa (1045, permission denied): sudo panelze-post-install"
 echo ""

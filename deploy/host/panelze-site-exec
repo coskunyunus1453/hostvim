@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Müşteri komutlarını (cron, git deploy, composer/npm) site sahibinin Linux kullanıcısıyla
+# ve no_new_privs ile çalıştırır: süreç içinden sudo/setuid ile yetki yükseltilemez.
+# Panel (www-data): sudo -n /usr/local/sbin/panelze-site-exec <cwd> <komut> [argüman...]
+set -euo pipefail
+
+FALLBACK_USER="${PANELZE_SITE_EXEC_FALLBACK_USER:-www-data}"
+SAFE_PATH="/usr/local/bin:/usr/bin:/bin"
+
+if [[ $# -lt 2 ]]; then
+  echo "usage: panelze-site-exec <cwd> <command> [args...]" >&2
+  exit 2
+fi
+
+cwd="$(realpath -e -- "$1" 2>/dev/null || true)"
+shift
+if [[ -z "$cwd" || ! -d "$cwd" ]]; then
+  echo "panelze-site-exec: çalışma dizini bulunamadı" >&2
+  exit 3
+fi
+if [[ ! "$cwd" =~ ^/var/www/[A-Za-z0-9._-]+/data/www/[A-Za-z0-9._-]+(/.*)?$ ]]; then
+  echo "panelze-site-exec: çalışma dizini hosting kökü dışında" >&2
+  exit 3
+fi
+
+owner="$(stat -c %U -- "$cwd")"
+run_user="$FALLBACK_USER"
+if [[ "$owner" == pk-* ]] && id -u "$owner" >/dev/null 2>&1; then
+  run_user="$owner"
+fi
+uid="$(id -u "$run_user")"
+if [[ "$uid" -eq 0 ]]; then
+  echo "panelze-site-exec: root olarak çalıştırma reddedildi" >&2
+  exit 4
+fi
+gid="$(id -g "$run_user")"
+
+# composer/npm önbellekleri web köküne düşmesin.
+home="/tmp/panelze-home-${run_user}"
+if [[ -L "$home" ]] || { [[ -e "$home" ]] && [[ "$(stat -c %u -- "$home")" != "$uid" ]]; }; then
+  rm -rf -- "$home"
+fi
+install -d -m 700 -o "$uid" -g "$gid" -- "$home"
+
+cd -- "$cwd"
+exec /usr/bin/env -i \
+  PATH="$SAFE_PATH" HOME="$home" LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  /usr/bin/setpriv --reuid="$uid" --regid="$gid" --init-groups --no-new-privs \
+  -- "$@"

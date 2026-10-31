@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# Engine-state/ftp/*.json → Pure-FTPd PureDB (panel FTP hesapları).
+# Kullanım: panelze-ftp-provision STATE_DIR WEB_ROOT [USER_PREFIX]
+set -euo pipefail
+
+STATE_DIR="${1:?engine-state dizini gerekli}"
+WEB_ROOT="${2:?web root gerekli}"
+USER_PREFIX="${3:-pk}"
+FTP_DIR="${STATE_DIR}/ftp"
+PASSWD_FILE="${PUREFTPD_PASSWD:-/etc/pure-ftpd/pureftpd.passwd}"
+PDB_FILE="${PUREFTPD_PDB:-/etc/pure-ftpd/pureftpd.pdb}"
+PURE_CONF="${PUREFTPD_CONF:-/etc/pure-ftpd/conf}"
+
+if ! command -v pure-pw >/dev/null 2>&1; then
+  echo "panelze-ftp-provision: pure-pw yok; önce panelze-ftp-stack-setup çalıştırın" >&2
+  exit 1
+fi
+
+if [[ ! -d /etc/pure-ftpd ]]; then
+  echo "panelze-ftp-provision: Pure-FTPd kurulu değil" >&2
+  exit 1
+fi
+
+mkdir -p "$PURE_CONF" /etc/pure-ftpd/auth
+# PanelKafes UID'leri çoğu zaman 1000 altındadır.
+echo '100' >"$PURE_CONF/MinUID"
+echo 'yes' >"$PURE_CONF/ChrootEveryone"
+echo 'no' >"$PURE_CONF/NoAnonymous"
+echo '39000 39999' >"$PURE_CONF/PassivePortRange"
+if [[ ! -s "$PURE_CONF/ForcePassiveIP" ]]; then
+  PUBLIC_IP="$(curl -4 -fsS --max-time 5 ifconfig.me 2>/dev/null || curl -4 -fsS --max-time 5 icanhazip.com 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')"
+  [[ -n "${PUBLIC_IP:-}" ]] && echo "$PUBLIC_IP" >"$PURE_CONF/ForcePassiveIP"
+fi
+echo 'yes' >"$PURE_CONF/DontResolve"
+echo "$PDB_FILE" >"$PURE_CONF/PureDB"
+ln -sfn ../conf/PureDB /etc/pure-ftpd/auth/50pure
+
+python3 - "$FTP_DIR" "$WEB_ROOT" "$USER_PREFIX" "$PASSWD_FILE" "$PDB_FILE" <<'PY'
+import glob
+import json
+import os
+import pwd
+import re
+import subprocess
+import sys
+
+ftp_dir, web_root, user_prefix, passwd_file, pdb_file = sys.argv[1:6]
+user_re = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,30}$")
+home_re = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/\-]*$")
+
+
+def linux_user_for_domain(prefix: str, domain: str) -> str:
+    slug = "".join(c if c.isalnum() or c == "-" else ("-" if c == "." else "") for c in domain.lower())
+    slug = slug[:48]
+    u = f"{prefix}-{slug}"
+    return u[:32]
+
+
+def cage_user_for_domain(domain: str) -> str:
+    for meta_rel in (".panelze/site.json", ".panelsar/site.json", ".hostvim/site.json"):
+        path = os.path.join(web_root, domain, meta_rel)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                meta = json.load(fh)
+            cu = str(meta.get("cage_user") or "").strip()
+            if cu:
+                return cu
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+    return linux_user_for_domain(user_prefix, domain)
+
+
+def safe_home(domain: str, home_directory: str) -> str:
+    home = home_directory.strip().replace("\\", "/").strip("/")
+    if not home or ".." in home.split("/") or not home_re.match(home):
+        raise SystemExit(f"invalid home_directory for {domain}: {home_directory!r}")
+    site_root = os.path.realpath(os.path.join(web_root, domain))
+    full = os.path.realpath(os.path.join(site_root, home))
+    if full != site_root and not full.startswith(site_root + os.sep):
+        raise SystemExit(f"home escapes site root for {domain}: {home_directory!r}")
+    return full
+
+
+accounts: list[dict] = []
+seen: dict[str, str] = {}
+
+if os.path.isdir(ftp_dir):
+    for path in sorted(glob.glob(os.path.join(ftp_dir, "*.json"))):
+        domain = os.path.basename(path)[:-5].lower()
+        try:
+            with open(path, encoding="utf-8") as fh:
+                rows = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            username = str(row.get("username") or "").strip()
+            password = str(row.get("password") or "")
+            home_directory = str(row.get("home_directory") or "public_html").strip()
+            if not username or not password:
+                continue
+            if not user_re.match(username):
+                raise SystemExit(f"invalid ftp username: {username!r}")
+            if username in seen and seen[username] != domain:
+                raise SystemExit(
+                    f"duplicate ftp username {username!r} on {seen[username]} and {domain}"
+                )
+            seen[username] = domain
+            try:
+                quota = int(row.get("quota_mb", -1))
+            except (TypeError, ValueError):
+                quota = -1
+            accounts.append(
+                {
+                    "username": username,
+                    "password": password,
+                    "domain": domain,
+                    "home": safe_home(domain, home_directory),
+                    "cage_user": cage_user_for_domain(domain),
+                    "quota_mb": quota,
+                }
+            )
+
+os.makedirs(os.path.dirname(passwd_file) or ".", exist_ok=True)
+# Temiz PureDB: tüm sanal kullanıcıları state'ten yeniden yaz.
+open(passwd_file, "w", encoding="utf-8").close()
+os.chmod(passwd_file, 0o600)
+
+for acct in accounts:
+    cage = acct["cage_user"]
+    try:
+        pw = pwd.getpwnam(cage)
+    except KeyError as exc:
+        raise SystemExit(f"cage user missing for {acct['domain']}: {cage}") from exc
+
+    home = acct["home"]
+    os.makedirs(home, exist_ok=True)
+    try:
+        os.chown(home, pw.pw_uid, pw.pw_gid)
+    except OSError:
+        pass
+
+    cmd = [
+        "pure-pw",
+        "useradd",
+        acct["username"],
+        "-u",
+        str(pw.pw_uid),
+        "-g",
+        str(pw.pw_gid),
+        "-d",
+        home,
+        "-f",
+        passwd_file,
+    ]
+    if acct["quota_mb"] and acct["quota_mb"] > 0:
+        cmd.extend(["-N", str(acct["quota_mb"])])
+
+    proc = subprocess.run(
+        cmd,
+        input=f"{acct['password']}\n{acct['password']}\n",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        msg = (proc.stderr or proc.stdout or "").strip() or f"exit {proc.returncode}"
+        raise SystemExit(f"pure-pw useradd failed for {acct['username']}: {msg}")
+
+mk = subprocess.run(
+    ["pure-pw", "mkdb", pdb_file, "-f", passwd_file],
+    capture_output=True,
+    text=True,
+    check=False,
+)
+if mk.returncode != 0:
+    msg = (mk.stderr or mk.stdout or "").strip() or f"exit {mk.returncode}"
+    raise SystemExit(f"pure-pw mkdb failed: {msg}")
+
+print(f"OK ftp-provision accounts={len(accounts)}")
+PY
+
+# Standalone tercih et (inetd çakışmasın)
+if [[ -f /etc/default/pure-ftpd-common ]]; then
+  sed -i 's/^STANDALONE_OR_INETD=.*/STANDALONE_OR_INETD=standalone/' /etc/default/pure-ftpd-common || true
+fi
+if grep -q '^ftp' /etc/inetd.conf 2>/dev/null; then
+  sed -i 's/^ftp/#ftp/' /etc/inetd.conf || true
+  systemctl restart openbsd-inetd >/dev/null 2>&1 || true
+fi
+
+if systemctl list-unit-files pure-ftpd.service >/dev/null 2>&1; then
+  systemctl enable pure-ftpd >/dev/null 2>&1 || true
+  systemctl restart pure-ftpd >/dev/null 2>&1 || true
+elif [[ -x /etc/init.d/pure-ftpd ]]; then
+  /etc/init.d/pure-ftpd restart >/dev/null 2>&1 || true
+fi
+
+echo "OK ftp-provision"

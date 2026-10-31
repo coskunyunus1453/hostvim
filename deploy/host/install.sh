@@ -135,7 +135,8 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq git ca-certificates curl
+# wget/unzip: OpenLiteSpeed ve bazı host araçları wget kullanır; minimal imajlarda yok.
+apt-get install -y -qq git ca-certificates curl wget unzip zip
 # Go: deploy/bootstrap/install-production.sh içinde engine/go.mod ile uyumlu sürüm (go.dev) kurulur; apt golang-go kullanılmaz.
 
 PARENT="$(dirname "$PANELZE_HOME")"

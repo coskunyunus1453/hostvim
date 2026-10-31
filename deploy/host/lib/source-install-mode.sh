@@ -45,5 +45,10 @@ panelze_source_install_mode_lib() {
 
   # shellcheck source=install-mode.sh
   source "$f"
-  [[ -n "$tmp" && "$f" == "$tmp" ]] && rm -f "$tmp"
+  if [[ -n "$tmp" && "$f" == "$tmp" ]]; then
+    rm -f "$tmp"
+  fi
+  # Kritik: yerel lib bulunduğunda tmp boş kalır ve bu satır 1 döndürürse
+  # `set -e` yüzünden kurulum hiçbir çıktı vermeden sessizce ölür.
+  return 0
 }

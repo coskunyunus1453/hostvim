@@ -31,11 +31,6 @@ if ! id vmail >/dev/null 2>&1; then
   useradd -u 5000 -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail
 fi
 install -d -o vmail -g vmail -m 0750 /var/mail/vmail
-touch /etc/dovecot/passwd
-chown root:dovecot /etc/dovecot/passwd
-chmod 640 /etc/dovecot/passwd
-touch /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
-chmod 644 /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
 
 echo "==> Paketler (Postfix, Dovecot, OpenDKIM, Nginx, PHP-FPM, Roundcube)..."
 run_apt \
@@ -46,6 +41,15 @@ run_apt \
   nginx \
   php-fpm php-cli php-mbstring php-xml php-intl php-sqlite3 php-curl php-zip \
   sqlite3
+
+# Dovecot/Postfix dosyaları paketler kurulduktan SONRA oluşturulmalı:
+# taze sunucuda /etc/dovecot yoksa touch başarısız olur ve kurulum burada durur.
+install -d -m 0755 /etc/dovecot /etc/postfix
+touch /etc/dovecot/passwd
+chown root:dovecot /etc/dovecot/passwd
+chmod 640 /etc/dovecot/passwd
+touch /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
+chmod 644 /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
 
 if apt-cache show roundcube-core &>/dev/null; then
   run_apt roundcube-core roundcube-sqlite3
