@@ -54,7 +54,8 @@ install -d -m 755 /usr/local/sbin
 _HERE="$(cd "$(dirname "$0")" && pwd)"
 if [[ -f "${_HERE}/panelze-bind-sync" ]]; then
   install -m 755 "${_HERE}/panelze-bind-sync" /usr/local/sbin/panelze-bind-sync
-  ln -sfn /usr/local/sbin/panelze-bind-sync /usr/local/sbin/panelze-bind-sync
+  # Eski ad (panelsar) uyumluluğu; aynı dosyaya ln -s vermek "same file" hatası verir.
+  ln -sfn /usr/local/sbin/panelze-bind-sync /usr/local/sbin/panelsar-bind-sync
 fi
 
 if [[ -f "${PANELZE_HOME}/deploy/scripts/ensure-engine-sudoers.sh" ]]; then
