@@ -192,7 +192,8 @@ class CommunityController extends Controller
         }
 
         if ($request->filled('q')) {
-            $term = '%'.$request->string('q')->trim().'%';
+            $needle = mb_substr($request->string('q')->trim()->toString(), 0, 100);
+            $term = '%'.addcslashes($needle, '%_\\').'%';
             $q->where(function ($w) use ($term): void {
                 $w->where('title', 'like', $term)
                     ->orWhere('body', 'like', $term)

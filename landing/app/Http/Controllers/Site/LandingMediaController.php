@@ -28,6 +28,12 @@ class LandingMediaController extends Controller
 
         $absolute = Storage::disk('public')->path($relative);
 
-        return response()->file($absolute);
+        $headers = [];
+        if ($ext === 'svg') {
+            $headers['Content-Type'] = 'image/svg+xml';
+            $headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox";
+        }
+
+        return response()->file($absolute, $headers);
     }
 }

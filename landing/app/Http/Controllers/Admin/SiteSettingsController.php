@@ -52,8 +52,8 @@ class SiteSettingsController extends Controller
         $validated = $request->validate([
             'site_name' => ['nullable', 'string', 'max:120'],
             'site_tagline' => ['nullable', 'string', 'max:200'],
-            'site_logo' => ['nullable', 'file', 'max:4096', 'mimes:png,jpg,jpeg,webp,svg'],
-            'favicon' => ['nullable', 'file', 'max:1024', 'mimes:png,jpg,jpeg,webp,ico,svg'],
+            'site_logo' => ['nullable', 'file', 'max:4096'],
+            'favicon' => ['nullable', 'file', 'max:1024'],
             'remove_site_logo' => ['nullable', 'boolean'],
             'remove_favicon' => ['nullable', 'boolean'],
             'contact_email' => ['nullable', 'string', 'max:255', 'email'],
@@ -116,15 +116,22 @@ class SiteSettingsController extends Controller
             LandingSiteSetting::put('landing.site_logo_path', '');
         } elseif ($request->hasFile('site_logo')) {
             $file = $request->file('site_logo');
-            if ($file !== null && $file->isValid()) {
-                $old = LandingSiteSetting::getValue('landing.site_logo_path', '');
-                if (is_string($old) && $old !== '') {
-                    LandingAppearance::deleteLandingStoredPath($old);
-                }
-                $ext = $file->getClientOriginalExtension() ?: 'png';
-                $path = $file->storeAs('landing', 'logo-'.time().'.'.$ext, 'landing_assets');
-                LandingSiteSetting::put('landing.site_logo_path', $path);
+            if ($file === null || ! $file->isValid()) {
+                throw ValidationException::withMessages([
+                    'site_logo' => 'Logo yüklenemedi (geçersiz dosya veya sunucu yükleme limiti).',
+                ]);
             }
+            $old = LandingSiteSetting::getValue('landing.site_logo_path', '');
+            if (is_string($old) && $old !== '') {
+                LandingAppearance::deleteLandingStoredPath($old);
+            }
+            $path = LandingAppearance::storeBrandUpload(
+                $file,
+                'logo',
+                ['png', 'jpg', 'jpeg', 'webp', 'svg'],
+                'site_logo',
+            );
+            LandingSiteSetting::put('landing.site_logo_path', $path);
         }
 
         if ($request->boolean('remove_favicon')) {
@@ -135,16 +142,22 @@ class SiteSettingsController extends Controller
             LandingSiteSetting::put('landing.favicon_path', '');
         } elseif ($request->hasFile('favicon')) {
             $file = $request->file('favicon');
-            if ($file !== null && $file->isValid()) {
-                $old = LandingSiteSetting::getValue('landing.favicon_path', '');
-                if (is_string($old) && $old !== '') {
-                    LandingAppearance::deleteLandingStoredPath($old);
-                }
-                $ext = strtolower($file->getClientOriginalExtension() ?: 'png');
-                $ext = in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'], true) ? $ext : 'png';
-                $path = $file->storeAs('landing', 'favicon-'.time().'.'.$ext, 'landing_assets');
-                LandingSiteSetting::put('landing.favicon_path', $path);
+            if ($file === null || ! $file->isValid()) {
+                throw ValidationException::withMessages([
+                    'favicon' => 'Favicon yüklenemedi (geçersiz dosya veya sunucu yükleme limiti).',
+                ]);
             }
+            $old = LandingSiteSetting::getValue('landing.favicon_path', '');
+            if (is_string($old) && $old !== '') {
+                LandingAppearance::deleteLandingStoredPath($old);
+            }
+            $path = LandingAppearance::storeBrandUpload(
+                $file,
+                'favicon',
+                ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'],
+                'favicon',
+            );
+            LandingSiteSetting::put('landing.favicon_path', $path);
         }
 
         LandingI18n::clearRuntimeCache();

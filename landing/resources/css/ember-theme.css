@@ -1,0 +1,291 @@
+/* -------------------------------------------------------------------------
+   Tema 4 — Ember · Modern
+   Panelze kontrol paneliyle aynı sıcak palet. Tüm kurallar html.hv-theme-ember
+   altında; diğer temalar etkilenmez. slate/gray paletleri sıcak tonlara
+   çekildiği için klasik yerleşimdeki tüm sayfalar da bu paleti alır.
+   ------------------------------------------------------------------------- */
+
+html.hv-theme-ember {
+    --hv-brand-200: 254 215 170;
+    --hv-brand-300: 253 186 116;
+    --hv-brand-400: 251 146 60;
+    --hv-brand-500: 249 115 22;
+    --hv-brand-600: 234 88 12;
+    --hv-brand-700: 194 65 12;
+    --hv-brand-800: 154 52 18;
+    --hv-blob: 253 186 116;
+
+    --color-slate-50: #faf8f6;
+    --color-slate-100: #f4f1ed;
+    --color-slate-200: #e9e4de;
+    --color-slate-300: #d8d1c9;
+    --color-slate-400: #aaa197;
+    --color-slate-500: #7d746a;
+    --color-slate-600: #5f574f;
+    --color-slate-700: #453f39;
+    --color-slate-800: #2d2925;
+    --color-slate-900: #1f1c19;
+    --color-slate-950: #141210;
+
+    --color-gray-50: #faf8f6;
+    --color-gray-100: #f4f1ed;
+    --color-gray-200: #e9e4de;
+    --color-gray-300: #d8d1c9;
+    --color-gray-400: #aaa197;
+    --color-gray-500: #7d746a;
+    --color-gray-600: #5f574f;
+    --color-gray-700: #453f39;
+    --color-gray-800: #2d2925;
+    --color-gray-900: #1f1c19;
+    --color-gray-950: #141210;
+
+    --em-ink: #15110e;
+    --em-ink-2: #1d1814;
+    --em-card: #ffffff;
+    --em-card-border: #e9e4de;
+    --em-shadow-soft: 0 1px 2px rgb(31 28 25 / 0.04), 0 8px 24px -12px rgb(31 28 25 / 0.12);
+    --em-shadow-lift: 0 2px 6px rgb(31 28 25 / 0.05), 0 24px 48px -20px rgb(31 28 25 / 0.28);
+}
+
+html.dark.hv-theme-ember {
+    --em-card: #211d1a;
+    --em-card-border: #36302b;
+    --em-shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+    --em-shadow-lift: 0 2px 6px rgb(0 0 0 / 0.35), 0 24px 48px -20px rgb(0 0 0 / 0.7);
+}
+
+/* Açık/koyu değişkenlerin ikisi de tanımlı olmalı: koyu kural daha özgül olduğundan açığı ezer. */
+html.hv-theme-ember.hv-shell-hostvim {
+    --hv-radius: 0.875rem;
+    --hv-primary: #ea580c;
+    --hv-primary-hover: #c2410c;
+    --hv-secondary: #16a34a;
+    --hv-bg: #faf8f6;
+    --hv-surface: #f4f1ed;
+    --hv-surface-elevated: #ffffff;
+    --hv-text: #1f1c19;
+    --hv-text-muted: #5f574f;
+    --hv-link: #c2410c;
+    --hv-border: #e9e4de;
+    --hv-header-bg: #faf8f6;
+    --hv-footer-bg: #f4f1ed;
+}
+
+html.dark.hv-theme-ember.hv-shell-hostvim {
+    --hv-radius: 0.875rem;
+    --hv-primary: #f97316;
+    --hv-primary-hover: #fb923c;
+    --hv-secondary: #22c55e;
+    --hv-bg: #141210;
+    --hv-surface: #1f1c19;
+    --hv-surface-elevated: #211d1a;
+    --hv-text: #f4f1ed;
+    --hv-text-muted: #aaa197;
+    --hv-link: #fb923c;
+    --hv-border: #36302b;
+    --hv-header-bg: #141210;
+    --hv-footer-bg: #171412;
+}
+
+html.hv-theme-ember ::selection {
+    background: rgb(249 115 22 / 0.22);
+}
+
+/* Arka plan: üstte yumuşak turuncu ışıma */
+html.hv-theme-ember .hv-bg-blob {
+    background: radial-gradient(closest-side, rgb(251 146 60 / 0.3), transparent);
+}
+html.dark.hv-theme-ember .hv-bg-blob {
+    background: radial-gradient(closest-side, rgb(234 88 12 / 0.2), transparent);
+}
+html.hv-theme-ember .hv-decor-blob-sm {
+    display: none;
+}
+
+/* Butonlar */
+html.hv-theme-ember .btn-primary {
+    background-color: transparent;
+    background-image: linear-gradient(135deg, #fb923c 0%, #ea580c 55%, #c2410c 100%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 10px 24px -12px rgb(234 88 12 / 0.75);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+html.hv-theme-ember .btn-primary:hover {
+    background-color: transparent;
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 16px 32px -12px rgb(234 88 12 / 0.8);
+}
+html.hv-theme-ember .btn-ghost:hover {
+    background-color: color-mix(in srgb, var(--hv-primary) 8%, transparent);
+}
+
+/* Header */
+html.hv-theme-ember .hv-header {
+    border-bottom-color: color-mix(in srgb, var(--hv-border) 70%, transparent);
+}
+html.hv-theme-ember .hv-header-glass {
+    background: color-mix(in srgb, var(--hv-header-bg) 76%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+html.hv-theme-ember .hv-header .nav-link {
+    border-radius: 9999px;
+    padding: 0.375rem 0.75rem;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+html.hv-theme-ember .hv-header .nav-link:hover,
+html.hv-theme-ember .hv-header .nav-link-active {
+    background-color: color-mix(in srgb, var(--hv-primary) 9%, transparent);
+}
+html.hv-theme-ember .hv-header nav {
+    gap: 0.25rem;
+}
+
+/* Footer */
+html.hv-theme-ember .hv-footer-gradient {
+    background:
+        radial-gradient(60% 80% at 100% 100%, color-mix(in srgb, var(--hv-primary) 10%, transparent), transparent 70%),
+        var(--hv-footer-bg);
+}
+
+/* Beyaz zeminli logo görselleri sıcak zeminde kutu gibi görünmesin. */
+html.hv-theme-ember:not(.dark) .hv-brand-logo-mark {
+    mix-blend-mode: multiply;
+}
+html.dark.hv-theme-ember .hv-brand-logo-mark {
+    border-radius: 0.625rem;
+}
+
+/* Marka yedeği (logo yoksa) */
+html.hv-theme-ember .hv-brand-fallback {
+    background: linear-gradient(135deg, #fbbf24, #ea580c);
+    box-shadow: 0 8px 20px -8px rgb(234 88 12 / 0.7);
+}
+
+/* ---------- Ember ana sayfa bileşenleri ---------- */
+
+html.hv-theme-ember .em-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #c2410c;
+    background: rgb(249 115 22 / 0.1);
+    box-shadow: inset 0 0 0 1px rgb(249 115 22 / 0.22);
+}
+html.dark.hv-theme-ember .em-eyebrow {
+    color: #fdba74;
+    background: rgb(249 115 22 / 0.12);
+}
+
+html.hv-theme-ember .em-card {
+    border-radius: 1.25rem;
+    border: 1px solid var(--em-card-border);
+    background: var(--em-card);
+    box-shadow: var(--em-shadow-soft);
+}
+
+html.hv-theme-ember .em-card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+html.hv-theme-ember .em-card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--em-shadow-lift);
+    border-color: rgb(249 115 22 / 0.35);
+}
+
+html.hv-theme-ember .em-icon {
+    display: inline-flex;
+    height: 2.75rem;
+    width: 2.75rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.875rem;
+    color: #ea580c;
+    background: linear-gradient(135deg, rgb(251 191 36 / 0.16), rgb(234 88 12 / 0.14));
+    box-shadow: inset 0 0 0 1px rgb(249 115 22 / 0.2);
+}
+html.dark.hv-theme-ember .em-icon {
+    color: #fdba74;
+}
+
+html.hv-theme-ember .em-ink {
+    background-color: var(--em-ink);
+    color: #fff;
+}
+
+html.hv-theme-ember .em-gradient-text {
+    background: linear-gradient(100deg, #f59e0b 0%, #ea580c 45%, #c2410c 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+html.hv-theme-ember .em-grid-fade {
+    background-image:
+        linear-gradient(rgb(31 28 25 / 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(31 28 25 / 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+html.dark.hv-theme-ember .em-grid-fade {
+    background-image:
+        linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+}
+
+/* Panel önizlemesi (dekoratif) */
+html.hv-theme-ember .em-mock {
+    border-radius: 1.25rem;
+    border: 1px solid var(--em-card-border);
+    background: var(--em-card);
+    box-shadow: 0 40px 80px -30px rgb(31 28 25 / 0.35), 0 0 0 6px rgb(255 255 255 / 0.5);
+    overflow: hidden;
+}
+html.dark.hv-theme-ember .em-mock {
+    box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.8), 0 0 0 6px rgb(255 255 255 / 0.03);
+}
+html.hv-theme-ember .em-mock-main {
+    background: #faf8f6;
+}
+html.dark.hv-theme-ember .em-mock-main {
+    background: #171412;
+}
+html.hv-theme-ember .em-mock-tile {
+    border-radius: 0.75rem;
+    border: 1px solid #e9e4de;
+    background: #fff;
+}
+html.dark.hv-theme-ember .em-mock-tile {
+    border-color: #36302b;
+    background: #211d1a;
+}
+html.hv-theme-ember .em-mock-bar {
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: #e9e4de;
+}
+html.dark.hv-theme-ember .em-mock-bar {
+    background: #36302b;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html.hv-theme-ember .em-rise {
+        animation: em-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    }
+    html.hv-theme-ember .em-rise-2 {
+        animation: em-rise 0.9s 0.12s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    }
+}
+
+@keyframes em-rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+}

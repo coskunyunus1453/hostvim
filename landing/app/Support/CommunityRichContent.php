@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Services\Community\CommunityRichHtmlSanitizer;
-use Illuminate\Support\Str;
 
 final class CommunityRichContent
 {
@@ -27,7 +26,7 @@ final class CommunityRichContent
             return app(CommunityRichHtmlSanitizer::class)->sanitize($body);
         }
 
-        return Str::markdown($body);
+        return SafeMarkdown::toHtml($body);
     }
 
     /** Düz metin uzunluğu (doğrulama / özet) */

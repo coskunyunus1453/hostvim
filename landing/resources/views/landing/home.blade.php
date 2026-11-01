@@ -3,6 +3,7 @@
 
     $tr = app()->getLocale() === 'tr';
     $neon = \App\Services\LandingAppearance::isNeonTheme();
+    $ember = \App\Services\LandingAppearance::isEmberTheme();
     $pricing = $pricing ?? null;
     $oneLiner = InstallGuide::oneLiner();
     $brand = landing_p('brand.name');
@@ -22,6 +23,9 @@
     ];
 @endphp
 <x-layouts.landing>
+    @if ($ember)
+        @include('landing.partials.ember-home')
+    @else
     @if ($neon)
         @include('landing.partials.neon-hero')
         @include('landing.partials.neon-stack')
@@ -367,4 +371,5 @@
             </div>
         </div>
     </section>
+    @endif
 </x-layouts.landing>

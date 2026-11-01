@@ -36,7 +36,7 @@
             <div class="hv-tab-panel hv-tab-panel-general mt-6 space-y-8">
                 <div>
                     <h2 class="admin-label-block text-base">Aktif tema</h2>
-                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-500">Orange ve Turquoise klasik yerleşimi kullanır. Neon, kendi header/footer ve ana sayfa düzenine geçer.</p>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-500">Orange ve Turquoise klasik yerleşimi kullanır. Neon, kendi header/footer ve ana sayfa düzenine geçer. Ember, klasik header/footer'ı panelle aynı sıcak paletle ve kendi ana sayfa düzeniyle kullanır.</p>
                     <div class="mt-4 space-y-3">
                         @foreach ($themes as $key => $meta)
                             <label class="admin-radio-tile">

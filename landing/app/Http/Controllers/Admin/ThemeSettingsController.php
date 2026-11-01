@@ -38,7 +38,7 @@ class ThemeSettingsController extends Controller
         $iconKeys = array_keys(config('landing_theme.feature_icons', []));
 
         $validated = $request->validate([
-            'active_theme' => ['required', Rule::in(['orange', 'turquoise', 'neon'])],
+            'active_theme' => ['required', Rule::in(['orange', 'turquoise', 'neon', 'ember'])],
             'graphic_motif' => ['required', Rule::in($motifKeys)],
             'theme_primary_hex' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'theme_neon_top' => ['nullable', 'array'],

@@ -27,6 +27,13 @@ return Application::configure(basePath: dirname(__DIR__))
             return $lang !== '' ? route('login', ['lang' => $lang]) : route('login');
         });
         $middleware->redirectUsersTo(fn () => route('community.index'));
+        // Host başlığı zehirlenmesi (ör. parola sıfırlama linki) — local dışında APP_URL alan adı + alt alan adları.
+        $middleware->trustHosts(at: function (): array {
+            $host = strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST));
+            $apex = preg_replace('/^www\./', '', $host) ?: $host;
+
+            return $apex !== '' ? ['^(.+\.)?'.preg_quote($apex).'$'] : [];
+        });
         $middleware->web(append: [
             SetLandingLocale::class,
             SecurityHeaders::class,

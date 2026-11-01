@@ -27,6 +27,7 @@ class SitemapController extends Controller
             ['name' => 'landing.home', 'params' => []],
             ['name' => 'site.setup', 'params' => []],
             ['name' => 'site.pricing', 'params' => []],
+            ['name' => 'site.demo', 'params' => []],
             ['name' => 'blog.index', 'params' => []],
             ['name' => 'docs.index', 'params' => []],
         ];

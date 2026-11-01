@@ -13,7 +13,7 @@ class PanelUpdateCheckController extends Controller
     {
         $secret = (string) config('panelze_saas.panel_updates_api_secret', '');
         if ($secret !== '') {
-            if ($request->bearerToken() !== $secret) {
+            if (! hash_equals($secret, (string) $request->bearerToken())) {
                 return response()->json([
                     'ok' => false,
                     'code' => 'unauthorized',

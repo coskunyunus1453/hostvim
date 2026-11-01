@@ -18,8 +18,8 @@ class LicenseActivateController extends Controller
     {
         $secret = (string) config('panelze_saas.license_api_secret', '');
         if ($secret !== '') {
-            $bearer = $request->bearerToken();
-            if ($bearer !== $secret) {
+            $bearer = (string) $request->bearerToken();
+            if (! hash_equals($secret, $bearer)) {
                 return response()->json(['valid' => false, 'code' => 'unauthorized', 'message' => 'Invalid API token'], 401);
             }
         }

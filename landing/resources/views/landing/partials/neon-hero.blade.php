@@ -15,8 +15,8 @@
                     {{ $landingNeonTop['lead'] }}
                 </p>
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <a href="{{ url('/panel') }}" class="hv-neon-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold">
-                        {{ $landingNeonTop['cta_primary'] }}
+                    <a href="{{ route('site.demo') }}" class="hv-neon-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold">
+                        {{ app()->getLocale() === 'tr' ? 'Canlı demoyu dene' : 'Try the live demo' }}
                         <span class="text-xs opacity-90">→</span>
                     </a>
                     <a href="{{ route('site.setup') }}" class="hv-neon-btn-ghost inline-flex items-center justify-center rounded-xl border px-6 py-3 text-sm font-semibold">
