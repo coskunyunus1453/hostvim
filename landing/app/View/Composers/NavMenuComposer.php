@@ -26,6 +26,7 @@ class NavMenuComposer
     {
         return collect([
             new NavMenuItem(['label' => landing_p('nav.features'), 'href' => '/#features', 'open_in_new_tab' => false]),
+            new NavMenuItem(['label' => landing_p('nav.demo'), 'href' => '/demo', 'open_in_new_tab' => false]),
             new NavMenuItem(['label' => landing_p('nav.pricing'), 'href' => '/pricing', 'open_in_new_tab' => false]),
             new NavMenuItem(['label' => landing_p('nav.setup'), 'href' => '/setup', 'open_in_new_tab' => false]),
             new NavMenuItem(['label' => landing_p('nav.docs'), 'href' => '/docs', 'open_in_new_tab' => false]),
@@ -42,8 +43,8 @@ class NavMenuComposer
         return collect([
             new NavMenuItem(['label' => landing_p('footer.docs'), 'href' => '/docs', 'open_in_new_tab' => false]),
             new NavMenuItem(['label' => landing_p('footer.blog'), 'href' => '/blog', 'open_in_new_tab' => false]),
+            new NavMenuItem(['label' => landing_p('nav.demo'), 'href' => '/demo', 'open_in_new_tab' => false]),
             new NavMenuItem(['label' => landing_p('footer.faq'), 'href' => '/p/sss', 'open_in_new_tab' => false]),
-            new NavMenuItem(['label' => landing_p('footer.admin'), 'href' => '/admin/login', 'open_in_new_tab' => false]),
         ]);
     }
 }

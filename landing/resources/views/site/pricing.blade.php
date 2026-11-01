@@ -96,6 +96,9 @@
                     <a href="{{ route('site.setup') }}" class="hv-btn-secondary mt-7 w-full justify-center py-3 text-base">
                         {{ $tr ? 'Ücretsiz kur' : 'Install free' }}
                     </a>
+                    <a href="{{ route('site.demo') }}" class="mt-3 block text-center text-sm font-semibold text-[rgb(var(--hv-brand-600)/1)] hover:underline dark:text-[rgb(var(--hv-brand-400)/1)]">
+                        {{ $tr ? 'Önce canlı demoyu dene →' : 'Try the live demo first →' }}
+                    </a>
                 </div>
 
                 {{-- Pro --}}

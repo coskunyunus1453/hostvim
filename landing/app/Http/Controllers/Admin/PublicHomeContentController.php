@@ -10,6 +10,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PublicHomeContentController extends Controller
 {
@@ -120,15 +121,22 @@ class PublicHomeContentController extends Controller
             LandingSiteSetting::put('landing.hero_image_path', '');
         } elseif ($request->hasFile('hero_image')) {
             $file = $request->file('hero_image');
-            if ($file !== null && $file->isValid()) {
-                $old = LandingSiteSetting::getValue('landing.hero_image_path', '');
-                if (is_string($old) && $old !== '') {
-                    LandingAppearance::deleteLandingStoredPath($old);
-                }
-                $ext = $file->getClientOriginalExtension() ?: 'jpg';
-                $path = $file->storeAs('landing', 'hero-'.time().'.'.$ext, 'landing_assets');
-                LandingSiteSetting::put('landing.hero_image_path', $path);
+            if ($file === null || ! $file->isValid()) {
+                throw ValidationException::withMessages([
+                    'hero_image' => 'Görsel yüklenemedi (geçersiz dosya veya sunucu yükleme limiti).',
+                ]);
             }
+            $old = LandingSiteSetting::getValue('landing.hero_image_path', '');
+            if (is_string($old) && $old !== '') {
+                LandingAppearance::deleteLandingStoredPath($old);
+            }
+            $path = LandingAppearance::storeBrandUpload(
+                $file,
+                'hero',
+                ['png', 'jpg', 'jpeg', 'webp', 'svg'],
+                'hero_image',
+            );
+            LandingSiteSetting::put('landing.hero_image_path', $path);
         }
 
         if ($request->input('return_to') === 'appearance') {

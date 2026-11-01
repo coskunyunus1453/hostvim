@@ -28,12 +28,18 @@ class DomainPricingSyncService
         foreach ($this->registrars->enabledAccounts() as $account) {
             try {
                 $quotes = $this->registrars->driver($account->api_name)->fetchTldPricing($account);
+                $accepted = 0;
                 foreach ($quotes as $tld => $quote) {
                     $tld = $this->normalizeTld($tld);
+                    // DomainNameAPI gibi bölgesel sağlayıcılar yalnızca kendi TLD'lerine yazılır.
+                    if (! $account->supportsTld($tld)) {
+                        continue;
+                    }
                     $priceTry = $this->currency->toTry((float) $quote['register'], (string) ($quote['currency'] ?? 'USD'));
                     if ($priceTry <= 0) {
                         continue;
                     }
+                    $accepted++;
                     $quotesByTld[$tld][] = [
                         'api_name' => $account->api_name,
                         'register_try' => $priceTry,
@@ -47,7 +53,8 @@ class DomainPricingSyncService
                 $account->update([
                     'last_synced_at' => now(),
                     'last_sync_status' => 'ok',
-                    'last_sync_message' => count($quotes).' TLD fiyatı alındı.',
+                    'last_sync_message' => $accepted.' TLD fiyatı alındı'
+                        .($accepted !== count($quotes) ? ' (filtre: '.count($quotes).' ham)' : '').'.',
                 ]);
             } catch (\Throwable $e) {
                 $message = $account->display_name.': '.$e->getMessage();

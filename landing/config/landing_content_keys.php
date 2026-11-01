@@ -9,6 +9,7 @@ return [
         'menü (nav)' => [
             'nav.features' => 'Özellikler',
             'nav.pricing' => 'Fiyatlandırma',
+            'nav.demo' => 'Demo',
             'nav.setup' => 'Kurulum',
             'nav.docs' => 'Docs',
             'nav.blog' => 'Blog',

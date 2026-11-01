@@ -3,7 +3,7 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Ön yüz temaları (orange, turquoise, neon)
+    | Ön yüz temaları (orange, turquoise, neon, ember)
     |--------------------------------------------------------------------------
     */
     'themes' => [
@@ -18,6 +18,10 @@ return [
         'neon' => [
             'label' => 'Neon',
             'description' => 'Neon header/footer, özel ana sayfa akışı (üst alan + 5 satır + 6 kutu), koyu mod uyumlu yüzeyler.',
+        ],
+        'ember' => [
+            'label' => 'Ember · Modern (panel ile uyumlu)',
+            'description' => 'Panelze kontrol paneliyle aynı sıcak palet; panel önizlemeli ana sayfa, güncel özellik ve fiyat bölümleri. Sabit paleti vardır, "Ana renk" ve arka plan grafiği uygulanmaz.',
         ],
     ],
 

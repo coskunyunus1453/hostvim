@@ -40,14 +40,68 @@ class DomainAvailabilityService
     }
 
     /**
-     * TLD'ye atanmis registrar hesabini, yoksa varsayilan aktif hesabi dondurur.
+     * @param  list<string>  $domains
+     * @return array<string, array{domain: string, tld: string, available: bool, register_price: float, renew_price: float, transfer_price?: float, currency: string, reason?: string}>
+     */
+    public function checkMany(array $domains): array
+    {
+        if (! $this->settings->registerEnabled()) {
+            $out = [];
+            foreach ($domains as $raw) {
+                $domain = $this->normalize((string) $raw);
+                $out[$domain] = $this->unavailable($domain, 'disabled');
+            }
+
+            return $out;
+        }
+
+        $normalized = [];
+        foreach ($domains as $raw) {
+            $domain = $this->normalize((string) $raw);
+            if ($domain !== '') {
+                $normalized[$domain] = $domain;
+            }
+        }
+        $normalized = array_values($normalized);
+        if ($normalized === []) {
+            return [];
+        }
+
+        $bulk = $this->bulkAvailability($normalized);
+        $out = [];
+        foreach ($normalized as $domain) {
+            $tld = $this->extractTld($domain);
+            $row = DomainTld::query()->where('tld', $tld)->where('is_active', true)->first();
+            if ($row === null) {
+                $out[$domain] = $this->unavailable($domain, 'tld_not_supported', $tld);
+
+                continue;
+            }
+            $avail = $bulk[$domain] ?? ['available' => false, 'reason' => 'unverified'];
+            $out[$domain] = $this->buildResult(
+                $domain,
+                $row,
+                (bool) ($avail['available'] ?? false),
+                $avail['reason'] ?? null,
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * TLD'ye atanmis registrar hesabini, yoksa bu TLD'yi destekleyen ilk aktif hesabi dondurur.
      */
     private function resolveAccount(DomainTld $row): ?DomainRegistrar
     {
         $apiName = $row->registrar_api_name ?: $row->wholesale_registrar_api;
         $account = $apiName ? $this->registrars->account($apiName) : null;
+        if ($account !== null && $account->supportsTld($row->tld)) {
+            return $account;
+        }
 
-        return $account ?? $this->registrars->enabledAccounts()->first();
+        return $this->registrars->enabledAccounts()
+            ->first(fn (DomainRegistrar $candidate) => $candidate->supportsTld($row->tld));
     }
 
     /**
@@ -263,10 +317,10 @@ class DomainAvailabilityService
         return ['available' => $pair[0], 'reason' => $pair[1]];
     }
 
-    /** @return list<array{tld: string, register_price: float, renew_price: float, registrar_api?: string}> */
+    /** @return list<array{tld: string, register_price: float, renew_price: float, transfer_price?: float, registrar_api?: string}> */
     public function listTlds(): array
     {
-        return DomainTld::query()
+        $rows = DomainTld::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get()
@@ -278,8 +332,43 @@ class DomainAvailabilityService
                     ? (float) $t->transfer_price
                     : (float) $t->renew_price,
                 'registrar_api' => $t->registrar_api_name ?: $t->wholesale_registrar_api,
+                '_sort' => (int) $t->sort_order,
             ])
             ->all();
+
+        return $this->prioritizePopularTlds($rows);
+    }
+
+    /**
+     * Fiyat tablosu / chip listesinde popüler uzantıları en üste alır.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array{tld: string, register_price: float, renew_price: float, transfer_price?: float, registrar_api?: string}>
+     */
+    private function prioritizePopularTlds(array $rows): array
+    {
+        $popular = [
+            '.com', '.com.tr', '.net', '.org', '.io', '.ai', '.dev', '.app',
+            '.xyz', '.online', '.store', '.site', '.info', '.biz',
+            '.net.tr', '.org.tr', '.gen.tr', '.web.tr', '.tr',
+        ];
+        $rank = array_flip($popular);
+
+        usort($rows, function (array $a, array $b) use ($rank): int {
+            $ra = $rank[$a['tld']] ?? 1000;
+            $rb = $rank[$b['tld']] ?? 1000;
+            if ($ra !== $rb) {
+                return $ra <=> $rb;
+            }
+
+            return ((int) ($a['_sort'] ?? 500)) <=> ((int) ($b['_sort'] ?? 500));
+        });
+
+        return array_map(static function (array $row): array {
+            unset($row['_sort']);
+
+            return $row;
+        }, $rows);
     }
 
     public function priceFor(string $domain, int $years = 1): float

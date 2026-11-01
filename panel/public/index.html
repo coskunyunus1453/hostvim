@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f6" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171412" />
     <meta name="description" content="Panelze — modern barındırma kontrol paneli. Siteler, alan adları, SSL, yedekleme ve dosya yönetimi tek yerden." />
     <meta name="keywords" content="hosting panel, kontrol paneli, web hosting, SSL, yedekleme, Panelze" />
     <meta name="author" content="Panelze" />
@@ -51,23 +51,23 @@
     <style>
       /* Açık/koyu: Tailwind ile aynı kaynak — html.dark (tercih panelze-theme). OS prefers-color-scheme kullanılmaz. */
       :root {
-        --ps-bg: #f8fafc;
-        --ps-bg-mid: #e2e8f0;
-        --ps-accent: #3b82f6;
-        --ps-accent-dim: rgba(59, 130, 246, 0.22);
-        --ps-text: #0f172a;
-        --ps-muted: #64748b;
+        --ps-bg: #faf8f6;
+        --ps-bg-mid: #f4ece3;
+        --ps-accent: #f97316;
+        --ps-accent-dim: rgba(249, 115, 22, 0.18);
+        --ps-text: #1f1c19;
+        --ps-muted: #7d746a;
         --ps-card: rgba(255, 255, 255, 0.92);
-        --ps-border: rgba(15, 23, 42, 0.1);
+        --ps-border: rgba(31, 28, 25, 0.1);
       }
       html.dark {
-        --ps-bg: #0f172a;
-        --ps-bg-mid: #1e293b;
-        --ps-accent-dim: rgba(59, 130, 246, 0.35);
-        --ps-text: #f1f5f9;
-        --ps-muted: #94a3b8;
-        --ps-card: rgba(30, 41, 59, 0.75);
-        --ps-border: rgba(148, 163, 184, 0.15);
+        --ps-bg: #171412;
+        --ps-bg-mid: #211d1a;
+        --ps-accent-dim: rgba(249, 115, 22, 0.28);
+        --ps-text: #f4f1ed;
+        --ps-muted: #aaa197;
+        --ps-card: rgba(33, 29, 26, 0.85);
+        --ps-border: rgba(170, 161, 151, 0.15);
       }
       html, body {
         margin: 0;
@@ -142,10 +142,10 @@
         border-radius: 9999px;
         border: 1px solid var(--ps-border);
         color: var(--ps-muted);
-        background: rgba(59, 130, 246, 0.12);
+        background: rgba(249, 115, 22, 0.12);
       }
       html.dark .ps-boot-pill {
-        background: rgba(59, 130, 246, 0.08);
+        background: rgba(249, 115, 22, 0.08);
       }
       .ps-boot-skel {
         display: flex;
@@ -180,12 +180,12 @@
         height: 0.5rem;
         border-radius: 50%;
         background: var(--ps-accent);
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.5);
         animation: ps-pulse 1.2s ease-out infinite;
       }
       @keyframes ps-pulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45); opacity: 1; }
-        70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); opacity: 0.85; }
+        0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.45); opacity: 1; }
+        70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); opacity: 0.85; }
       }
       .ps-boot-foot {
         margin-top: 2rem;
@@ -213,8 +213,8 @@
         text-align: center;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-D2oOQp-d.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-bk1Zav8v.css">
+    <script type="module" crossorigin src="/assets/index-DaWWvArH.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CK_M5IuN.css">
   </head>
   <body>
     <noscript>
@@ -258,7 +258,7 @@
             <button id="ps-boot-retry" type="button" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
               Yeniden dene
             </button>
-            <button id="ps-boot-hard" type="button" style="border:1px solid #0ea5e9;background:#0ea5e9;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
+            <button id="ps-boot-hard" type="button" style="border:1px solid #ea580c;background:#ea580c;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
               Sert yenile (Ctrl+Shift+R)
             </button>
           </div>

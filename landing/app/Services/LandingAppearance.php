@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\LandingSiteSetting;
+use App\Support\SafeSvg;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 final class LandingAppearance
 {
@@ -124,7 +126,7 @@ final class LandingAppearance
     {
         $t = LandingSiteSetting::getValue('landing.active_theme', 'orange');
 
-        return in_array($t, ['orange', 'turquoise', 'neon'], true) ? $t : 'orange';
+        return in_array($t, ['orange', 'turquoise', 'neon', 'ember'], true) ? $t : 'orange';
     }
 
     public static function themeClass(): string
@@ -132,6 +134,7 @@ final class LandingAppearance
         return match (self::activeTheme()) {
             'turquoise' => 'hv-theme-turquoise',
             'neon' => 'hv-theme-neon',
+            'ember' => 'hv-theme-ember',
             default => 'hv-theme-orange',
         };
     }
@@ -139,6 +142,11 @@ final class LandingAppearance
     public static function isNeonTheme(): bool
     {
         return self::activeTheme() === 'neon';
+    }
+
+    public static function isEmberTheme(): bool
+    {
+        return self::activeTheme() === 'ember';
     }
 
     public static function usesHostvimShell(): bool
@@ -161,7 +169,7 @@ final class LandingAppearance
 
     public static function graphicMotifClass(): string
     {
-        if (self::activeTheme() === 'neon') {
+        if (in_array(self::activeTheme(), ['neon', 'ember'], true)) {
             return '';
         }
         $m = self::graphicMotif();
@@ -571,6 +579,63 @@ final class LandingAppearance
             || Storage::disk('public')->exists($relativePath);
     }
 
+    /**
+     * Marka görsellerini public/landing-assets altına yazar.
+     * PanelKafes (site FPM kullanıcısı) yazabilmeli; başarısız olursa ValidationException.
+     *
+     * @param  list<string>  $allowedExt
+     */
+    public static function storeBrandUpload(\Illuminate\Http\UploadedFile $file, string $basenamePrefix, array $allowedExt, string $field): string
+    {
+        $ext = strtolower((string) ($file->getClientOriginalExtension() ?: ''));
+        if ($ext === '' || ! in_array($ext, $allowedExt, true)) {
+            // MIME bazlı tahmin (özellikle .ico)
+            $guess = strtolower((string) ($file->extension() ?: ''));
+            if ($guess !== '' && in_array($guess, $allowedExt, true)) {
+                $ext = $guess;
+            } else {
+                throw ValidationException::withMessages([
+                    $field => 'Desteklenen biçimler: '.implode(', ', $allowedExt).'.',
+                ]);
+            }
+        }
+
+        $disk = Storage::disk('landing_assets');
+        $disk->makeDirectory('landing');
+        $relative = 'landing/'.$basenamePrefix.'-'.time().'.'.$ext;
+
+        $svgContents = null;
+        if ($ext === 'svg') {
+            $svgContents = SafeSvg::sanitize((string) file_get_contents($file->getRealPath()));
+            if ($svgContents === null) {
+                throw ValidationException::withMessages([
+                    $field => 'SVG dosyası okunamadı veya geçersiz.',
+                ]);
+            }
+        }
+
+        try {
+            if ($svgContents !== null) {
+                $stored = $disk->put($relative, $svgContents) ? $relative : false;
+            } else {
+                $stored = $file->storeAs('landing', basename($relative), 'landing_assets');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            throw ValidationException::withMessages([
+                $field => 'Dosya kaydedilemedi (yazma izni veya disk hatası). Sunucu yöneticisine bildirin.',
+            ]);
+        }
+
+        if (! is_string($stored) || $stored === '' || ! $disk->exists($stored)) {
+            throw ValidationException::withMessages([
+                $field => 'Dosya kaydedilemedi. `public/landing-assets` dizinine yazma izni gerekli (PanelKafes kullanıcısı).',
+            ]);
+        }
+
+        return $stored;
+    }
+
     /** Kayıtlı landing görselini hem disklerden siler (yükleme yeri değişince eski dosya kalmasın). */
     public static function deleteLandingStoredPath(?string $path): void
     {
@@ -630,6 +695,10 @@ final class LandingAppearance
     /** Inline --hv-brand-* RGB triplets (space-separated 0–255). */
     public static function themeInlineStyle(): string
     {
+        // Ember, panel ile aynı sabit sıcak paleti kullanır; ana renk ayarı uygulanmaz.
+        if (self::isEmberTheme()) {
+            return '';
+        }
         $hex = LandingSiteSetting::getValue('landing.theme_primary_hex', '');
         $hex = is_string($hex) ? trim($hex) : '';
         if ($hex === '' || ! preg_match('/^#[0-9A-Fa-f]{6}$/', $hex)) {

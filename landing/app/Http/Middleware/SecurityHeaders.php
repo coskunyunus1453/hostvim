@@ -31,6 +31,10 @@ class SecurityHeaders
         if (! $response->headers->has('Permissions-Policy')) {
             $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
         }
+        // Analitik kod alanları keyfi script ekleyebildiği için script-src kısıtlanmaz; yalnızca güvenli direktifler.
+        if (! $response->headers->has('Content-Security-Policy')) {
+            $response->headers->set('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'");
+        }
         if (! $response->headers->has('Cross-Origin-Opener-Policy')) {
             $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
         }

@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './hostvim-shell.css';
+@import './ember-theme.css';
 
 /* Manuel gece modu: html.dark ile çalışır (varsayılan Tailwind v4 = sadece OS karanlık teması) */
 @custom-variant dark (&:where(.dark, .dark *));

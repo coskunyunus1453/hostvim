@@ -40,6 +40,7 @@ use App\Http\Controllers\Site\CommunityController;
 use App\Http\Controllers\Site\CommunityParticipationController;
 use App\Http\Controllers\Site\BuyController;
 use App\Http\Controllers\Site\CommunityProfileController;
+use App\Http\Controllers\Site\DemoController;
 use App\Http\Controllers\Site\DocController;
 use App\Http\Controllers\Site\LandingMediaController;
 use App\Http\Controllers\Site\PricingController;
@@ -97,6 +98,7 @@ Route::get('/', function (\App\Services\Licensing\PricingPresenter $pricing) {
 
 Route::get('/setup', [SitePageController::class, 'setup'])->name('site.setup');
 Route::get('/pricing', [PricingController::class, 'index'])->name('site.pricing');
+Route::get('/demo', [DemoController::class, 'index'])->name('site.demo');
 Route::get('/buy', [BuyController::class, 'index'])->name('site.buy');
 
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');

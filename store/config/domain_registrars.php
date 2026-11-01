@@ -63,6 +63,36 @@ return [
             ],
             'supported_tlds' => ['TR', 'tr'],
         ],
+        'domainnameapi' => [
+            'api_name' => 'domainnameapi',
+            'name' => 'DomainNameAPI',
+            'tagline' => 'Türkiye (.tr) uzantıları için',
+            'highlight' => 'DomainNameAPI — yalnızca .tr / .com.tr vb. yerli uzantılar. Global TLD’ler için Spaceship kullanın.',
+            'website' => 'https://www.domainnameapi.com',
+            'docs_url' => 'https://github.com/domainreseller/php-dna',
+            'currency' => 'USD',
+            'credential_fields' => [
+                'username' => [
+                    'label' => 'Reseller ID (UUID) veya API kullanıcı adı',
+                    'type' => 'text',
+                    'required' => true,
+                    'placeholder' => 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+                ],
+                'password' => [
+                    'label' => 'API Key veya API şifre',
+                    'type' => 'password',
+                    'required' => true,
+                ],
+                'test_mode' => [
+                    'label' => 'Test modu (1 = OTE/SOAP test)',
+                    'type' => 'text',
+                    'required' => false,
+                    'placeholder' => '0',
+                ],
+            ],
+            // global değil: fiyat senkronu ve satış yalnızca .tr ailesi
+            'supported_tlds' => ['TR', 'tr'],
+        ],
     ],
 
     'default_usd_try_rate' => 35.0,

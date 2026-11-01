@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SaasLicenseActivation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -71,12 +72,45 @@ class GoogleDriveOAuthProxyController extends Controller
             return '';
         }
 
-        $scheme = parse_url($decoded, PHP_URL_SCHEME);
-        if (! in_array($scheme, ['http', 'https'], true)) {
+        $parts = parse_url($decoded);
+        if (! is_array($parts)) {
+            return '';
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return '';
+        }
+
+        if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+            return '';
+        }
+
+        if (! $this->isKnownPanelHost($host)) {
+            Log::warning('Google Drive OAuth proxy: unknown panel host rejected', ['host' => $host]);
+
             return '';
         }
 
         return rtrim($decoded, '/');
+    }
+
+    private function isKnownPanelHost(string $host): bool
+    {
+        $cfg = (array) config('panelze.google_drive_oauth_proxy', []);
+        if (! ($cfg['enforce_known_hosts'] ?? true)) {
+            return true;
+        }
+
+        if (in_array($host, (array) ($cfg['allowed_hosts'] ?? []), true)) {
+            return true;
+        }
+
+        return SaasLicenseActivation::query()
+            ->where('host', $host)
+            ->whereHas('license', fn ($q) => $q->whereNotIn('status', ['revoked', 'suspended']))
+            ->exists();
     }
 
     private function base64UrlDecode(string $value): string

@@ -46,4 +46,48 @@ return [
 
     /** İlk admin bilgisi dosyası (install.sh sonrası). */
     'admin_login_file' => env('PANELZE_ADMIN_LOGIN_FILE', '/root/panelze-admin-login.txt'),
+
+    /**
+     * Google Drive OAuth proxy (/backups/google-callback): yetki kodu yalnızca lisans
+     * aktivasyonunda kaydedilmiş panel host'larına (veya allowed_hosts listesine) iletilir.
+     * Aksi halde state içine yazılan herhangi bir sunucu kodu çalabilir.
+     */
+    'google_drive_oauth_proxy' => [
+        'enforce_known_hosts' => filter_var((string) env('PANELZE_GDRIVE_PROXY_ENFORCE_KNOWN_HOSTS', true), FILTER_VALIDATE_BOOLEAN),
+        'allowed_hosts' => array_values(array_filter(array_map(
+            static fn (string $h): string => strtolower(trim($h)),
+            explode(',', (string) env('PANELZE_GDRIVE_PROXY_ALLOWED_HOSTS', ''))
+        ))),
+    ],
+
+    /**
+     * Public ürün demosu (panelze.com/demo → canlı panel sandbox).
+     * Şifre kasıtlı olarak herkese açıktır; gerçek müşteri verisi bu hesapta yoktur.
+     */
+    'public_demo' => [
+        'enabled' => filter_var((string) env('PANELZE_PUBLIC_DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'email' => (string) env('PANELZE_PUBLIC_DEMO_EMAIL', 'demo@panelze.com'),
+        'password' => (string) env('PANELZE_PUBLIC_DEMO_PASSWORD', 'DemoPanelze2026!'),
+        'login_url' => (string) env(
+            'PANELZE_PUBLIC_DEMO_URL',
+            'https://panel.hostvim.com/login?demo=1'
+        ),
+        'sites' => [
+            [
+                'name' => 'demo-shop.panelze.test',
+                'title' => 'Demo Shop',
+                'blurb' => 'Örnek e-ticaret sitesi',
+            ],
+            [
+                'name' => 'demo-blog.panelze.test',
+                'title' => 'Demo Blog',
+                'blurb' => 'Örnek içerik sitesi',
+            ],
+            [
+                'name' => 'demo-app.panelze.test',
+                'title' => 'Demo App',
+                'blurb' => 'Örnek uygulama kökü',
+            ],
+        ],
+    ],
 ];

@@ -16,12 +16,14 @@ class DomainRegistrarResolver
         SpaceshipRegistrarDriver $spaceship,
         CloudflareRegistrarDriver $cloudflare,
         MetunicRegistrarDriver $metunic,
+        DomainNameApiRegistrarDriver $domainNameApi,
     ) {
         $this->drivers = [
             $porkbun->apiName() => $porkbun,
             $spaceship->apiName() => $spaceship,
             $cloudflare->apiName() => $cloudflare,
             $metunic->apiName() => $metunic,
+            $domainNameApi->apiName() => $domainNameApi,
         ];
     }
 

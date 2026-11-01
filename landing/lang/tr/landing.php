@@ -10,6 +10,7 @@ return [
         'home' => 'Ana sayfa',
         'features' => 'Özellikler',
         'pricing' => 'Fiyatlandırma',
+        'demo' => 'Demo',
         'setup' => 'Kurulum',
         'docs' => 'Docs',
         'blog' => 'Blog',
