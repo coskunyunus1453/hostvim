@@ -188,4 +188,13 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 log "==> update complete: $VERSION"
+
+# Kuyruk işçisi eski kodu/config'i bellekte tutar; güncelleme job'u bitirdikten
+# sonra yeniden başlatılması için zamanlanır (bu job'u kesmemek adına gecikmeli).
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active panelze-panel-queue >/dev/null 2>&1; then
+  systemd-run --on-active=25 --collect --unit="panelze-queue-restart-$$" \
+    systemctl restart panelze-panel-queue >/dev/null 2>&1 \
+    && log "==> panelze-panel-queue 25 sn sonra yeniden başlatılacak"
+fi
+
 exit 0
