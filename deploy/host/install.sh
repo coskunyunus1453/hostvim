@@ -133,6 +133,34 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
+# OS algılama (Debian/Ubuntu destekli; RHEL ailesi yakında)
+_OS_LIB=""
+for _cand in \
+  "$(dirname "${BASH_SOURCE[0]:-$0}")/lib/os-detect.sh" \
+  "${PANELZE_HOME:-/var/www/panelze}/deploy/host/lib/os-detect.sh"; do
+  if [[ -f "$_cand" ]]; then
+    _OS_LIB="$_cand"
+    break
+  fi
+done
+if [[ -z "$_OS_LIB" ]]; then
+  _raw_os="https://raw.githubusercontent.com/coskunyunus1453/hostvim/${PANELZE_BRANCH:-main}/deploy/host/lib/os-detect.sh"
+  _tmp_os="$(mktemp)"
+  curl -fsSL "$_raw_os" -o "$_tmp_os" || true
+  if [[ -s "$_tmp_os" ]]; then
+    _OS_LIB="$_tmp_os"
+  fi
+fi
+if [[ -n "$_OS_LIB" ]]; then
+  # shellcheck source=/dev/null
+  source "$_OS_LIB"
+  panelze_os_detect || true
+  panelze_os_assert_supported
+  rm -f "${_tmp_os:-}"
+else
+  echo "UYARI: os-detect.sh bulunamadı; Ubuntu/Debian varsayılarak devam." >&2
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 # wget/unzip: OpenLiteSpeed ve bazı host araçları wget kullanır; minimal imajlarda yok.

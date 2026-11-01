@@ -27,13 +27,20 @@ ensure_php_fpm_packages() {
       ;;
     debian)
       apt-get install -y -qq lsb-release ca-certificates apt-transport-https curl gnupg
-      if [[ ! -f /etc/apt/sources.list.d/php-sury.list ]]; then
-        curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/php-sury.gpg
-        echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php-sury.list
+      if [[ ! -f /etc/apt/sources.list.d/php-sury.list ]] && [[ ! -f /etc/apt/sources.list.d/sury-php.list ]]; then
+        install -d -m 0755 /etc/apt/keyrings
+        curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/keyrings/php-sury.gpg
+        chmod 644 /etc/apt/keyrings/php-sury.gpg
+        # Eski yolu da tut (önceki kurulumlar)
+        cp -f /etc/apt/keyrings/php-sury.gpg /etc/apt/trusted.gpg.d/php-sury.gpg 2>/dev/null || true
+        local codename
+        codename="$(lsb_release -sc 2>/dev/null || echo "${VERSION_CODENAME:-bookworm}")"
+        echo "deb [signed-by=/etc/apt/keyrings/php-sury.gpg] https://packages.sury.org/php/ ${codename} main" \
+          > /etc/apt/sources.list.d/php-sury.list
       fi
       ;;
     *)
-      echo "Hata: Desteklenmeyen dağıtım: ${ID:-?} (ubuntu veya debian gerekir)." >&2
+      echo "Hata: Desteklenmeyen dağıtım: ${ID:-?} (ubuntu veya debian gerekir; Rocky/Alma sırada)." >&2
       exit 1
       ;;
   esac

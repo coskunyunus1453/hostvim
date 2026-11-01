@@ -142,6 +142,19 @@ if [[ "${ENFORCE_ADMIN_2FA:-}" == "" ]]; then
   ENFORCE_ADMIN_2FA=false
 fi
 
+# OS algılama (Debian 12 / Ubuntu 22.04+; Rocky/Alma sırada)
+if [[ -f "$REPO_ROOT/deploy/host/lib/os-detect.sh" ]]; then
+  # shellcheck source=../host/lib/os-detect.sh
+  source "$REPO_ROOT/deploy/host/lib/os-detect.sh"
+  panelze_os_detect || true
+  panelze_os_assert_supported
+elif [[ -f "$SCRIPT_DIR/../host/lib/os-detect.sh" ]]; then
+  # shellcheck source=../host/lib/os-detect.sh
+  source "$SCRIPT_DIR/../host/lib/os-detect.sh"
+  panelze_os_detect || true
+  panelze_os_assert_supported
+fi
+
 if [[ ! -d "$REPO_ROOT/panel" ]] || [[ ! -d "$REPO_ROOT/engine" ]]; then
   echo "Hata: panel/ veya engine/ bulunamadı. Bu betiği repo kökünden çalıştırın (PANELZE_HOME=$PANELZE_HOME)." >&2
   exit 1
@@ -319,22 +332,18 @@ panelze_apache_bind_8080() {
   apache2ctl configtest
 }
 
-# apt kurulumu
+# apt kurulumu (Debian 12 / Ubuntu 22.04+)
 if [[ "${SKIP_APT:-}" != "1" ]]; then
+  export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq \
-    nginx \
-    curl \
-    ca-certificates \
-    sudo \
-    git \
-    rsync \
-    unzip \
-    sqlite3 \
-    acl \
-    software-properties-common \
-    lsb-release \
-    gnupg
+  if declare -F panelze_os_apt_base_packages >/dev/null 2>&1; then
+    mapfile -t _APT_BASE < <(panelze_os_apt_base_packages)
+    apt-get install -y -qq "${_APT_BASE[@]}"
+  else
+    apt-get install -y -qq \
+      nginx curl ca-certificates sudo git rsync unzip zip \
+      sqlite3 acl lsb-release gnupg software-properties-common apt-transport-https
+  fi
 
   ensure_php_fpm_packages
 
@@ -625,9 +634,14 @@ visudo -cf /etc/sudoers.d/panelze-engine
 # Tam posta + Roundcube webmail (müşteri e-posta sayfası)
 if [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "1" ]] || [[ "${WITH_MAIL_STACK_WEBMAIL:-1}" == "yes" ]]; then
   if command -v dpkg-query >/dev/null 2>&1 && ! dpkg-query -W -f='${Status}' roundcube-core 2>/dev/null | grep -q 'install ok'; then
-    if [[ "${SKIP_APT:-}" != "1" ]] && command -v add-apt-repository >/dev/null 2>&1 && ! apt-cache show roundcube-core &>/dev/null 2>&1; then
-      add-apt-repository -y universe 2>/dev/null || true
-      apt-get update -qq 2>/dev/null || true
+    if [[ "${SKIP_APT:-}" != "1" ]]; then
+      if declare -F panelze_os_ensure_roundcube_repo >/dev/null 2>&1; then
+        panelze_os_ensure_roundcube_repo
+      elif command -v add-apt-repository >/dev/null 2>&1 && ! apt-cache show roundcube-core &>/dev/null 2>&1; then
+        # Ubuntu: universe; Debian'da genelde main'de
+        add-apt-repository -y universe 2>/dev/null || true
+        apt-get update -qq 2>/dev/null || true
+      fi
     fi
     if [[ -x /usr/local/sbin/panelze-stack-install ]]; then
       echo "==> Tam posta + Roundcube webmail kuruluyor (mail-stack-webmail)..."

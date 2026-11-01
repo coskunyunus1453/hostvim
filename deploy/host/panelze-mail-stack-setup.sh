@@ -51,10 +51,23 @@ chmod 640 /etc/dovecot/passwd
 touch /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
 chmod 644 /etc/postfix/virtual_mailbox_domains /etc/postfix/virtual_mailbox_maps /etc/postfix/virtual_alias_maps
 
+if ! apt-cache show roundcube-core &>/dev/null; then
+  # Ubuntu: universe; Debian 12: main (çoğu kurulumda zaten vardır)
+  if [[ -r /etc/os-release ]]; then
+    # shellcheck source=/dev/null
+    . /etc/os-release
+  fi
+  if [[ "${ID:-}" == "ubuntu" ]] && command -v add-apt-repository >/dev/null 2>&1; then
+    add-apt-repository -y universe 2>/dev/null || true
+    apt-get update -qq 2>/dev/null || true
+  fi
+fi
 if apt-cache show roundcube-core &>/dev/null; then
   run_apt roundcube-core roundcube-sqlite3
 else
-  echo "Hata: roundcube-core paketi bulunamadı. Ubuntu'da: sudo add-apt-repository universe && apt update" >&2
+  echo "Hata: roundcube-core paketi bulunamadı." >&2
+  echo "  Ubuntu: sudo add-apt-repository universe && apt update" >&2
+  echo "  Debian 12: apt update && apt install roundcube-core roundcube-sqlite3" >&2
   exit 1
 fi
 
