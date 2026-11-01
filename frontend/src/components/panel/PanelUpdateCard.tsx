@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import api from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
 import { isHostingSuperAdmin } from '../../lib/authRoles'
+import PanelUpdateResultModal, { type PanelUpdateModalState } from './PanelUpdateResultModal'
 import clsx from 'clsx'
 
 type ReleaseInfo = {
@@ -42,6 +43,7 @@ export default function PanelUpdateCard({ compact = false }: { compact?: boolean
   const user = useAuthStore((s) => s.user)
   const isAdmin = isHostingSuperAdmin(user)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [updateModal, setUpdateModal] = useState<PanelUpdateModalState | null>(null)
 
   const statusQ = useQuery({
     queryKey: ['panel-update-status'],
@@ -81,11 +83,37 @@ export default function PanelUpdateCard({ compact = false }: { compact?: boolean
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['panel-update-status'] })
       const bg = res.data?.background
+      const modalBase: PanelUpdateModalState = {
+        phase: 'running',
+        runId: bg ? Number(res.data?.run_id ?? 0) || null : Number(res.data?.run?.id ?? 0) || null,
+        fromVersion: status?.current_version ?? '',
+        toVersion: latest?.version ?? '',
+        title: latest?.title,
+        changelog: latest?.changelog,
+        progress: 5,
+        message: t('panel_update.in_progress'),
+        startedAt: Date.now(),
+      }
       if (bg) {
+        setUpdateModal(modalBase)
         toast.success(t('panel_update.apply_started'))
       } else if (res.data?.run?.status === 'success') {
+        setUpdateModal({
+          ...modalBase,
+          phase: 'success',
+          progress: 100,
+          message: res.data?.run?.message,
+          output: res.data?.run?.output,
+        })
         toast.success(t('panel_update.apply_success'))
       } else {
+        setUpdateModal({
+          ...modalBase,
+          phase: 'failed',
+          progress: 100,
+          message: res.data?.run?.message,
+          output: res.data?.run?.output,
+        })
         toast.error(t('panel_update.apply_failed'))
       }
     },
@@ -94,6 +122,52 @@ export default function PanelUpdateCard({ compact = false }: { compact?: boolean
       toast.error(ax.response?.data?.message || t('panel_update.apply_failed'))
     },
   })
+
+  // Güncelleme sürerken paneldeki kayıt penceresi kapanabilir; modal kendi
+  // run kaydını yoklayarak sonucu (başarı/hata + çıktı) gösterir.
+  const modalRunQ = useQuery({
+    queryKey: ['panel-update-modal-run', updateModal?.runId],
+    queryFn: async () => {
+      const id = updateModal?.runId
+      if (!id) return null
+      const { data } = await api.get(`/system/panel/update/runs/${id}`)
+      return data.run as UpdateRun
+    },
+    enabled: !!updateModal?.runId && updateModal.phase === 'running',
+    refetchInterval: (q) => {
+      const s = q.state.data?.status
+      return s === 'success' || s === 'failed' ? false : 2500
+    },
+    retry: 5,
+  })
+
+  useEffect(() => {
+    const run = modalRunQ.data
+    if (!run || !updateModal || updateModal.phase !== 'running') return
+
+    if (run.status === 'success' || run.status === 'failed') {
+      setUpdateModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: run.status === 'success' ? 'success' : 'failed',
+              progress: 100,
+              message: run.message,
+              output: run.output,
+              toVersion: run.to_version || prev.toVersion,
+            }
+          : prev,
+      )
+      void qc.invalidateQueries({ queryKey: ['panel-update-status'] })
+      void qc.invalidateQueries({ queryKey: ['notifications-feed'] })
+      return
+    }
+
+    const progress = Math.max(updateModal.progress ?? 5, run.progress ?? 0)
+    if (progress !== updateModal.progress || run.message !== updateModal.message) {
+      setUpdateModal((prev) => (prev ? { ...prev, progress, message: run.message } : prev))
+    }
+  }, [modalRunQ.data, updateModal, qc])
 
   const dismissM = useMutation({
     mutationFn: async (version: string) => api.post('/system/panel/update/dismiss', { version }),
@@ -125,6 +199,10 @@ export default function PanelUpdateCard({ compact = false }: { compact?: boolean
   }
 
   return (
+    <>
+    {updateModal && (
+      <PanelUpdateResultModal state={updateModal} onClose={() => setUpdateModal(null)} />
+    )}
     <div
       className={clsx(
         'card border',
@@ -231,5 +309,6 @@ export default function PanelUpdateCard({ compact = false }: { compact?: boolean
         </pre>
       )}
     </div>
+    </>
   )
 }

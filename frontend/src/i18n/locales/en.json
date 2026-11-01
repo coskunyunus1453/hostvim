@@ -544,7 +544,18 @@
     "apply_success": "Panel updated successfully",
     "apply_failed": "Update failed",
     "in_progress": "Update in progress…",
-    "dismiss": "Remind me later"
+    "dismiss": "Remind me later",
+    "modal_running_title": "Updating panel…",
+    "modal_success_title": "Update completed",
+    "modal_failed_title": "Update failed",
+    "modal_done": "Completed",
+    "modal_failed": "Failed",
+    "modal_elapsed": "Duration: {{time}}",
+    "modal_changes": "What changed in this version",
+    "modal_reload_hint": "The panel is now running the new version. Reload the page to see the updated interface.",
+    "modal_reload": "Reload page",
+    "modal_later": "Later",
+    "modal_output": "Technical output"
   },
   "domains": {
     "title": "Domain Management",

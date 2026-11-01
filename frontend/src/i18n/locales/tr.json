@@ -545,7 +545,18 @@
     "apply_success": "Panel başarıyla güncellendi",
     "apply_failed": "Güncelleme başarısız",
     "in_progress": "Güncelleme sürüyor…",
-    "dismiss": "Sonra hatırlat"
+    "dismiss": "Sonra hatırlat",
+    "modal_running_title": "Panel güncelleniyor…",
+    "modal_success_title": "Güncelleme tamamlandı",
+    "modal_failed_title": "Güncelleme tamamlanamadı",
+    "modal_done": "Tamamlandı",
+    "modal_failed": "Başarısız",
+    "modal_elapsed": "Süre: {{time}}",
+    "modal_changes": "Bu sürümde neler değişti",
+    "modal_reload_hint": "Panel yeni sürümle çalışıyor. Güncel arayüzü görmek için sayfayı yenileyin.",
+    "modal_reload": "Sayfayı yenile",
+    "modal_later": "Daha sonra",
+    "modal_output": "Teknik çıktı"
   },
   "domains": {
     "title": "Alan Adı Yönetimi",
