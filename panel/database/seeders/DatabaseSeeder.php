@@ -253,7 +253,8 @@ class DatabaseSeeder extends Seeder
         }
 
         // Public ürün demosu (panelze.com) — gerçek müşteri sitelerinden izole.
-        if (filter_var((string) env('PANELZE_PUBLIC_DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
+        // Varsayılan KAPALI: müşteri kurulumunda bilinen şifreli demo hesap oluşmasın.
+        if (filter_var((string) env('PANELZE_PUBLIC_DEMO_ENABLED', false), FILTER_VALIDATE_BOOLEAN)) {
             $this->call(PublicDemoSeeder::class);
         }
     }

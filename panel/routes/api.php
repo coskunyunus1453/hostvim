@@ -97,7 +97,7 @@ Route::get('branding/wl/{userId}/{filename}', [BrandingController::class, 'serve
     ->middleware('throttle:120,1');
 
 Route::get('public/demo', function () {
-    if (! config('panelze.public_demo.enabled', true)) {
+    if (! config('panelze.public_demo.enabled', false)) {
         return response()->json(['enabled' => false], 404);
     }
 
