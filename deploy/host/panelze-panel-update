@@ -35,6 +35,14 @@ done
 [[ -n "$VERSION" ]] || usage
 [[ -d "$PANELZE_HOME" ]] || { echo "PANELZE_HOME not found: $PANELZE_HOME" >&2; exit 1; }
 
+# Log dosyası: betik root olarak yazar, panel (www-data) da okuyup ekleyebilmeli.
+if [[ -n "$LOG_FILE" ]]; then
+  mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+  touch "$LOG_FILE" 2>/dev/null || true
+  chown www-data:www-data "$LOG_FILE" 2>/dev/null || true
+  chmod 664 "$LOG_FILE" 2>/dev/null || true
+fi
+
 LOCK_FILE="/var/run/panelze-panel-update.lock"
 MAINT_FLAG="$PANELZE_HOME/panel/storage/framework/panelze-updating"
 
@@ -81,8 +89,8 @@ apply_git_tag() {
   cd "$PANELZE_HOME"
   log "==> git fetch tags"
   git fetch origin --tags --force 2>&1 | while read -r line; do log "$line"; done
-  log "==> git checkout $tag"
-  git checkout "$tag" 2>&1 | while read -r line; do log "$line"; done
+  log "==> git checkout $tag (yerel değişiklikler atılır)"
+  git checkout -f "$tag" 2>&1 | while read -r line; do log "$line"; done
   return 0
 }
 

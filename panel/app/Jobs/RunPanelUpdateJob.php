@@ -41,6 +41,26 @@ class RunPanelUpdateJob implements ShouldQueue
 
         File::put($updates->maintenanceFlagPath(), (string) now()->toIso8601String());
 
+        try {
+            $this->runScript($updates, $run, $release, $logPath);
+        } catch (\Throwable $e) {
+            // Log yazımı veya süreç yönetimi hatası güncellemeyi kilitlemesin.
+            report($e);
+            @unlink($updates->maintenanceFlagPath());
+
+            $run->refresh();
+            if ($run->isActive()) {
+                $run->status = 'failed';
+                $run->progress = 100;
+                $run->message = 'Güncelleme hatası: '.mb_substr($e->getMessage(), 0, 300);
+                $run->finished_at = now();
+                $run->save();
+            }
+        }
+    }
+
+    private function runScript(PanelUpdateService $updates, PanelUpdateRun $run, array $release, string $logPath): void
+    {
         $home = dirname(base_path());
         $script = '/usr/local/sbin/panelze-panel-update';
         if (! is_executable($script)) {
@@ -76,14 +96,24 @@ class RunPanelUpdateJob implements ShouldQueue
 
         $process = new Process($args, null, null, null, 3600);
         $process->run(function (string $type, string $buffer) use ($run, $logPath): void {
-            File::append($logPath, $buffer);
-            if ($type === 'err') {
+            // Betik root olarak log dosyasına yazabildiği için burada izin
+            // hatası olabilir; güncellemeyi asla düşürmemeli.
+            try {
+                File::append($logPath, $buffer);
+            } catch (\Throwable) {
+                // yoksay
+            }
+
+            if ($type === 'err' || ! str_contains($buffer, '==>')) {
                 return;
             }
-            if (str_contains($buffer, '==>')) {
+
+            try {
                 $run->message = trim(substr(trim($buffer), 0, 480));
                 $run->progress = min(95, (int) $run->progress + 8);
                 $run->save();
+            } catch (\Throwable) {
+                // yoksay
             }
         });
 

@@ -19,9 +19,80 @@ class PanelUpdateService
             return true;
         }
 
+        $this->reconcileActiveRun();
+
         return PanelUpdateRun::query()
             ->whereIn('status', ['queued', 'running'])
             ->exists();
+    }
+
+    /**
+     * Güncelleme betiği başarılı bitse bile job süreci (kuyruk işçisi yeniden
+     * başlama, log izin hatası vb.) düşerse kayıt "running" kalıp paneli
+     * kalıcı olarak "güncelleniyor" durumuna kilitliyordu. Burada kurulu
+     * sürüm ile hedef sürümü karşılaştırıp kaydı kapatıyoruz.
+     */
+    public function reconcileActiveRun(): void
+    {
+        $run = PanelUpdateRun::query()
+            ->whereIn('status', ['queued', 'running'])
+            ->latest('id')
+            ->first();
+
+        if ($run === null) {
+            return;
+        }
+
+        if (File::exists($this->maintenanceFlagPath()) || File::exists(self::LOCK_FILE)) {
+            return;
+        }
+
+        $installed = $this->installedVersion();
+        $target = (string) $run->to_version;
+
+        if ($run->status === 'queued') {
+            if ($run->created_at !== null && $run->created_at->lt(now()->subMinutes(10))) {
+                $this->closeRun($run, 'failed', 'Güncelleme başlatılamadı (kuyruk işçisi yanıt vermedi).');
+            }
+
+            return;
+        }
+
+        $startedAt = $run->started_at ?? $run->created_at;
+        $age = $startedAt?->diffInSeconds(now()) ?? 0;
+
+        if ($age >= 90) {
+            if ($target !== '' && version_compare($installed, $target, '>=')) {
+                $this->closeRun($run, 'success', 'Panel '.$target.' sürümüne güncellendi. Sayfayı yenileyin.', 100);
+            } else {
+                $this->closeRun($run, 'failed', 'Güncelleme yarıda kesildi (kurulu sürüm: '.$installed.').');
+            }
+        }
+    }
+
+    private function closeRun(PanelUpdateRun $run, string $status, string $message, int $progress = 100): void
+    {
+        $run->status = $status;
+        $run->progress = $progress;
+        $run->message = $message;
+        $run->finished_at = now();
+        $run->save();
+    }
+
+    /**
+     * `.env` içindeki kurulu sürüm (config cache eski olabilir).
+     */
+    public function installedVersion(): string
+    {
+        $envFile = base_path('.env');
+        if (File::exists($envFile)) {
+            $content = (string) File::get($envFile);
+            if (preg_match('/^PANELZE_PANEL_VERSION=(.+)$/m', $content, $m)) {
+                return trim($m[1], " \t\"'");
+            }
+        }
+
+        return (string) config('panelze.version', '0.0.0');
     }
 
     /**
@@ -29,7 +100,9 @@ class PanelUpdateService
      */
     public function statusPayload(): array
     {
-        $current = (string) config('panelze.version', '0.0.0');
+        $this->reconcileActiveRun();
+
+        $current = $this->installedVersion();
         $hub = $this->hub->checkForUpdate($current);
         $latest = $this->hub->latestRelease($hub);
         $activeRun = PanelUpdateRun::query()
@@ -111,6 +184,14 @@ class PanelUpdateService
     public function maintenanceFlagPath(): string
     {
         return storage_path('framework/panelze-updating');
+    }
+
+    /** panelze-panel-update betiğinin kilit dosyası */
+    public const LOCK_FILE = '/var/run/panelze-panel-update.lock';
+
+    public function lockFilePath(): string
+    {
+        return self::LOCK_FILE;
     }
 
     private function dismissCacheKey(): string
