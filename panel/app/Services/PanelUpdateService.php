@@ -122,9 +122,9 @@ class PanelUpdateService
         ];
     }
 
-    public function notifyIfNewRelease(): void
+    public function notifyIfNewRelease(?array $hubPayload = null): void
     {
-        $hub = $this->hub->checkForUpdate();
+        $hub = $hubPayload ?? $this->hub->checkForUpdate();
         if (! $this->hub->updateAvailable($hub)) {
             return;
         }

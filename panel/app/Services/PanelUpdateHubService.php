@@ -11,7 +11,7 @@ class PanelUpdateHubService
     /**
      * @return array<string, mixed>|null
      */
-    public function checkForUpdate(?string $currentVersion = null): ?array
+    public function checkForUpdate(?string $currentVersion = null, bool $force = false): ?array
     {
         $current = $currentVersion ?? (string) config('panelze.version', '0.0.0');
         $profile = $this->panelProfile();
@@ -23,6 +23,10 @@ class PanelUpdateHubService
 
         $cacheKey = 'panelze:panel-update-check:'.md5($hub.'|'.$current.'|'.$profile.'|'.$channel);
         $ttl = max(60, (int) config('panelze.updates.check_cache_seconds', 300));
+
+        if ($force) {
+            Cache::forget($cacheKey);
+        }
 
         return Cache::remember($cacheKey, $ttl, function () use ($hub, $current, $profile, $channel): ?array {
             $url = $hub.'/api/v1/panel-updates/check';

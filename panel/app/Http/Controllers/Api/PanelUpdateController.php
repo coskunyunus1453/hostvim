@@ -28,8 +28,9 @@ class PanelUpdateController extends Controller
     {
         $this->authorizeAdmin($request);
 
-        $payload = $this->hub->checkForUpdate();
-        $this->updates->notifyIfNewRelease();
+        // Kullanıcı «Güncelleme kontrol et» dediğinde önbelleği atla.
+        $payload = $this->hub->checkForUpdate(null, true);
+        $this->updates->notifyIfNewRelease($payload);
 
         return response()->json($this->updates->statusPayload());
     }
@@ -53,12 +54,12 @@ class PanelUpdateController extends Controller
             return response()->json(['message' => 'Güncelleme zaten sürüyor.'], 409);
         }
 
-        $latest = $this->hub->latestRelease();
+        $latest = $this->hub->latestRelease($this->hub->checkForUpdate($this->updates->installedVersion(), true));
         if ($latest === null) {
             return response()->json(['message' => 'Uygulanacak yeni sürüm yok.'], 422);
         }
 
-        $current = (string) config('panelze.version', '0.0.0');
+        $current = $this->updates->installedVersion();
         $run = $this->updates->createRun((int) $request->user()->id, $current, $latest);
 
         $isSync = (string) config('queue.default', 'sync') === 'sync';
