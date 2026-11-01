@@ -157,6 +157,14 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    # Dinamik XML (Google Merchant /feeds, Laravel sitemap) — static .xml regex try_files=404 engellemesin
+    location ^~ /feeds/ {
+        try_files $uri /index.php?$query_string;
+    }
+    location = /sitemap.xml {
+        try_files $uri /index.php?$query_string;
+    }
+
     # Docroot is already .../public; CMS sometimes still emits /public/uploads/... (404 without this)
     location ^~ /public/ {
         rewrite ^/public/(.*)$ /$1 last;
@@ -206,6 +214,14 @@ server {
         fastcgi_pass unix:{{.PHPSocket}};
     }
 {{end}}
+
+    # HTTP-01 may follow redirects to HTTPS; keep challenge reachable here too.
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        root {{.DocRoot}};
+        try_files $uri =404;
+        allow all;
+    }
 
     location ~ /\. {
         deny all;
@@ -282,6 +298,14 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    # Dinamik XML (Google Merchant /feeds, Laravel sitemap) — static .xml regex try_files=404 engellemesin
+    location ^~ /feeds/ {
+        try_files $uri /index.php?$query_string;
+    }
+    location = /sitemap.xml {
+        try_files $uri /index.php?$query_string;
+    }
+
     location ^~ /public/ {
         rewrite ^/public/(.*)$ /$1 last;
     }
@@ -414,6 +438,14 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    # Dinamik XML (Google Merchant /feeds, Laravel sitemap) — static .xml regex try_files=404 engellemesin
+    location ^~ /feeds/ {
+        try_files $uri /index.php?$query_string;
+    }
+    location = /sitemap.xml {
+        try_files $uri /index.php?$query_string;
+    }
+
     location ^~ /public/ {
         rewrite ^/public/(.*)$ /$1 last;
     }
@@ -459,6 +491,14 @@ server {
         fastcgi_pass unix:{{.PHPSocket}};
     }
 {{end}}
+
+    # HTTP-01 may follow redirects to HTTPS; keep challenge reachable here too.
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        root {{.DocRoot}};
+        try_files $uri =404;
+        allow all;
+    }
 
     location ~ /\. {
         deny all;
@@ -534,6 +574,14 @@ server {
 {{end}}
 
 {{if eq .ProxyPort 0}}
+    # Dinamik XML (Google Merchant /feeds, Laravel sitemap) — static .xml regex try_files=404 engellemesin
+    location ^~ /feeds/ {
+        try_files $uri /index.php?$query_string;
+    }
+    location = /sitemap.xml {
+        try_files $uri /index.php?$query_string;
+    }
+
     location ^~ /public/ {
         rewrite ^/public/(.*)$ /$1 last;
     }

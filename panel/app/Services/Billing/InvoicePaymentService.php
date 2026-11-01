@@ -21,8 +21,11 @@ class InvoicePaymentService
         private InvoiceService $invoices,
     ) {}
 
-    /** @return array<string, mixed> */
-    public function initiate(Invoice $invoice, User $user): array
+    /**
+     * @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options
+     * @return array<string, mixed>
+     */
+    public function initiate(Invoice $invoice, User $user, array $options = []): array
     {
         if (! $invoice->isPayable()) {
             throw new RuntimeException('Bu fatura ödenebilir durumda değil.');
@@ -31,9 +34,9 @@ class InvoicePaymentService
         $provider = $this->resolver->resolve($invoice);
 
         return match ($provider) {
-            'paytr' => $this->paytrPayload($invoice, $user),
-            'iyzico' => $this->iyzicoPayload($invoice, $user),
-            'stripe' => $this->stripePayload($invoice, $user),
+            'paytr' => $this->paytrPayload($invoice, $user, $options),
+            'iyzico' => $this->iyzicoPayload($invoice, $user, $options),
+            'stripe' => $this->stripePayload($invoice, $user, $options),
             default => $this->manualPayload($invoice),
         };
     }
@@ -90,32 +93,46 @@ class InvoicePaymentService
         return $this->invoices->markPaid($invoice, 'iyzico', $detail['payment_id']);
     }
 
-    /** @return array<string, mixed> */
-    private function paytrPayload(Invoice $invoice, User $user): array
+    /**
+     * @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options
+     * @return array<string, mixed>
+     */
+    private function paytrPayload(Invoice $invoice, User $user, array $options = []): array
     {
-        $data = $this->paytr->initiate($invoice, $user);
+        $data = $this->paytr->initiate($invoice, $user, [
+            'return_ok_url' => $this->safeReturnUrl($options['return_ok_url'] ?? null, url('/invoices?paid=1')),
+            'return_fail_url' => $this->safeReturnUrl($options['return_fail_url'] ?? null, url('/invoices')),
+        ]);
 
         return [
             'method' => 'paytr',
             'iframe_url' => $data['iframe_url'],
+            'redirect_url' => $data['iframe_url'],
             'reference' => $data['merchant_ref'],
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function iyzicoPayload(Invoice $invoice, User $user): array
+    /**
+     * @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options
+     * @return array<string, mixed>
+     */
+    private function iyzicoPayload(Invoice $invoice, User $user, array $options = []): array
     {
-        $data = $this->iyzico->initiate($invoice, $user);
+        $data = $this->iyzico->initiate($invoice, $user, $options);
 
         return [
             'method' => 'iyzico',
             'url' => $data['url'],
+            'redirect_url' => $data['url'],
             'reference' => $data['merchant_ref'],
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function stripePayload(Invoice $invoice, User $user): array
+    /**
+     * @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options
+     * @return array<string, mixed>
+     */
+    private function stripePayload(Invoice $invoice, User $user, array $options = []): array
     {
         $secret = config('services.stripe.secret');
         if (! $secret) {
@@ -124,6 +141,8 @@ class InvoicePaymentService
 
         try {
             $stripe = new StripeClient($secret);
+            $okUrl = $this->safeReturnUrl($options['return_ok_url'] ?? null, url('/invoices?paid=1'));
+            $failUrl = $this->safeReturnUrl($options['return_fail_url'] ?? null, url('/invoices'));
             $session = $stripe->checkout->sessions->create([
                 'mode' => 'payment',
                 'customer_email' => $user->email,
@@ -138,11 +157,11 @@ class InvoicePaymentService
                     ],
                     'quantity' => 1,
                 ]],
-                'success_url' => url('/invoices?paid=1'),
-                'cancel_url' => url('/invoices'),
+                'success_url' => $okUrl,
+                'cancel_url' => $failUrl,
             ]);
 
-            return ['method' => 'stripe', 'url' => $session->url, 'id' => $session->id];
+            return ['method' => 'stripe', 'url' => $session->url, 'redirect_url' => $session->url, 'id' => $session->id];
         } catch (Throwable $e) {
             report($e);
 
@@ -160,5 +179,37 @@ class InvoicePaymentService
             'currency' => $invoice->currency,
             'reference' => $invoice->number,
         ];
+    }
+
+    private function safeReturnUrl(?string $url, string $fallback): string
+    {
+        if (! is_string($url) || $url === '') {
+            return $fallback;
+        }
+
+        $parts = parse_url($url);
+        $scheme = $parts['scheme'] ?? '';
+        $host = $parts['host'] ?? '';
+        if (! in_array($scheme, ['https', 'http'], true) || $host === '') {
+            return $fallback;
+        }
+
+        $allowed = array_values(array_filter([
+            parse_url((string) config('app.url'), PHP_URL_HOST),
+            parse_url((string) config('services.store.url', ''), PHP_URL_HOST),
+            'hostvim.com',
+            'www.hostvim.com',
+        ]));
+
+        foreach ($allowed as $allowedHost) {
+            if (strcasecmp((string) $allowedHost, $host) === 0) {
+                return $url;
+            }
+            if (str_ends_with(strtolower($host), '.'.strtolower((string) $allowedHost))) {
+                return $url;
+            }
+        }
+
+        return $fallback;
     }
 }

@@ -187,7 +187,8 @@ class StoreCustomerService
     }
 
     /** @return array<string, mixed> */
-    public function initiateInvoicePayment(User $user, int $invoiceId): array
+    /** @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options */
+    public function initiateInvoicePayment(User $user, int $invoiceId, array $options = []): array
     {
         $invoice = Invoice::query()
             ->whereKey($invoiceId)
@@ -195,7 +196,7 @@ class StoreCustomerService
             ->firstOrFail();
 
         try {
-            return $this->invoicePayments->initiate($invoice, $user);
+            return $this->invoicePayments->initiate($invoice, $user, $options);
         } catch (RuntimeException $e) {
             throw ValidationException::withMessages(['invoice' => $e->getMessage()]);
         }

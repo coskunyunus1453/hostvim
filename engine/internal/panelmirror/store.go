@@ -705,19 +705,129 @@ func cloneMap(m map[string]interface{}) map[string]interface{} {
 	return o
 }
 
+func ftpUsername(v interface{}) string {
+	return strings.TrimSpace(fmt.Sprint(v))
+}
+
+func ftpUsernameOK(u string) bool {
+	if u == "" || len(u) > 32 {
+		return false
+	}
+	for i, r := range u {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			continue
+		case r == '.' || r == '_' || r == '-':
+			if i == 0 {
+				return false
+			}
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func ftpHomeOK(home string) bool {
+	home = strings.Trim(strings.ReplaceAll(home, "\\", "/"), "/")
+	if home == "" {
+		return false
+	}
+	for _, seg := range strings.Split(home, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// FTPUsernameTaken başka bir domain'de aynı FTP kullanıcı adı var mı.
+func FTPUsernameTaken(cfg *config.Config, username, exceptDomain string) (string, error) {
+	u := ftpUsername(username)
+	if u == "" {
+		return "", nil
+	}
+	except := safeDomain(exceptDomain)
+	base := filepath.Join(dir(cfg), "ftp")
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		d := strings.TrimSuffix(e.Name(), ".json")
+		if except != "" && d == except {
+			continue
+		}
+		rows, err := readSlice(filepath.Join(base, e.Name()))
+		if err != nil {
+			return "", err
+		}
+		for _, r := range rows {
+			if ftpUsername(r["username"]) == u {
+				return d, nil
+			}
+		}
+	}
+	return "", nil
+}
+
 func FTPAdd(cfg *config.Config, domain string, body map[string]interface{}) error {
 	d := safeDomain(domain)
 	if d == "" {
 		return fmt.Errorf("invalid domain")
 	}
+	username := ftpUsername(body["username"])
+	if !ftpUsernameOK(username) {
+		return fmt.Errorf("invalid username")
+	}
+	password := strings.TrimSpace(fmt.Sprint(body["password"]))
+	if password == "" {
+		return fmt.Errorf("password required")
+	}
+	home := strings.Trim(strings.ReplaceAll(fmt.Sprint(body["home_directory"]), "\\", "/"), "/")
+	if home == "" {
+		home = "public_html"
+	}
+	if !ftpHomeOK(home) {
+		return fmt.Errorf("invalid home_directory")
+	}
+	body = cloneMap(body)
+	body["username"] = username
+	body["password"] = password
+	body["home_directory"] = home
+
 	mu.Lock()
 	defer mu.Unlock()
+
+	if taken, err := FTPUsernameTaken(cfg, username, d); err != nil {
+		return err
+	} else if taken != "" {
+		return fmt.Errorf("ftp username already used on %s", taken)
+	}
+
 	path := filepath.Join(dir(cfg), "ftp", d+".json")
 	rows, err := readSlice(path)
 	if err != nil {
 		return err
 	}
-	rows = append(rows, body)
+	replaced := false
+	for i, r := range rows {
+		if ftpUsername(r["username"]) == username {
+			rows[i] = body
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		rows = append(rows, body)
+	}
 	return writeSlice(path, rows)
 }
 
@@ -726,6 +836,7 @@ func FTPDelete(cfg *config.Config, domain, username string) error {
 	if d == "" {
 		return fmt.Errorf("invalid domain")
 	}
+	username = ftpUsername(username)
 	mu.Lock()
 	defer mu.Unlock()
 	path := filepath.Join(dir(cfg), "ftp", d+".json")
@@ -735,7 +846,7 @@ func FTPDelete(cfg *config.Config, domain, username string) error {
 	}
 	var next []map[string]interface{}
 	for _, r := range rows {
-		if fmt.Sprint(r["username"]) == username {
+		if ftpUsername(r["username"]) == username {
 			continue
 		}
 		next = append(next, r)
@@ -980,6 +1091,22 @@ func MailPatchMailbox(cfg *config.Config, domain, mailboxEmail string, patch map
 	return writeMail(path, s)
 }
 
+func mailKeepCopy(v interface{}) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case float64:
+		return t != 0
+	case int:
+		return t != 0
+	case string:
+		s := strings.ToLower(strings.TrimSpace(t))
+		return s == "1" || s == "true" || s == "yes" || s == "on"
+	default:
+		return false
+	}
+}
+
 func MailAddForwarder(cfg *config.Config, domain string, entry map[string]interface{}) error {
 	d := safeDomain(domain)
 	if d == "" {
@@ -990,6 +1117,7 @@ func MailAddForwarder(cfg *config.Config, domain string, entry map[string]interf
 	if source == "" || dest == "" {
 		return fmt.Errorf("source and destination required")
 	}
+	keep := mailKeepCopy(entry["keep_copy"])
 	mu.Lock()
 	defer mu.Unlock()
 	path := filepath.Join(dir(cfg), "mail", d+".json")
@@ -997,13 +1125,16 @@ func MailAddForwarder(cfg *config.Config, domain string, entry map[string]interf
 	if err != nil {
 		return err
 	}
-	for _, f := range s.Forwarders {
+	for i, f := range s.Forwarders {
 		if strings.EqualFold(fmt.Sprint(f["source"]), source) && strings.EqualFold(fmt.Sprint(f["destination"]), dest) {
-			return nil
+			f["keep_copy"] = keep
+			s.Forwarders[i] = f
+			return writeMail(path, s)
 		}
 	}
 	entry["source"] = source
 	entry["destination"] = dest
+	entry["keep_copy"] = keep
 	s.Forwarders = append(s.Forwarders, entry)
 	return writeMail(path, s)
 }

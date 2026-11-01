@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/subtle"
+	"net"
 	"net/http"
 	"strings"
 
@@ -35,9 +37,34 @@ func internalAPIHeader(c *gin.Context) string {
 	return ""
 }
 
+// Repodaki örnek yapılandırmalarla gelen, herkesçe bilinen değerler.
+var knownDefaultSecrets = map[string]bool{
+	"panelze-engine-internal-dev":          true,
+	"panelsar-engine-internal-dev":         true,
+	"change-this-jwt-secret-in-production": true,
+}
+
+func isLoopbackRemote(c *gin.Context) bool {
+	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
+	if err != nil {
+		host = c.Request.RemoteAddr
+	}
+	ip := net.ParseIP(strings.TrimSpace(host))
+	return ip != nil && ip.IsLoopback()
+}
+
+// secretUsable: bilinen varsayılan anahtarlar yalnızca aynı makineden (loopback) kabul edilir.
+func secretUsable(c *gin.Context, secret string) bool {
+	if secret == "" {
+		return false
+	}
+	return !knownDefaultSecrets[secret] || isLoopbackRemote(c)
+}
+
 func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if cfg.Security.InternalAPIKey != "" && internalAPIHeader(c) == cfg.Security.InternalAPIKey {
+		if h := internalAPIHeader(c); h != "" && secretUsable(c, cfg.Security.InternalAPIKey) &&
+			subtle.ConstantTimeCompare([]byte(h), []byte(cfg.Security.InternalAPIKey)) == 1 {
 			c.Set("user_id", float64(0))
 			c.Set("role", "internal")
 			c.Next()
@@ -59,6 +86,12 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
+
+		if !secretUsable(c, cfg.Security.JWTSecret) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

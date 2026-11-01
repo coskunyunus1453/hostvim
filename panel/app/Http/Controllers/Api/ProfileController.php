@@ -24,7 +24,23 @@ class ProfileController extends Controller
                 Rule::unique('users', 'email')->ignore($request->user()->id),
             ],
             'locale' => 'sometimes|nullable|string|in:en,tr,de,fr,es,pt,zh,ja,ar,ru',
+            'current_password' => 'nullable|string',
         ]);
+
+        // Paylaşımlı public demo hesabının giriş e-postası sabit kalmalı.
+        if ($request->user()->isDemo()) {
+            unset($validated['email']);
+        }
+
+        // Çalınan oturumla hesabın e-postası (ve dolayısıyla parola sıfırlama) ele geçirilemesin.
+        $emailChanged = isset($validated['email'])
+            && strcasecmp((string) $validated['email'], (string) $request->user()->email) !== 0;
+        if ($emailChanged && ! Hash::check((string) ($validated['current_password'] ?? ''), (string) $request->user()->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => [__('auth.current_password_invalid')],
+            ]);
+        }
+        unset($validated['current_password']);
 
         $request->user()->update($validated);
 

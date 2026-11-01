@@ -21,6 +21,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-dkim-sync
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ftp-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-php-ini
@@ -37,9 +38,18 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-hosting-perms
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-fix-hosting-perms
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-exec
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-configure-roundcube-ssl
 SUDOERS
 
 chmod 440 "$SUDOERS"
 visudo -cf "$SUDOERS"
 echo "OK engine sudoers"
+
+# PHP-FPM ProtectSystem=full → /etc ROFS; host araçları için drop-in.
+_DROPIN_LIB="$(cd "$(dirname "$0")" && pwd)/lib/install-php-fpm-hosttools-dropin.sh"
+if [[ -f "$_DROPIN_LIB" ]]; then
+  # shellcheck source=lib/install-php-fpm-hosttools-dropin.sh
+  source "$_DROPIN_LIB"
+  install_php_fpm_hosttools_dropin "$(cd "$(dirname "$0")/../.." && pwd)" || true
+fi

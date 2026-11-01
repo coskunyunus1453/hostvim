@@ -88,8 +88,8 @@ class BrandingController extends Controller
         try {
             $maxKb = $this->maxUploadKb();
             $request->validate([
-                'logo_customer' => 'nullable|image|max:'.$maxKb,
-                'logo_admin' => 'nullable|image|max:'.$maxKb,
+                'logo_customer' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:'.$maxKb,
+                'logo_admin' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:'.$maxKb,
             ]);
             if (! $request->hasFile('logo_customer') && ! $request->hasFile('logo_admin')) {
                 $contentLen = (int) ($request->server('CONTENT_LENGTH') ?? 0);

@@ -19,9 +19,10 @@ class IyzicoBillingGateway
     }
 
     /**
+     * @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options
      * @return array{url: string, merchant_ref: string}
      */
-    public function initiate(Invoice $invoice, User $user): array
+    public function initiate(Invoice $invoice, User $user, array $options = []): array
     {
         if (! $this->isConfigured()) {
             throw new RuntimeException('iyzico yapılandırılmamış.');

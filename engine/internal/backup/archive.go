@@ -1,12 +1,16 @@
 package backup
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -247,6 +251,57 @@ func copyFile(src, dst string) error {
 }
 
 // RestoreDomain extracts a tar.gz created by ArchiveDomain into paths.WebRoot (overwrites site files).
+// ValidateArchiveForDomain yüklenen (güvenilmeyen) arşivin yalnızca domain/ altına yazdığını doğrular.
+// Hardlink'ler ve domain dışını gösteren symlink'ler reddedilir (kiracılar arası yazma/okuma önlemi).
+func ValidateArchiveForDomain(archivePath, domain string) error {
+	domain = strings.TrimSpace(domain)
+	if domain == "" || strings.ContainsAny(domain, "/\\") || domain == "." || domain == ".." {
+		return fmt.Errorf("invalid domain")
+	}
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return fmt.Errorf("archive: %w", err)
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("archive is not gzip: %w", err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		h, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("archive read: %w", err)
+		}
+		name := strings.TrimPrefix(strings.ReplaceAll(h.Name, "\\", "/"), "./")
+		if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\x00") {
+			return fmt.Errorf("archive entry not allowed: %q", h.Name)
+		}
+		clean := path.Clean(name)
+		if clean != domain && !strings.HasPrefix(clean, domain+"/") {
+			return fmt.Errorf("archive entry outside site %s: %q", domain, h.Name)
+		}
+		switch h.Typeflag {
+		case tar.TypeLink:
+			return fmt.Errorf("archive hardlinks are not allowed: %q", h.Name)
+		case tar.TypeSymlink:
+			if strings.HasPrefix(h.Linkname, "/") {
+				return fmt.Errorf("archive absolute symlink not allowed: %q", h.Name)
+			}
+			target := path.Clean(path.Join(path.Dir(clean), h.Linkname))
+			if target != domain && !strings.HasPrefix(target, domain+"/") {
+				return fmt.Errorf("archive symlink escapes site: %q", h.Name)
+			}
+		case tar.TypeChar, tar.TypeBlock, tar.TypeFifo:
+			return fmt.Errorf("archive special file not allowed: %q", h.Name)
+		}
+	}
+}
+
 func RestoreDomain(ctx context.Context, cfg *config.Config, archivePath, allowedArchivePrefix string) error {
 	if cfg == nil {
 		return fmt.Errorf("nil config")

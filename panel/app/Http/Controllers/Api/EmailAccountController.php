@@ -309,6 +309,7 @@ class EmailAccountController extends Controller
         $this->engine->mailAddForwarder($domain->name, [
             'source' => $forwarder->source,
             'destination' => $forwarder->destination,
+            'keep_copy' => (bool) $forwarder->keep_copy,
         ]);
         return response()->json([
             'message' => __('email.forwarder_created'),

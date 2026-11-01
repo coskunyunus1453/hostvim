@@ -172,6 +172,8 @@ type HostingConfig struct {
 	StackInstallScript string `mapstructure:"stack_install_script"`
 	// MailProvisionScript — panel posta kutularını Dovecot/Postfix'e yazar (varsayılan: /usr/local/sbin/panelze-mail-provision).
 	MailProvisionScript string `mapstructure:"mail_provision_script"`
+	// FtpProvisionScript — panel FTP hesaplarını Pure-FTPd PureDB'ye yazar (varsayılan: /usr/local/sbin/panelze-ftp-provision).
+	FtpProvisionScript string `mapstructure:"ftp_provision_script"`
 
 	// Faz 6 — gerçek dosya yedeği (Linux prod: execute_backups true; XAMPP’te false bırakın)
 	ExecuteBackups       bool   `mapstructure:"execute_backups"`

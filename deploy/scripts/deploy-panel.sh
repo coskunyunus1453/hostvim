@@ -79,6 +79,12 @@ if [[ -f "$REPO_ROOT/deploy/host/panelze-configure-roundcube-ssl" ]]; then
   echo "==> /usr/local/sbin/panelze-configure-roundcube-ssl (webmail TLS)"
   sudo install -m 755 "$REPO_ROOT/deploy/host/panelze-configure-roundcube-ssl" /usr/local/sbin/panelze-configure-roundcube-ssl
 fi
+if [[ -f "$REPO_ROOT/deploy/scripts/lib/install-php-fpm-hosttools-dropin.sh" ]]; then
+  echo "==> PHP-FPM panelze hosttools drop-in (/etc yazma)"
+  # shellcheck source=lib/install-php-fpm-hosttools-dropin.sh
+  source "$REPO_ROOT/deploy/scripts/lib/install-php-fpm-hosttools-dropin.sh"
+  sudo bash -c "source '$REPO_ROOT/deploy/scripts/lib/install-php-fpm-hosttools-dropin.sh'; install_php_fpm_hosttools_dropin '$REPO_ROOT'" || true
+fi
 if [[ -f "$REPO_ROOT/deploy/host/zz-panelze-perf.ini" ]]; then
   echo "==> PHP global performans ini (realpath cache) — tüm FPM sürümleri"
   for _phpdir in /etc/php/*/fpm/conf.d; do

@@ -96,6 +96,30 @@ Route::get('branding/wl/{userId}/{filename}', [BrandingController::class, 'serve
     ->where('filename', '[A-Za-z0-9._-]+')
     ->middleware('throttle:120,1');
 
+Route::get('public/demo', function () {
+    if (! config('panelze.public_demo.enabled', true)) {
+        return response()->json(['enabled' => false], 404);
+    }
+
+    $base = rtrim((string) config('panelze.public_demo.panel_login_url'), '/');
+    if (str_contains($base, 'demo=1')) {
+        $login = $base;
+    } elseif (str_ends_with($base, '/login')) {
+        $login = $base.'?demo=1';
+    } else {
+        $login = $base.'/login?demo=1';
+    }
+
+    return response()->json([
+        'enabled' => true,
+        'email' => config('panelze.public_demo.email'),
+        'password' => config('panelze.public_demo.password'),
+        'login_url' => $login,
+        'sites' => config('panelze.public_demo.protected_domains', []),
+        'note' => 'Sandbox only — no real customer sites. Resets periodically.',
+    ]);
+})->middleware('throttle:60,1');
+
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('sso/whmcs-consume', [AuthController::class, 'consumeWhmcsSso'])->middleware('throttle:sso-consume');
@@ -113,7 +137,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_password_change'])->group(function () {
+Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_password_change', 'demo.restrict'])->group(function () {
     Route::patch('user/profile', [ProfileController::class, 'update']);
     Route::post('user/password', [ProfileController::class, 'password'])->middleware('throttle:10,1');
     Route::post('user/onboarding/complete', [ProfileController::class, 'completeOnboarding']);

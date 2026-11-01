@@ -136,5 +136,11 @@ sudo -u "$RUN_USER" php artisan config:cache
 sudo -u "$RUN_USER" php artisan route:cache
 sudo -u "$RUN_USER" php artisan view:cache
 
+# PanelKafes: logo/favicon yazımı (public/landing-assets)
+if [[ -f "$SCRIPT_DIR/ensure-landing-upload-acl.sh" ]]; then
+  echo "==> landing-assets ACL (cage user yazabilsin)"
+  PANELZE_HOME="$PANELZE_HOME" LANDING_ROOT="$LANDING_ROOT" bash "$SCRIPT_DIR/ensure-landing-upload-acl.sh" || true
+fi
+
 echo "==> Bitti. Landing: $LANDING_ROOT"
 echo "    Admin: /admin/panel-releases"

@@ -22,6 +22,7 @@ class User extends Authenticatable
         'password_set_at',
         'locale',
         'status',
+        'is_demo',
         'parent_id',
         'hosting_package_id',
         'hosting_package_manual_override',
@@ -44,6 +45,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'force_password_change' => 'boolean',
+            'is_demo' => 'boolean',
             'password_set_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'hosting_package_manual_override' => 'boolean',
@@ -153,6 +155,11 @@ class User extends Authenticatable
     public function isReseller(): bool
     {
         return $this->hasRole('reseller');
+    }
+
+    public function isDemo(): bool
+    {
+        return (bool) $this->is_demo;
     }
 
     /**

@@ -44,6 +44,14 @@ class AuthController extends Controller
             return response()->json(['message' => __('auth.suspended')], 403);
         }
 
+        // Public demo asla admin/vendor portalına alınmaz
+        if ($user->isDemo() && ($user->isAdmin() || $user->isVendorOperator())) {
+            return response()->json([
+                'message' => 'Demo hesap yönetici yetkisiyle kullanılamaz.',
+                'code' => 'demo_elevated_forbidden',
+            ], 403);
+        }
+
         $portal = (string) ($request->input('portal', 'customer'));
         $vendorEnabled = (bool) config('panelze.vendor_enabled', false);
         if ($portal === 'vendor' && ! $vendorEnabled) {
@@ -180,6 +188,10 @@ class AuthController extends Controller
     public function refresh(Request $request): JsonResponse
     {
         $user = $request->user();
+        // Taklit (impersonation) oturumu 30 dk ile sınırlı; normal 24 saatlik token'a çevrilemez.
+        if ($this->impersonation->isImpersonationToken($user->currentAccessToken())) {
+            return response()->json(['message' => 'Taklit oturumu yenilenemez.', 'code' => 'impersonation_refresh_forbidden'], 403);
+        }
         $user->currentAccessToken()->delete();
         $expiresAt = now()->addHours(24);
         $abilities = $user->sanctumAbilities();

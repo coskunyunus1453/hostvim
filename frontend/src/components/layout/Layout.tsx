@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/authStore'
 import { authService } from '../../services/authService'
 import { mustEnrollTwoFactor } from '../../lib/authRoles'
 import { prefetchDashboard } from '../../lib/prefetchDashboard'
+import { Sparkles } from 'lucide-react'
 export default function Layout() {
   const { t } = useTranslation()
   const sidebarCollapsed = useThemeStore((s) => s.sidebarCollapsed)
@@ -113,7 +114,7 @@ export default function Layout() {
       {mobileSidebarOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-ink-950/60 backdrop-blur-sm md:hidden"
           aria-label="Close menu"
           onClick={closeMobileSidebar}
         />
@@ -126,14 +127,35 @@ export default function Layout() {
       >
         <Header />
         <ImpersonationBanner />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {user?.is_demo && (
+          <div className="border-b border-amber-300/60 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 px-4 py-2 text-center text-[13px] text-amber-900 dark:border-amber-500/20 dark:from-amber-500/10 dark:via-primary-500/10 dark:to-amber-500/10 dark:text-amber-100">
+            <span className="font-semibold">Demo hesabı</span>
+            <span className="mx-1.5 opacity-60">·</span>
+            Yalnızca örnek siteler. Gerçek müşteri verisi yok. Yazma işlemleri kısıtlıdır.
+            <a
+              href="https://panelze.com/pricing"
+              className="ml-2 font-semibold underline underline-offset-2 hover:no-underline"
+            >
+              Gerçek panel al →
+            </a>
+          </div>
+        )}
+        <main className="flex-1 overflow-y-auto bg-[radial-gradient(1200px_400px_at_100%_-10%,rgba(249,115,22,0.06),transparent_60%)] p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-[1480px]">
           {!onboardingSeen && (
-            <div className="mb-4 rounded-xl border border-primary-200 dark:border-primary-900/40 bg-primary-50/80 dark:bg-primary-950/20 p-4">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('ui_mode.onboarding_title')}</p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                {t('ui_mode.onboarding_desc')}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-primary-200/70 bg-gradient-to-r from-primary-50 to-amber-50/60 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-primary-500/20 dark:from-primary-500/10 dark:to-transparent">
+              <div className="flex items-start gap-3">
+                <span className="icon-tile bg-white text-primary-600 ring-primary-200 dark:bg-primary-500/15 dark:text-primary-300 dark:ring-primary-500/30">
+                  <Sparkles className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('ui_mode.onboarding_title')}</p>
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                    {t('ui_mode.onboarding_desc')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
                 <button className="btn-primary py-1.5 text-xs" onClick={() => { setMode('easy'); markOnboardingSeen() }}>
                   {t('ui_mode.use_easy')}
                 </button>
@@ -146,7 +168,10 @@ export default function Layout() {
               </div>
             </div>
           )}
-          <Outlet />
+          <div className="animate-fade-up" key={location.pathname}>
+            <Outlet />
+          </div>
+          </div>
         </main>
       </div>
     </div>

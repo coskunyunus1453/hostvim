@@ -26,6 +26,7 @@ import (
 	"panelze/engine/internal/hosting"
 	"panelze/engine/internal/installer"
 	"panelze/engine/internal/license"
+	engftp "panelze/engine/internal/ftp"
 	engmail "panelze/engine/internal/mail"
 	"panelze/engine/internal/middleware"
 	"panelze/engine/internal/monitoring"
@@ -524,22 +525,40 @@ func registerModuleRoutes(cfg *config.Config, d *daemon.Daemon, api *gin.RouterG
 		}
 		c.JSON(http.StatusOK, gin.H{"accounts": acct})
 	})
+	// /ftp/provision, /ftp/:domain'den önce kayıtlı olmalı (aksi halde domain=provision).
+	api.POST("/ftp/provision", func(c *gin.Context) {
+		if err := engftp.SyncProvision(cfg); err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "ftp provisioned"})
+	})
 	api.POST("/ftp/:domain", func(c *gin.Context) {
 		var body map[string]interface{}
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := panelmirror.FTPAdd(cfg, c.Param("domain"), body); err != nil {
+		domain := c.Param("domain")
+		if err := panelmirror.FTPAdd(cfg, domain, body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusCreated, gin.H{"message": "ftp account stored"})
+		if err := engftp.SyncProvision(cfg); err != nil {
+			_ = panelmirror.FTPDelete(cfg, domain, fmt.Sprint(body["username"]))
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"message": "ftp account provisioned"})
 	})
 	api.DELETE("/ftp/:domain/:user", func(c *gin.Context) {
 		u := c.Param("user")
 		if err := panelmirror.FTPDelete(cfg, c.Param("domain"), u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err := engftp.SyncProvision(cfg); err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "ftp account removed"})
@@ -2975,7 +2994,7 @@ func handleFileMkdir(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := withHostingFileRepair(req.Domain, func() error {
+		if err := withHostingFileRepair(req.Domain, root, req.Path, func() error {
 			return files.Mkdir(root, req.Path)
 		}); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -3044,7 +3063,7 @@ func handleFileWrite(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := withHostingFileRepair(req.Domain, func() error {
+		if err := withHostingFileRepair(req.Domain, root, req.Path, func() error {
 			return files.WriteFile(root, req.Path, []byte(req.Content), 0o644)
 		}); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -3070,7 +3089,7 @@ func handleFileCreate(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := withHostingFileRepair(req.Domain, func() error {
+		if err := withHostingFileRepair(req.Domain, root, req.Path, func() error {
 			return files.CreateFile(root, req.Path, []byte(req.Content), 0o644)
 		}); err != nil {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
@@ -3351,11 +3370,12 @@ func handleFileUpload(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": statErr.Error()})
 			return
 		}
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		if err := c.SaveUploadedFile(fh, dest); err != nil {
+		if err := withHostingFileRepair(domain, root, rel, func() error {
+			if mkErr := os.MkdirAll(filepath.Dir(dest), 0o775); mkErr != nil {
+				return mkErr
+			}
+			return c.SaveUploadedFile(fh, dest)
+		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -3377,13 +3397,23 @@ func nginxVhostManaged(cfg *config.Config, meta *sites.SiteMeta) bool {
 	return hosting.NginxEdgeProxyEnabled(cfg)
 }
 
-func withHostingFileRepair(domain string, op func() error) error {
+func withHostingFileRepair(domain, root, rel string, op func() error) error {
 	err := op()
 	if err == nil || !isPermissionDenied(err) {
 		return err
 	}
-	if repairErr := hosting.RepairSitePermissions(domain); repairErr != nil {
-		return err
+	absTarget := root
+	if rel != "" {
+		if resolved, rerr := files.ResolveUnderRoot(root, rel); rerr == nil {
+			absTarget = resolved
+		} else {
+			absTarget = filepath.Join(root, strings.TrimPrefix(rel, "/"))
+		}
+	}
+	// Prefer fast path-only repair — full site chown can take minutes on large sites
+	// and causes panel HTTP timeouts (cURL error 28).
+	if repairErr := hosting.RepairPathPermissions(domain, absTarget); repairErr != nil {
+		return fmt.Errorf("%w (%v)", err, repairErr)
 	}
 	return op()
 }
@@ -3426,6 +3456,11 @@ func handleBackupRestoreUpload(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "archive file required (field name: archive)"})
 			return
 		}
+		restoreDomain := strings.ToLower(strings.TrimSpace(c.PostForm("domain")))
+		if !fileDomainRe.MatchString(restoreDomain) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "valid domain required (field name: domain)"})
+			return
+		}
 		backupDir := filepath.Join(panelmirror.EngineStateDir(cfg), "backup-files")
 		incoming := filepath.Join(backupDir, "incoming")
 		if err := os.MkdirAll(incoming, 0o750); err != nil {
@@ -3440,6 +3475,11 @@ func handleBackupRestoreUpload(cfg *config.Config) gin.HandlerFunc {
 		maxSec := cfg.Hosting.BackupMaxSeconds
 		if maxSec <= 0 {
 			maxSec = 3600
+		}
+		if verr := backup.ValidateArchiveForDomain(dest, restoreDomain); verr != nil {
+			_ = os.Remove(dest)
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": verr.Error()})
+			return
 		}
 		ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(maxSec)*time.Second)
 		defer cancel()

@@ -21,20 +21,26 @@ class CronAllowedPaths
     public static function rootsFor(?User $user = null, ?Domain $domain = null): array
     {
         $roots = [];
+        $bases = [];
 
         $configured = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
         if ($configured !== '') {
-            $roots[] = $configured;
-        }
-
-        $panel = rtrim(str_replace('\\', '/', base_path()), '/');
-        if ($panel !== '') {
-            $roots[] = $panel;
+            $bases[] = $configured;
         }
 
         foreach (['/var/www/panelze/data/www', '/var/www/data/www', '/home'] as $guess) {
             if (is_dir($guess)) {
-                $roots[] = $guess;
+                $bases[] = $guess;
+            }
+        }
+
+        // Müşteri: yalnızca kendi site kökleri (panel dizini ve diğer müşterilerin siteleri hariç).
+        $customer = $user !== null && ! $user->isAdmin();
+        if (! $customer) {
+            $roots = $bases;
+            $panel = rtrim(str_replace('\\', '/', base_path()), '/');
+            if ($panel !== '') {
+                $roots[] = $panel;
             }
         }
 
@@ -43,7 +49,7 @@ class CronAllowedPaths
         }
 
         if ($user !== null) {
-            $wwwBases = array_values(array_unique(array_filter($roots)));
+            $wwwBases = array_values(array_unique(array_filter($bases)));
             $domains = $user->domains()->get(['document_root', 'name']);
             foreach ($domains as $owned) {
                 $roots = array_merge($roots, self::rootsFromDomainRecord($owned));
@@ -75,11 +81,12 @@ class CronAllowedPaths
 
         if ($doc !== '') {
             $roots[] = $doc;
+            // Üst dizinler yalnızca hâlâ site klasörünün içindeyse (ör. .../site.com) — ortak web kökü değil.
             $parent = dirname($doc);
-            if ($parent !== '.' && $parent !== '/') {
+            if ($parent !== '.' && $parent !== '/' && $name !== '' && str_contains($parent.'/', '/'.$name.'/')) {
                 $roots[] = $parent;
                 $grand = dirname($parent);
-                if ($grand !== '.' && $grand !== '/') {
+                if ($grand !== '.' && $grand !== '/' && str_contains($grand.'/', '/'.$name.'/')) {
                     $roots[] = $grand;
                 }
             }
@@ -127,6 +134,14 @@ class CronAllowedPaths
             return true;
         }
 
+        // Müşteri: mevcut yol symlink ile site kökü dışına çıkıyorsa reddet.
+        if ($user !== null && ! $user->isAdmin()) {
+            $resolved = @realpath($path);
+            if (is_string($resolved) && ! self::underAnyRoot(str_replace('\\', '/', $resolved), self::rootsFor($user, $domain))) {
+                return false;
+            }
+        }
+
         if ($domain !== null && self::pathUnderDomain($path, $domain)) {
             return true;
         }
@@ -154,6 +169,25 @@ class CronAllowedPaths
                         return true;
                     }
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $roots
+     */
+    private static function underAnyRoot(string $resolved, array $roots): bool
+    {
+        foreach ($roots as $root) {
+            if ($root === '') {
+                continue;
+            }
+            $rootReal = @realpath($root);
+            $rootNorm = is_string($rootReal) ? str_replace('\\', '/', $rootReal) : $root;
+            if ($resolved === $rootNorm || str_starts_with($resolved.'/', $rootNorm.'/')) {
+                return true;
             }
         }
 

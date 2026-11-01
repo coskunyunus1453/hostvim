@@ -53,7 +53,20 @@ class StoreCustomerController extends Controller
 
     public function invoicePay(Request $request, int $invoiceId): JsonResponse
     {
-        return response()->json($this->customers->initiateInvoicePayment($this->resolveUser($request), $invoiceId));
+        $validated = $request->validate([
+            'panel_user_id' => ['required', 'integer', 'min:1'],
+            'return_ok_url' => ['nullable', 'url', 'max:500'],
+            'return_fail_url' => ['nullable', 'url', 'max:500'],
+        ]);
+
+        return response()->json($this->customers->initiateInvoicePayment(
+            $this->resolveUser($request),
+            $invoiceId,
+            [
+                'return_ok_url' => $validated['return_ok_url'] ?? null,
+                'return_fail_url' => $validated['return_fail_url'] ?? null,
+            ],
+        ));
     }
 
     public function profile(Request $request): JsonResponse

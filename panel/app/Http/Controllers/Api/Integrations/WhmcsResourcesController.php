@@ -754,6 +754,7 @@ class WhmcsResourcesController extends Controller
         $this->engine->mailAddForwarder($domain->name, [
             'source' => $forwarder->source,
             'destination' => $forwarder->destination,
+            'keep_copy' => (bool) $forwarder->keep_copy,
         ]);
 
         SafeAuditLogger::info('panelze.whmcs.forwarder_create', ['user_id' => $user->id], $request);

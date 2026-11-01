@@ -332,6 +332,23 @@ return [
     ],
 
     /**
+     * Public ürün demosu (panelze.com → canlı panel).
+     * Gerçek müşteri siteleri demo kullanıcısının user_id scope'u dışında kalır.
+     */
+    'public_demo' => [
+        'enabled' => filter_var((string) env('PANELZE_PUBLIC_DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'email' => (string) env('PANELZE_PUBLIC_DEMO_EMAIL', 'demo@panelze.com'),
+        'password' => (string) env('PANELZE_PUBLIC_DEMO_PASSWORD', 'DemoPanelze2026!'),
+        'panel_login_url' => rtrim(trim((string) env('PANELZE_PUBLIC_DEMO_URL', env('PANELZE_PANEL_URL', 'https://panel.hostvim.com'))), '/'),
+        'max_sites' => (int) env('PANELZE_PUBLIC_DEMO_MAX_SITES', 3),
+        'protected_domains' => [
+            'demo-shop.panelze.test',
+            'demo-blog.panelze.test',
+            'demo-app.panelze.test',
+        ],
+    ],
+
+    /**
      * Panelze satış sitesi (store) → panel REST (Bearer paylaşımlı gizli anahtar).
      */
     'store_integration' => [

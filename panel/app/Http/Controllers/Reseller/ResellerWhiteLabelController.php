@@ -61,8 +61,8 @@ class ResellerWhiteLabelController extends Controller
             'login_subtitle' => ['nullable', 'string', 'max:500'],
             'mail_footer_plain' => ['nullable', 'string', 'max:5000'],
             'onboarding_html' => ['nullable', 'string', 'max:20000'],
-            'logo_customer' => 'nullable|image|max:'.$maxKb,
-            'logo_admin' => 'nullable|image|max:'.$maxKb,
+            'logo_customer' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:'.$maxKb,
+            'logo_admin' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:'.$maxKb,
             'clear_logo_customer' => 'sometimes|boolean',
             'clear_logo_admin' => 'sometimes|boolean',
         ]);

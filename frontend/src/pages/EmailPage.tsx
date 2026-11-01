@@ -1057,7 +1057,7 @@ export default function EmailPage() {
               <input name="destination" type="email" className="input w-full" required placeholder="target@example.com" />
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input name="keep_copy" type="checkbox" />
+              <input name="keep_copy" type="checkbox" defaultChecked />
               {t('email.forwarder_keep_copy')}
             </label>
             <div className="flex justify-end gap-2 pt-2">

@@ -7,7 +7,8 @@ import api from '../services/api'
 import type { DashboardData, ServiceInfo } from '../types'
 import { isHostingSuperAdmin, isServerAdminUI } from '../lib/authRoles'
 import { tokenHasAbility } from '../lib/abilities'
-import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, RotateCw, Server, Receipt } from 'lucide-react'
+import { Globe, Database, Mail, HardDrive, Plus, Users, Power, RefreshCcw, RotateCw, Server, Receipt, Network, Lock, ArrowRightLeft, FolderOpen, Shield, ShieldCheck, Clock, Download, Cpu, Rocket, ChevronRight, Sparkles } from 'lucide-react'
+import { useUiModeStore } from '../store/uiModeStore'
 import toast from 'react-hot-toast'
 import ResourceChartsSection from '../components/dashboard/ResourceChartsSection'
 import DashboardSkeleton from '../components/dashboard/DashboardSkeleton'
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   const isSuper = isHostingSuperAdmin(user)
   const serverUI = isServerAdminUI(user)
   const canBilling = tokenHasAbility(user?.abilities, 'billing:read')
+  const uiMode = useUiModeStore((s) => s.mode)
 
   const dashQ = useQuery({
     queryKey: ['dashboard'],
@@ -273,26 +275,130 @@ export default function DashboardPage() {
       return a.name.localeCompare(b.name)
     })
 
+  type Tool = { path: string; icon: typeof Globe; label: string; desc: string; ability: string; advanced?: boolean }
+  const toolGroups: Array<{ id: string; title: string; tone: string; tools: Tool[] }> = [
+    {
+      id: 'sites',
+      title: t('theme.tools_sites'),
+      tone: 'bg-sky-50 text-sky-600 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20',
+      tools: [
+        { path: '/domains', icon: Globe, label: t('nav.domains'), desc: t('theme.tool_domains'), ability: 'domains:read' },
+        { path: '/ssl', icon: Lock, label: t('nav.ssl'), desc: t('theme.tool_ssl'), ability: 'ssl:read' },
+        { path: '/dns', icon: Network, label: t('nav.dns'), desc: t('theme.tool_dns'), ability: 'dns:read', advanced: true },
+        { path: '/redirects', icon: ArrowRightLeft, label: t('nav.redirects'), desc: t('theme.tool_redirects'), ability: 'domains:read', advanced: true },
+      ],
+    },
+    {
+      id: 'files',
+      title: t('theme.tools_files'),
+      tone: 'bg-amber-50 text-amber-600 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20',
+      tools: [
+        { path: '/files', icon: FolderOpen, label: t('nav.files'), desc: t('theme.tool_files'), ability: 'files:read' },
+        { path: '/databases', icon: Database, label: t('nav.databases'), desc: t('theme.tool_databases'), ability: 'databases:read' },
+        { path: '/ftp', icon: HardDrive, label: t('nav.ftp'), desc: t('theme.tool_ftp'), ability: 'ftp:read', advanced: true },
+      ],
+    },
+    {
+      id: 'mail',
+      title: t('theme.tools_mail'),
+      tone: 'bg-violet-50 text-violet-600 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20',
+      tools: [
+        { path: '/email', icon: Mail, label: t('nav.email'), desc: t('theme.tool_email'), ability: 'email:read' },
+      ],
+    },
+    {
+      id: 'safety',
+      title: t('theme.tools_safety'),
+      tone: 'bg-emerald-50 text-emerald-600 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
+      tools: [
+        { path: '/backups', icon: Shield, label: t('nav.backups'), desc: t('theme.tool_backups'), ability: 'backups:read' },
+        { path: '/security', icon: ShieldCheck, label: t('nav.security'), desc: t('theme.tool_security'), ability: 'security:read', advanced: true },
+        { path: '/cron', icon: Clock, label: t('nav.cron'), desc: t('theme.tool_cron'), ability: 'cron:read', advanced: true },
+      ],
+    },
+    {
+      id: 'apps',
+      title: t('theme.tools_apps'),
+      tone: 'bg-primary-50 text-primary-600 ring-primary-200 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20',
+      tools: [
+        { path: '/installer', icon: Download, label: t('nav.installer'), desc: t('theme.tool_installer'), ability: 'installer:read' },
+        { path: '/node-apps', icon: Cpu, label: t('nav.node_apps'), desc: t('theme.tool_node'), ability: 'tools:run', advanced: true },
+        { path: '/deploy', icon: Rocket, label: t('nav.deploy'), desc: t('theme.tool_deploy'), ability: 'tools:run', advanced: true },
+      ],
+    },
+  ]
+  const visibleToolGroups = toolGroups
+    .map((g) => ({
+      ...g,
+      tools: g.tools.filter(
+        (tool) => tokenHasAbility(user?.abilities, tool.ability) && !(uiMode === 'easy' && tool.advanced),
+      ),
+    }))
+    .filter((g) => g.tools.length > 0)
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? t('theme.greet_morning') : hour < 18 ? t('theme.greet_day') : t('theme.greet_evening')
+  const firstName = (user?.name ?? '').split(/\s+/)[0] || user?.name
+
   if (dashLoading) {
     return <DashboardSkeleton showCharts={serverUI} />
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {t('dashboard.overview')}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {t('dashboard.welcome')}, {user?.name}
-          </p>
-        </div>
+      <section className="relative overflow-hidden rounded-3xl bg-ink-950 p-6 text-white shadow-lift sm:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_120%_at_100%_0%,rgba(249,115,22,0.45),transparent_55%),radial-gradient(60%_90%_at_0%_100%,rgba(251,191,36,0.16),transparent_60%)]" aria-hidden />
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full border border-white/10" aria-hidden />
+        <div className="pointer-events-none absolute -right-2 top-6 h-32 w-32 rounded-full border border-white/10" aria-hidden />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-200 ring-1 ring-inset ring-white/15">
+              <Sparkles className="h-3.5 w-3.5" />
+              {t('dashboard.overview')}
+            </span>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+              {greeting}, {firstName}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-gray-300">{t('theme.hero_desc')}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {tokenHasAbility(user?.abilities, 'domains:read') && (
+                <Link to="/domains" className="btn-primary text-sm">
+                  <Plus className="h-4 w-4" />
+                  {t('dashboard.create_site')}
+                </Link>
+              )}
+              {tokenHasAbility(user?.abilities, 'files:read') && (
+                <Link to="/files" className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/15">
+                  <FolderOpen className="h-4 w-4" />
+                  {t('nav.files')}
+                </Link>
+              )}
+              {tokenHasAbility(user?.abilities, 'backups:read') && (
+                <Link to="/backups" className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/15">
+                  <Shield className="h-4 w-4" />
+                  {t('nav.backups')}
+                </Link>
+              )}
+            </div>
+          </div>
+          {quota?.package_name && (
+            <div className="rounded-2xl bg-white/[0.07] p-4 ring-1 ring-inset ring-white/10 lg:min-w-[220px]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('theme.your_package')}</p>
+              <p className="mt-1 text-lg font-bold">{quota.package_name}</p>
+              {custDiskPct != null && (
+                <>
+                  <div className="mt-3 h-1.5 w-full rounded-full bg-white/10">
+                    <div className="h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-primary-500" style={{ width: `${Math.max(3, custDiskPct)}%` }} />
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-400">{t('dashboard.disk_usage')}: %{custDiskPct}</p>
+                </>
+              )}
+            </div>
+          )}
         {isSuper && (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100 text-xs sm:text-sm"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/30 transition-colors hover:bg-white/15 sm:text-sm"
               onClick={() => {
                 if (
                   window.confirm(
@@ -310,7 +416,7 @@ export default function DashboardPage() {
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-sky-300 text-sky-900 bg-sky-50 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-100 text-xs sm:text-sm"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-sky-100 ring-1 ring-inset ring-sky-300/30 transition-colors hover:bg-white/15 sm:text-sm"
               onClick={() => document.getElementById('panel-update')?.scrollIntoView({ behavior: 'smooth' })}
             >
               <RefreshCcw className="h-4 w-4" />
@@ -318,7 +424,8 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
-      </div>
+        </div>
+      </section>
 
       {isSuper && (
         <div id="panel-update">
@@ -349,7 +456,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${
+          statCards.length + adminExtras.length === 3 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+        }`}
+      >
         <div className="card p-5 sm:col-span-2 lg:col-span-2">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -373,13 +484,13 @@ export default function DashboardPage() {
                     : '—'}
               </p>
             </div>
-            <div className="rounded-xl bg-orange-50 p-2.5 ring-1 ring-orange-200 dark:bg-orange-950/30 dark:ring-orange-900/60">
+            <div className="rounded-xl bg-primary-50 p-2.5 ring-1 ring-primary-200 dark:bg-primary-500/10 dark:ring-primary-500/20">
               <HardDrive className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
           </div>
           <div className="mt-4 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
             <div
-              className="h-2 rounded-full bg-gradient-to-r from-orange-500 to-rose-500 transition-all"
+              className="h-2 rounded-full bg-gradient-to-r from-amber-400 to-primary-600 transition-all"
               style={{ width: `${Math.min(100, Math.max(0, showCustomerResources ? (custDiskPct ?? 0) : (sys?.disk_percent ?? 0)))}%` }}
             />
           </div>
@@ -417,6 +528,52 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {visibleToolGroups.length > 0 && (
+        <section className="card p-5 sm:p-6">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('theme.tools_title')}</h2>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t('theme.tools_desc')}</p>
+            </div>
+            {uiMode === 'easy' && (
+              <span className="chip bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20">
+                {t('theme.easy_mode_hint')}
+              </span>
+            )}
+          </div>
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visibleToolGroups.map((g) => (
+              <div
+                key={g.id}
+                className="rounded-2xl border border-gray-200/80 bg-gray-50/70 p-2 dark:border-panel-border dark:bg-white/[0.02]"
+              >
+                <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">{g.title}</p>
+                <div className="space-y-1">
+                  {g.tools.map((tool) => (
+                    <Link
+                      key={tool.path}
+                      to={tool.path}
+                      className="group flex items-start gap-3 rounded-xl p-2.5 transition-all hover:bg-white hover:shadow-soft dark:hover:bg-white/[0.05] dark:hover:shadow-none"
+                    >
+                      <span className={`icon-tile ${g.tone}`}>
+                        <tool.icon className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1 text-sm font-semibold text-gray-900 dark:text-white">
+                          {tool.label}
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-500 dark:text-gray-600" />
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">{tool.desc}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card p-6">

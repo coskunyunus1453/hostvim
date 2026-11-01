@@ -251,5 +251,10 @@ class DatabaseSeeder extends Seeder
         if (filter_var((string) env('HOSTVIM_SEED_E2E', false), FILTER_VALIDATE_BOOLEAN)) {
             $this->call(E2EDemoCustomerSeeder::class);
         }
+
+        // Public ürün demosu (panelze.com) — gerçek müşteri sitelerinden izole.
+        if (filter_var((string) env('PANELZE_PUBLIC_DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
+            $this->call(PublicDemoSeeder::class);
+        }
     }
 }

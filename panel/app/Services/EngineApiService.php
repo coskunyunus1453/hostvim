@@ -1202,7 +1202,7 @@ class EngineApiService
 
     public function mkdirFile(string $domain, string $path): array
     {
-        return $this->postEngineJsonChecked('/api/v1/files/mkdir', ['domain' => $domain, 'path' => $path]);
+        return $this->postLongChecked('/api/v1/files/mkdir', ['domain' => $domain, 'path' => $path], 120);
     }
 
     public function deleteFile(string $domain, string $path): array
@@ -1236,20 +1236,20 @@ class EngineApiService
 
     public function writeFile(string $domain, string $path, string $content): array
     {
-        return $this->postEngineJsonChecked('/api/v1/files/write', [
+        return $this->postLongChecked('/api/v1/files/write', [
             'domain' => $domain,
             'path' => $path,
             'content' => $content,
-        ]);
+        ], 120);
     }
 
     public function createFile(string $domain, string $path, string $content): array
     {
-        return $this->postEngineJsonChecked('/api/v1/files/create', [
+        return $this->postLongChecked('/api/v1/files/create', [
             'domain' => $domain,
             'path' => $path,
             'content' => $content,
-        ]);
+        ], 120);
     }
 
     public function uploadFile(string $domain, string $path, UploadedFile $file, string $ifExists = 'overwrite'): array
@@ -1449,7 +1449,7 @@ class EngineApiService
         }
     }
 
-    public function restoreBackupUpload(string $localPath, ?string $filename = null): array
+    public function restoreBackupUpload(string $localPath, ?string $filename, string $domain): array
     {
         if (! $this->engineAuthConfigured()) {
             return $this->missingEngineCredentialsPayload();
@@ -1478,7 +1478,7 @@ class EngineApiService
                 return ['error' => 'Could not open archive'];
             }
             $response = $req->attach('archive', $stream, $uploadName)
-                ->post($this->baseUrl.'/api/v1/backups/restore-upload');
+                ->post($this->baseUrl.'/api/v1/backups/restore-upload', ['domain' => $domain]);
             $json = $response->json() ?? [];
             if (! $response->successful()) {
                 return ['error' => $this->formatEngineHttpError($response, $json)];
@@ -1551,7 +1551,7 @@ class EngineApiService
     }
 
     /**
-     * @param  array{source: string, destination: string}  $data
+     * @param  array{source: string, destination: string, keep_copy?: bool}  $data
      */
     public function mailAddForwarder(string $domain, array $data): array
     {

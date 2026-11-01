@@ -41,7 +41,13 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(5)->by($request->ip());
+            $email = strtolower(trim((string) $request->input('email', '')));
+
+            return [
+                Limit::perMinute(5)->by($request->ip()),
+                // Dağıtık (çok IP'li) parola denemesine karşı hesap başına sınır.
+                Limit::perHour(20)->by('login-account:'.sha1($email)),
+            ];
         });
 
         RateLimiter::for('webhooks', function (Request $request) {

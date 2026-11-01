@@ -377,6 +377,14 @@ func copyDir(src, dst string) error {
 		if d.IsDir() {
 			return os.MkdirAll(target, 0o755)
 		}
+		// Symlink hedefi okunmaz (site kökü dışındaki dosyaların kopyalanmasını önler); link olarak korunur.
+		if d.Type()&fs.ModeSymlink != 0 {
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(link, target)
+		}
 		info, err := d.Info()
 		if err != nil {
 			return err
@@ -746,6 +754,11 @@ func collectUnzipConflicts(srcDir, dstDir string) ([]string, error) {
 }
 
 func mergeUnzippedDirectory(srcDir, dstDir, ifExists string) error {
+	realDstDir := dstDir
+	if rd, err := filepath.EvalSymlinks(dstDir); err == nil && rd != "" {
+		realDstDir = rd
+	}
+	sep := string(os.PathSeparator)
 	return filepath.Walk(srcDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -758,6 +771,13 @@ func mergeUnzippedDirectory(srcDir, dstDir, ifExists string) error {
 			return nil
 		}
 		dst := filepath.Join(dstDir, rel)
+		// Hedefte önceden var olan symlink dizinler üzerinden kök dışına yazmayı engelle.
+		if rp, err := filepath.EvalSymlinks(filepath.Dir(dst)); err == nil && rp != realDstDir && !strings.HasPrefix(rp, realDstDir+sep) {
+			return fmt.Errorf("archive entry escapes target via symlink: %s", filepath.ToSlash(rel))
+		}
+		if lst, err := os.Lstat(dst); err == nil && lst.Mode()&os.ModeSymlink != 0 && info.IsDir() {
+			return fmt.Errorf("archive entry escapes target via symlink: %s", filepath.ToSlash(rel))
+		}
 		if info.IsDir() {
 			return os.MkdirAll(dst, 0o755)
 		}

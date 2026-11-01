@@ -133,7 +133,11 @@ class CronCommandParser
             ]);
         }
 
-        foreach ($this->forbiddenPatterns() as $pattern) {
+        $patterns = $this->forbiddenPatterns();
+        if ($user !== null && ! $user->isAdmin()) {
+            $patterns = array_merge($patterns, $this->customerForbiddenPatterns());
+        }
+        foreach ($patterns as $pattern) {
             if (preg_match($pattern, $cmd) === 1) {
                 throw ValidationException::withMessages([
                     'command' => __('cron.command_forbidden_pattern'),
@@ -156,6 +160,22 @@ class CronCommandParser
             '/\brm\s+-rf\s+\/(?:\s|$)/i',
             // /dev/tcp|udp — kabuk ağı tüneli; /dev/null ve /dev/zero cron'da yaygın ve güvenli
             '/\/dev\/(?:tcp|udp)\b/i',
+        ];
+    }
+
+    /**
+     * Müşteri cron'ları panel süreç kullanıcısıyla (www-data) çalışır; bu kullanıcının root
+     * yardımcılarına NOPASSWD sudo hakkı vardır. Yetki yükseltme ve kök dışına çıkış engellenir.
+     *
+     * @return list<string>
+     */
+    private function customerForbiddenPatterns(): array
+    {
+        return [
+            '/(?:^|[\s;&|(\/])(?:sudo|su|doas|pkexec|runuser|setpriv|chroot|nsenter)(?:\s|$)/i',
+            '/panel(?:ze|sar)-/i',
+            '/(?:^|[\s\/=\'"])\.\.(?:[\/\s\'"]|$)/',
+            '/\/proc\//i',
         ];
     }
 

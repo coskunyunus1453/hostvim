@@ -314,16 +314,38 @@ class SslIssueService
         }
 
         $url = 'http://'.$hostname.'/.well-known/acme-challenge/'.$token;
-        $ctx = stream_context_create(['http' => ['timeout' => 5, 'ignore_errors' => true]]);
+        // Do not follow redirects: a server-level return 301 on :80 bypasses the ACME
+        // location and HTTPS often denies dotfiles (403), which breaks Let's Encrypt.
+        $ctx = stream_context_create([
+            'http' => [
+                'timeout' => 5,
+                'ignore_errors' => true,
+                'follow_location' => 0,
+                'max_redirects' => 0,
+            ],
+        ]);
         $body = @file_get_contents($url, false, $ctx);
         @unlink($probeFile);
 
-        $ok = is_string($body) && trim($body) === 'ok';
+        $status = 0;
+        if (! empty($http_response_header[0]) && preg_match('/\s(\d{3})\s/', (string) $http_response_header[0], $m)) {
+            $status = (int) $m[1];
+        }
+
+        $ok = $status === 200 && is_string($body) && trim($body) === 'ok';
         if (! $ok && is_file(dirname($documentRoot).DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'index.php')) {
             return [
                 'key' => 'acme_http',
                 'ok' => false,
                 'message' => (string) __('ssl.diag_acme_http_laravel', ['host' => $hostname]),
+            ];
+        }
+
+        if (! $ok && in_array($status, [301, 302, 307, 308], true)) {
+            return [
+                'key' => 'acme_http',
+                'ok' => false,
+                'message' => (string) __('ssl.diag_acme_http_redirect', ['host' => $hostname, 'status' => $status]),
             ];
         }
 

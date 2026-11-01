@@ -21,6 +21,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-stack-install
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-mail-dkim-sync
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ftp-provision
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-terminal-root
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-php-ini
@@ -37,6 +38,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-hosting-perms
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-fix-hosting-perms
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-cage
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-site-exec
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-configure-roundcube-ssl
 SUDOERS
 

@@ -472,7 +472,7 @@ class BackupController extends Controller
                     return response()->json(['message' => $dl['error'] ?? __('backups.remote_restore_download_failed')], 422);
                 }
                 $tmpPath = $dl['path'];
-                $result = $this->engine->restoreBackupUpload($tmpPath, basename($remoteKey));
+                $result = $this->engine->restoreBackupUpload($tmpPath, basename($remoteKey), $domain->name);
                 if (! empty($result['error'])) {
                     $this->audit($request, 'backup_restore_remote', false, (string) $result['error'], [
                         'backup_id' => $backup->id,
@@ -695,7 +695,7 @@ class BackupController extends Controller
             return response()->json(['message' => __('backups.upload_failed')], 422);
         }
 
-        $result = $this->engine->restoreBackupUpload($tmp, $file->getClientOriginalName());
+        $result = $this->engine->restoreBackupUpload($tmp, $file->getClientOriginalName(), $domain->name);
         if (! empty($result['error'])) {
             $this->audit($request, 'backup_upload_restore', false, (string) $result['error'], [
                 'domain_id' => $domain->id,
@@ -751,7 +751,7 @@ class BackupController extends Controller
                 return response()->json(['message' => $dl['error'] ?? __('backups.remote_restore_download_failed')], 422);
             }
             $tmpPath = $dl['path'];
-            $result = $this->engine->restoreBackupUpload($tmpPath, basename($remoteKey) ?: 'backup.tar.gz');
+            $result = $this->engine->restoreBackupUpload($tmpPath, basename($remoteKey) ?: 'backup.tar.gz', $domain->name);
             if (! empty($result['error'])) {
                 return response()->json(['message' => (string) $result['error']], 502);
             }

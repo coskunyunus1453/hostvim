@@ -268,35 +268,60 @@ export default function Sidebar() {
   }, [closeMobileSidebar])
 
   const showNavText = !sidebarCollapsed
+  const hideWhenCollapsed = showNavText ? '' : 'max-md:inline md:hidden'
+  const userInitials = (user?.name ?? '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toLocaleUpperCase())
+    .join('')
+  const itemClass = (isActive: boolean, locked = false) =>
+    `group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] font-medium transition-all duration-150 ${
+      locked
+        ? 'text-ink-600 hover:bg-white/[0.03]'
+        : isActive
+          ? 'bg-gradient-to-r from-primary-500/20 via-primary-500/10 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(249,115,22,0.18)]'
+          : 'text-gray-400 hover:bg-white/[0.05] hover:text-gray-100'
+    } ${showNavText ? '' : 'md:justify-center md:px-0'}`
+  const activeBar = (
+    <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
+  )
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 flex h-screen min-h-0 w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-out dark:border-gray-800 dark:bg-gray-900 md:transition-[width] ${
+      className={`fixed left-0 top-0 z-50 flex h-screen min-h-0 w-64 flex-col border-r border-white/5 bg-ink-950 text-gray-300 transition-transform duration-300 ease-out md:transition-[width] ${
         mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } md:translate-x-0 ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'}`}
     >
-      <div className="flex h-16 w-full flex-none shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-gray-800 sm:px-4">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(120%_80%_at_0%_0%,rgba(249,115,22,0.16),transparent_60%)]"
+        aria-hidden
+      />
+      <div className="relative flex h-16 w-full flex-none shrink-0 items-center gap-2 border-b border-white/5 px-3 sm:px-4">
         <div
-          className={`min-w-0 flex-1 items-center gap-2 ${
+          className={`min-w-0 flex-1 items-center gap-2.5 ${
             sidebarCollapsed ? 'hidden max-md:flex' : 'flex'
           }`}
         >
           {headerLogo ? (
-            <img src={headerLogo} alt="" className="h-8 max-w-[140px] object-contain" />
+            <img src={headerLogo} alt="" className="h-8 max-w-[150px] object-contain" />
           ) : (
-            <Server className="h-7 w-7 shrink-0 text-primary-500" />
-          )}
-          {!headerLogo && (
-            <span className="truncate text-xl font-bold text-gray-900 dark:text-white">
-              {t('app.name')}
-            </span>
+            <>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 text-white shadow-glow">
+                <Server className="h-[18px] w-[18px]" strokeWidth={2.2} />
+              </span>
+              <span className="min-w-0 leading-tight">
+                <span className="block truncate text-[15px] font-bold tracking-tight text-white">{t('app.name')}</span>
+                <span className="block truncate text-[11px] font-medium text-gray-500">{t('theme.brand_tagline')}</span>
+              </span>
+            </>
           )}
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-1">
+        <div className={`flex shrink-0 items-center gap-1 ${sidebarCollapsed ? 'md:mx-auto' : 'ml-auto'}`}>
           <button
             type="button"
             onClick={closeMobileSidebar}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white md:hidden"
             aria-label={t('nav.close_menu')}
           >
             <X className="h-5 w-5" />
@@ -304,7 +329,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={toggleSidebar}
-            className="hidden rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 md:inline-flex"
+            className="hidden rounded-lg p-1.5 text-gray-500 hover:bg-white/10 hover:text-white md:inline-flex"
             aria-label={t('nav.toggle_sidebar')}
           >
             {sidebarCollapsed ? (
@@ -316,17 +341,17 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 overscroll-contain">
+      <nav className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 overscroll-contain [scrollbar-width:thin]">
         {visibleCustomerGroups.map((group) => (
-          <div key={group.id} className="mb-4">
+          <div key={group.id} className="mb-5">
             <p
-              className={`mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 ${
+              className={`mb-1.5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-gray-500 ${
                 showNavText ? '' : 'max-md:block md:hidden'
               }`}
             >
               {t(group.title)}
             </p>
-            <ul className="space-y-1">
+            <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const proLocked =
                   item.proModule != null && item.proModule !== '' && !isModuleEnabled(item.proModule)
@@ -343,26 +368,25 @@ export default function Sidebar() {
                           toast.error(t('license.pro_locked_nav'))
                         }
                       }}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                          proLocked
-                            ? 'text-gray-500 dark:text-gray-500'
-                            : isActive
-                              ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-                        }`
-                      }
+                      className={({ isActive }) => itemClass(isActive && !proLocked, proLocked)}
                       title={proLocked ? t('license.pro_locked_nav') : t(item.label)}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className={`flex-1 ${showNavText ? '' : 'max-md:inline md:hidden'}`}>
-                        {t(item.label)}
-                      </span>
-                      {proLocked && (
-                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                          <Lock className="h-3 w-3" />
-                          {showNavText ? t('license.pro_badge') : ''}
-                        </span>
+                      {({ isActive }) => (
+                        <>
+                          {isActive && !proLocked && activeBar}
+                          <item.icon
+                            className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+                              isActive && !proLocked ? 'text-primary-400' : 'text-gray-500 group-hover:text-gray-300'
+                            }`}
+                          />
+                          <span className={`flex-1 truncate ${hideWhenCollapsed}`}>{t(item.label)}</span>
+                          {proLocked && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-300 ring-1 ring-inset ring-amber-400/20">
+                              <Lock className="h-3 w-3" />
+                              {showNavText ? t('license.pro_badge') : ''}
+                            </span>
+                          )}
+                        </>
                       )}
                     </NavLink>
                   </li>
@@ -374,51 +398,60 @@ export default function Sidebar() {
 
         {visibleAdminMenus.length > 0 && (
           <>
-            <div className="my-4 border-t border-gray-200 dark:border-gray-800" />
+            <div className="mx-3 my-4 border-t border-white/5" />
             <p
-              className={`mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 ${
-                showNavText ? '' : 'max-md:block md:hidden'
+              className={`mb-2 flex items-center gap-2 px-3 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-gray-500 ${
+                showNavText ? '' : 'max-md:flex md:hidden'
               }`}
             >
-              Admin
+              <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+              {t('theme.admin_area')}
             </p>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {visibleAdminMenus.map((menu) => {
                 const isOpen = openAdminMenus[menu.id] ?? menu.id === 'admin-server'
                 return (
-                  <div key={menu.id} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+                  <div key={menu.id} className="overflow-hidden rounded-xl bg-white/[0.02] ring-1 ring-inset ring-white/5">
                     <button
                       type="button"
                       onClick={() =>
                         setOpenAdminMenus((prev) => ({ ...prev, [menu.id]: !isOpen }))
                       }
-                      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-50/80 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-300 hover:bg-white/[0.04] hover:text-white ${
+                        showNavText ? '' : 'md:justify-center md:px-0'
+                      }`}
+                      title={t(menu.title)}
                     >
-                      <span className="flex items-center gap-2">
-                        <menu.icon className="h-4 w-4" />
-                        <span className={showNavText ? '' : 'max-md:inline md:hidden'}>{t(menu.title)}</span>
+                      <span className="flex items-center gap-2.5">
+                        <menu.icon className="h-4 w-4 text-gray-500" />
+                        <span className={hideWhenCollapsed}>{t(menu.title)}</span>
                       </span>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`h-4 w-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''} ${
+                          showNavText ? '' : 'md:hidden'
+                        }`}
+                      />
                     </button>
                     {isOpen && (
-                      <ul className="space-y-1 p-2">
+                      <ul className="space-y-0.5 px-1.5 pb-1.5">
                         {menu.items.map((item) => (
                           <li key={item.path}>
                             <NavLink
                               to={item.path}
-                              className={({ isActive }) =>
-                                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                  isActive
-                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-                                }`
-                              }
+                              className={({ isActive }) => itemClass(isActive)}
                               title={t(item.label)}
                             >
-                              <item.icon className="h-4 w-4 flex-shrink-0" />
-                              <span className={showNavText ? '' : 'max-md:inline md:hidden'}>
-                                {t(item.label)}
-                              </span>
+                              {({ isActive }) => (
+                                <>
+                                  {isActive && activeBar}
+                                  <item.icon
+                                    className={`h-4 w-4 flex-shrink-0 ${
+                                      isActive ? 'text-primary-400' : 'text-gray-500 group-hover:text-gray-300'
+                                    }`}
+                                  />
+                                  <span className={`truncate ${hideWhenCollapsed}`}>{t(item.label)}</span>
+                                </>
+                              )}
                             </NavLink>
                           </li>
                         ))}
@@ -431,6 +464,30 @@ export default function Sidebar() {
           </>
         )}
       </nav>
+
+      {user && (
+        <div className="relative flex-none border-t border-white/5 p-3">
+          <NavLink
+            to="/settings"
+            className={`flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-white/[0.05] ${
+              showNavText ? '' : 'md:justify-center md:p-1'
+            }`}
+            title={user.name}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-primary-600 text-[13px] font-bold text-white ring-2 ring-ink-800">
+              {userInitials || '?'}
+            </span>
+            <span className={`min-w-0 flex-1 leading-tight ${hideWhenCollapsed}`}>
+              <span className="block truncate text-[13px] font-semibold text-gray-100">{user.name}</span>
+              <span className="block truncate text-[11px] text-gray-500">
+                {mode === 'easy' ? t('ui_mode.easy') : t('ui_mode.advanced')}
+                {user.email ? ` · ${user.email}` : ''}
+              </span>
+            </span>
+            <Settings className={`h-4 w-4 shrink-0 text-gray-500 ${hideWhenCollapsed}`} />
+          </NavLink>
+        </div>
+      )}
     </aside>
   )
 }

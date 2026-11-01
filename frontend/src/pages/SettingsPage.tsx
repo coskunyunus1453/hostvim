@@ -53,11 +53,12 @@ export default function SettingsPage() {
   })
 
   const profileM = useMutation({
-    mutationFn: async (payload: { name: string; email: string; locale?: string }) =>
+    mutationFn: async (payload: { name: string; email: string; locale?: string; current_password?: string }) =>
       api.patch('/user/profile', payload),
     onSuccess: (res) => {
       const u = (res.data as { user?: typeof user })?.user
       if (u) updateUser(u)
+      setEmailChanged(false)
       toast.success(t('settings.profile_saved'))
     },
     onError: (err: unknown) => {
@@ -124,6 +125,7 @@ export default function SettingsPage() {
     retry: false,
   })
 
+  const [emailChanged, setEmailChanged] = useState(false)
   const [twofaSetup, setTwofaSetup] = useState<null | { otpauth_url: string; secret: string }>(null)
   const [twofaOtp, setTwofaOtp] = useState('')
   const [twofaBackupCodes, setTwofaBackupCodes] = useState<string[] | null>(null)
@@ -449,6 +451,7 @@ export default function SettingsPage() {
               name: String(fd.get('name') || ''),
               email: String(fd.get('email') || ''),
               locale: i18n.language.split('-')[0],
+              ...(emailChanged ? { current_password: String(fd.get('profile_current_password') || '') } : {}),
             })
           }}
         >
@@ -458,8 +461,22 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="label">{t('settings.col_email')}</label>
-            <input name="email" type="email" defaultValue={user?.email} className="input" required autoComplete="email" />
+            <input
+              name="email"
+              type="email"
+              defaultValue={user?.email}
+              onChange={(e) => setEmailChanged(e.target.value.trim().toLowerCase() !== (user?.email || '').toLowerCase())}
+              className="input"
+              required
+              autoComplete="email"
+            />
           </div>
+          {emailChanged && (
+            <div className="sm:col-span-2">
+              <label className="label">{t('settings.current_password')}</label>
+              <input name="profile_current_password" type="password" className="input" required autoComplete="current-password" />
+            </div>
+          )}
           <div className="sm:col-span-2">
             <button type="submit" className="btn-primary" disabled={profileM.isPending}>
               {t('common.save')}

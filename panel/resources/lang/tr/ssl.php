@@ -26,6 +26,7 @@ return [
     'diag_acme_skip' => 'ACME challenge yolu kontrol edilemedi (document root yok)',
     'diag_acme_http_ok' => 'HTTP üzerinden ACME doğrulama yolu erişilebilir',
     'diag_acme_http_fail' => 'HTTP üzerinden ACME dosyası okunamadı (vhost/web kökü hatalı olabilir)',
+    'diag_acme_http_redirect' => ':host için ACME yolu HTTP’de :status ile HTTPS’e yönleniyor. :80 bloğunda return 301 sunucu seviyesinde olmamalı; location / içinde olmalı ve /.well-known/acme-challenge/ yönlendirilmeden servis edilmeli.',
     'diag_acme_http_laravel' => ':host Laravel sitesi için web kökü public_html/public olmalı; vhost veya alt alan ayarlarını senkronlayın',
     'err_unknown' => 'SSL sertifikası alınamadı. Lütfen tekrar deneyin veya destek ile iletişime geçin.',
     'err_engine_timeout' => 'Panel motoru yanıt vermedi (zaman aşımı). Birkaç dakika sonra tekrar deneyin; sorun sürerse panelze-engine servisini kontrol edin.',

@@ -30,10 +30,20 @@ gid = int(gid_s)
 passwd_lines: list[str] = []
 domains: set[str] = set()
 vmap_lines: list[str] = []
-alias_lines: list[str] = []
+# source -> {"dests": ordered unique list, "keep_copy": bool}
+alias_by_src: dict[str, dict] = {}
+mailbox_emails: set[str] = set()
 
 if not os.path.isdir(mail_dir):
     mail_dir = mail_dir  # empty
+
+def truthy(v) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return v != 0
+    s = str(v).strip().lower()
+    return s in ("1", "true", "yes", "on")
 
 for path in sorted(glob.glob(os.path.join(mail_dir, "*.json"))):
     domain_key = os.path.basename(path)[:-5]
@@ -49,6 +59,7 @@ for path in sorted(glob.glob(os.path.join(mail_dir, "*.json"))):
             continue
         local, dom = email.split("@", 1)
         domains.add(dom)
+        mailbox_emails.add(email)
         maildir = os.path.join(vm_base, dom, local)
         os.makedirs(maildir, exist_ok=True)
         os.chown(maildir, uid, gid)
@@ -66,8 +77,33 @@ for path in sorted(glob.glob(os.path.join(mail_dir, "*.json"))):
     for fw in data.get("forwarders") or []:
         src = str(fw.get("source", "")).strip().lower()
         dst = str(fw.get("destination", "")).strip().lower()
-        if src and dst and "@" in src:
-            alias_lines.append(f"{src}\t{dst}")
+        if not src or not dst or "@" not in src or "@" not in dst:
+            continue
+        if src == dst:
+            continue
+        _, src_dom = src.split("@", 1)
+        if src_dom:
+            domains.add(src_dom)
+        entry = alias_by_src.setdefault(src, {"dests": [], "keep_copy": False})
+        if truthy(fw.get("keep_copy")):
+            entry["keep_copy"] = True
+        if dst not in entry["dests"]:
+            entry["dests"].append(dst)
+
+# Postfix hash:/ maps: aynı key bir kez olmalı; çoklu hedef virgülle birleştirilir.
+# Yerel kutuya kopya için keep_copy=true iken source hedef listesine eklenir
+# (aksi halde alias kutuyu tamamen baypas eder → webmail boş kalır).
+alias_lines: list[str] = []
+for src in sorted(alias_by_src.keys()):
+    entry = alias_by_src[src]
+    dests = list(entry["dests"])
+    keep = bool(entry["keep_copy"])
+    # Yerel mailbox kaynağında keep_copy işaretliyse (veya hiç hedef yoksa) kopya bırak.
+    if keep and src in mailbox_emails and src not in dests:
+        dests.append(src)
+    if not dests:
+        continue
+    alias_lines.append(f"{src}\t{','.join(dests)}")
 
 def write_lines(path: str, lines: list[str]) -> None:
     tmp = f"{path}.tmp"

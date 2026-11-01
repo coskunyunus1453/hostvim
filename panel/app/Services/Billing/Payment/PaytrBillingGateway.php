@@ -20,9 +20,10 @@ class PaytrBillingGateway
     }
 
     /**
+     * @param  array{return_ok_url?: ?string, return_fail_url?: ?string}  $options
      * @return array{iframe_url: string, merchant_ref: string}
      */
-    public function initiate(Invoice $invoice, User $user): array
+    public function initiate(Invoice $invoice, User $user, array $options = []): array
     {
         if (! $this->isConfigured()) {
             throw new RuntimeException('PayTR yapılandırılmamış.');
@@ -48,6 +49,13 @@ class PaytrBillingGateway
         $hashStr = $this->merchantId().$userIp.$merchantRef.$email.$amountMinor.$basket.$noInstallment.$maxInstallment.$currency.$testMode;
         $paytrToken = base64_encode(hash_hmac('sha256', $hashStr.$this->merchantSalt(), $this->merchantKey(), true));
 
+        $okUrl = is_string($options['return_ok_url'] ?? null) && $options['return_ok_url'] !== ''
+            ? $options['return_ok_url']
+            : url('/invoices?paid=1');
+        $failUrl = is_string($options['return_fail_url'] ?? null) && $options['return_fail_url'] !== ''
+            ? $options['return_fail_url']
+            : url('/invoices');
+
         $response = Http::asForm()->timeout(25)->post('https://www.paytr.com/odeme/api/get-token', [
             'merchant_id' => $this->merchantId(),
             'user_ip' => $userIp,
@@ -62,8 +70,8 @@ class PaytrBillingGateway
             'user_name' => $userName,
             'user_address' => '-',
             'user_phone' => '05000000000',
-            'merchant_ok_url' => url('/invoices?paid=1'),
-            'merchant_fail_url' => url('/invoices'),
+            'merchant_ok_url' => $okUrl,
+            'merchant_fail_url' => $failUrl,
             'timeout_limit' => (string) max(1, (int) $this->settings->get('paytr_timeout_minutes', 30)),
             'currency' => $currency,
             'test_mode' => $testMode,

@@ -204,9 +204,15 @@ class BackupStorageService
             ]);
         }
         if ($dest->driver === 'ftp') {
+            $host = trim((string) ($cfg['host'] ?? ''));
+            $trusted = $dest->is_system || ($dest->user !== null && $dest->user->isAdmin());
+            if (! $trusted && ! $this->isPublicHost($host)) {
+                throw new \RuntimeException('FTP hedefi iç ağ / loopback adresine işaret edemez.');
+            }
+
             return Storage::build([
                 'driver' => 'ftp',
-                'host' => (string) ($cfg['host'] ?? ''),
+                'host' => $host,
                 'username' => (string) ($cfg['username'] ?? ''),
                 'password' => (string) ($cfg['password'] ?? ''),
                 'root' => (string) ($cfg['path'] ?? '/'),
@@ -214,11 +220,35 @@ class BackupStorageService
             ]);
         }
 
+        // Müşteri "local" hedefi sunucu dosya sisteminde keyfi kök seçemez (panel/.env, diğer kiracıların yedekleri).
+        $owner = $dest->user;
+        $root = ($dest->is_system || ($owner !== null && $owner->isAdmin()))
+            ? (string) ($cfg['path'] ?? storage_path('app/backups'))
+            : storage_path('app/backups/users/'.(int) $dest->user_id);
+
         return Storage::build([
             'driver' => 'local',
-            'root' => (string) ($cfg['path'] ?? storage_path('app/backups')),
+            'root' => $root,
             'throw' => true,
         ]);
+    }
+
+    private function isPublicHost(string $host): bool
+    {
+        if ($host === '') {
+            return false;
+        }
+        $ips = filter_var($host, FILTER_VALIDATE_IP) !== false ? [$host] : (gethostbynamel($host) ?: []);
+        if ($ips === []) {
+            return false;
+        }
+        foreach ($ips as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function parseGoogleFileId(string $remoteKey): string

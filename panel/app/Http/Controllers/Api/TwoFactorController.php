@@ -41,6 +41,10 @@ class TwoFactorController extends Controller
     {
         $user = $request->user();
 
+        if ($user->isDemo()) {
+            return response()->json(['message' => __('auth.two_factor_disable_forbidden'), 'code' => 'demo_forbidden', 'demo' => true], 403);
+        }
+
         if ((bool) $user->two_factor_enabled) {
             $payload = $request->validate([
                 'password' => ['required', 'string'],

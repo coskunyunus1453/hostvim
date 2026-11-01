@@ -26,6 +26,7 @@ return [
     'diag_acme_skip' => 'ACME challenge path could not be checked (document root missing)',
     'diag_acme_http_ok' => 'ACME validation path is reachable over HTTP',
     'diag_acme_http_fail' => 'ACME file could not be read over HTTP (vhost or web root may be wrong)',
+    'diag_acme_http_redirect' => 'ACME path for :host returns HTTP :status to HTTPS. The :80 server block must not use a top-level return 301; put the redirect inside location / and serve /.well-known/acme-challenge/ without redirect.',
     'diag_acme_http_laravel' => ':host is a Laravel site; web root must be public_html/public — sync subdomain/vhost settings',
     'err_unknown' => 'Could not issue the SSL certificate. Please try again or contact support.',
     'err_engine_timeout' => 'The panel engine did not respond in time. Try again in a few minutes; if it persists, check the panelze-engine service.',

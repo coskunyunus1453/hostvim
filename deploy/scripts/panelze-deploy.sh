@@ -142,6 +142,8 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool mail-stack-setup.sh
   install_host_tool mail-provision
   install_host_tool mail-dkim-sync
+  install_host_tool ftp-provision
+  install_host_tool ftp-stack-setup.sh
   install_host_tool bind-sync
   install_host_tool configure-roundcube-ssl
   install_host_tool node-pm2
@@ -149,6 +151,7 @@ if [[ "$(id -u)" -eq 0 ]]; then
   install_host_tool apache-vhost
   install_host_tool ols-vhost
   install_host_tool security
+  install_host_tool site-exec
   if [[ -f "$SCRIPT_DIR/ensure-security-defaults.sh" ]]; then
     PANEL_ROOT="$PANEL_ROOT" bash "$SCRIPT_DIR/ensure-security-defaults.sh" || true
   fi

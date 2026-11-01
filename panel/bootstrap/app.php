@@ -59,6 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Faturalama & otomasyon: yenileme faturaları + tahsilat takibi (hatırlatma/askı/fesih).
         $schedule->command('billing:generate-renewals')->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('billing:dunning')->dailyAt('09:00')->withoutOverlapping();
+        $schedule->command('panelze:reset-public-demo --force')->everySixHours()->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware) {
         // Nginx / TLS sonlandırma arkasında doğru şema (wss, secure() vb.)
@@ -71,6 +72,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecureHeaders::class);
         // API cevaplarında (validation/auth) seçili dile göre translateler çalışsın.
         $middleware->append(SetApiLocale::class);
+        // Panelde named 'login' route yok; varsayılan route('login') misafir API isteklerinde 500 üretir.
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : '/login');
         $middleware->alias([
             'abilities' => CheckAbilities::class,
             'ability' => EnsureTokenAbility::class,
@@ -84,9 +87,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'store.integration' => AuthenticateStoreIntegration::class,
             'pro.feature' => RequireProFeature::class,
             'security.center' => \App\Http\Middleware\EnsureSecurityCenterAccess::class,
+            'demo.restrict' => \App\Http\Middleware\RestrictDemoUser::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request, \Throwable $e) => $request->is('api/*') || $request->expectsJson()
+        );
         $exceptions->render(function (PostTooLargeException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([

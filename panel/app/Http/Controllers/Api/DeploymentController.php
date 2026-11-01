@@ -9,6 +9,7 @@ use App\Models\DeploymentRun;
 use App\Models\Domain;
 use App\Services\SafeAuditLogger;
 use App\Services\AutoWebConfigurator;
+use App\Services\Hosting\SiteCommandRunner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -254,7 +255,9 @@ class DeploymentController extends Controller
                 $push('[info] auto web config applied: profile='.(string) ($auto['profile'] ?? '').' variant='.(string) ($auto['variant'] ?? ''));
             }
 
-            $commit = trim((string) shell_exec('cd '.escapeshellarg($docroot).' && git rev-parse --short HEAD 2>/dev/null'));
+            $rev = app(SiteCommandRunner::class)->make(['git', 'rev-parse', '--short', 'HEAD'], $docroot, 30);
+            $rev->run();
+            $commit = $rev->isSuccessful() ? trim($rev->getOutput()) : '';
             $run->update([
                 'status' => 'success',
                 'commit_hash' => $commit !== '' ? $commit : null,
@@ -318,7 +321,7 @@ class DeploymentController extends Controller
     private function runCmd(string $cwd, string $cmd, callable $push): void
     {
         $push('$ '.$cmd);
-        $p = Process::fromShellCommandline($cmd, $cwd, null, null, 600);
+        $p = app(SiteCommandRunner::class)->make($cmd, $cwd, 600);
         $p->run(function (string $type, string $buffer) use ($push): void {
             $lines = preg_split("/\r\n|\n|\r/", $buffer) ?: [];
             foreach ($lines as $ln) {

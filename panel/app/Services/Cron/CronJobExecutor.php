@@ -5,6 +5,7 @@ namespace App\Services\Cron;
 use App\Models\CronJob;
 use App\Models\CronJobRun;
 use App\Models\Domain;
+use App\Services\Hosting\SiteCommandRunner;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
@@ -13,6 +14,7 @@ class CronJobExecutor
 {
     public function __construct(
         private CronCommandParser $parser,
+        private SiteCommandRunner $siteRunner,
     ) {}
 
     public function execute(CronJob $job, ?int $triggerUserId = null): CronJobRun
@@ -56,7 +58,15 @@ class CronJobExecutor
             'started_at' => now(),
         ]);
 
-        $process = $this->createProcess($shellCommand, $cwd);
+        try {
+            $process = $job->user?->isAdmin()
+                ? $this->createProcess($shellCommand, $cwd)
+                : $this->createSandboxedProcess($shellCommand, $cwd);
+        } catch (\RuntimeException $e) {
+            $run->update(['status' => 'failed', 'output' => $e->getMessage(), 'finished_at' => now()]);
+
+            return $run->fresh();
+        }
         $process->setTimeout((int) config('panelze.cron.timeout', 180));
         $idleTimeout = (int) config('panelze.cron.idle_timeout', 0);
         if ($idleTimeout > 0) {
@@ -130,6 +140,17 @@ class CronJobExecutor
         }
 
         return Process::fromShellCommandline($shellCommand, $cwd, $env);
+    }
+
+    private function createSandboxedProcess(string $shellCommand, ?string $cwd): Process
+    {
+        if ($cwd === null || $cwd === '' || ! is_dir($cwd)) {
+            throw new \RuntimeException('Görev için site çalışma dizini bulunamadı.');
+        }
+
+        $command = $this->requiresShell($shellCommand) ? $shellCommand : ($this->toArgv($shellCommand) ?? $shellCommand);
+
+        return $this->siteRunner->make($command, $cwd);
     }
 
     private function requiresShell(string $cmd): bool

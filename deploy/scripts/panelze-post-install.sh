@@ -73,6 +73,12 @@ install_host_tool system-settings
 install_host_tool node-pm2
 
 if [[ "$(id -u)" -eq 0 ]]; then
+  if [[ -f "$SCRIPT_DIR/lib/install-php-fpm-hosttools-dropin.sh" ]]; then
+    echo "==> PHP-FPM panelze hosttools drop-in"
+    # shellcheck source=lib/install-php-fpm-hosttools-dropin.sh
+    source "$SCRIPT_DIR/lib/install-php-fpm-hosttools-dropin.sh"
+    install_php_fpm_hosttools_dropin "$PANELZE_HOME" || true
+  fi
   echo "==> engine sudoers (NOPASSWD)"
   bash "$SCRIPT_DIR/ensure-engine-sudoers.sh"
   if [[ -f "$SCRIPT_DIR/ensure-certbot-panelze-renew.sh" ]]; then

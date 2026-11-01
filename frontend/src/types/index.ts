@@ -14,6 +14,8 @@ export interface User {
   hosting_package_manual_override?: boolean
   two_factor_enabled?: boolean
   force_password_change?: boolean
+  /** Public ürün demosu — gerçek müşteri siteleri bu hesapta yok. */
+  is_demo?: boolean
   onboarding_completed_at?: string | null
   created_at: string
   /** Admin impersonation oturumunda yönetici bilgisi (/auth/me). */

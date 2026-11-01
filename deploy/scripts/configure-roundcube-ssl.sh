@@ -85,7 +85,9 @@ patch_roundcube_http_acme() {
 }
 
 write_acme_snippet() {
-  cat > /etc/nginx/snippets/panelze-roundcube-acme.conf <<NGX
+  local target="/etc/nginx/snippets/panelze-roundcube-acme.conf"
+  local desired
+  desired="$(cat <<NGX
 location ^~ /.well-known/acme-challenge/ {
     default_type "text/plain";
     root ${ROUNDCUBE_ROOT};
@@ -93,6 +95,35 @@ location ^~ /.well-known/acme-challenge/ {
     allow all;
 }
 NGX
+)"
+  if [[ -f "$target" ]] && [[ "$(cat "$target")" == "$desired" ]]; then
+    return 0
+  fi
+  if ! { printf '%s\n' "$desired" >"$target"; } 2>/dev/null; then
+    if [[ -f "$target" ]] && grep -q 'acme-challenge' "$target"; then
+      echo "Uyarı: $target yazılamadı (ROFS); mevcut ACME snippet kullanılıyor." >&2
+      return 0
+    fi
+    echo "configure-roundcube-ssl: $target yazılamadı (Read-only file system?). PHP-FPM panelze-hosttools drop-in kurulu mu?" >&2
+    exit 1
+  fi
+}
+
+fix_cert_permissions() {
+  local live="${CFG}/live/${HOST}"
+  local archive="${CFG}/archive/${HOST}"
+  # Panel (www-data) hasValidCertificateFiles için okuyabilmeli.
+  if [[ -d "$live" ]]; then
+    chgrp -R www-data "$live" 2>/dev/null || true
+    chmod 2755 "$live" 2>/dev/null || true
+    find "$live" -type f -exec chmod 640 {} + 2>/dev/null || true
+    find "$live" -type l -exec chmod 644 {} + 2>/dev/null || true
+  fi
+  if [[ -d "$archive" ]]; then
+    chgrp -R www-data "$archive" 2>/dev/null || true
+    chmod 2755 "$archive" 2>/dev/null || true
+    find "$archive" -type f -exec chmod 640 {} + 2>/dev/null || true
+  fi
 }
 
 write_ssl_vhost() {
@@ -162,21 +193,34 @@ probe_acme_http() {
   [[ "$code" == "200" ]]
 }
 
+ssl_vhost_ready() {
+  local out="${SSL_SITE_DIR}/${HOST}.conf"
+  local enabled="${SSL_ENABLED_PREFIX}${HOST}.conf"
+  [[ -f "$out" && -e "$enabled" ]]
+}
+
+# Sertifika + vhost zaten hazırsa /etc yazmadan çık (FPM ProtectSystem / gereksiz certbot yok).
+if certs_valid && ssl_vhost_ready; then
+  fix_cert_permissions
+  echo "OK webmail SSL (mevcut): https://${HOST}"
+  exit 0
+fi
+
 write_acme_snippet
 patch_roundcube_http_acme
 
-if ! probe_acme_http; then
-  if nginx -t 2>/dev/null; then
-    systemctl reload nginx 2>/dev/null || true
-    sleep 1
-  fi
-  if ! probe_acme_http; then
-    echo "HTTP-01 erişilemiyor: http://${HOST}/.well-known/acme-challenge/ (DNS ve nginx kontrol edin)" >&2
-    exit 1
-  fi
-fi
-
 if ! certs_valid; then
+  if ! probe_acme_http; then
+    if nginx -t 2>/dev/null; then
+      systemctl reload nginx 2>/dev/null || true
+      sleep 1
+    fi
+    if ! probe_acme_http; then
+      echo "HTTP-01 erişilemiyor: http://${HOST}/.well-known/acme-challenge/ (DNS ve nginx kontrol edin)" >&2
+      exit 1
+    fi
+  fi
+
   echo "==> Let's Encrypt: ${HOST}"
   certbot certonly --webroot -w "$ROUNDCUBE_ROOT" \
     -d "$HOST" --cert-name "$HOST" \
@@ -190,6 +234,7 @@ if ! certs_valid; then
   exit 1
 fi
 
+fix_cert_permissions
 write_ssl_vhost
 
 if nginx -t; then

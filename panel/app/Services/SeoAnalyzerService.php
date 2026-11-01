@@ -27,7 +27,17 @@ class SeoAnalyzerService
         $started = microtime(true);
         try {
             $response = Http::withOptions([
-                'allow_redirects' => ['max' => 5, 'strict' => false],
+                'allow_redirects' => [
+                    'max' => 5,
+                    'strict' => false,
+                    'protocols' => ['http', 'https'],
+                    'on_redirect' => function ($request, $response, $uri): void {
+                        $next = (string) $uri->getHost();
+                        if ($next === '' || $this->isBlockedHost($next) || ! $this->hostResolvesToPublicIps($next)) {
+                            throw new \RuntimeException('redirect to blocked host');
+                        }
+                    },
+                ],
             ])
                 ->withHeaders([
                     'User-Agent' => 'Panelze-SEO-Analyzer/1.0 (+https://panelze.com)',
