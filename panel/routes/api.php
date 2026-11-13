@@ -356,6 +356,12 @@ Route::middleware(['auth:sanctum', 'abilities:access:customer-panel', 'require_p
             Route::post('chat', [AiAssistantController::class, 'chat'])->middleware('throttle:30,1');
             Route::post('execute-actions', [AiAssistantController::class, 'executeActions'])
                 ->middleware(['ability:tools:run', 'throttle:10,1']);
+            Route::get('trash', [AiAssistantController::class, 'trashIndex'])
+                ->middleware(['ability:files:read', 'throttle:30,1']);
+            Route::delete('trash/item', [AiAssistantController::class, 'trashDestroy'])
+                ->middleware(['ability:files:write', 'throttle:20,1']);
+            Route::delete('trash/empty', [AiAssistantController::class, 'trashEmpty'])
+                ->middleware(['ability:files:write', 'throttle:5,1']);
         });
     });
     Route::middleware(['ability:files:write', 'pro.feature:ai_advisor'])->post('ai-assistant/apply-fix', [AiAssistantController::class, 'applyFix']);

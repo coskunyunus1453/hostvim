@@ -216,6 +216,7 @@ export default function AiAdvisorPage() {
     }>
   >([])
   const [deletingPath, setDeletingPath] = useState<string | null>(null)
+  const [trashOpen, setTrashOpen] = useState(false)
   const [executeActionsMPendingHint, setExecuteActionsMPendingHint] = useState(false)
   const actionResultsRef = useRef<HTMLDivElement>(null)
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
@@ -248,6 +249,49 @@ export default function AiAdvisorPage() {
     queryKey: ['ai-assistant-usage'],
     queryFn: async () => (await api.get('/ai-assistant/usage', { params: { days: 30 } })).data,
     enabled: tab === 'usage',
+  })
+
+  type TrashRow = {
+    id: string
+    domain_id?: number | null
+    domain?: string | null
+    name: string
+    original_path?: string
+    deleted_at?: string
+    size_human?: string
+    location?: string
+    source?: string
+  }
+
+  const trashQ = useQuery({
+    queryKey: ['ai-assistant-trash'],
+    enabled: trashOpen,
+    queryFn: async () => (await api.get('/ai-assistant/trash')).data as { items: TrashRow[]; hint?: string },
+  })
+
+  const trashDestroyM = useMutation({
+    mutationFn: async (row: TrashRow) =>
+      api.delete('/ai-assistant/trash/item', { params: { id: row.id, domain_id: row.domain_id ?? undefined } }),
+    onSuccess: () => {
+      toast.success(t('ai.trash_deleted'))
+      qc.invalidateQueries({ queryKey: ['ai-assistant-trash'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
+  })
+
+  const trashEmptyM = useMutation({
+    mutationFn: async () => api.delete('/ai-assistant/trash/empty'),
+    onSuccess: (res) => {
+      toast.success((res.data as { message?: string })?.message ?? t('ai.trash_emptied'))
+      qc.invalidateQueries({ queryKey: ['ai-assistant-trash'] })
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } }
+      toast.error(ax.response?.data?.message ?? String(err))
+    },
   })
 
   useEffect(() => {
@@ -609,25 +653,115 @@ export default function AiAdvisorPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('ai.subtitle_new')}</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900/60">
-          {tabs.map(({ id, icon: Icon, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={clsx(
-                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                tab === id
-                  ? 'bg-fuchsia-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-200"
+            onClick={() => setTrashOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t('ai.trash_open')}
+          </button>
+          <div className="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900/60">
+            {tabs.map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={clsx(
+                  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  tab === id
+                    ? 'bg-fuchsia-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {trashOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('ai.trash_title')}</h2>
+                <p className="mt-1 text-xs text-gray-500">{trashQ.data?.hint ?? t('ai.trash_hint')}</p>
+              </div>
+              <button type="button" className="text-sm text-gray-500 hover:underline" onClick={() => setTrashOpen(false)}>
+                {t('common.close')}
+              </button>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+              {trashQ.isLoading && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('ai.thinking')}
+                </div>
+              )}
+              {(trashQ.data?.items ?? []).length === 0 && !trashQ.isLoading && (
+                <p className="text-sm text-gray-500">{t('ai.trash_empty_state')}</p>
+              )}
+              {(trashQ.data?.items ?? []).map((row) => (
+                <div
+                  key={`${row.domain ?? 'ai'}-${row.id}`}
+                  className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{row.name}</p>
+                    <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                      {row.domain ? (
+                        <>
+                          <span className="font-medium text-emerald-700 dark:text-emerald-300">{row.domain}</span>
+                          {' · '}
+                          {t('ai.trash_via_filemanager')}
+                        </>
+                      ) : (
+                        t('ai.trash_via_ai')
+                      )}
+                      {row.size_human ? ` · ${row.size_human}` : ''}
+                    </p>
+                    {row.original_path && (
+                      <p className="mt-1 truncate font-mono text-[10px] text-gray-400">{row.original_path}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    disabled={trashDestroyM.isPending}
+                    onClick={() => {
+                      if (!window.confirm(t('ai.trash_confirm_delete', { name: row.name }))) return
+                      trashDestroyM.mutate(row)
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {t('ai.trash_delete_forever')}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+              <button
+                type="button"
+                className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                disabled={trashEmptyM.isPending || (trashQ.data?.items ?? []).length === 0}
+                onClick={() => {
+                  if (!window.confirm(t('ai.trash_confirm_empty'))) return
+                  trashEmptyM.mutate()
+                }}
+              >
+                {t('ai.trash_empty_all')}
+              </button>
+              <button type="button" className="btn-secondary text-sm" onClick={() => void trashQ.refetch()}>
+                {t('domains.refresh')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {tab === 'chat' && (
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[240px_1fr]">

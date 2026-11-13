@@ -545,12 +545,17 @@ class PanelZekaActionExecutor
             if ($moved['ok']) {
                 return [
                     'ok' => true,
-                    'message' => 'Dosya güvenli çöpe taşındı (geri alınabilir): '.basename($path),
+                    'message' => sprintf(
+                        'Dosya «%s» sitesinin Dosya Yöneticisi çöpüne taşındı. Kalıcı silmek için: Dosya Yöneticisi → %s → Çöp kutusu — veya PanelZeka Çöp paneli.',
+                        $domain->name,
+                        $domain->name
+                    ),
                     'data' => [
                         'path' => $path,
                         'method' => 'engine_trash',
                         'trash_id' => $moved['id'] ?? null,
                         'domain' => $domain->name,
+                        'domain_id' => $domain->id,
                         'assessment' => $assessment,
                         'ui' => 'delete_result',
                     ],
@@ -648,26 +653,21 @@ class PanelZekaActionExecutor
         $webRoot = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
         $siteRoot = $webRoot !== '' ? $webRoot.'/'.$domain->name : '';
 
-        $rel = null;
-        if ($doc !== '' && str_starts_with($abs, $doc.'/')) {
-            $rel = ltrim(substr($abs, strlen($doc)), '/');
-        } elseif ($siteRoot !== '' && str_starts_with($abs, $siteRoot.'/')) {
-            // Engine genelde site köküne göre; document_root public_html ise göreli yolu uyarla
-            $fromSite = ltrim(substr($abs, strlen($siteRoot)), '/');
-            if ($doc !== '' && str_starts_with($doc, $siteRoot.'/')) {
-                $docRel = ltrim(substr($doc, strlen($siteRoot)), '/');
-                if ($docRel !== '' && str_starts_with($fromSite, $docRel.'/')) {
-                    $rel = ltrim(substr($fromSite, strlen($docRel)), '/');
-                } else {
-                    $rel = $fromSite;
-                }
-            } else {
-                $rel = $fromSite;
-            }
+        // Engine kökü = hosting/domain. File Manager public_html göreli path kullanır.
+        if ($siteRoot === '' || ! str_starts_with($abs, $siteRoot.'/')) {
+            return ['ok' => false, 'message' => 'Site göreli yolu çıkarılamadı.'];
+        }
+        $engineFrom = ltrim(substr($abs, strlen($siteRoot)), '/');
+        if ($engineFrom === '' || str_contains($engineFrom, '..')) {
+            return ['ok' => false, 'message' => 'Site göreli yolu çıkarılamadı.'];
         }
 
-        if ($rel === null || $rel === '' || str_contains($rel, '..')) {
-            return ['ok' => false, 'message' => 'Site göreli yolu çıkarılamadı.'];
+        // Dosya Yöneticisi çöp geri yükleme: public_html altı path (önek yok)
+        $panelOrig = $engineFrom;
+        if (str_starts_with($engineFrom, 'public_html/')) {
+            $panelOrig = substr($engineFrom, strlen('public_html/'));
+        } elseif ($doc !== '' && str_starts_with($abs, $doc.'/')) {
+            $panelOrig = ltrim(substr($abs, strlen($doc)), '/');
         }
 
         $id = now()->format('YmdHis').'-'.Str::lower(Str::random(10));
@@ -679,16 +679,24 @@ class PanelZekaActionExecutor
             $this->engine->mkdirFile($domain->name, $trashDir);
             $this->engine->mkdirFile($domain->name, $trashDir.'/items');
             $this->engine->mkdirFile($domain->name, $trashDir.'/meta');
-            $mv = $this->engine->moveFile($domain->name, $rel, $item);
+            $mv = $this->engine->moveFile($domain->name, $engineFrom, $item);
             if (! empty($mv['error'])) {
                 return ['ok' => false, 'message' => (string) $mv['error']];
             }
+            $size = is_file($abs) ? (int) (@filesize($abs) ?: 0) : 0;
+            // move sonrası abs yok; item boyutunu site trash'ten oku
+            $webItem = ($siteRoot !== '' ? $siteRoot : '').'/.panelze-trash/items/'.$id;
+            if (is_file($webItem)) {
+                $size = (int) (@filesize($webItem) ?: 0);
+            }
             $payload = json_encode([
                 'id' => $id,
-                'original_path' => $rel,
+                'original_path' => $panelOrig,
+                'engine_path' => $engineFrom,
                 'absolute_path' => $abs,
                 'deleted_at' => now()->toIso8601String(),
                 'name' => basename($abs),
+                'size' => $size,
                 'source' => 'panelzeka_safe_delete',
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $this->engine->writeFile($domain->name, $meta, (string) $payload);

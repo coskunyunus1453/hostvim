@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AiChatSession;
 use App\Services\Ai\AiAssistantService;
+use App\Services\Ai\PanelZekaTrashService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,6 +13,7 @@ class AiAssistantController extends Controller
 {
     public function __construct(
         private AiAssistantService $assistant,
+        private PanelZekaTrashService $trash,
     ) {}
 
     public function settings(Request $request): JsonResponse
@@ -244,5 +246,38 @@ class AiAssistantController extends Controller
         }
 
         return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+    }
+
+    public function trashIndex(Request $request): JsonResponse
+    {
+        $items = $this->trash->listForUser($request->user(), (int) $request->query('limit', 100));
+
+        return response()->json([
+            'items' => $items,
+            'hint' => 'PanelZeka güvenli silme öğeleri site Dosya Yöneticisi çöpündedir. Kalıcı silmek için buradan veya ilgili domain → Dosya Yöneticisi → Çöp.',
+        ]);
+    }
+
+    public function trashDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => 'required|string|max:128',
+            'domain_id' => 'nullable|integer|exists:domains,id',
+        ]);
+
+        $result = $this->trash->destroy(
+            $request->user(),
+            $validated['id'],
+            isset($validated['domain_id']) ? (int) $validated['domain_id'] : null,
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+    }
+
+    public function trashEmpty(Request $request): JsonResponse
+    {
+        $result = $this->trash->emptyAll($request->user());
+
+        return response()->json($result);
     }
 }
