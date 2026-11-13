@@ -170,7 +170,7 @@ class PanelZekaLargeFileAdvisor
                 true,
                 true,
                 'Veritabanı dosyası — onay olmadan silinmez.',
-                'Yedek varsa ve uygulama kapatıldıysa trash’e taşıyabilirsiniz.',
+                'Uygulama (python/php) dosyayı açık tutuyorsa kalıcı silmeden sonra süreç yeniden başlatılmadan disk doluluğu düşmez.',
                 'file'
             );
         }

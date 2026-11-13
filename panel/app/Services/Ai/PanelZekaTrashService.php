@@ -150,7 +150,51 @@ class PanelZekaTrashService
             return ['ok' => false, 'message' => (string) $r1['error']];
         }
 
-        return ['ok' => true, 'message' => 'Çöp öğesi kalıcı silindi ('.$domain->name.').'];
+        $held = $this->deletedButHeldHint($domain->name, $id);
+
+        return [
+            'ok' => true,
+            'message' => 'Çöp öğesi kalıcı silindi ('.$domain->name.').'
+                .($held !== null ? ' '.$held : ''),
+        ];
+    }
+
+    /**
+     * Silinen ama süreç tarafından hâlâ açık tutulan dosya uyarısı.
+     */
+    private function deletedButHeldHint(string $domain, string $id): ?string
+    {
+        $web = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
+        if ($web === '') {
+            return null;
+        }
+        $needle = $web.'/'.$domain.'/.panelze-trash/items/'.$id;
+        $heldGb = 0.0;
+        foreach (glob('/proc/[0-9]*/fd/*') ?: [] as $fd) {
+            try {
+                $link = @readlink($fd);
+                if (! is_string($link) || ! str_contains($link, '(deleted)')) {
+                    continue;
+                }
+                if (! str_contains($link, $id) && ! str_contains($link, $needle)) {
+                    continue;
+                }
+                $size = @filesize($fd);
+                if (is_int($size) && $size > 50_000_000) {
+                    $heldGb = max($heldGb, $size / 1024 / 1024 / 1024);
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+        if ($heldGb < 0.05) {
+            return null;
+        }
+
+        return sprintf(
+            'Uyarı: ~%.1f GB hâlâ bir süreç tarafından açık (silindi ama diskte tutuluyor). İlgili uygulamayı/PM2 sürecini yeniden başlatın; aksi halde dashboard disk kullanımı düşmez.',
+            $heldGb
+        );
     }
 
     /**
