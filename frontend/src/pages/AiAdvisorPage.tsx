@@ -12,6 +12,10 @@ import {
   Settings2,
   Sparkles,
   Trash2,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  HardDrive,
   Wrench,
   XCircle,
   Zap,
@@ -86,6 +90,26 @@ type FixAction = {
   summary?: string
 }
 
+type FileAssessment = {
+  category?: string
+  category_label?: string
+  summary?: string
+  risk?: 'safe' | 'caution' | 'blocked' | string
+  deletable?: boolean
+  requires_confirm?: boolean
+  reason?: string
+  tip?: string
+}
+
+type LargeFileRow = {
+  path: string
+  name?: string
+  bytes?: number
+  size_human?: string
+  assessment?: FileAssessment
+  deleted?: boolean
+}
+
 function fixToPanelAction(fix: FixAction, idx: number): PanelAction {
   return {
     id: `fix-${idx}`,
@@ -103,6 +127,7 @@ function canExecuteActionType(type: string, abilities: string[] | undefined): bo
   if (tokenHasAbility(abilities, '*')) return true
   const map: Record<string, string> = {
     file_write: 'files:write',
+    safe_delete_file: 'files:write',
     read_file: 'files:read',
     list_largest_files: 'files:read',
     create_domain: 'domains:write',
@@ -180,8 +205,17 @@ export default function AiAdvisorPage() {
   const [pendingUserText, setPendingUserText] = useState<string | null>(null)
   /** Onaylanan işlemlerin çıktısı — sohbet akışında görünür kartlar */
   const [actionResultCards, setActionResultCards] = useState<
-    Array<{ key: string; ok: boolean; title: string; message: string; output: string; at: number }>
+    Array<{
+      key: string
+      ok: boolean
+      title: string
+      message: string
+      output: string
+      files?: LargeFileRow[]
+      at: number
+    }>
   >([])
+  const [deletingPath, setDeletingPath] = useState<string | null>(null)
   const [executeActionsMPendingHint, setExecuteActionsMPendingHint] = useState(false)
   const actionResultsRef = useRef<HTMLDivElement>(null)
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
@@ -353,27 +387,42 @@ export default function AiAdvisorPage() {
     type?: string
     id?: string
     title?: string
-    data?: { output?: string; files?: unknown[]; path?: string }
+    data?: {
+      output?: string
+      files?: LargeFileRow[]
+      path?: string
+      ui?: string
+      assessment?: FileAssessment
+      trash_path?: string
+      trash_id?: string
+    }
   }
 
   const publishActionResults = (results: ActionExecResult[]) => {
     const now = Date.now()
-    const cards = results.map((r, i) => {
-      const outputRaw =
-        typeof r.data?.output === 'string' && r.data.output.trim()
-          ? r.data.output.trim()
-          : Array.isArray(r.data?.files) && r.data.files.length > 0
-            ? JSON.stringify(r.data.files, null, 2)
+    // Tek dosya güvenli silme: liste kartını şişirme (üstte toast + satır güncellenir)
+    const cards = results
+      .filter((r) => r.type !== 'safe_delete_file')
+      .map((r, i) => {
+        const files = Array.isArray(r.data?.files)
+          ? (r.data!.files as LargeFileRow[]).filter((f) => typeof f?.path === 'string')
+          : undefined
+        const hasFileUi = Boolean(files && files.length > 0)
+        const outputRaw =
+          !hasFileUi && typeof r.data?.output === 'string' && r.data.output.trim()
+            ? r.data.output.trim()
             : ''
-      return {
-        key: `${now}-${r.id ?? i}`,
-        ok: r.ok === true,
-        title: r.title || r.type || t('ai.action_output'),
-        message: r.message || (r.ok ? t('ai.actions_applied') : t('ai.actions_partial')),
-        output: outputRaw.slice(0, 12000),
-        at: now,
-      }
-    })
+        return {
+          key: `${now}-${r.id ?? i}`,
+          ok: r.ok === true,
+          title: r.title || r.type || t('ai.action_output'),
+          message: r.message || (r.ok ? t('ai.actions_applied') : t('ai.actions_partial')),
+          output: outputRaw.slice(0, 12000),
+          files,
+          at: now,
+        }
+      })
+    if (cards.length === 0) return
     setActionResultCards((prev) => [...prev, ...cards].slice(-20))
     requestAnimationFrame(() => {
       actionResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -449,6 +498,52 @@ export default function AiAdvisorPage() {
       toast.error(ax.response?.data?.message ?? String(err))
     },
   })
+
+  const safeDeleteLargeFile = (file: LargeFileRow, cardKey: string) => {
+    const path = file.path
+    const a = file.assessment
+    if (!a?.deletable || a.risk === 'blocked') {
+      toast.error(a?.reason ?? t('ai.file_delete_blocked'))
+      return
+    }
+    const label = file.name || path.split('/').pop() || path
+    const confirmMsg =
+      a.risk === 'caution' || a.requires_confirm
+        ? t('ai.file_delete_confirm_caution', { name: label, reason: a.reason ?? a.summary ?? '' })
+        : t('ai.file_delete_confirm_safe', { name: label })
+    if (!window.confirm(confirmMsg)) return
+    setDeletingPath(path)
+    executeActionsM.mutate(
+      [
+        {
+          id: `del-${Date.now()}`,
+          type: 'safe_delete_file',
+          title: t('ai.file_delete_title', { name: label }),
+          params: { path, confirm: true },
+        },
+      ],
+      {
+        onSettled: () => setDeletingPath(null),
+        onSuccess: (data) => {
+          const ok = (data.results ?? []).some((r) => r.ok)
+          if (ok) {
+            setActionResultCards((prev) =>
+              prev.map((c) =>
+                c.key !== cardKey
+                  ? c
+                  : {
+                      ...c,
+                      files: (c.files ?? []).map((f) =>
+                        f.path === path ? { ...f, deleted: true } : f,
+                      ),
+                    },
+              ),
+            )
+          }
+        },
+      },
+    )
+  }
 
   const deleteSessionM = useMutation({
     mutationFn: async (id: number) => api.delete(`/ai-assistant/sessions/${id}`),
@@ -827,7 +922,14 @@ export default function AiAdvisorPage() {
                           {t('common.close')}
                         </button>
                       </div>
-                      {card.output ? (
+                      {card.files && card.files.length > 0 ? (
+                        <LargeFilesPanel
+                          files={card.files}
+                          deletingPath={deletingPath}
+                          canDelete={canExecuteActionType('safe_delete_file', abilities)}
+                          onDelete={(f) => safeDeleteLargeFile(f, card.key)}
+                        />
+                      ) : card.output ? (
                         <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-white/90 p-3 font-mono text-[11px] leading-relaxed text-gray-900 dark:bg-gray-950/70 dark:text-gray-100">
                           {card.output}
                         </pre>
@@ -1158,6 +1260,127 @@ export default function AiAdvisorPage() {
           />
         </div>
       )}
+    </div>
+  )
+}
+
+function riskTone(risk?: string): { chip: string; Icon: typeof ShieldCheck } {
+  if (risk === 'safe') {
+    return {
+      chip: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
+      Icon: ShieldCheck,
+    }
+  }
+  if (risk === 'blocked') {
+    return {
+      chip: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-200',
+      Icon: ShieldAlert,
+    }
+  }
+  return {
+    chip: 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100',
+    Icon: ShieldQuestion,
+  }
+}
+
+function LargeFilesPanel({
+  files,
+  deletingPath,
+  canDelete,
+  onDelete,
+}: {
+  files: LargeFileRow[]
+  deletingPath: string | null
+  canDelete: boolean
+  onDelete: (f: LargeFileRow) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-300">
+        <HardDrive className="h-3.5 w-3.5" />
+        {t('ai.large_files_hint')}
+      </p>
+      <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+        {files.map((f) => {
+          const a = f.assessment
+          const tone = riskTone(a?.risk)
+          const RiskIcon = tone.Icon
+          const name = f.name || f.path.split('/').pop() || f.path
+          const busy = deletingPath === f.path
+          return (
+            <div
+              key={f.path}
+              className={clsx(
+                'rounded-xl border bg-white/90 p-3 dark:bg-gray-950/50',
+                f.deleted
+                  ? 'border-gray-200 opacity-60 dark:border-gray-700'
+                  : 'border-gray-200 dark:border-gray-700',
+              )}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-[min(100%,20rem)]">
+                      {name}
+                    </span>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {f.size_human ?? '—'}
+                    </span>
+                    <span
+                      className={clsx(
+                        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                        tone.chip,
+                      )}
+                    >
+                      <RiskIcon className="h-3 w-3" />
+                      {a?.category_label ?? t('ai.file_category_other')}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+                    {a?.summary ?? t('ai.file_summary_unknown')}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-[10px] text-gray-400" title={f.path}>
+                    {f.path}
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    {a?.reason}
+                    {a?.tip ? ` · ${a.tip}` : ''}
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  {f.deleted ? (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {t('ai.file_moved_trash')}
+                    </span>
+                  ) : a?.deletable && canDelete ? (
+                    <button
+                      type="button"
+                      className={clsx(
+                        'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-50',
+                        a.risk === 'safe'
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : 'bg-amber-600 hover:bg-amber-700',
+                      )}
+                      disabled={busy || Boolean(deletingPath)}
+                      onClick={() => onDelete(f)}
+                    >
+                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      {t('ai.file_safe_delete')}
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700 dark:bg-red-950/30 dark:text-red-200">
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      {t('ai.file_not_deletable')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

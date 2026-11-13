@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\CronJob;
 use App\Models\Domain;
 use App\Models\User;
+use App\Services\Cron\CronAllowedPaths;
 use App\Services\Cron\CronCommandParser;
 use App\Services\Cron\CronJobExecutor;
 use App\Services\DatabaseService;
@@ -46,6 +47,7 @@ class PanelZekaActionExecutor
             'security_toggle' => $this->securityToggle($user, $params),
             'run_command' => $this->runCommand($user, $params),
             'list_largest_files' => $this->listLargestFiles($user, $params),
+            'safe_delete_file' => $this->safeDeleteFile($user, $params),
             'run_cron_now' => $this->runCronNow($user, $params),
             default => ['ok' => false, 'message' => 'Bilinmeyen aksiyon türü: '.$type],
         };
@@ -421,19 +423,22 @@ class PanelZekaActionExecutor
         }
 
         $lines = preg_split("/\r\n|\n|\r/", trim($process->getOutput())) ?: [];
-        $files = [];
+        $rawFiles = [];
         foreach ($lines as $line) {
             if ($line === '' || ! str_contains($line, "\t")) {
                 continue;
             }
             [$size, $filePath] = explode("\t", $line, 2);
             $bytes = (int) $size;
-            $files[] = [
+            $rawFiles[] = [
                 'path' => $filePath,
                 'bytes' => $bytes,
                 'size_human' => $this->formatBytes($bytes),
             ];
         }
+
+        $advisor = app(PanelZekaLargeFileAdvisor::class);
+        $files = $advisor->enrichMany($rawFiles);
 
         $summary = $files === []
             ? 'Dosya bulunamadı: '.$path
@@ -441,7 +446,16 @@ class PanelZekaActionExecutor
 
         $text = $summary."\n";
         foreach ($files as $i => $f) {
-            $text .= sprintf("%d) %s — %s\n", $i + 1, $f['size_human'], $f['path']);
+            $a = is_array($f['assessment'] ?? null) ? $f['assessment'] : [];
+            $text .= sprintf(
+                "%d) %s — %s [%s · %s]\n   %s\n",
+                $i + 1,
+                $f['size_human'] ?? '',
+                $f['path'] ?? '',
+                $a['category_label'] ?? '?',
+                $a['risk'] ?? '?',
+                $a['summary'] ?? ''
+            );
         }
 
         return [
@@ -451,9 +465,262 @@ class PanelZekaActionExecutor
                 'path' => $path,
                 'limit' => $limit,
                 'files' => $files,
+                'ui' => 'large_files',
                 'output' => mb_substr(trim($text), 0, 32_000),
             ],
         ];
+    }
+
+    /**
+     * Büyük dosyayı güvenli şekilde trash'e taşı (kalıcı silme yok).
+     *
+     * @param  array<string, mixed>  $params
+     * @return array{ok: bool, message: string, data?: array<string, mixed>}
+     */
+    private function safeDeleteFile(User $user, array $params): array
+    {
+        $path = trim(str_replace('\\', '/', (string) ($params['path'] ?? '')));
+        $confirm = filter_var($params['confirm'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if ($path === '' || str_contains($path, '..') || ! str_starts_with($path, '/')) {
+            return ['ok' => false, 'message' => 'Geçersiz dosya yolu.'];
+        }
+        if ($this->isSensitivePath($path)) {
+            return ['ok' => false, 'message' => 'Hassas dosya silinemez: '.$path];
+        }
+        if (! CronAllowedPaths::isAllowed($path, $user) && ! CronAllowedPaths::isAllowed(dirname($path), $user)) {
+            return ['ok' => false, 'message' => 'Bu yola erişim izni yok.'];
+        }
+
+        $advisor = app(PanelZekaLargeFileAdvisor::class);
+        $bytes = is_file($path) ? (int) (@filesize($path) ?: 0) : null;
+        $assessment = $advisor->assess($path, $bytes);
+
+        if (! ($assessment['deletable'] ?? false) || ($assessment['risk'] ?? '') === PanelZekaLargeFileAdvisor::RISK_BLOCKED) {
+            return [
+                'ok' => false,
+                'message' => $assessment['reason'] ?? 'Bu dosya silinemez.',
+                'data' => ['path' => $path, 'assessment' => $assessment],
+            ];
+        }
+
+        if (($assessment['requires_confirm'] ?? false) && ! $confirm) {
+            return [
+                'ok' => false,
+                'message' => 'Bu dosya için açık onay gerekir (confirm=true).',
+                'data' => ['path' => $path, 'assessment' => $assessment, 'needs_confirm' => true],
+            ];
+        }
+
+        // Dosya var mı? (admin privileged ile de kontrol)
+        $existsCheck = $this->pathExistsForUser($path, $user);
+        if (! $existsCheck) {
+            return ['ok' => false, 'message' => 'Dosya bulunamadı: '.$path];
+        }
+
+        $domain = $this->findDomainForAbsolutePath($user, $path);
+        if ($domain !== null) {
+            $moved = $this->trashViaEngine($domain, $path);
+            if ($moved['ok']) {
+                return [
+                    'ok' => true,
+                    'message' => 'Dosya güvenli çöpe taşındı (geri alınabilir): '.basename($path),
+                    'data' => [
+                        'path' => $path,
+                        'method' => 'engine_trash',
+                        'trash_id' => $moved['id'] ?? null,
+                        'domain' => $domain->name,
+                        'assessment' => $assessment,
+                        'ui' => 'delete_result',
+                    ],
+                ];
+            }
+            // Engine başarısızsa admin için shell trash dene
+            if (! $user->isAdmin()) {
+                return ['ok' => false, 'message' => $moved['message'] ?? 'Çöpe taşıma başarısız.'];
+            }
+        }
+
+        if (! $user->isAdmin()) {
+            return ['ok' => false, 'message' => 'Dosya bir site köküne bağlanamadı; müşteri silmesi engellendi.'];
+        }
+
+        $shellTrash = $this->trashViaPrivilegedMove($path);
+        if (! ($shellTrash['ok'] ?? false)) {
+            return [
+                'ok' => false,
+                'message' => $shellTrash['message'] ?? 'Güvenli silme başarısız.',
+                'data' => ['path' => $path, 'assessment' => $assessment],
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'Dosya güvenli çöpe taşındı: '.basename($path),
+            'data' => [
+                'path' => $path,
+                'method' => 'ai_trash',
+                'trash_path' => $shellTrash['trash_path'] ?? null,
+                'assessment' => $assessment,
+                'ui' => 'delete_result',
+            ],
+        ];
+    }
+
+    private function pathExistsForUser(string $path, User $user): bool
+    {
+        if (is_file($path) || is_link($path)) {
+            return true;
+        }
+        if (! $user->isAdmin()) {
+            return false;
+        }
+        $proc = $this->makeCommandProcess('test -e '.escapeshellarg($path).' && echo YES', null, [
+            'PATH' => '/usr/bin:/bin',
+            'TERM' => 'dumb',
+        ], true);
+        if ($proc === null) {
+            return false;
+        }
+        $proc->setTimeout(15);
+        try {
+            $proc->run();
+
+            return str_contains($proc->getOutput(), 'YES');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function findDomainForAbsolutePath(User $user, string $absPath): ?Domain
+    {
+        $abs = rtrim(str_replace('\\', '/', $absPath), '/');
+        $query = Domain::query()->select(['id', 'name', 'document_root', 'user_id']);
+        if (! $user->isAdmin()) {
+            $query->where('user_id', $user->id);
+        }
+        $webRoot = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
+
+        foreach ($query->get() as $domain) {
+            $doc = rtrim(str_replace('\\', '/', (string) $domain->document_root), '/');
+            if ($doc !== '' && (str_starts_with($abs, $doc.'/') || $abs === $doc)) {
+                return $domain;
+            }
+            if ($webRoot !== '') {
+                $site = $webRoot.'/'.$domain->name;
+                if (str_starts_with($abs, $site.'/') || $abs === $site) {
+                    return $domain;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{ok: bool, id?: string, message?: string}
+     */
+    private function trashViaEngine(Domain $domain, string $absPath): array
+    {
+        $abs = str_replace('\\', '/', $absPath);
+        $doc = rtrim(str_replace('\\', '/', (string) $domain->document_root), '/');
+        $webRoot = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
+        $siteRoot = $webRoot !== '' ? $webRoot.'/'.$domain->name : '';
+
+        $rel = null;
+        if ($doc !== '' && str_starts_with($abs, $doc.'/')) {
+            $rel = ltrim(substr($abs, strlen($doc)), '/');
+        } elseif ($siteRoot !== '' && str_starts_with($abs, $siteRoot.'/')) {
+            // Engine genelde site köküne göre; document_root public_html ise göreli yolu uyarla
+            $fromSite = ltrim(substr($abs, strlen($siteRoot)), '/');
+            if ($doc !== '' && str_starts_with($doc, $siteRoot.'/')) {
+                $docRel = ltrim(substr($doc, strlen($siteRoot)), '/');
+                if ($docRel !== '' && str_starts_with($fromSite, $docRel.'/')) {
+                    $rel = ltrim(substr($fromSite, strlen($docRel)), '/');
+                } else {
+                    $rel = $fromSite;
+                }
+            } else {
+                $rel = $fromSite;
+            }
+        }
+
+        if ($rel === null || $rel === '' || str_contains($rel, '..')) {
+            return ['ok' => false, 'message' => 'Site göreli yolu çıkarılamadı.'];
+        }
+
+        $id = now()->format('YmdHis').'-'.Str::lower(Str::random(10));
+        $trashDir = '.panelze-trash';
+        $item = $trashDir.'/items/'.$id;
+        $meta = $trashDir.'/meta/'.$id.'.json';
+
+        try {
+            $this->engine->mkdirFile($domain->name, $trashDir);
+            $this->engine->mkdirFile($domain->name, $trashDir.'/items');
+            $this->engine->mkdirFile($domain->name, $trashDir.'/meta');
+            $mv = $this->engine->moveFile($domain->name, $rel, $item);
+            if (! empty($mv['error'])) {
+                return ['ok' => false, 'message' => (string) $mv['error']];
+            }
+            $payload = json_encode([
+                'id' => $id,
+                'original_path' => $rel,
+                'absolute_path' => $abs,
+                'deleted_at' => now()->toIso8601String(),
+                'name' => basename($abs),
+                'source' => 'panelzeka_safe_delete',
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $this->engine->writeFile($domain->name, $meta, (string) $payload);
+
+            return ['ok' => true, 'id' => $id];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, trash_path?: string}
+     */
+    private function trashViaPrivilegedMove(string $absPath): array
+    {
+        $abs = str_replace('\\', '/', $absPath);
+        $trashRoot = dirname(base_path()).'/data/.panelze-ai-trash';
+        if (! is_dir(dirname($trashRoot))) {
+            $trashRoot = '/var/tmp/panelze-ai-trash';
+        }
+        $stamp = now()->format('YmdHis');
+        $destDir = $trashRoot.'/'.$stamp;
+        $dest = $destDir.'/'.basename($abs);
+        $meta = $destDir.'/meta.json';
+
+        $metaJson = json_encode([
+            'original_path' => $abs,
+            'deleted_at' => now()->toIso8601String(),
+            'trash_path' => $dest,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $script = 'mkdir -p '.escapeshellarg($destDir)
+            .' && mv -f '.escapeshellarg($abs).' '.escapeshellarg($dest)
+            .' && cat > '.escapeshellarg($meta)." <<'PZMETA'\n".$metaJson."\nPZMETA\n"
+            .' && echo TRASH_OK';
+
+        $proc = $this->makeCommandProcess($script, null, [
+            'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            'TERM' => 'dumb',
+        ], true);
+        if ($proc === null) {
+            return ['ok' => false, 'message' => 'Yetkili çalıştırıcı yok.'];
+        }
+        $proc->setTimeout(120);
+        try {
+            $proc->mustRun();
+            if (! str_contains($proc->getOutput(), 'TRASH_OK')) {
+                return ['ok' => false, 'message' => 'Çöpe taşıma doğrulanamadı.'];
+            }
+
+            return ['ok' => true, 'trash_path' => $dest];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => 'Çöpe taşıma başarısız: '.$this->exceptionMessage($e)];
+        }
     }
 
     private function formatBytes(int $bytes): string
@@ -551,7 +818,7 @@ class PanelZekaActionExecutor
         }
 
         $ability = match ($type) {
-            'file_write' => 'files:write',
+            'file_write', 'safe_delete_file' => 'files:write',
             'read_file', 'list_largest_files' => 'files:read',
             'create_domain' => 'domains:write',
             'create_database' => 'databases:write',
