@@ -178,7 +178,12 @@ export default function AiAdvisorPage() {
   const [input, setInput] = useState('')
   /** Gönderildi, API yanıtı beklenirken gösterilen kullanıcı mesajı (WhatsApp tarzı anında temiz input). */
   const [pendingUserText, setPendingUserText] = useState<string | null>(null)
-  const [actionOutputPreview, setActionOutputPreview] = useState<string | null>(null)
+  /** Onaylanan işlemlerin çıktısı — sohbet akışında görünür kartlar */
+  const [actionResultCards, setActionResultCards] = useState<
+    Array<{ key: string; ok: boolean; title: string; message: string; output: string; at: number }>
+  >([])
+  const [executeActionsMPendingHint, setExecuteActionsMPendingHint] = useState(false)
+  const actionResultsRef = useRef<HTMLDivElement>(null)
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [contextMode, setContextMode] = useState<'server' | 'site' | 'file'>('server')
   const [filePath, setFilePath] = useState('')
@@ -326,7 +331,7 @@ export default function AiAdvisorPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messagesQ.data?.messages, pendingUserText, chatM.isPending, tab])
+  }, [messagesQ.data?.messages, pendingUserText, chatM.isPending, actionResultCards, executeActionsMPendingHint, tab])
 
   const applyFixM = useMutation({
     mutationFn: async (fix: FixAction) =>
@@ -342,42 +347,87 @@ export default function AiAdvisorPage() {
     },
   })
 
+  type ActionExecResult = {
+    ok?: boolean
+    message?: string
+    type?: string
+    id?: string
+    title?: string
+    data?: { output?: string; files?: unknown[]; path?: string }
+  }
+
+  const publishActionResults = (results: ActionExecResult[]) => {
+    const now = Date.now()
+    const cards = results.map((r, i) => {
+      const outputRaw =
+        typeof r.data?.output === 'string' && r.data.output.trim()
+          ? r.data.output.trim()
+          : Array.isArray(r.data?.files) && r.data.files.length > 0
+            ? JSON.stringify(r.data.files, null, 2)
+            : ''
+      return {
+        key: `${now}-${r.id ?? i}`,
+        ok: r.ok === true,
+        title: r.title || r.type || t('ai.action_output'),
+        message: r.message || (r.ok ? t('ai.actions_applied') : t('ai.actions_partial')),
+        output: outputRaw.slice(0, 12000),
+        at: now,
+      }
+    })
+    setActionResultCards((prev) => [...prev, ...cards].slice(-20))
+    requestAnimationFrame(() => {
+      actionResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }
+
   const executeActionsM = useMutation({
     mutationFn: async (actions: PanelAction[]) => {
+      setExecuteActionsMPendingHint(true)
       try {
-        const { data } = await api.post('/ai-assistant/execute-actions', {
-          actions: actions.map((a, i) => ({
-            id: a.id ?? `action-${i}`,
-            type: a.type,
-            title: a.title,
-            params: a.params,
-          })),
-        })
-        return data as {
-          message?: string
-          results?: Array<{ ok?: boolean; message?: string; type?: string; data?: { output?: string } }>
+        const { data } = await api.post(
+          '/ai-assistant/execute-actions',
+          {
+            actions: actions.map((a, i) => ({
+              id: a.id ?? `action-${i}`,
+              type: a.type,
+              title: a.title,
+              params: a.params,
+            })),
+          },
+          { timeout: 120_000 },
+        )
+        return {
+          ...(data as { message?: string; results?: ActionExecResult[] }),
+          _titles: Object.fromEntries(actions.map((a, i) => [a.id ?? `action-${i}`, a.title ?? a.type])),
         }
       } catch (err: unknown) {
         const ax = err as {
           response?: {
             status?: number
-            data?: {
-              message?: string
-              results?: Array<{ ok?: boolean; message?: string; type?: string; data?: { output?: string } }>
-            }
+            data?: { message?: string; results?: ActionExecResult[] }
           }
         }
         // 422 = kısmi başarı: sonuçları yine göster
         if (ax.response?.status === 422 && ax.response.data?.results) {
-          return ax.response.data
+          return {
+            ...ax.response.data,
+            _titles: Object.fromEntries(actions.map((a, i) => [a.id ?? `action-${i}`, a.title ?? a.type])),
+          }
         }
         throw err
+      } finally {
+        setExecuteActionsMPendingHint(false)
       }
     },
     onSuccess: (data) => {
-      const results = data.results ?? []
+      const results = (data.results ?? []).map((r) => ({
+        ...r,
+        title: r.title || (r.id ? data._titles?.[r.id] : undefined) || r.type,
+      }))
       const failed = results.filter((r) => !r.ok)
       const okCount = results.length - failed.length
+      publishActionResults(results)
       if (failed.length === 0) {
         toast.success(data.message ?? t('ai.actions_applied'))
       } else {
@@ -390,17 +440,11 @@ export default function AiAdvisorPage() {
           { duration: 8000 },
         )
       }
-      // Komut çıktısını sohbet alanına sistem notu olarak basmak için state
-      const outputs = results
-        .filter((r) => r.data?.output)
-        .map((r) => `【${r.ok ? 'OK' : 'HATA'}】 ${r.message ?? r.type ?? ''}\n${r.data?.output ?? ''}`)
-      if (outputs.length > 0) {
-        setActionOutputPreview(outputs.join('\n\n---\n\n').slice(0, 12000))
-      }
       if (sessionId) qc.invalidateQueries({ queryKey: ['ai-assistant-messages', sessionId] })
       qc.invalidateQueries({ queryKey: ['domains'] })
     },
     onError: (err: unknown) => {
+      setExecuteActionsMPendingHint(false)
       const ax = err as { response?: { data?: { message?: string } } }
       toast.error(ax.response?.data?.message ?? String(err))
     },
@@ -495,6 +539,7 @@ export default function AiAdvisorPage() {
                 onClick={() => {
                   setSessionId(null)
                   setPendingUserText(null)
+                  setActionResultCards([])
                   setInput('')
                   qc.removeQueries({ queryKey: ['ai-assistant-messages'] })
                 }}
@@ -723,8 +768,12 @@ export default function AiAdvisorPage() {
                                   }
                                 }}
                               >
-                                <Wrench className="h-3.5 w-3.5" />
-                                {t('ai.apply_action')}
+                                {executeActionsM.isPending || applyFixM.isPending ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Wrench className="h-3.5 w-3.5" />
+                                )}
+                                {executeActionsM.isPending ? t('ai.applying_action') : t('ai.apply_action')}
                               </button>
                             </div>
                           )})}
@@ -734,6 +783,61 @@ export default function AiAdvisorPage() {
                   </div>
                 )
               })}
+              {(executeActionsM.isPending || executeActionsMPendingHint) && (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                  {t('ai.applying_action_wait')}
+                </div>
+              )}
+              {actionResultCards.length > 0 && (
+                <div ref={actionResultsRef} className="space-y-3">
+                  {actionResultCards.map((card) => (
+                    <div
+                      key={card.key}
+                      className={clsx(
+                        'rounded-2xl border px-4 py-3 shadow-sm',
+                        card.ok
+                          ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
+                          : 'border-red-300 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30',
+                      )}
+                    >
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            {t('ai.action_output')}
+                          </p>
+                          <p
+                            className={clsx(
+                              'text-sm font-semibold',
+                              card.ok ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-800 dark:text-red-200',
+                            )}
+                          >
+                            {card.ok ? '✓ ' : '✕ '}
+                            {card.title}
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{card.message}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="text-[11px] text-gray-500 hover:underline"
+                          onClick={() =>
+                            setActionResultCards((prev) => prev.filter((c) => c.key !== card.key))
+                          }
+                        >
+                          {t('common.close')}
+                        </button>
+                      </div>
+                      {card.output ? (
+                        <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-white/90 p-3 font-mono text-[11px] leading-relaxed text-gray-900 dark:bg-gray-950/70 dark:text-gray-100">
+                          {card.output}
+                        </pre>
+                      ) : (
+                        <p className="mt-2 text-xs text-gray-500">{t('ai.action_no_output')}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               {chatM.isPending && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -742,26 +846,6 @@ export default function AiAdvisorPage() {
               )}
               <div ref={chatEndRef} />
             </div>
-
-            {actionOutputPreview && (
-              <div className="border-t border-emerald-200 bg-emerald-50/80 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                    {t('ai.action_output')}
-                  </p>
-                  <button
-                    type="button"
-                    className="text-[11px] text-gray-500 hover:underline"
-                    onClick={() => setActionOutputPreview(null)}
-                  >
-                    {t('common.close')}
-                  </button>
-                </div>
-                <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-white/80 p-2 font-mono text-[11px] text-gray-800 dark:bg-gray-950/60 dark:text-gray-200">
-                  {actionOutputPreview}
-                </pre>
-              </div>
-            )}
 
             <div className="border-t border-gray-200 p-3 dark:border-gray-700">
               <form
