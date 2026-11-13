@@ -345,6 +345,8 @@
     "file_delete_title": "Güvenli sil: {{name}}",
     "file_category_other": "Diğer",
     "file_summary_unknown": "Dosya türü belirlenemedi.",
+    "file_scan_inside": "İçindeki büyük dosyaları tara",
+    "file_scan_inside_title": "Tara: {{name}}",
     "pricing_note": "Fiyatlar USD / 1M token (sağlayıcı liste fiyatı, yaklaşık; fatura sağlayıcıya aittir).",
     "price_selected": "Seçili model: giriş ${{input}} / çıkış ${{output}} (1M token)",
     "price_input": "Giriş (1M)",

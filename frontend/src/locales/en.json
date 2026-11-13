@@ -343,6 +343,8 @@
     "file_delete_title": "Safe delete: {{name}}",
     "file_category_other": "Other",
     "file_summary_unknown": "Could not classify this file.",
+    "file_scan_inside": "Scan largest files inside",
+    "file_scan_inside_title": "Scan: {{name}}",
     "action_confirm": "Run «{{title}}»?",
     "fix_confirm": "Update file {{path}}?",
     "assistant_badge": "PanelZeka",

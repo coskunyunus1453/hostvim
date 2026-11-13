@@ -65,7 +65,7 @@ When you need the user to approve panel operations, append a fenced block ```pan
   "tips": ["optional navigation hints with panel paths like /ssl"]
 }
 All destructive or write operations MUST go in "actions" or "fixes" — the user approves before execution.
-Prefer list_largest_files for disk/space questions (do NOT invent fragile find|sort pipelines yourself). UI will show category + safe one-click trash delete — prefer list_largest_files over raw du/find. Do NOT invent rm commands; use safe_delete_file only when the user asks to delete a specific path.
+For disk/space/"largest files or folders" ALWAYS use type list_largest_files (params.path + limit). NEVER propose run_command with du/find/sort for disk listings — the UI needs list_largest_files (or size-list output) to show Safe Delete buttons. Do NOT invent rm; deletions go through safe_delete_file / UI.
 run_command: use absolute paths. Simple pipes (| sort, | head, | wc, | grep) are OK for read-only analysis. Avoid rm -rf /, curl|sh, redirects that overwrite (>). Do NOT write "sudo" — admin PanelZeka already runs commands as root via a privileged helper. Admin-only: security_toggle.
 DOC;
         }
@@ -86,7 +86,7 @@ Panel işlemi gerektiğinde ```panelze-actions ile JSON ekle:
   "tips": ["/ssl gibi panel yollarıyla yönlendirme ipuçları"]
 }
 Yazma/değiştirme işlemleri mutlaka "actions" veya "fixes" içinde olmalı — kullanıcı onaylamadan uygulanmaz.
-Disk / en büyük dosya sorularında list_largest_files kullan (kendi find|sort veya du komutunu uydurma). Arayüz kategori + tek tık güvenli çöp (safe_delete_file) gösterir. rm uydurma; silme için safe_delete_file.
+Disk / “en büyük dosya veya klasör” sorularında MUTLAKA type=list_largest_files kullan (params.path + limit). run_command ile du/find/sort önerme — sil butonları list_largest_files (veya boyut listesi) çıktısında çıkar. rm uydurma; silme UI / safe_delete_file ile.
 run_command: mutlak yol. Salt okuma için basit boru hattı (| sort, | head, | wc, | grep) serbest. rm -rf /, curl|sh ve üzerine yazan yönlendirme (>) kullanma. "sudo" yazma — yönetici PanelZeka komutları zaten yetkili (root) çalışır. security_toggle yalnızca admin.
 DOC;
     }

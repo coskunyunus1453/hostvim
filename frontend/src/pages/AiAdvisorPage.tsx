@@ -404,9 +404,14 @@ export default function AiAdvisorPage() {
     const cards = results
       .filter((r) => r.type !== 'safe_delete_file')
       .map((r, i) => {
-        const files = Array.isArray(r.data?.files)
+        let files = Array.isArray(r.data?.files)
           ? (r.data!.files as LargeFileRow[]).filter((f) => typeof f?.path === 'string')
           : undefined
+        // Backend henüz files vermediyse du/find ham çıktısını istemci tarafında kartlara çevir
+        if ((!files || files.length === 0) && typeof r.data?.output === 'string') {
+          const parsed = parseSizeListingClient(r.data.output)
+          if (parsed.length >= 2) files = parsed
+        }
         const hasFileUi = Boolean(files && files.length > 0)
         const outputRaw =
           !hasFileUi && typeof r.data?.output === 'string' && r.data.output.trim()
@@ -928,6 +933,16 @@ export default function AiAdvisorPage() {
                           deletingPath={deletingPath}
                           canDelete={canExecuteActionType('safe_delete_file', abilities)}
                           onDelete={(f) => safeDeleteLargeFile(f, card.key)}
+                          onScanInside={(dirPath) => {
+                            executeActionsM.mutate([
+                              {
+                                id: `scan-${Date.now()}`,
+                                type: 'list_largest_files',
+                                title: t('ai.file_scan_inside_title', { name: dirPath.split('/').pop() }),
+                                params: { path: dirPath, limit: 20 },
+                              },
+                            ])
+                          }}
                         />
                       ) : card.output ? (
                         <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-white/90 p-3 font-mono text-[11px] leading-relaxed text-gray-900 dark:bg-gray-950/70 dark:text-gray-100">
@@ -1264,6 +1279,88 @@ export default function AiAdvisorPage() {
   )
 }
 
+/** du -sh / find boyut listesi (istemci yedek parse) */
+function parseSizeListingClient(output: string): LargeFileRow[] {
+  const rows: LargeFileRow[] = []
+  for (const raw of output.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line) continue
+    let m = line.match(/^([0-9]+(?:\.[0-9]+)?)([KMGTPE])i?B?\s+(\/.+)$/i)
+    let sizeHuman = ''
+    let path = ''
+    let bytes = 0
+    if (m) {
+      sizeHuman = `${m[1]}${m[2].toUpperCase()}`
+      path = m[3].replace(/\/$/, '')
+      const n = parseFloat(m[1])
+      const mul: Record<string, number> = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4, P: 1024 ** 5 }
+      bytes = Math.round(n * (mul[m[2].toUpperCase()] ?? 1))
+    } else {
+      m = line.match(/^([0-9]+)\t(\/.+)$/)
+      if (!m) continue
+      bytes = Number(m[1])
+      path = m[2].replace(/\/$/, '')
+      sizeHuman = bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)}G` : `${Math.round(bytes / 1024 ** 2)}M`
+    }
+    if (!path.startsWith('/')) continue
+    const name = path.split('/').pop() || path
+    const lower = path.toLowerCase()
+    const isSiteRoot = /\/(?:data\/)?www\/[^/]+$/.test(path)
+    const isSystem =
+      /(^|\/)swap(file)?[0-9]*$/.test(lower) ||
+      lower.includes('/var/lib/mysql/') ||
+      lower.includes('/var/lib/containerd/') ||
+      lower.includes('/var/lib/docker/') ||
+      lower.endsWith('.ibd')
+    let assessment: FileAssessment
+    if (isSystem) {
+      assessment = {
+        category: 'system',
+        category_label: 'Sistem / kritik',
+        summary: 'Swap, MySQL veya konteyner alanı — silinmez.',
+        risk: 'blocked',
+        deletable: false,
+        reason: 'Sistem yolu — PanelZeka silmez.',
+        tip: 'Yalnızca bilinçli sistem bakımında yönetin.',
+      }
+    } else if (isSiteRoot) {
+      assessment = {
+        category: 'site_root',
+        category_label: 'Web sitesi kökü',
+        summary: 'Tüm site dizini. Silmek domain’i yok eder.',
+        risk: 'blocked',
+        deletable: false,
+        reason: 'Site kökü silinemez.',
+        tip: 'Site içindeki büyük dosyaları ayrıca listeleyin.',
+      }
+    } else if (/\.(db|sqlite|pt|pth|pack)$/i.test(name) || /nc_app|knowledge|ollama/i.test(path)) {
+      assessment = {
+        category: 'large_data',
+        category_label: 'Büyük veri / model',
+        summary: 'Uygulama verisi veya model dosyası.',
+        risk: 'caution',
+        deletable: true,
+        requires_confirm: true,
+        reason: 'Dikkat — onay ile güvenli çöpe alınabilir.',
+        tip: 'Yedek yoksa silmeyin.',
+      }
+    } else {
+      assessment = {
+        category: 'hosting_file',
+        category_label: 'Hosting dosyası',
+        summary: 'Site dizinindeki büyük öğe.',
+        risk: 'caution',
+        deletable: true,
+        requires_confirm: true,
+        reason: 'Onay ile trash’e alınabilir.',
+        tip: 'Ne işe yaradığını doğrulayın.',
+      }
+    }
+    rows.push({ path, name, bytes, size_human: sizeHuman, assessment })
+  }
+  return rows.length >= 2 ? rows : []
+}
+
 function riskTone(risk?: string): { chip: string; Icon: typeof ShieldCheck } {
   if (risk === 'safe') {
     return {
@@ -1288,11 +1385,13 @@ function LargeFilesPanel({
   deletingPath,
   canDelete,
   onDelete,
+  onScanInside,
 }: {
   files: LargeFileRow[]
   deletingPath: string | null
   canDelete: boolean
   onDelete: (f: LargeFileRow) => void
+  onScanInside?: (dirPath: string) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -1348,7 +1447,7 @@ function LargeFilesPanel({
                     {a?.tip ? ` · ${a.tip}` : ''}
                   </p>
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 flex-col items-end gap-1">
                   {f.deleted ? (
                     <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1374,6 +1473,16 @@ function LargeFilesPanel({
                       <ShieldAlert className="h-3.5 w-3.5" />
                       {t('ai.file_not_deletable')}
                     </span>
+                  )}
+                  {a?.category === 'site_root' && onScanInside && (
+                    <button
+                      type="button"
+                      className="text-[11px] font-medium text-emerald-700 underline dark:text-emerald-300"
+                      disabled={Boolean(deletingPath)}
+                      onClick={() => onScanInside(f.path)}
+                    >
+                      {t('ai.file_scan_inside')}
+                    </button>
                   )}
                 </div>
               </div>

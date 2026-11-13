@@ -344,6 +344,8 @@
     "file_delete_title": "Safe delete: {{name}}",
     "file_category_other": "Other",
     "file_summary_unknown": "Could not classify this file.",
+    "file_scan_inside": "Scan largest files inside",
+    "file_scan_inside_title": "Scan: {{name}}",
     "pricing_note": "Prices are USD per 1M tokens (list rates, approximate; billing is from the provider).",
     "price_selected": "Selected model: input ${{input}} / output ${{output}} (per 1M tokens)",
     "price_input": "Input (1M)",

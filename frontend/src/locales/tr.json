@@ -344,6 +344,8 @@
     "file_delete_title": "Güvenli sil: {{name}}",
     "file_category_other": "Diğer",
     "file_summary_unknown": "Dosya türü belirlenemedi.",
+    "file_scan_inside": "İçindeki büyük dosyaları tara",
+    "file_scan_inside_title": "Tara: {{name}}",
     "action_confirm": "«{{title}}» işlemi uygulansın mı?",
     "fix_confirm": "{{path}} dosyası güncellensin mi?",
     "assistant_badge": "PanelZeka",

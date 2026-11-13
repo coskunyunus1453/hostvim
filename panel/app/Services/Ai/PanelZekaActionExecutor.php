@@ -292,12 +292,12 @@ class PanelZekaActionExecutor
             return [
                 'ok' => true,
                 'message' => $asAdmin ? 'Komut tamamlandı (yetkili).' : 'Komut tamamlandı.',
-                'data' => [
+                'data' => $this->attachLargeFilesUiIfPresent([
                     'exit_code' => $process->getExitCode(),
                     'command' => $shellCommand,
                     'privileged' => $asAdmin,
                     'output' => mb_substr($output, 0, 32_000),
-                ],
+                ], $output),
             ];
         } catch (\Throwable $e) {
             $output = trim(($process->getOutput() ?? '')."\n".($process->getErrorOutput() ?? '')."\n".$e->getMessage());
@@ -305,13 +305,33 @@ class PanelZekaActionExecutor
             return [
                 'ok' => false,
                 'message' => 'Komut başarısız: '.Str::limit($this->exceptionMessage($e), 240),
-                'data' => [
+                'data' => $this->attachLargeFilesUiIfPresent([
                     'command' => $shellCommand,
                     'privileged' => $asAdmin,
                     'output' => mb_substr($output, 0, 32_000),
-                ],
+                ], $output),
             ];
         }
+    }
+
+    /**
+     * du/find boyut listesi çıktısını kart UI + güvenli silme için zenginleştir.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function attachLargeFilesUiIfPresent(array $data, string $output): array
+    {
+        $built = app(PanelZekaLargeFileAdvisor::class)->tryBuildLargeFilesFromOutput($output);
+        if ($built === null) {
+            return $data;
+        }
+        $data['files'] = $built['files'];
+        $data['ui'] = 'large_files';
+        // Ham du çıktısı yerine özet; kartlar asıl UI
+        $data['output'] = $built['output'];
+
+        return $data;
     }
 
     /**
@@ -493,8 +513,9 @@ class PanelZekaActionExecutor
         }
 
         $advisor = app(PanelZekaLargeFileAdvisor::class);
+        $isDir = is_dir($path) && ! is_link($path);
         $bytes = is_file($path) ? (int) (@filesize($path) ?: 0) : null;
-        $assessment = $advisor->assess($path, $bytes);
+        $assessment = $advisor->assess($path, $bytes, $isDir);
 
         if (! ($assessment['deletable'] ?? false) || ($assessment['risk'] ?? '') === PanelZekaLargeFileAdvisor::RISK_BLOCKED) {
             return [
