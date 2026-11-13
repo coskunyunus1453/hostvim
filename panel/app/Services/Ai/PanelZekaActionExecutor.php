@@ -698,10 +698,15 @@ class PanelZekaActionExecutor
             'deleted_at' => now()->toIso8601String(),
             'trash_path' => $dest,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        $script = 'mkdir -p '.escapeshellarg($destDir)
-            .' && mv -f '.escapeshellarg($abs).' '.escapeshellarg($dest)
-            .' && cat > '.escapeshellarg($meta)." <<'PZMETA'\n".$metaJson."\nPZMETA\n"
-            .' && echo TRASH_OK';
+        // Tek satır: heredoc panelze-ai-exec -c içinde kırılıyor
+        $script = sprintf(
+            'mkdir -p %s && mv -f %s %s && echo %s | base64 -d > %s && echo TRASH_OK',
+            escapeshellarg($destDir),
+            escapeshellarg($abs),
+            escapeshellarg($dest),
+            escapeshellarg(base64_encode($metaJson)),
+            escapeshellarg($meta)
+        );
 
         $proc = $this->makeCommandProcess($script, null, [
             'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
