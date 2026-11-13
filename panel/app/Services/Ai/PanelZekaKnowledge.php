@@ -65,7 +65,7 @@ When you need the user to approve panel operations, append a fenced block ```pan
 }
 All destructive or write operations MUST go in "actions" or "fixes" — the user approves before execution.
 Prefer list_largest_files for disk/space questions (do NOT invent fragile find|sort pipelines yourself).
-run_command: use absolute paths. Simple pipes (| sort, | head, | wc, | grep) are OK for read-only analysis. Avoid rm -rf, sudo, curl|sh, redirects that overwrite (>). Admin-only: security_toggle.
+run_command: use absolute paths. Simple pipes (| sort, | head, | wc, | grep) are OK for read-only analysis. Avoid rm -rf /, curl|sh, redirects that overwrite (>). Do NOT write "sudo" — admin PanelZeka already runs commands as root via a privileged helper. Admin-only: security_toggle.
 DOC;
         }
 
@@ -85,7 +85,7 @@ Panel işlemi gerektiğinde ```panelze-actions ile JSON ekle:
 }
 Yazma/değiştirme işlemleri mutlaka "actions" veya "fixes" içinde olmalı — kullanıcı onaylamadan uygulanmaz.
 Disk / en büyük dosya sorularında list_largest_files kullan (kendi find|sort komutunu uydurma).
-run_command: mutlak yol. Salt okuma için basit boru hattı (| sort, | head, | wc, | grep) serbest. rm -rf, sudo, curl|sh ve üzerine yazan yönlendirme (>) kullanma. security_toggle yalnızca admin.
+run_command: mutlak yol. Salt okuma için basit boru hattı (| sort, | head, | wc, | grep) serbest. rm -rf /, curl|sh ve üzerine yazan yönlendirme (>) kullanma. "sudo" yazma — yönetici PanelZeka komutları zaten yetkili (root) çalışır. security_toggle yalnızca admin.
 DOC;
     }
 }

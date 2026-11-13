@@ -230,16 +230,30 @@ class PanelZekaActionExecutor
             return ['ok' => false, 'message' => 'Komut boş.'];
         }
 
+        // Admin: sudo önekini temizle — yetki panelze-ai-exec ile verilir.
+        $asAdmin = $user->isAdmin();
+        if ($asAdmin) {
+            $command = $this->stripSudoPrefix($command);
+        } elseif (preg_match('/(?:^|[\s;&|(\/])sudo(?:\s|$)/i', $command) === 1) {
+            return [
+                'ok' => false,
+                'message' => 'sudo yalnızca yönetici PanelZeka oturumunda (şifresiz yetkili çalıştırıcı ile) kullanılabilir.',
+            ];
+        }
+
         try {
             $parsed = $this->cronParser->parse($command, $user);
         } catch (\Throwable $e) {
             return ['ok' => false, 'message' => $this->exceptionMessage($e)];
         }
 
-        // CronCommandParser argv boş döner; komut satırını shell ile çalıştır (cron executor ile aynı).
+        // CronCommandParser argv boş döner; komut satırını shell ile çalıştır.
         $shellCommand = trim((string) ($parsed['command'] ?? ''));
         if ($shellCommand === '') {
             return ['ok' => false, 'message' => 'Komut ayrıştırılamadı.'];
+        }
+        if ($asAdmin) {
+            $shellCommand = $this->stripSudoPrefix($shellCommand);
         }
 
         $cwd = $parsed['working_directory'] ?? null;
@@ -251,8 +265,21 @@ class PanelZekaActionExecutor
             }
         }
 
-        $env = ['PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'];
-        $process = Process::fromShellCommandline($shellCommand, $cwd, $env);
+        $env = [
+            'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            'DEBIAN_FRONTEND' => 'noninteractive',
+            'TERM' => 'dumb',
+        ];
+
+        $process = $this->makeCommandProcess($shellCommand, $cwd, $env, $asAdmin);
+        if ($process === null) {
+            return [
+                'ok' => false,
+                'message' => 'Yetkili çalıştırıcı yok. Sunucuda panelze-ai-exec + sudoers kurulu olmalı.',
+                'data' => ['command' => $shellCommand],
+            ];
+        }
+
         $process->setTimeout((int) config('panelze.cron.timeout', 180));
         $process->setIdleTimeout((int) config('panelze.cron.idle_timeout', 120));
 
@@ -262,10 +289,11 @@ class PanelZekaActionExecutor
 
             return [
                 'ok' => true,
-                'message' => 'Komut tamamlandı.',
+                'message' => $asAdmin ? 'Komut tamamlandı (yetkili).' : 'Komut tamamlandı.',
                 'data' => [
                     'exit_code' => $process->getExitCode(),
                     'command' => $shellCommand,
+                    'privileged' => $asAdmin,
                     'output' => mb_substr($output, 0, 32_000),
                 ],
             ];
@@ -277,10 +305,54 @@ class PanelZekaActionExecutor
                 'message' => 'Komut başarısız: '.Str::limit($this->exceptionMessage($e), 240),
                 'data' => [
                     'command' => $shellCommand,
+                    'privileged' => $asAdmin,
                     'output' => mb_substr($output, 0, 32_000),
                 ],
             ];
         }
+    }
+
+    /**
+     * @param  array<string, string>  $env
+     */
+    private function makeCommandProcess(string $shellCommand, ?string $cwd, array $env, bool $asAdmin): ?Process
+    {
+        if ($asAdmin) {
+            $helper = '/usr/local/sbin/panelze-ai-exec';
+            if (! is_executable($helper)) {
+                $repo = dirname(base_path()).'/deploy/host/panelze-ai-exec';
+                if (is_file($repo)) {
+                    $helper = $repo;
+                } else {
+                    return null;
+                }
+            }
+
+            // cwd varsa komutu cd && ile sar (ai-exec kendi cwd kullanmaz)
+            $wrapped = $shellCommand;
+            if ($cwd !== null && $cwd !== '') {
+                $wrapped = 'cd '.escapeshellarg($cwd).' && '.$shellCommand;
+            }
+
+            return new Process(
+                ['sudo', '-n', $helper, '-c', $wrapped],
+                null,
+                $env,
+            );
+        }
+
+        return Process::fromShellCommandline($shellCommand, $cwd, $env);
+    }
+
+    private function stripSudoPrefix(string $command): string
+    {
+        $cmd = trim($command);
+        // "sudo -n -E cmd" / "sudo cmd"
+        while (preg_match('/^sudo\s+(?:(?:-[nEHu]\s+)|(?:-u\s+\S+\s+))*/i', $cmd) === 1) {
+            $cmd = trim((string) preg_replace('/^sudo\s+(?:(?:-[nEHu]\s+)|(?:-u\s+\S+\s+))*/i', '', $cmd, 1));
+        }
+
+        return $cmd;
     }
 
     /**
@@ -329,9 +401,13 @@ class PanelZekaActionExecutor
             $limit
         );
 
-        $process = Process::fromShellCommandline($shell, null, [
+        $env = [
             'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-        ]);
+            'DEBIAN_FRONTEND' => 'noninteractive',
+            'TERM' => 'dumb',
+        ];
+        $process = $this->makeCommandProcess($shell, null, $env, $user->isAdmin())
+            ?? Process::fromShellCommandline($shell, null, $env);
         $process->setTimeout(120);
 
         try {

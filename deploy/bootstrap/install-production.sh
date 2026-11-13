@@ -557,6 +557,7 @@ install_host_tool ols-vhost
 install_host_tool stack-install
 install_host_tool site-cage
 install_host_tool site-exec
+install_host_tool ai-exec
 install_host_tool mail-stack-setup.sh
 install_host_tool mail-provision
 install_host_tool ftp-provision
@@ -627,6 +628,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelsar-node-pm2
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-bind-sync
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-fix-admin-spa
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-configure-roundcube-ssl
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/panelze-ai-exec
 SUDOERS
 chmod 440 /etc/sudoers.d/panelze-engine
 visudo -cf /etc/sudoers.d/panelze-engine

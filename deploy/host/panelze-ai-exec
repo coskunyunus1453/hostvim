@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#
+# PanelZeka — yönetici komut çalıştırıcı (root, şifresiz).
+# Yalnızca: sudo -n /usr/local/sbin/panelze-ai-exec  (www-data → NOPASSWD)
+#
+# Kullanım:
+#   panelze-ai-exec -c 'find /var/www -type f ...'
+#   panelze-ai-exec -- /usr/bin/du -sh /var/www
+#
+set -euo pipefail
+
+TIMEOUT="${PANELZE_AI_EXEC_TIMEOUT:-180}"
+
+usage() {
+  echo "usage: panelze-ai-exec -c '<shell command>'" >&2
+  echo "       panelze-ai-exec -- <argv...>" >&2
+  exit 2
+}
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "panelze-ai-exec: root gerekli (sudo -n ile çağırın)" >&2
+  exit 1
+fi
+
+MODE=""
+CMD=""
+ARGS=()
+
+case "${1:-}" in
+  -c)
+    MODE=shell
+    shift
+    CMD="${1:-}"
+    ;;
+  --)
+    MODE=argv
+    shift
+    ARGS=("$@")
+    ;;
+  -h|--help|"")
+    usage
+    ;;
+  *)
+    # Geriye dönük: tüm argümanlar shell komutu gibi
+    MODE=shell
+    CMD="$*"
+    ;;
+esac
+
+strip_sudo_prefix() {
+  local s="$1"
+  # Tekrarlı "sudo -n/-E" öneklerini temizle
+  while [[ "$s" =~ ^[[:space:]]*sudo[[:space:]]+ ]]; do
+    s="$(sed -E 's/^[[:space:]]*sudo[[:space:]]+((-n|-E|-H|-u[[:space:]]+[^[:space:]]+)[[:space:]]+)*//' <<<"$s")"
+  done
+  # bash -lc 'sudo ...' içindeki önek için de basit temizlik
+  s="$(sed -E "s/(^|[[:space:]])sudo[[:space:]]+((-n|-E|-H)[[:space:]]+)*/\1/g" <<<"$s")"
+  printf '%s' "$s"
+}
+
+assert_safe() {
+  local s="$1"
+  if [[ -z "${s// }" ]]; then
+    echo "panelze-ai-exec: boş komut" >&2
+    exit 2
+  fi
+  if ((${#s} > 8000)); then
+    echo "panelze-ai-exec: komut çok uzun" >&2
+    exit 2
+  fi
+  # İnteraktif / yıkıcı kalıplar
+  if grep -Eiq '(^|[[:space:];|&])(passwd|vipw|visudo|shutdown|reboot|halt|poweroff)([[:space:];|&]|$)' <<<"$s"; then
+    echo "panelze-ai-exec: bu komut engellendi (interaktif/yıkıcı)" >&2
+    exit 3
+  fi
+  if grep -Eiq 'rm[[:space:]]+-rf[[:space:]]+/($|[[:space:]])' <<<"$s"; then
+    echo "panelze-ai-exec: rm -rf / engellendi" >&2
+    exit 3
+  fi
+  if grep -Eiq 'curl.+\|[[:space:]]*(ba)?sh|wget.+\|[[:space:]]*(ba)?sh' <<<"$s"; then
+    echo "panelze-ai-exec: curl|sh / wget|sh engellendi" >&2
+    exit 3
+  fi
+  if grep -Eiq 'mkfs\.|dd[[:space:]]+if=.*of=/dev/' <<<"$s"; then
+    echo "panelze-ai-exec: disk yazma kalıbı engellendi" >&2
+    exit 3
+  fi
+}
+
+export DEBIAN_FRONTEND=noninteractive
+export TERM="${TERM:-dumb}"
+unset SUDO_ASKPASS SSH_ASKPASS
+# Nested sudo şifre sormasın diye PATH'te wrapper yok; AI komutundaki sudo önekini sileriz.
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [[ "$MODE" == "argv" ]]; then
+  if [[ ${#ARGS[@]} -eq 0 ]]; then
+    usage
+  fi
+  # argv modunda ilk eleman sudo ise at
+  if [[ "${ARGS[0]}" == "sudo" ]]; then
+    ARGS=("${ARGS[@]:1}")
+    while [[ ${#ARGS[@]} -gt 0 && "${ARGS[0]}" =~ ^- ]]; do
+      ARGS=("${ARGS[@]:1}")
+    done
+  fi
+  assert_safe "${ARGS[*]}"
+  exec /usr/bin/timeout --signal=TERM "$TIMEOUT" "${ARGS[@]}"
+fi
+
+CMD="$(strip_sudo_prefix "$CMD")"
+assert_safe "$CMD"
+
+# Shell komutu — noninteractive
+exec /usr/bin/timeout --signal=TERM "$TIMEOUT" /bin/bash -c "$CMD"
