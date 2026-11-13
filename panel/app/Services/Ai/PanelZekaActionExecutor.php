@@ -45,6 +45,7 @@ class PanelZekaActionExecutor
             'create_database' => $this->createDatabase($user, $params),
             'security_toggle' => $this->securityToggle($user, $params),
             'run_command' => $this->runCommand($user, $params),
+            'list_largest_files' => $this->listLargestFiles($user, $params),
             'run_cron_now' => $this->runCronNow($user, $params),
             default => ['ok' => false, 'message' => 'Bilinmeyen aksiyon türü: '.$type],
         };
@@ -70,7 +71,7 @@ class PanelZekaActionExecutor
                     'id' => $id,
                     'type' => $action['type'] ?? '',
                     'ok' => false,
-                    'message' => $e->getMessage(),
+                    'message' => $this->exceptionMessage($e),
                 ];
             }
         }
@@ -229,10 +230,19 @@ class PanelZekaActionExecutor
             return ['ok' => false, 'message' => 'Komut boş.'];
         }
 
-        $parsed = $this->cronParser->parse($command, $user);
-        $argv = $parsed['argv'];
-        $cwd = $parsed['working_directory'];
+        try {
+            $parsed = $this->cronParser->parse($command, $user);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => $this->exceptionMessage($e)];
+        }
 
+        // CronCommandParser argv boş döner; komut satırını shell ile çalıştır (cron executor ile aynı).
+        $shellCommand = trim((string) ($parsed['command'] ?? ''));
+        if ($shellCommand === '') {
+            return ['ok' => false, 'message' => 'Komut ayrıştırılamadı.'];
+        }
+
+        $cwd = $parsed['working_directory'] ?? null;
         if ($cwd === null && ! empty($params['domain_id'])) {
             try {
                 $domain = $this->resolveDomain($user, (int) $params['domain_id']);
@@ -241,7 +251,8 @@ class PanelZekaActionExecutor
             }
         }
 
-        $process = new Process($argv, $cwd, ['PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin']);
+        $env = ['PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'];
+        $process = Process::fromShellCommandline($shellCommand, $cwd, $env);
         $process->setTimeout((int) config('panelze.cron.timeout', 180));
         $process->setIdleTimeout((int) config('panelze.cron.idle_timeout', 120));
 
@@ -252,17 +263,148 @@ class PanelZekaActionExecutor
             return [
                 'ok' => true,
                 'message' => 'Komut tamamlandı.',
-                'data' => ['exit_code' => $process->getExitCode(), 'output' => mb_substr($output, 0, 32_000)],
+                'data' => [
+                    'exit_code' => $process->getExitCode(),
+                    'command' => $shellCommand,
+                    'output' => mb_substr($output, 0, 32_000),
+                ],
             ];
         } catch (\Throwable $e) {
             $output = trim(($process->getOutput() ?? '')."\n".($process->getErrorOutput() ?? '')."\n".$e->getMessage());
 
             return [
                 'ok' => false,
-                'message' => 'Komut başarısız.',
-                'data' => ['output' => mb_substr($output, 0, 32_000)],
+                'message' => 'Komut başarısız: '.Str::limit($this->exceptionMessage($e), 240),
+                'data' => [
+                    'command' => $shellCommand,
+                    'output' => mb_substr($output, 0, 32_000),
+                ],
             ];
         }
+    }
+
+    /**
+     * Diskte en büyük dosyaları bul (güvenli, panel aksiyonu).
+     *
+     * @param  array<string, mixed>  $params
+     * @return array{ok: bool, message: string, data?: array<string, mixed>}
+     */
+    private function listLargestFiles(User $user, array $params): array
+    {
+        $limit = max(5, min(100, (int) ($params['limit'] ?? 20)));
+        $path = trim((string) ($params['path'] ?? ''));
+
+        if ($path === '') {
+            if (! empty($params['domain_id'])) {
+                try {
+                    $domain = $this->resolveDomain($user, (int) $params['domain_id']);
+                    $path = $domain->document_root
+                        ? rtrim((string) $domain->document_root, '/')
+                        : '';
+                } catch (\Throwable) {
+                }
+            }
+            if ($path === '') {
+                $configured = rtrim(str_replace('\\', '/', (string) config('panelze.hosting_web_root', '')), '/');
+                $path = $configured !== '' && is_dir($configured)
+                    ? $configured
+                    : (is_dir('/var/www') ? '/var/www' : base_path());
+            }
+        }
+
+        $path = rtrim(str_replace('\\', '/', $path), '/');
+        if ($path === '' || str_contains($path, '..') || ! is_dir($path)) {
+            return ['ok' => false, 'message' => 'Geçersiz dizin: '.$path];
+        }
+
+        if (! \App\Services\Cron\CronAllowedPaths::isAllowed($path, $user)) {
+            return ['ok' => false, 'message' => 'Bu dizine erişim izni yok: '.$path];
+        }
+
+        // find + sort -n: güvenli salt okuma analizi (silme yok).
+        $escaped = escapeshellarg($path);
+        $shell = sprintf(
+            'find %s -xdev -type f -printf \'%%s\\t%%p\\n\' 2>/dev/null | sort -nr | head -n %d',
+            $escaped,
+            $limit
+        );
+
+        $process = Process::fromShellCommandline($shell, null, [
+            'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+        ]);
+        $process->setTimeout(120);
+
+        try {
+            $process->mustRun();
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => 'Dosya taraması başarısız: '.$this->exceptionMessage($e),
+                'data' => ['path' => $path, 'output' => mb_substr($process->getErrorOutput(), 0, 4000)],
+            ];
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", trim($process->getOutput())) ?: [];
+        $files = [];
+        foreach ($lines as $line) {
+            if ($line === '' || ! str_contains($line, "\t")) {
+                continue;
+            }
+            [$size, $filePath] = explode("\t", $line, 2);
+            $bytes = (int) $size;
+            $files[] = [
+                'path' => $filePath,
+                'bytes' => $bytes,
+                'size_human' => $this->formatBytes($bytes),
+            ];
+        }
+
+        $summary = $files === []
+            ? 'Dosya bulunamadı: '.$path
+            : sprintf('%d büyük dosya listelendi (%s altında).', count($files), $path);
+
+        $text = $summary."\n";
+        foreach ($files as $i => $f) {
+            $text .= sprintf("%d) %s — %s\n", $i + 1, $f['size_human'], $f['path']);
+        }
+
+        return [
+            'ok' => true,
+            'message' => $summary,
+            'data' => [
+                'path' => $path,
+                'limit' => $limit,
+                'files' => $files,
+                'output' => mb_substr(trim($text), 0, 32_000),
+            ],
+        ];
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $i = 0;
+        $n = (float) max(0, $bytes);
+        while ($n >= 1024 && $i < count($units) - 1) {
+            $n /= 1024;
+            $i++;
+        }
+
+        return ($i === 0 ? (string) (int) $n : number_format($n, $n >= 10 ? 1 : 2)).' '.$units[$i];
+    }
+
+    private function exceptionMessage(\Throwable $e): string
+    {
+        if ($e instanceof \Illuminate\Validation\ValidationException) {
+            $flat = collect($e->errors())->flatten()->filter()->values();
+            if ($flat->isNotEmpty()) {
+                return (string) $flat->first();
+            }
+        }
+
+        $msg = trim($e->getMessage());
+
+        return $msg !== '' ? $msg : class_basename($e);
     }
 
     /**
@@ -334,7 +476,7 @@ class PanelZekaActionExecutor
 
         $ability = match ($type) {
             'file_write' => 'files:write',
-            'read_file' => 'files:read',
+            'read_file', 'list_largest_files' => 'files:read',
             'create_domain' => 'domains:write',
             'create_database' => 'databases:write',
             'security_toggle' => 'security:write',

@@ -35,6 +35,14 @@ import {
 
 type TabId = 'chat' | 'settings' | 'usage' | 'insights'
 
+type ModelPrice = {
+  model: string
+  label: string
+  input_per_1m: number
+  output_per_1m: number
+  currency: string
+}
+
 type ProviderRow = {
   provider: string
   label: string
@@ -43,6 +51,8 @@ type ProviderRow = {
   enabled: boolean
   is_default: boolean
   model: string
+  pricing?: ModelPrice[]
+  model_price?: { input_per_1m: number; output_per_1m: number; currency: string; label: string } | null
   api_key_set: boolean
   api_key_hint?: string | null
   last_test_at?: string | null
@@ -94,6 +104,7 @@ function canExecuteActionType(type: string, abilities: string[] | undefined): bo
   const map: Record<string, string> = {
     file_write: 'files:write',
     read_file: 'files:read',
+    list_largest_files: 'files:read',
     create_domain: 'domains:write',
     create_database: 'databases:write',
     security_toggle: 'security:write',
@@ -167,6 +178,7 @@ export default function AiAdvisorPage() {
   const [input, setInput] = useState('')
   /** Gönderildi, API yanıtı beklenirken gösterilen kullanıcı mesajı (WhatsApp tarzı anında temiz input). */
   const [pendingUserText, setPendingUserText] = useState<string | null>(null)
+  const [actionOutputPreview, setActionOutputPreview] = useState<string | null>(null)
   const { domainId, setDomainId, domainsQ } = useAutoDomainId({ param: false })
   const [contextMode, setContextMode] = useState<'server' | 'site' | 'file'>('server')
   const [filePath, setFilePath] = useState('')
@@ -331,9 +343,9 @@ export default function AiAdvisorPage() {
   })
 
   const executeActionsM = useMutation({
-    mutationFn: async (actions: PanelAction[]) =>
-      (
-        await api.post('/ai-assistant/execute-actions', {
+    mutationFn: async (actions: PanelAction[]) => {
+      try {
+        const { data } = await api.post('/ai-assistant/execute-actions', {
           actions: actions.map((a, i) => ({
             id: a.id ?? `action-${i}`,
             type: a.type,
@@ -341,9 +353,50 @@ export default function AiAdvisorPage() {
             params: a.params,
           })),
         })
-      ).data as { message?: string; results?: Array<{ ok?: boolean; message?: string }> },
+        return data as {
+          message?: string
+          results?: Array<{ ok?: boolean; message?: string; type?: string; data?: { output?: string } }>
+        }
+      } catch (err: unknown) {
+        const ax = err as {
+          response?: {
+            status?: number
+            data?: {
+              message?: string
+              results?: Array<{ ok?: boolean; message?: string; type?: string; data?: { output?: string } }>
+            }
+          }
+        }
+        // 422 = kısmi başarı: sonuçları yine göster
+        if (ax.response?.status === 422 && ax.response.data?.results) {
+          return ax.response.data
+        }
+        throw err
+      }
+    },
     onSuccess: (data) => {
-      toast.success(data.message ?? t('ai.actions_applied'))
+      const results = data.results ?? []
+      const failed = results.filter((r) => !r.ok)
+      const okCount = results.length - failed.length
+      if (failed.length === 0) {
+        toast.success(data.message ?? t('ai.actions_applied'))
+      } else {
+        const detail = failed
+          .map((r) => r.message || r.type || 'hata')
+          .slice(0, 3)
+          .join(' · ')
+        toast.error(
+          `${data.message ?? t('ai.actions_partial')} (${okCount}/${results.length}) ${detail}`,
+          { duration: 8000 },
+        )
+      }
+      // Komut çıktısını sohbet alanına sistem notu olarak basmak için state
+      const outputs = results
+        .filter((r) => r.data?.output)
+        .map((r) => `【${r.ok ? 'OK' : 'HATA'}】 ${r.message ?? r.type ?? ''}\n${r.data?.output ?? ''}`)
+      if (outputs.length > 0) {
+        setActionOutputPreview(outputs.join('\n\n---\n\n').slice(0, 12000))
+      }
       if (sessionId) qc.invalidateQueries({ queryKey: ['ai-assistant-messages', sessionId] })
       qc.invalidateQueries({ queryKey: ['domains'] })
     },
@@ -386,7 +439,10 @@ export default function AiAdvisorPage() {
     requests: number
     prompt_tokens: number
     completion_tokens: number
+    est_cost_usd?: number
   }>
+  const modelPricing = ((usageQ.data as { model_pricing?: ModelPrice[] } | undefined)?.model_pricing ??
+    []) as ModelPrice[]
 
   const hasProvider = settingsQ.data?.has_active_provider
 
@@ -687,6 +743,26 @@ export default function AiAdvisorPage() {
               <div ref={chatEndRef} />
             </div>
 
+            {actionOutputPreview && (
+              <div className="border-t border-emerald-200 bg-emerald-50/80 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                    {t('ai.action_output')}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[11px] text-gray-500 hover:underline"
+                    onClick={() => setActionOutputPreview(null)}
+                  >
+                    {t('common.close')}
+                  </button>
+                </div>
+                <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-white/80 p-2 font-mono text-[11px] text-gray-800 dark:bg-gray-950/60 dark:text-gray-200">
+                  {actionOutputPreview}
+                </pre>
+              </div>
+            )}
+
             <div className="border-t border-gray-200 p-3 dark:border-gray-700">
               <form
                 className="flex gap-2"
@@ -734,6 +810,9 @@ export default function AiAdvisorPage() {
           ) : (
           <>
           <p className="text-sm text-gray-600 dark:text-gray-400">{t('ai.settings_intro')}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {(settingsQ.data as { pricing_note?: string } | undefined)?.pricing_note ?? t('ai.pricing_note')}
+          </p>
           <div className="grid gap-4 lg:grid-cols-3">
             {(settingsQ.data?.providers ?? []).map((p) => {
               const draft = providerDraft[p.provider] ?? {
@@ -742,6 +821,8 @@ export default function AiAdvisorPage() {
                 enabled: false,
                 is_default: false,
               }
+              const priceMap = Object.fromEntries((p.pricing ?? []).map((x) => [x.model, x]))
+              const selectedPrice = priceMap[draft.model]
               return (
                 <div
                   key={p.provider}
@@ -785,12 +866,26 @@ export default function AiAdvisorPage() {
                           }))
                         }
                       >
-                        {p.models.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
+                        {p.models.map((m) => {
+                          const pr = priceMap[m]
+                          const priceLabel = pr
+                            ? ` — $${pr.input_per_1m}/$${pr.output_per_1m} per 1M`
+                            : ''
+                          return (
+                            <option key={m} value={m}>
+                              {(pr?.label ?? m) + priceLabel}
+                            </option>
+                          )
+                        })}
                       </select>
+                      {selectedPrice && (
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          {t('ai.price_selected', {
+                            input: selectedPrice.input_per_1m,
+                            output: selectedPrice.output_per_1m,
+                          })}
+                        </p>
+                      )}
                     </div>
                     <label className="flex items-center gap-2 text-sm">
                       <input
@@ -880,9 +975,14 @@ export default function AiAdvisorPage() {
               <p className="mt-1 text-3xl font-bold text-fuchsia-600">{usageQ.data?.total_tokens ?? 0}</p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900/60">
-              <p className="text-xs text-gray-500">{t('ai.usage_prompt')}</p>
-              <p className="mt-1 text-lg font-semibold">{usageQ.data?.prompt_tokens ?? 0}</p>
-              <p className="text-xs text-gray-400">{t('ai.usage_completion')}: {usageQ.data?.completion_tokens ?? 0}</p>
+              <p className="text-xs text-gray-500">{t('ai.usage_est_cost')}</p>
+              <p className="mt-1 text-lg font-semibold text-emerald-700 dark:text-emerald-300">
+                ${Number((usageQ.data as { est_cost_usd?: number } | undefined)?.est_cost_usd ?? 0).toFixed(4)}
+              </p>
+              <p className="text-xs text-gray-400">
+                {t('ai.usage_prompt')}: {usageQ.data?.prompt_tokens ?? 0} · {t('ai.usage_completion')}:{' '}
+                {usageQ.data?.completion_tokens ?? 0}
+              </p>
             </div>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900/60">
@@ -910,6 +1010,7 @@ export default function AiAdvisorPage() {
                       <th className="pb-2">{t('ai.provider')}</th>
                       <th className="pb-2">{t('ai.usage_requests')}</th>
                       <th className="pb-2">{t('ai.usage_tokens')}</th>
+                      <th className="pb-2">{t('ai.usage_est_cost')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -918,6 +1019,38 @@ export default function AiAdvisorPage() {
                         <td className="py-2 font-medium">{row.provider}</td>
                         <td className="py-2">{row.requests}</td>
                         <td className="py-2">{row.prompt_tokens + row.completion_tokens}</td>
+                        <td className="py-2">${Number(row.est_cost_usd ?? 0).toFixed(4)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-[11px] text-gray-500">
+                {(usageQ.data as { pricing_note?: string } | undefined)?.pricing_note ?? t('ai.pricing_note')}
+              </p>
+            </div>
+          )}
+          {modelPricing.length > 0 && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900/60">
+              <h3 className="mb-3 text-sm font-semibold">{t('ai.pricing_table')}</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500">
+                      <th className="pb-2">{t('ai.model')}</th>
+                      <th className="pb-2">{t('ai.price_input')}</th>
+                      <th className="pb-2">{t('ai.price_output')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modelPricing.map((row) => (
+                      <tr key={row.model} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="py-2 font-medium">
+                          {row.label}
+                          <span className="ml-2 font-mono text-[10px] text-gray-400">{row.model}</span>
+                        </td>
+                        <td className="py-2">${row.input_per_1m} / 1M</td>
+                        <td className="py-2">${row.output_per_1m} / 1M</td>
                       </tr>
                     ))}
                   </tbody>

@@ -58,12 +58,14 @@ When you need the user to approve panel operations, append a fenced block ```pan
     {"id": "db1", "type": "create_database", "title": "Create DB", "params": {"name": "mydb", "type": "mysql", "domain_id": 1}},
     {"id": "dom1", "type": "create_domain", "title": "Add site", "params": {"name": "example.com", "php_version": "8.2"}},
     {"id": "sec1", "type": "security_toggle", "title": "Enable Fail2ban", "params": {"feature": "fail2ban", "enabled": true}},
-    {"id": "cmd1", "type": "run_command", "title": "Run PHP script", "params": {"command": "/usr/bin/php /path/to/spark list", "domain_id": 1}}
+    {"id": "big1", "type": "list_largest_files", "title": "Largest files", "params": {"path": "/var/www", "limit": 20}},
+    {"id": "cmd1", "type": "run_command", "title": "Run PHP script", "params": {"command": "/usr/bin/php /path/to/artisan --version", "domain_id": 1}}
   ],
   "tips": ["optional navigation hints with panel paths like /ssl"]
 }
 All destructive or write operations MUST go in "actions" or "fixes" — the user approves before execution.
-Never use shell operators (&&, |, >) in run_command. Use absolute paths. Admin-only: security_toggle, some server settings.
+Prefer list_largest_files for disk/space questions (do NOT invent fragile find|sort pipelines yourself).
+run_command: use absolute paths. Simple pipes (| sort, | head, | wc, | grep) are OK for read-only analysis. Avoid rm -rf, sudo, curl|sh, redirects that overwrite (>). Admin-only: security_toggle.
 DOC;
         }
 
@@ -76,12 +78,14 @@ Panel işlemi gerektiğinde ```panelze-actions ile JSON ekle:
     {"id": "db1", "type": "create_database", "title": "Veritabanı oluştur", "params": {"name": "veritabani_adi", "type": "mysql", "domain_id": 1}},
     {"id": "dom1", "type": "create_domain", "title": "Site ekle", "params": {"name": "ornek.com", "php_version": "8.2"}},
     {"id": "sec1", "type": "security_toggle", "title": "Fail2ban aç", "params": {"feature": "fail2ban", "enabled": true}},
-    {"id": "cmd1", "type": "run_command", "title": "Spark komutu", "params": {"command": "/usr/bin/php /yol/spark list", "domain_id": 1}}
+    {"id": "big1", "type": "list_largest_files", "title": "En büyük dosyalar", "params": {"path": "/var/www", "limit": 20}},
+    {"id": "cmd1", "type": "run_command", "title": "Artisan sürümü", "params": {"command": "/usr/bin/php /yol/artisan --version", "domain_id": 1}}
   ],
   "tips": ["/ssl gibi panel yollarıyla yönlendirme ipuçları"]
 }
 Yazma/değiştirme işlemleri mutlaka "actions" veya "fixes" içinde olmalı — kullanıcı onaylamadan uygulanmaz.
-run_command içinde &&, |, > kullanma; mutlak yol kullan. security_toggle ve bazı sunucu ayarları yalnızca admin.
+Disk / en büyük dosya sorularında list_largest_files kullan (kendi find|sort komutunu uydurma).
+run_command: mutlak yol. Salt okuma için basit boru hattı (| sort, | head, | wc, | grep) serbest. rm -rf, sudo, curl|sh ve üzerine yazan yönlendirme (>) kullanma. security_toggle yalnızca admin.
 DOC;
     }
 }

@@ -31,6 +31,8 @@ class AiAssistantService
                 'label' => $this->providerLabel($provider),
                 'models' => AiLlmClient::PROVIDER_MODELS[$provider],
                 'default_model' => AiLlmClient::DEFAULT_MODELS[$provider],
+                'pricing' => AiLlmClient::pricingCatalog($provider),
+                'pricing_note' => 'USD / 1M token (liste fiyatı, yaklaşık)',
             ];
         }
 
@@ -50,14 +52,23 @@ class AiAssistantService
         $providers = [];
         foreach (array_keys(AiLlmClient::PROVIDER_MODELS) as $provider) {
             $row = $rows->get($provider);
+            $model = $this->llm->resolveModel($provider, $row?->model ?: AiLlmClient::DEFAULT_MODELS[$provider]);
+            $price = AiLlmClient::pricingFor($model);
             $providers[] = [
                 'provider' => $provider,
                 'label' => $this->providerLabel($provider),
                 'models' => AiLlmClient::PROVIDER_MODELS[$provider],
                 'default_model' => AiLlmClient::DEFAULT_MODELS[$provider],
+                'pricing' => AiLlmClient::pricingCatalog($provider),
                 'enabled' => (bool) ($row?->enabled),
                 'is_default' => (bool) ($row?->is_default),
-                'model' => $this->llm->resolveModel($provider, $row?->model ?: AiLlmClient::DEFAULT_MODELS[$provider]),
+                'model' => $model,
+                'model_price' => $price === null ? null : [
+                    'input_per_1m' => $price['input'],
+                    'output_per_1m' => $price['output'],
+                    'currency' => 'USD',
+                    'label' => $price['label'],
+                ],
                 'api_key_set' => $row !== null && filled($row->api_key),
                 'api_key_hint' => $this->maskKey($row?->api_key),
                 'last_test_at' => $row?->last_test_at,
@@ -69,6 +80,7 @@ class AiAssistantService
         return [
             'providers' => $providers,
             'catalog' => $this->providerCatalog(),
+            'pricing_note' => 'Fiyatlar USD / 1M token (sağlayıcı liste fiyatı, yaklaşık; fatura sağlayıcıya aittir).',
             'has_active_provider' => collect($providers)->contains(fn ($p) => $p['enabled'] && $p['api_key_set']),
         ];
     }
@@ -285,25 +297,40 @@ class AiAssistantService
             ->where('role', 'assistant')
             ->where('created_at', '>=', $since)
             ->whereHas('session', fn ($q) => $q->where('user_id', $user->id))
-            ->get(['provider', 'prompt_tokens', 'completion_tokens', 'created_at']);
+            ->get(['provider', 'model', 'prompt_tokens', 'completion_tokens', 'created_at']);
 
         $byDay = [];
         $byProvider = [];
+        $byModel = [];
         $totalPrompt = 0;
         $totalCompletion = 0;
+        $totalCost = 0.0;
 
         foreach ($messages as $m) {
             $day = $m->created_at->format('Y-m-d');
             $byDay[$day] = ($byDay[$day] ?? 0) + 1;
             $provider = $m->provider ?: 'unknown';
+            $model = (string) ($m->model ?: '');
             if (! isset($byProvider[$provider])) {
-                $byProvider[$provider] = ['requests' => 0, 'prompt_tokens' => 0, 'completion_tokens' => 0];
+                $byProvider[$provider] = ['requests' => 0, 'prompt_tokens' => 0, 'completion_tokens' => 0, 'est_cost_usd' => 0.0];
             }
+            $cost = AiLlmClient::estimateCostUsd($model, (int) $m->prompt_tokens, (int) $m->completion_tokens);
             $byProvider[$provider]['requests']++;
             $byProvider[$provider]['prompt_tokens'] += (int) $m->prompt_tokens;
             $byProvider[$provider]['completion_tokens'] += (int) $m->completion_tokens;
+            $byProvider[$provider]['est_cost_usd'] += $cost;
+            if ($model !== '') {
+                if (! isset($byModel[$model])) {
+                    $byModel[$model] = ['model' => $model, 'requests' => 0, 'prompt_tokens' => 0, 'completion_tokens' => 0, 'est_cost_usd' => 0.0];
+                }
+                $byModel[$model]['requests']++;
+                $byModel[$model]['prompt_tokens'] += (int) $m->prompt_tokens;
+                $byModel[$model]['completion_tokens'] += (int) $m->completion_tokens;
+                $byModel[$model]['est_cost_usd'] += $cost;
+            }
             $totalPrompt += (int) $m->prompt_tokens;
             $totalCompletion += (int) $m->completion_tokens;
+            $totalCost += $cost;
         }
 
         ksort($byDay);
@@ -314,14 +341,31 @@ class AiAssistantService
             $daily[] = ['date' => $d, 'requests' => $byDay[$d] ?? 0];
         }
 
+        $round = static fn (float $v): float => round($v, 6);
+
         return [
             'days' => $days,
             'total_requests' => $messages->count(),
             'total_tokens' => $totalPrompt + $totalCompletion,
             'prompt_tokens' => $totalPrompt,
             'completion_tokens' => $totalCompletion,
+            'est_cost_usd' => $round($totalCost),
+            'pricing_note' => 'Tahmini maliyet USD (liste fiyatı × token); gerçek fatura sağlayıcıya aittir.',
             'daily' => $daily,
-            'by_provider' => collect($byProvider)->map(fn ($v, $k) => array_merge(['provider' => $k], $v))->values()->all(),
+            'by_provider' => collect($byProvider)->map(function ($v, $k) use ($round) {
+                $v['est_cost_usd'] = $round((float) $v['est_cost_usd']);
+
+                return array_merge(['provider' => $k], $v);
+            })->values()->all(),
+            'by_model' => collect($byModel)->map(function ($v) use ($round) {
+                $v['est_cost_usd'] = $round((float) $v['est_cost_usd']);
+
+                return $v;
+            })->sortByDesc('est_cost_usd')->values()->all(),
+            'model_pricing' => collect(array_keys(AiLlmClient::PROVIDER_MODELS))
+                ->flatMap(fn ($p) => AiLlmClient::pricingCatalog($p))
+                ->values()
+                ->all(),
         ];
     }
 

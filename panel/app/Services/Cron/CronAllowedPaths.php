@@ -41,6 +41,17 @@ class CronAllowedPaths
             $panel = rtrim(str_replace('\\', '/', base_path()), '/');
             if ($panel !== '') {
                 $roots[] = $panel;
+                // Panel üst dizin (örn. /var/www/hostvim) — admin find/du için
+                $panelParent = dirname($panel);
+                if ($panelParent !== '.' && $panelParent !== '/') {
+                    $roots[] = $panelParent;
+                }
+            }
+            // Admin salt okuma analizi: hosting kökleri
+            foreach (['/var/www', '/var/log', '/tmp'] as $adminRoot) {
+                if (is_dir($adminRoot)) {
+                    $roots[] = $adminRoot;
+                }
             }
         }
 
